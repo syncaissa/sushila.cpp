@@ -5,6 +5,7 @@
 #include "ggml-backend.h"
 #include "traits.h"
 #include "ggml-cpu-impl.h"
+#include "mc-matmul.h"
 #include "ggml-impl.h"
 #include "quants.h"
 #include "ggml-threading.h"
@@ -1731,10 +1732,24 @@ static void ggml_compute_forward_mul_mat_id(
 
 /////////////////////////////////
 
+// The regular matmul dispatch (extra-buffer types, then the generic path), used by the
+// Monte Carlo matmul on its modified inputs
+static void ggml_compute_forward_mul_mat_default(struct ggml_compute_params * params, struct ggml_tensor * tensor) {
+    if (!ggml_cpu_extra_compute_forward(params, tensor)) {
+        ggml_compute_forward_mul_mat(params, tensor);
+    }
+}
+
 static void ggml_compute_forward(struct ggml_compute_params * params, struct ggml_tensor * tensor) {
     GGML_ASSERT(params);
 
     if (tensor->op == GGML_OP_NONE || ggml_is_empty(tensor)) {
+        return;
+    }
+
+    // Monte Carlo approximate matmul (off unless GGML_MC_MODE is set); checked before the
+    // extra-buffer and tiled paths so that no matmul it applies to can bypass it
+    if (ggml_mc_mul_mat(params, tensor, ggml_compute_forward_mul_mat_default)) {
         return;
     }
 

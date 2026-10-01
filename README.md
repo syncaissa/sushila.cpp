@@ -8,6 +8,12 @@ Everything needed to reproduce our numbers is in this repository: pinned source,
 pinned model files (by sha256), pinned dataset, build and run scripts, and the
 raw results of every run we report. See **[REPRODUCE.md](REPRODUCE.md)**.
 
+## Release
+
+After the paper is published, the engine will be released as **Sushila.cpp**
+(**S**tochastic **U**nbiased **S**ampling for **H**ybrid **I**mportance-weighted **L**LM **A**pproximation): a build of
+Ollama with the Monte Carlo matmul, using the same model files, commands and API.
+
 ## Quick start
 
 ```sh
@@ -48,8 +54,11 @@ OLLAMA_LLAMA_CPP_SOURCE=$PWD/llama.cpp cmake -S ollama/llama/server --preset cpu
 ## Status
 
 - [x] Pinned sources, models, dataset; legacy (exact) baseline scripts
-- [ ] MC matmul in ggml, CPU reference: accuracy vs. budget, with ablations
-      (zeros, magnitude-matched random, budget-matched exact)
+- [x] MC matmul in ggml, CPU reference (`mc-matmul.c`): exact-mode output matches legacy
+      bit-for-bit; ablation modes zeros, placebo, topk
+- [x] Smoke-test ablation ladder on Qwen2.5-0.5B
+- [ ] Full ablation ladder on Llama-3.1-8B and Qwen2.5-7B (`scripts/sweep_mc.sh`)
+- [ ] Variance reduction: control variates, stratified sampling, adaptive budgets
 - [ ] CUDA kernel reading only sampled blocks: speed vs. budget
 - [ ] `mc_fraction` option in Ollama (0 = stock Ollama, verified token-for-token)
 

@@ -81,8 +81,44 @@ This measures:
 
 ## 5. Monte Carlo runs
 
-*Coming next.* The MC matmul will be selected by settings on the same binaries,
-so legacy and MC runs use identical code paths everywhere except the matmul.
+The Monte Carlo matmul lives in `llama.cpp/ggml/src/ggml-cpu/mc-matmul.c` and is off unless
+`GGML_MC_MODE` is set, so the same binaries serve legacy and MC runs. The header
+`mc-matmul.h` documents every setting.
+
+One setting (perplexity through the CPU path; all modes, including `off`, use the same path):
+
+```sh
+scripts/run_mc.sh qwen2.5-0.5b-q4km mc 0.10 0.03      # budget 10%, of which 3% exact
+CHUNKS=5 scripts/run_mc.sh qwen2.5-0.5b-q4km topk 0.10 # quick check on 5 chunks
+```
+
+Modes: `off` (legacy), `exact` (must equal legacy), `mc` (SUSHILA), `zeros` (tail dropped),
+`topk` (budget spent on exact work), `placebo` (tail replaced by matched noise).
+
+The full ablation ladder for a model (every mode, five budgets, three seeds):
+
+```sh
+scripts/sweep_mc.sh llama3.1-8b-q4km
+scripts/collect_results.sh llama3.1-8b-q4km    # one table of all runs
+```
+
+Each run writes `results/<timestamp>_<model>_<mode>_b<budget>_e<exact>_s<seed>/` with
+`env.txt` (including every `GGML_MC_*` setting), `perplexity.log` (ending with per-weight-kind
+read fraction and relative matmul error) and `summary.tsv`. A run aborts if the MC path was
+bypassed (zero matmuls approximated).
+
+### Smoke tests reported in the paper
+
+```sh
+export CHUNKS=5
+for be in "0.10 0.03" "0.30 0.10"; do
+  for mode in mc zeros topk placebo; do scripts/run_mc.sh qwen2.5-0.5b-q4km $mode $be; done
+done
+scripts/run_mc.sh qwen2.5-0.5b-q4km off
+scripts/run_mc.sh qwen2.5-0.5b-q4km exact 1.0 1.0
+# error versus number of draws (pure sampling, exact share 0)
+for b in 0.25 0.5 1.0; do CHUNKS=1 scripts/run_mc.sh qwen2.5-0.5b-q4km mc $b 0; done
+```
 
 ## Sharing your results
 
