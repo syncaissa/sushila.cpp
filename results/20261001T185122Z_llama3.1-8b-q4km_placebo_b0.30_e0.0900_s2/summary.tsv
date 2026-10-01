@@ -1,0 +1,2 @@
+model	mode	budget	exact	seed	group	layers	chunks	ppl	ppl_err	read_frac	rel_err
+llama3.1-8b-q4km	placebo	0.30	0.0900	2	32	2-29	100	1272093.9158	18182.88923	0.2757	2.236062
