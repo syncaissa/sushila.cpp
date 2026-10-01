@@ -8,7 +8,7 @@ tail), trading a controllable amount of accuracy for fewer weight bytes read.
 
 | Directory    | Upstream                                  | Snapshot commit |
 |--------------|-------------------------------------------|-----------------|
-| `llama.cpp/` | https://github.com/ggml-org/llama.cpp (MIT) | `42d958167a748f2c04b1f888e84e7a58f609ddcb` |
+| `llama.cpp/` | https://github.com/ggml-org/llama.cpp (MIT) | tag `b11232` (`6f767fe960c3b97cf37fac4626c86400561ca1e4`), the version Ollama pins in `ollama/LLAMA_CPP_VERSION` |
 | `ollama/`    | https://github.com/ollama/ollama (MIT)      | `1abe35e6e6e777e858bbfbba283667ee8d516801` |
 
 The first commit in this repository is the unmodified upstream source.
@@ -28,5 +28,5 @@ Ollama builds llama.cpp from source and applies `ollama/llama/compat/001-llama-c
 Point it at this repo's copy instead of fetching upstream:
 
 ```sh
-OLLAMA_LLAMA_CPP_SOURCE=../../llama.cpp cmake -S ollama/llama/server --preset cpu
+OLLAMA_LLAMA_CPP_SOURCE=$PWD/llama.cpp cmake -S ollama/llama/server --preset cpu
 ```
