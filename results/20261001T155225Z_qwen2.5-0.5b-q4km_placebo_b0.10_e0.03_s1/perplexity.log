@@ -1,0 +1,20 @@
+warning: no usable GPU found, --gpu-layers option will be ignored
+warning: one possible reason is that llama.cpp was compiled without GPU support
+warning: consult docs/build.md for compilation instructions
+0.00.664.993 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.00.839.316 I cmn          init: llama threadpool init, n_threads = 2
+mc: mode=placebo budget=0.1000 exact=0.0300 group=32 seed=1 layers=2-21 tensors=ffn_up,ffn_gate,ffn_down stats=1
+0.01.718.859 I 
+0.01.719.004 I system_info: n_threads = 2 (n_threads_batch = 2) / 2 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.01.719.020 I perplexity: tokenizing the input ..
+0.02.500.307 I perplexity: tokenization took 781.276 ms
+0.02.500.843 I perplexity: calculating perplexity over 5 chunks, n_ctx=512, batch_size=2048, n_seq=4
+1.45.033.310 I perplexity: 102.53 seconds per pass - ETA 2.13 minutes
+[1]24037884.0644,[2]19506110.6787,[3]17304973.3137,[4]19400321.2045,[5]19689225.0281,
+2.20.099.502 I Final estimate: PPL = 19689225.0281 +/- 2189812.82287
+
+mc: summary (mode=placebo)
+mc:   ffn_up       calls=120      read_frac=0.1058 rel_err=3.720107
+mc:   ffn_gate     calls=120      read_frac=0.1058 rel_err=3.675937
+mc:   ffn_down     calls=120      read_frac=0.0964 rel_err=3.615078
+mc: approximated_matmuls=360

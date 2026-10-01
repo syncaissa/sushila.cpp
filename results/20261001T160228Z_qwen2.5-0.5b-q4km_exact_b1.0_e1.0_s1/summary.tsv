@@ -1,0 +1,2 @@
+model	mode	budget	exact	seed	group	layers	chunks	ppl	ppl_err	read_frac	rel_err
+qwen2.5-0.5b-q4km	exact	1.0	1.0	1	32	2-21	5	13.8088	1.14141	1.0000	0.000000
