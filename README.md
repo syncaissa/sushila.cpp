@@ -21,3 +21,12 @@ shows exactly what was changed.
    accuracy with `llama-perplexity` (legacy, MC, zeros, placebo, budget-matched).
 2. Write a CUDA kernel that reads only the sampled blocks; measure with `llama-bench`.
 3. Port into Ollama with an `mc_fraction` request option (0 = stock Ollama).
+
+## How Ollama picks up our llama.cpp
+
+Ollama builds llama.cpp from source and applies `ollama/llama/compat/001-llama-cpp-hooks.patch`.
+Point it at this repo's copy instead of fetching upstream:
+
+```sh
+OLLAMA_LLAMA_CPP_SOURCE=../../llama.cpp cmake -S ollama/llama/server --preset cpu
+```

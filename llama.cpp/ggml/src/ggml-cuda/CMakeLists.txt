@@ -71,13 +71,14 @@ if (CUDAToolkit_FOUND)
 
     enable_language(CUDA)
 
-    if (GGML_CUDA_CCCL_VERSION)
+    # TODO: Remove once CCCL 3.2 has been released and bundled with CUDA Toolkit
+    if (GGML_CUDA_CUB_3DOT2)
         include(FetchContent)
 
         FetchContent_Declare(
             CCCL
             GIT_REPOSITORY https://github.com/nvidia/cccl.git
-            GIT_TAG        "${GGML_CUDA_CCCL_VERSION}"
+            GIT_TAG        v3.2.0
             GIT_SHALLOW    TRUE
         )
 
@@ -156,15 +157,14 @@ if (CUDAToolkit_FOUND)
         add_compile_definitions(GGML_CUDA_NO_PEER_COPY)
     endif()
 
-    if (GGML_CUDA_CCCL_VERSION)
-        target_link_libraries(ggml-cuda PRIVATE CCCL::CCCL)
-    endif()
-
     if (GGML_STATIC)
         if (WIN32)
             # As of 12.3.1 CUDA Toolkit for Windows does not offer a static cublas library
             target_link_libraries(ggml-cuda PRIVATE CUDA::cudart_static CUDA::cublas)
         else ()
+            if (GGML_CUDA_CUB_3DOT2)
+                target_link_libraries(ggml-cuda PRIVATE  CCCL::CCCL)
+            endif()
             if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL "10.1")
                 target_link_libraries(ggml-cuda PRIVATE  CUDA::cudart_static CUDA::cublas_static CUDA::cublasLt_static)
             else()
@@ -172,6 +172,9 @@ if (CUDAToolkit_FOUND)
             endif()
         endif()
     else()
+        if (GGML_CUDA_CUB_3DOT2)
+            target_link_libraries(ggml-cuda PRIVATE  CCCL::CCCL)
+        endif()
         target_link_libraries(ggml-cuda PRIVATE CUDA::cudart CUDA::cublas)
     endif()
 
