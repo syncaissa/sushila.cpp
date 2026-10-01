@@ -43,12 +43,12 @@ log "mode=$mode budget=$budget exact=$exact seed=$seed layers=$layers chunks=${C
 
 ppl="$(grep -o 'Final estimate: PPL = [0-9.]* +/- [0-9.]*' "$out/perplexity.log" | awk '{print $5, $7}')"
 [ -n "$ppl" ] || die "perplexity failed, see $out/perplexity.log"
-matmuls="$(grep -o 'approximated_matmuls=[0-9]*' "$out/perplexity.log" | cut -d= -f2)"
+matmuls="$(grep -o 'approximated_matmuls=[0-9]*' "$out/perplexity.log" | cut -d= -f2 || true)"
 if [ "$mode" != off ] && [ "${matmuls:-0}" -eq 0 ]; then
     die "no matmul was approximated: the MC path was bypassed (see $out/perplexity.log)"
 fi
 # read fraction and relative error, averaged over the approximated weight kinds
-read -r read_frac rel_err < <(grep -E '^mc:   ' "$out/perplexity.log" |
+read -r read_frac rel_err < <({ grep -E '^mc:   ' "$out/perplexity.log" || true; } |
     sed -E 's/.*read_frac=([0-9.]+) rel_err=([0-9.]+).*/\1 \2/' |
     awk '{ r += $1; e += $2; n++ } END { if (n) printf "%.4f %.6f\n", r/n, e/n; else print "1 0" }')
 
