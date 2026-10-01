@@ -26,6 +26,9 @@ scripts/get_data.sh                     # WikiText-2, sha256-verified
 scripts/run_baseline.sh llama3.1-8b-q4km
 ```
 
+Runs on any Linux machine or cloud VM, on [Google Colab](notebooks/colab_sweep.ipynb), or on
+RunPod; [REPRODUCE.md](REPRODUCE.md) covers each, and how to split a sweep over several machines.
+
 ## Layout
 
 | Path | Contents |
@@ -34,7 +37,8 @@ scripts/run_baseline.sh llama3.1-8b-q4km
 | `ollama/` | Ollama source at `1abe35e6e6e777e858bbfbba283667ee8d516801`. Upstream: https://github.com/ollama/ollama (MIT) |
 | `scripts/` | Setup, build, download and benchmark scripts |
 | `configs/models.tsv` | Models used, with Ollama registry reference and sha256 |
-| `runpod/` | Create, list and stop RunPod GPU pods from the command line |
+| `runpod/` | Create, list and stop RunPod CPU and GPU pods from the command line (optional) |
+| `notebooks/` | `colab_sweep.ipynb`: the same experiments on Google Colab |
 | `results/` | One folder per run: environment, raw logs, summary table |
 
 The first commit in this repository is the unmodified upstream source of both

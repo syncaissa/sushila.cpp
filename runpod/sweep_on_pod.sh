@@ -3,16 +3,15 @@
 # period, so a forgotten pod cannot bill indefinitely. Copy results/ off the pod during the
 # grace period: CPU pods have no persistent volume, so stopping the pod discards them.
 # Usage (on the pod): nohup runpod/sweep_on_pod.sh <model> [grace-hours] &
-#   CHUNKS, BUDGETS, SEEDS, ... are passed through to scripts/sweep_mc.sh.
+#   CHUNKS, BUDGETS, SEEDS, SHARD, RESUME, ... are passed through to scripts/sweep_mc.sh.
 cd "$(dirname "$0")/.."
 model="${1:?usage: sweep_on_pod.sh <model> [grace-hours]}"
 grace_hours="${2:-6}"
 status="results/SWEEP_${model}.status"
 
 echo "running since $(date -u +%FT%TZ)" > "$status"
-scripts/run_mc.sh "$model" exact 1.0 1.0     # fidelity check first
-scripts/sweep_mc.sh "$model"
-echo "done $(date -u +%FT%TZ) exit=$?" >> "$status"
+scripts/sweep_mc.sh "$model"; rc=$?                # starts with the exact fidelity check
+echo "done $(date -u +%FT%TZ) exit=$rc" >> "$status"
 
 sleep $((grace_hours * 3600))
 # RunPod injects a pod-scoped API key and the pod id into the container's init process.

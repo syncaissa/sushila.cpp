@@ -12,7 +12,8 @@ MODELS_DIR="$WORK_DIR/models"
 DATA_DIR="$WORK_DIR/data"
 BUILD_DIR="$WORK_DIR/build/llama.cpp"
 BIN_DIR="$BUILD_DIR/bin"
-RESULTS_DIR="$REPO_ROOT/results"
+RESULTS_DIR="${RESULTS_DIR:-$REPO_ROOT/results}"
+mkdir -p "$RESULTS_DIR"
 
 mkdir -p "$MODELS_DIR" "$DATA_DIR" "$BUILD_DIR"
 
