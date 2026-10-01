@@ -1,0 +1,2 @@
+model	mode	chunks	ppl	ppl_err	prefill_tok_s	decode_tok_s
+qwen2.5-0.5b-q4km	legacy	20	16.8796	0.70160	62.186592	17.257999
