@@ -3,7 +3,7 @@
 # budget, MC and placebo with several seeds. Each setting is one scripts/run_mc.sh call (one
 # results/ folder): 42 settings with the defaults.
 # Usage: scripts/sweep_mc.sh <model>
-# Environment: BUDGETS (default "0.05 0.10 0.20 0.30 0.50"), EXACT_SHARE (exact fraction as a
+# Environment: BUDGETS (default "0.05 0.10 0.20 0.30 0.50"; "" runs only exact and off), EXACT_SHARE (exact fraction as a
 #   share of the budget, default 0.3), SEEDS (default "1 2 3"), CHUNKS, THREADS, GROUP,
 #   RESULTS_DIR (default ./results),
 #   SHARD=k/n: run only settings k, k+n, k+2n, ... so n machines can split one sweep
@@ -14,7 +14,7 @@
 source "$(dirname "$0")/common.sh"
 
 name="${1:?usage: sweep_mc.sh <model>}"
-BUDGETS="${BUDGETS:-0.05 0.10 0.20 0.30 0.50}"
+BUDGETS="${BUDGETS-0.05 0.10 0.20 0.30 0.50}"
 EXACT_SHARE="${EXACT_SHARE:-0.3}"
 SEEDS="${SEEDS:-1 2 3}"
 SHARD="${SHARD:-1/1}"
