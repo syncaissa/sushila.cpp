@@ -54,7 +54,7 @@ override.
 ## 2. Build
 
 ```sh
-scripts/setup.sh     # apt packages: build-essential cmake git curl unzip jq
+scripts/setup.sh     # apt packages: build-essential cmake git curl unzip jq bsdextrautils rsync
 scripts/build.sh     # builds llama-perplexity, llama-bench, llama-completion
 ```
 
