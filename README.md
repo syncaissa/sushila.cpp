@@ -36,7 +36,7 @@ RunPod; [REPRODUCE.md](REPRODUCE.md) covers each, and how to split a sweep over 
 | `llama.cpp/` | llama.cpp source, tag `b11232` (`6f767fe960c3b97cf37fac4626c86400561ca1e4`), the version Ollama pins in `ollama/LLAMA_CPP_VERSION`. Upstream: https://github.com/ggml-org/llama.cpp (MIT) |
 | `ollama/` | Ollama source at `1abe35e6e6e777e858bbfbba283667ee8d516801`. Upstream: https://github.com/ollama/ollama (MIT) |
 | `scripts/` | Setup, build, download and benchmark scripts |
-| `configs/models.tsv` | Models used, with Ollama registry reference and sha256 |
+| `configs/models.tsv` | Models used, with Ollama registry reference, sha256 and license |
 | `runpod/` | Create, list and stop RunPod CPU and GPU pods from the command line (optional) |
 | `notebooks/` | `colab_sweep.ipynb`: the same experiments on Google Colab |
 | `results/` | One folder per run: environment, raw logs, summary table |

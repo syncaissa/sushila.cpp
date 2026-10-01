@@ -20,7 +20,7 @@ mkdir -p "$MODELS_DIR" "$DATA_DIR" "$BUILD_DIR"
 log() { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
 
-# model_field <name> <column>: look up a model in configs/models.tsv (columns 1-5).
+# model_field <name> <column>: look up a model in configs/models.tsv (columns 1-6).
 model_field() {
     awk -F'\t' -v n="$1" -v c="$2" '$1 == n { print $c; found=1 } END { exit !found }' \
         "$REPO_ROOT/configs/models.tsv" || die "unknown model '$1' (see configs/models.tsv)"

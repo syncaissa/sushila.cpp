@@ -11,7 +11,7 @@ compare on the GPU listed in that run's `env.txt`.
 |------|------------------|
 | Inference engine | `llama.cpp/` at tag `b11232`, vendored in this repo (no network fetch) |
 | Ollama | `ollama/` at commit `1abe35e`, vendored in this repo |
-| Models | `configs/models.tsv`: Ollama registry reference + sha256 of the GGUF file; `get_model.sh` refuses a file that does not match |
+| Models | `configs/models.tsv`: Ollama registry reference + sha256 of the GGUF file + the model's license; `get_model.sh` refuses a file that does not match |
 | Dataset | WikiText-2 raw test set, sha256 checked by `get_data.sh` |
 | Our code | the repo commit, recorded in every run's `env.txt` |
 | Hardware and drivers | recorded in every run's `env.txt` |
