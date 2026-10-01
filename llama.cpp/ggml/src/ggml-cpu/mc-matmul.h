@@ -32,7 +32,7 @@
 //   GGML_MC_CV       control variate file from scripts/build_cv.py: a low-rank C ~ W per weight; the
 //                    rest is computed through C and only the residual W - C is sampled (see mc-matmul.c)
 //   GGML_MC_DUMP     directory: append every approximated matmul's input rows to <dir>/<weight>.f32
-//                    (analysis aid, use with mode exact)
+//                    (analysis aid, use with mode exact); the lm_head input is dumped in every mode
 //
 // At exit, prints per-kind call counts, the fraction of groups actually read (sampling is with
 // replacement, so it can be below BUDGET), and the relative error if GGML_MC_STATS=1.

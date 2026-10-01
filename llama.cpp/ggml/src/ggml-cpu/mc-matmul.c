@@ -411,6 +411,19 @@ static void mc_matmul(struct ggml_compute_params * params, const struct ggml_ten
 
 bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * dst, ggml_mc_legacy_fn legacy) {
     pthread_once(&cfg_once, mc_init_config);
+    if (cfg.dump_dir && params->ith == 0 && dst->op == GGML_OP_MUL_MAT &&
+        (strcmp(dst->src[0]->name, "output.weight") == 0 || strcmp(dst->src[0]->name, "token_embd.weight") == 0)) {
+        // analysis aid: the lm_head input (final hidden states), dumped in any mode, computed exactly
+        const struct ggml_tensor * in = dst->src[1];
+        char path[512];
+        snprintf(path, sizeof(path), "%s/%s.f32", cfg.dump_dir, dst->src[0]->name);
+        FILE * f = fopen(path, "ab");
+        GGML_ASSERT(f && in->type == GGML_TYPE_F32);
+        for (int64_t t = 0; t < in->ne[1]; t++) {
+            fwrite((const char *) in->data + t * in->nb[1], sizeof(float), in->ne[0], f);
+        }
+        fclose(f);
+    }
     if (cfg.mode == MC_OFF || dst->op != GGML_OP_MUL_MAT) {
         return false;
     }
