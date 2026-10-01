@@ -29,6 +29,10 @@
 //   GGML_MC_TENSORS  comma-separated weight kinds to approximate (default ffn_up,ffn_gate,ffn_down)
 //   GGML_MC_LAYERS   inclusive layer range "a-b" to approximate (default: all)
 //   GGML_MC_STATS    1 = also compute the exact product and report per-kind relative error
+//   GGML_MC_CV       control variate file from scripts/build_cv.py: a low-rank C ~ W per weight; the
+//                    rest is computed through C and only the residual W - C is sampled (see mc-matmul.c)
+//   GGML_MC_DUMP     directory: append every approximated matmul's input rows to <dir>/<weight>.f32
+//                    (analysis aid, use with mode exact)
 //
 // At exit, prints per-kind call counts, the fraction of groups actually read (sampling is with
 // replacement, so it can be below BUDGET), and the relative error if GGML_MC_STATS=1.

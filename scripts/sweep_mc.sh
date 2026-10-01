@@ -10,7 +10,8 @@
 #     (start each with a different k in 1..n, then copy all results/ folders together),
 #   RESUME=1: skip settings that already have a summary.tsv in RESULTS_DIR with the same
 #     CHUNKS, so an interrupted sweep (e.g. a Colab session) picks up where it stopped,
-#   LIST=1: print the settings this call would run, without running them.
+#   LIST=1: print the settings this call would run, without running them,
+#   CV: control variate file passed to every run (see scripts/run_mc.sh).
 source "$(dirname "$0")/common.sh"
 
 name="${1:?usage: sweep_mc.sh <model>}"
@@ -34,7 +35,7 @@ done
 # done_already <mode> <budget> <exact> <seed>: a finished run with the same CHUNKS exists.
 done_already() {
     local f
-    for f in "$RESULTS_DIR"/*_"${name}_$1_b$2_e$3_s$4"/summary.tsv; do
+    for f in "$RESULTS_DIR"/*_"${name}_$1_b$2_e$3_s$4${CV:+_cv-$(basename "$CV" .cv)}"/summary.tsv; do
         [ -f "$f" ] && awk -F'\t' -v c="${CHUNKS:-all}" 'NR == 2 && $8 == c { ok=1 } END { exit !ok }' "$f" \
             && return 0
     done

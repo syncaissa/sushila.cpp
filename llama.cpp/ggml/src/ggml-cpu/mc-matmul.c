@@ -25,6 +25,8 @@ static struct {
     int          n_kinds;
     int          layer_min, layer_max;
     bool         stats;
+    const char * cv_path;
+    const char * dump_dir;
 } cfg;
 
 // Per-kind statistics. calls is written by thread 0 only; the rest by each thread into its own slot.
@@ -34,6 +36,7 @@ static struct {
     double   groups_total[MC_MAX_THREADS];
     double   err2[MC_MAX_THREADS];
     double   ref2[MC_MAX_THREADS];
+    double   cv_frac; // bytes of the control variate factors (f16) / bytes of W, last call
 } stats[MC_MAX_KINDS];
 
 static double mc_sum(const double * v) {
@@ -56,9 +59,82 @@ static void mc_print_summary(void) {
             const double e = mc_sum(stats[k].err2), r = mc_sum(stats[k].ref2);
             fprintf(stderr, " rel_err=%.6f", r > 0 ? sqrt(e / r) : 0.0);
         }
+        if (cfg.cv_path) {
+            fprintf(stderr, " cv_frac=%.4f", stats[k].cv_frac);
+        }
         fprintf(stderr, "\n");
     }
     fprintf(stderr, "mc: approximated_matmuls=%llu\n", (unsigned long long) total);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Control variates (GGML_MC_CV): a low-rank C = U Vt of each weight, from scripts/build_cv.py.
+// With exact groups E, sampled draws S (weights w_g) and the rest R = all groups not in E:
+//   y = W x_E + C x_R + sum_{g in S} w_g (W - C)[:, g] x_g
+// The first two terms are deterministic and the last is an unbiased estimate of (W - C) x_R,
+// so y stays unbiased, and its variance depends on the residual W - C instead of W. Importance
+// scores use the residual column norms. With no draws (zeros, topk) this is the deterministic
+// "exact top groups + low-rank rest" approximation.
+
+struct mc_cv {
+    char            name[64];
+    int64_t         N, K, r;
+    float         * U;     // [N][r]
+    float         * Vt;    // [r][K]
+    float         * res2;  // [K] squared column norms of W - C
+    float         * gnorm; // [K / group] residual group norms, filled on first use
+    struct mc_cv  * next;
+};
+static struct mc_cv * cv_list;
+
+static void mc_load_cv(const char * path) {
+    FILE * f = fopen(path, "rb");
+    if (!f) { GGML_ABORT("mc: cannot open GGML_MC_CV file '%s'", path); }
+    char     magic[8];
+    uint32_t n;
+    if (fread(magic, 1, 8, f) != 8 || memcmp(magic, "MCCV0001", 8) != 0 || fread(&n, 4, 1, f) != 1) {
+        GGML_ABORT("mc: '%s' is not a control variate file (see scripts/build_cv.py)", path);
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        struct mc_cv * c = calloc(1, sizeof(*c));
+        uint32_t len, dims[3];
+        GGML_ASSERT(c && fread(&len, 4, 1, f) == 1 && len < sizeof(c->name));
+        GGML_ASSERT(fread(c->name, 1, len, f) == len && fread(dims, 4, 3, f) == 3);
+        c->N = dims[0]; c->K = dims[1]; c->r = dims[2];
+        c->U    = malloc(c->N * c->r * sizeof(float));
+        c->Vt   = malloc(c->r * c->K * sizeof(float));
+        c->res2 = malloc(c->K * sizeof(float));
+        GGML_ASSERT(c->U && c->Vt && c->res2);
+        GGML_ASSERT(fread(c->U,    sizeof(float), c->N * c->r, f) == (size_t) (c->N * c->r));
+        GGML_ASSERT(fread(c->Vt,   sizeof(float), c->r * c->K, f) == (size_t) (c->r * c->K));
+        GGML_ASSERT(fread(c->res2, sizeof(float), c->K,        f) == (size_t) c->K);
+        c->next = cv_list;
+        cv_list = c;
+    }
+    fclose(f);
+    fprintf(stderr, "mc: loaded control variates for %u tensors from %s\n", n, path);
+}
+
+// The control variate for this weight, or NULL. Fills the residual group norms on first use.
+static struct mc_cv * mc_get_cv(const struct ggml_tensor * w, int64_t K, int64_t N) {
+    for (struct mc_cv * c = cv_list; c; c = c->next) {
+        if (strcmp(c->name, w->name) != 0) {
+            continue;
+        }
+        GGML_ASSERT(c->K == K && c->N == N);
+        if (!c->gnorm) {
+            const int64_t G = cfg.group;
+            c->gnorm = malloc(K / G * sizeof(float));
+            GGML_ASSERT(c->gnorm);
+            for (int64_t g = 0; g < K / G; g++) {
+                double s = 0;
+                for (int64_t j = g * G; j < (g + 1) * G; j++) { s += (double) c->res2[j]; }
+                c->gnorm[g] = (float) sqrt(s);
+            }
+        }
+        return c;
+    }
+    return NULL;
 }
 
 static void mc_init_config(void) {
@@ -77,6 +153,8 @@ static void mc_init_config(void) {
     cfg.group     = (s = getenv("GGML_MC_GROUP"))  ? atoi(s) : 32;
     cfg.seed      = (s = getenv("GGML_MC_SEED"))   ? strtoull(s, NULL, 10) : 1;
     cfg.stats     = (s = getenv("GGML_MC_STATS"))  ? atoi(s) != 0 : false;
+    cfg.cv_path   = getenv("GGML_MC_CV");
+    cfg.dump_dir  = getenv("GGML_MC_DUMP");
     cfg.layer_min = 0;
     cfg.layer_max = 1 << 30;
     if ((s = getenv("GGML_MC_LAYERS")) && sscanf(s, "%d-%d", &cfg.layer_min, &cfg.layer_max) != 2) {
@@ -95,10 +173,13 @@ static void mc_init_config(void) {
     GGML_ASSERT(cfg.group > 0);
     GGML_ASSERT(cfg.exact >= 0.0f && cfg.budget <= 1.0f && cfg.exact <= cfg.budget);
 
-    fprintf(stderr, "mc: mode=%s budget=%.4f exact=%.4f group=%d seed=%llu layers=%d-%d tensors=%s stats=%d\n",
+    fprintf(stderr, "mc: mode=%s budget=%.4f exact=%.4f group=%d seed=%llu layers=%d-%d tensors=%s stats=%d cv=%s\n",
             mc_mode_names[cfg.mode], (double) cfg.budget, (double) cfg.exact, cfg.group, (unsigned long long) cfg.seed,
             cfg.layer_min, cfg.layer_max, getenv("GGML_MC_TENSORS") ? getenv("GGML_MC_TENSORS") : "ffn_up,ffn_gate,ffn_down",
-            cfg.stats);
+            cfg.stats, cfg.cv_path ? cfg.cv_path : "none");
+    if (cfg.cv_path) {
+        mc_load_cv(cfg.cv_path);
+    }
     atexit(mc_print_summary);
 }
 
@@ -183,8 +264,10 @@ static struct {
     struct mc_pair * pairs;   // [nth][n_groups] per-thread scratch for the selection
     double         * cdf;     // [nth][n_groups]
     int32_t        * counts;  // [nth][n_groups]
-    size_t           cap[7];  // capacity in bytes of each array above, in order
-    const float    * norms;
+    float          * cv_h;    // [nth][2 r] control variate scratch: Vt x_R, Vt x_tail
+    size_t           cap[8];  // capacity in bytes of each array above, in order
+    const float    * norms;   // group scores use these column-group norms (residual ones with a CV)
+    struct mc_cv   * cv;
     int              kind;
     uint64_t         call;
 } sc;
@@ -347,6 +430,17 @@ bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * d
     const bool    sampled  = cfg.mode == MC_MC || cfg.mode == MC_PLACEBO;
     GGML_ASSERT(nth <= MC_MAX_THREADS);
 
+    if (ith == 0 && cfg.dump_dir) {
+        // analysis aid: append this call's input rows (T x K float32) to <dir>/<weight name>.f32
+        char path[512];
+        snprintf(path, sizeof(path), "%s/%s.f32", cfg.dump_dir, src0->name);
+        FILE * f = fopen(path, "ab");
+        GGML_ASSERT(f);
+        for (int64_t t = 0; t < T; t++) {
+            fwrite((const char *) src1->data + t * src1->nb[1], sizeof(float), K, f);
+        }
+        fclose(f);
+    }
     if (ith == 0) {
         sc.kind    = kind;
         sc.call    = stats[kind].calls++ ^ ((uint64_t) kind << 56);
@@ -357,7 +451,12 @@ bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * d
         sc.pairs   = mc_grow(sc.pairs,   &sc.cap[4], nth * n_groups * sizeof(struct mc_pair));
         sc.cdf     = mc_grow(sc.cdf,     &sc.cap[5], nth * n_groups * sizeof(double));
         sc.counts  = mc_grow(sc.counts,  &sc.cap[6], nth * n_groups * sizeof(int32_t));
-        sc.norms   = mc_get_norms(src0, K, N);
+        sc.cv      = cfg.cv_path ? mc_get_cv(src0, K, N) : NULL;
+        sc.norms   = sc.cv ? sc.cv->gnorm : mc_get_norms(src0, K, N);
+        if (sc.cv) {
+            sc.cv_h = mc_grow(sc.cv_h, &sc.cap[7], nth * 2 * sc.cv->r * sizeof(float));
+            stats[kind].cv_frac = (double) (sc.cv->r * (N + K) * 2) / (double) ggml_nbytes(src0);
+        }
     }
     ggml_barrier(params->threadpool);
 
@@ -369,6 +468,10 @@ bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * d
         stats[kind].groups_read[ith]  += (double) mc_select(x, K, t, sc.pairs + ith * n_groups,
                                                             sc.cdf + ith * n_groups, sc.counts + ith * n_groups);
         stats[kind].groups_total[ith] += (double) n_groups;
+        if (sc.cv) {
+            // the factors are read for every token too: count their bytes as groups of W
+            stats[kind].groups_read[ith] += stats[kind].cv_frac * (double) n_groups;
+        }
     }
     ggml_barrier(params->threadpool);
 
@@ -383,19 +486,48 @@ bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * d
         ggml_barrier(params->threadpool);
         mc_matmul(params, dst, legacy, (float *) src1->data, sc.y_ref);
     }
-    if (!sampled && !cfg.stats) {
+    if (!sampled && !cfg.stats && !sc.cv) {
         return true;
     }
     ggml_barrier(params->threadpool);
 
-    // 3. Per token: add the tail (or, for placebo, matched noise in its place); error statistics.
+    // 3. Per token: add the control variate, then the tail (or, for placebo, matched noise in its
+    //    place); error statistics.
+    const struct mc_cv * cv = sc.cv;
     for (int64_t t = t0; t < t1; t++) {
         float * yt = y + t * N;
+        float * tail = sc.y_tail + t * N;
+        if (cv) {
+            // h_R = Vt x_R (x_R = x minus the exact groups), h_S = Vt x_tail; y += U h_R, tail -= U h_S
+            const float * x  = (const float *) ((const char *) src1->data + t * src1->nb[1]);
+            const float * xe = sc.x_exact + t * K;
+            const float * xt = sc.x_tail  + t * K;
+            float * hR = sc.cv_h + ith * 2 * cv->r;
+            float * hS = hR + cv->r;
+            for (int64_t k = 0; k < cv->r; k++) {
+                const float * v = cv->Vt + k * K;
+                double aR = 0, aS = 0;
+                for (int64_t j = 0; j < K; j++) {
+                    aR += (double) v[j] * (double) (x[j] - xe[j]);
+                    aS += (double) v[j] * (double) xt[j];
+                }
+                hR[k] = (float) aR;
+                hS[k] = (float) aS;
+            }
+            for (int64_t i = 0; i < N; i++) {
+                const float * u = cv->U + i * cv->r;
+                double cR = 0, cS = 0;
+                for (int64_t k = 0; k < cv->r; k++) {
+                    cR += (double) u[k] * (double) hR[k];
+                    cS += (double) u[k] * (double) hS[k];
+                }
+                yt[i] += (float) cR;
+                if (sampled) { tail[i] -= (float) cS; }
+            }
+        }
         if (cfg.mode == MC_MC) {
-            const float * tail = sc.y_tail + t * N;
             for (int64_t i = 0; i < N; i++) { yt[i] += tail[i]; }
         } else if (cfg.mode == MC_PLACEBO) {
-            const float * tail = sc.y_tail + t * N;
             double mean = 0, var = 0;
             for (int64_t i = 0; i < N; i++) { mean += (double) tail[i]; }
             mean /= (double) N;
