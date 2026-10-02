@@ -2134,6 +2134,8 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
     ggml_tensor * weights = ggml_get_rows(ctx0, probs, selected_experts); // [1, n_expert_used, n_tokens]
     cb(weights, "ffn_moe_weights", il);
 
+    ggml_tensor * exec_experts = selected_experts; // the experts actually computed (see LLAMA_MOE_SKIP)
+
     // experimental (Sushila): adaptive number of experts per token. With LLAMA_MOE_TOP_P=p in (0, 1), the
     // selected experts are kept in descending router weight while the weight share of the experts ranked
     // above them is below p; the others get weight 0 (renormalized below when norm_w is set).
@@ -2145,6 +2147,16 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
         ggml_tensor * keep   = ggml_step(ctx0, ggml_scale_bias(ctx0, before, -1.0f, moe_top_p)); // before < p
         weights = ggml_reshape_3d(ctx0, ggml_mul(ctx0, w2, keep), 1, n_expert_used, n_tokens);
         cb(weights, "ffn_moe_weights_top_p", il);
+
+        // LLAMA_MOE_SKIP=1: dropped slots get expert id -1, which the CPU MUL_MAT_ID skips (zero output row,
+        // expert weights not read). Router weights and biases still use selected_experts. CPU backend only.
+        static const bool moe_skip = getenv("LLAMA_MOE_SKIP") && atoi(getenv("LLAMA_MOE_SKIP")) != 0;
+        if (moe_skip) {
+            ggml_tensor * sel_f = ggml_cast(ctx0, selected_experts, GGML_TYPE_F32);            // [n_expert_used, n_tokens]
+            ggml_tensor * ids_f = ggml_add(ctx0, ggml_mul(ctx0, sel_f, keep), ggml_scale_bias(ctx0, keep, 1.0f, -1.0f));
+            exec_experts = ggml_cast(ctx0, ids_f, GGML_TYPE_I32);                              // id if kept, else -1
+            cb(exec_experts, "ffn_moe_topk_exec", il);
+        }
     }
 
 
@@ -2192,7 +2204,7 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
 
     if (gate_up_exps) {
         // merged gate_up path: one mul_mat_id, then split into gate and up views
-        ggml_tensor * gate_up = build_lora_mm_id(gate_up_exps, cur, selected_experts, up_exps_s); // [n_ff*2, n_expert_used, n_tokens]
+        ggml_tensor * gate_up = build_lora_mm_id(gate_up_exps, cur, exec_experts, up_exps_s); // [n_ff*2, n_expert_used, n_tokens]
         cb(gate_up, "ffn_moe_gate_up", il);
 
         if (up_exps_s) {
@@ -2211,7 +2223,7 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
         cb(up, "ffn_moe_up", il);
     } else {
         // separate gate and up path
-        up = build_lora_mm_id(up_exps, cur, selected_experts, up_exps_s); // [n_ff, n_expert_used, n_tokens]
+        up = build_lora_mm_id(up_exps, cur, exec_experts, up_exps_s); // [n_ff, n_expert_used, n_tokens]
         cb(up, "ffn_moe_up", il);
 
         if (up_exps_s) {
@@ -2224,7 +2236,7 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
         }
 
         if (gate_exps) {
-            cur = build_lora_mm_id(gate_exps, cur, selected_experts, gate_exps_s); // [n_ff, n_expert_used, n_tokens]
+            cur = build_lora_mm_id(gate_exps, cur, exec_experts, gate_exps_s); // [n_ff, n_expert_used, n_tokens]
             cb(cur, "ffn_moe_gate", il);
         } else {
             cur = up;
@@ -2325,7 +2337,7 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
             GGML_ABORT("fatal error");
     }
 
-    experts = build_lora_mm_id(down_exps, cur, selected_experts, down_exps_s); // [n_embd, n_expert_used, n_tokens]
+    experts = build_lora_mm_id(down_exps, cur, exec_experts, down_exps_s); // [n_embd, n_expert_used, n_tokens]
     if (arch == LLM_ARCH_MISTRAL4) {
         // src1 can exceed F16 range
         ggml_prec_set_src(experts, GGML_PREC_F32, 1);
