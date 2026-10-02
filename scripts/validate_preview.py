@@ -59,6 +59,65 @@ def kth_largest(a, k):
     return np.partition(a, len(a) - k)[len(a) - k]
 
 
+def exact_targets(z_exact, m=8192):
+    """Per token, independent of the setting: exact top-1, exact top-40 indices and their probabilities (T=1),
+    and the exact top-m tokens in descending order (candidates are ranked within these)."""
+    ex1 = np.argmax(z_exact, axis=1)
+    ex40 = np.argpartition(-z_exact, K, axis=1)[:, :K]
+    ze = np.take_along_axis(z_exact, ex40, 1)
+    pe = np.exp(ze - ze.max(1, keepdims=True))
+    pe /= pe.sum(1, keepdims=True)
+    m = min(m, z_exact.shape[1] - 1)
+    top = np.argpartition(-z_exact, m, axis=1)[:, :m]
+    order = np.argsort(-np.take_along_axis(z_exact, top, 1), axis=1)
+    return ex1, ex40, pe, np.take_along_axis(top, order, 1)
+
+
+def evaluate(zp, z_exact, ex1, ex40, pe, topm, n, w, v, d, pbits, row_bytes, chunk=128):
+    """The kernel's candidate rule for one setting, vectorized over tokens. Returns sums of top-1 hits, top-40
+    recall, top-40 TV and read fraction. The candidates' top-1 and top-40 are the first candidates in each
+    token's exact top-m list; rows with fewer than K candidates there use the full vocabulary (same result)."""
+    top1 = rec = tvs = rd = 0.0
+    ns = zp[:, ::SAMPLE].shape[1]
+    ks = (3 * n + 2 * SAMPLE - 1) // (2 * SAMPLE)
+    ks2 = min(4 * ks, ns)
+    for c0 in range(0, len(zp), chunk):
+        p, z = zp[c0:c0 + chunk], z_exact[c0:c0 + chunk]
+        samp = p[:, ::SAMPLE]
+        tau = np.partition(samp, ns - ks, axis=1)[:, ns - ks] if ks < ns else np.full(len(p), -np.inf, np.float32)
+        cnt = (p >= tau[:, None]).sum(1)
+        low = (cnt < n) & np.isfinite(tau)
+        if low.any():                                              # too few passed: lower sample rank (kernel rule)
+            tau = tau.copy()
+            tau[low] = (np.partition(samp[low], ns - ks2, axis=1)[:, ns - ks2] if ks2 < ns else -np.inf)
+            cnt = (p >= tau[:, None]).sum(1)
+        tm = topm[c0:c0 + chunk]
+        hit = np.take_along_axis(p, tm, 1) >= tau[:, None]          # candidates among the exact top-m, in order
+        ok = hit.sum(1) >= K
+        pos = np.argsort(~hit, axis=1, kind='stable')[:, :K]       # positions of the first K hits per row
+        best = np.take_along_axis(tm, pos, 1)                      # [rows][K]; valid where ok
+        for i in np.flatnonzero(~ok):                              # rare: rank over the whole vocabulary
+            cand = np.flatnonzero(p[i] >= tau[i])
+            zc = z[i, cand]
+            bb = cand[np.argpartition(-zc, K)[:K]] if len(cand) > K else cand
+            best[i, :len(bb)] = bb
+            best[i, len(bb):] = bb[0]
+            first_i = cand[np.argmax(zc)]
+            best[i, 0], best[i, list(bb).index(first_i)] = first_i, best[i, 0]
+        top1 += (best[:, 0] == ex1[c0:c0 + chunk]).sum()           # first hit in descending exact order = top-1
+        e = ex40[c0:c0 + chunk]
+        zb = np.take_along_axis(z, best, 1)
+        pb = np.exp(zb - zb.max(1, keepdims=True)); pb /= pb.sum(1, keepdims=True)
+        eq = e[:, :, None] == best[:, None, :]                     # [rows][K exact][K computed]
+        in_b, in_e = eq.any(2), eq.any(1)
+        pb_at_e = (eq * pb[:, None, :]).sum(2)
+        pex = pe[c0:c0 + chunk]
+        rec += in_b.sum() / K
+        tvs += 0.5 * ((pex * ~in_b).sum() + (pb * ~in_e).sum() + (np.abs(pex - pb_at_e) * in_b).sum())
+        rd += ((v * w * pbits / 8 + cnt * row_bytes + w * d * 2) / (v * row_bytes)).sum()
+    return top1, rec, tvs, rd
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('model')
@@ -88,30 +147,12 @@ def main():
         h_all = h_all[len(h_all) // 8:]                                    # skip the first rows of each dump
         hs = h_all[np.linspace(0, len(h_all) - 1, min(args.tokens, len(h_all))).astype(int)]
         z_exact = hs @ e.T
+        ex1, ex40, pe, topm = exact_targets(z_exact)
         for w in widths:
             hp = q_round_trip(hs @ r[:w].T, 'q8_0')
             zp = hp @ bq[:, :w].T
             for n in cands:
-                top1 = rec = tvs = rd = 0.0
-                ks = (3 * n + 2 * SAMPLE - 1) // (2 * SAMPLE)
-                for t in range(len(hs)):
-                    samp = zp[t, ::SAMPLE]
-                    tau = kth_largest(samp, ks) if ks < len(samp) else -np.inf
-                    cand = np.nonzero(zp[t] >= tau)[0]
-                    if len(cand) < n and tau > -np.inf:
-                        ks2 = min(4 * ks, len(samp))
-                        tau = kth_largest(samp, ks2) if ks2 < len(samp) else -np.inf
-                        cand = np.nonzero(zp[t] >= tau)[0]
-                    z = z_exact[t]
-                    top1 += cand[np.argmax(z[cand])] == np.argmax(z)
-                    ex = np.argpartition(-z, K)[:K]
-                    best = cand[np.argpartition(-z[cand], K)[:K]] if len(cand) > K else cand
-                    rec += len(set(ex.tolist()) & set(best.tolist())) / K
-                    pe = np.exp(z[ex] - z[ex].max()); pe /= pe.sum()
-                    pb = np.exp(z[best] - z[best].max()); pb /= pb.sum()
-                    p1, p2 = dict(zip(ex.tolist(), pe)), dict(zip(best.tolist(), pb))
-                    tvs += 0.5 * sum(abs(p1.get(i, 0) - p2.get(i, 0)) for i in set(p1) | set(p2))
-                    rd += (v * w * pbits / 8 + len(cand) * row_bytes + w * d * 2) / (v * row_bytes)
+                top1, rec, tvs, rd = evaluate(zp, z_exact, ex1, ex40, pe, topm, n, w, v, d, pbits, row_bytes)
                 m = len(hs)
                 results.setdefault(f'{w}:{n}', {})[dom] = {'top1': 100 * top1 / m, 'recall40': 100 * rec / m,
                                                            'tv40': tvs / m, 'read': 100 * rd / m, 'tokens': m}

@@ -20,6 +20,7 @@ OUT="${DAY0_DIR:-$WORK_DIR/day0}/$name"
 THRESH="${THRESH:-99.5}"; RECALL="${RECALL:-98}"; TYPE="${PREVIEW_TYPE:-q4_0}"; TOKENS="${TOKENS:-1000}"
 THREADS="${THREADS:-$(nproc)}"
 mkdir -p "$OUT"
+export LANDSCAPE_CACHE="$OUT/cache"   # dequantized output matrix, shared by build, validation and test
 t_start=$(date +%s)
 
 log "0 license: $name"

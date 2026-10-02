@@ -89,12 +89,26 @@ def dequantize_parallel(data, qtype, rows, cols):
     return out
 
 
-def load_lm_head(model, tensor=None):
+def load_lm_head(model, tensor=None, cache=None):
+    """The output matrix as float32 [vocab][hidden]. With cache (a directory, or $LANDSCAPE_CACHE), the matrix is
+    saved after the first load and reused: opening a GGUF parses all metadata (~10-20 s for a 150k vocabulary)
+    and dequantizing a large matrix takes minutes."""
+    cache = cache or os.environ.get("LANDSCAPE_CACHE")
+    if cache:
+        key = os.path.join(cache, f"{os.path.basename(model)}.{tensor or 'lm_head'}")
+        if os.path.exists(key + ".npy") and os.path.exists(key + ".json"):
+            meta = json.load(open(key + ".json"))
+            return meta["name"], np.load(key + ".npy"), meta["type"]
     tensors = {t.name: t for t in GGUFReader(model).tensors}
     name = tensor or ("output.weight" if "output.weight" in tensors else "token_embd.weight")
     t = tensors[name]
     d, v = int(t.shape[0]), int(t.shape[1])
     e = dequantize_parallel(t.data, t.tensor_type, v, d)
+    if cache:
+        os.makedirs(cache, exist_ok=True)
+        np.save(key + ".tmp.npy", e)
+        os.replace(key + ".tmp.npy", key + ".npy")
+        json.dump({"name": name, "type": t.tensor_type.name}, open(key + ".json", "w"))
     return name, e, t.tensor_type.name
 
 
