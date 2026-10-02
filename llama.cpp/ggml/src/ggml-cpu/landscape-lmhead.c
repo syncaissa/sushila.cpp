@@ -133,6 +133,7 @@ static void ls_init(void) {
         }
         free(b32);
         ls.hq  = malloc(sizeof(ls_block) * ls.ng);
+        ls.hx  = malloc(sizeof(float) * ls.d + 1024);   // h in the output matrix's vec_dot type (any type fits)
         ls.hp  = malloc(sizeof(float) * ls.W);
         ls.hpq = malloc(sizeof(ls_block) * (ls.W / LS_GROUP));
         ls.zp  = malloc(sizeof(float) * ls.V);
@@ -164,6 +165,7 @@ static void ls_init(void) {
     free(a32);
 
     ls.hq    = malloc(sizeof(ls_block) * ls.ng);
+    ls.hx    = malloc(sizeof(float) * ls.d + 1024);
     ls.hn2   = malloc(sizeof(float) * ls.ng);
     ls.order = malloc(sizeof(int) * ls.ng);
     ls.urem  = malloc(sizeof(float) * (ls.ng + 1) * ls.r);
@@ -301,13 +303,7 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
     const struct ggml_type_traits_cpu * tt = ggml_get_type_traits_cpu(GGML_TYPE_Q8_0);
     const struct ggml_type_traits_cpu * tw = ggml_get_type_traits_cpu(w->type);
     const int64_t t0 = ggml_time_us();
-    if (ls.hx == NULL) {
-        if (ith == 0) {
-            ls.hx = malloc(ggml_row_size(tw->vec_dot_type, ls.d));
-            ls.row_bytes = w->nb[1];
-        }
-        ggml_barrier(params->threadpool);
-    }
+    if (ith == 0) { ls.row_bytes = w->nb[1]; }
 
     // 1. rotated coordinates h'[:W] = R h (rows split over threads)
     for (int i = W * ith / nth; i < W * (ith + 1) / nth; i++) {
@@ -444,10 +440,7 @@ bool ggml_landscape_mul_mat(struct ggml_compute_params * params, struct ggml_ten
         // timing reference: every logit with the legacy dot product, same threads and h quantization
         const struct ggml_type_traits_cpu * td = ggml_get_type_traits_cpu(w->type);
         if (ith == 0) {
-            if (ls.hx == NULL) {
-                ls.hx = malloc(ggml_row_size(td->vec_dot_type, ls.d));
-                ls.row_bytes = w->nb[1];
-            }
+            ls.row_bytes = w->nb[1];
             ggml_get_type_traits_cpu(td->vec_dot_type)->from_float(h, ls.hx, ls.d);
         }
         ggml_barrier(params->threadpool);
