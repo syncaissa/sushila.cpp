@@ -1,0 +1,18 @@
+# Licenses approved for building and shipping landscapes and serving models on sushila.ai.
+# hosting: yes = commercial hosting and redistribution allowed with the listed conditions;
+#          conditional = allowed only under the listed conditions (threshold, attribution, use policy);
+#          no = not for commercial use (research builds only, ALLOW_NONCOMMERCIAL=1).
+# License ids match column 6 of configs/models.tsv. Not legal advice: see Paper/notes/license_information.txt.
+# license_id	hosting	conditions
+Apache-2.0	yes	ship the license text and NOTICE files; keep attribution
+MIT	yes	ship the license text and copyright notice
+Llama-3.1-Community	conditional	ship the license; show "Built with Llama"; follow Meta's acceptable use policy; names of derived models start with "Llama"; a separate license from Meta if the service had > 700M monthly active users on the model's release date
+Llama-3.2-Community	conditional	as Llama-3.1-Community; multimodal (vision) models: rights not granted to individuals/companies domiciled in the EU (verify current text)
+Llama-3.3-Community	conditional	as Llama-3.1-Community
+Gemma-Terms	conditional	follow Google's Gemma Terms of Use and Prohibited Use Policy; pass the use restrictions on to users; ship the terms
+Qwen-License	conditional	a separate license from Alibaba Cloud if the service exceeds 100M monthly active users (verify current text); ship the license
+DeepSeek-Model-License	conditional	use-based restrictions of the DeepSeek model license; ship the license (newer DeepSeek releases are MIT: check each version)
+Qwen-Research	no	research and non-commercial use only
+CC-BY-NC-4.0	no	non-commercial only; commercial use needs a license from the creator
+Mistral-Research	no	research and non-production only; commercial use needs a license from Mistral AI
+Mistral-Non-Production	no	non-production only; commercial use needs a license from Mistral AI

@@ -86,10 +86,12 @@ def generate(binary, model, questions, threads, cache, n_tokens=96):
     return "\n".join(out)
 
 
-def code_text(chars, test=False):
-    if test:   # different files from the calibration set
+def code_text(chars, test=False, part=None):
+    if test:   # different files from the calibration set; part 0 / 1 = disjoint halves (validation / test)
         files = sorted(glob.glob(os.path.join(ROOT, "llama.cpp/tools/*/*.cpp")))[:12] + \
                 sorted(glob.glob(os.path.join(ROOT, "llama.cpp/convert*.py")) + glob.glob(os.path.join(ROOT, "scripts/*.py")))[:12]
+        if part is not None:
+            files = files[part::2]
     else:
         files = sorted(glob.glob(os.path.join(ROOT, "llama.cpp/src/*.cpp")))[:12] + \
                 sorted(glob.glob(os.path.join(ROOT, "llama.cpp/gguf-py/gguf/*.py")))[:12]
@@ -125,14 +127,18 @@ def main():
     # same data location rule as scripts/common.sh: $WORK_DIR, else /workspace/mc-work on RunPod, else ./work
     work = os.environ.get("WORK_DIR") or ("/workspace/mc-work" if os.path.isdir("/workspace/mc-work") else os.path.join(ROOT, "work"))
     ap.add_argument("--wikitext", default=os.path.join(work, "data/wikitext-2-raw/wiki.train.raw"))
-    ap.add_argument("--set", choices=["calib", "test"], default="calib",
-                    help="test: held-out prompts and code files, one file per domain (<out>.code/.chat/.multi)")
+    ap.add_argument("--set", choices=["calib", "test", "val"], default="calib",
+                    help="test / val: held-out prompts and code files, one file per domain (<out>.code/.chat/.multi); "
+                         "val and test use disjoint halves of the held-out prompts and files, test alone uses all")
+    ap.add_argument("--split", action="store_true", help="with --set test: use only the test half (disjoint from val)")
     args = ap.parse_args()
 
-    if args.set == "test":
-        outs = {"code": code_text(args.chars, test=True),
-                "chat": generate(args.binary, args.model, TEST_CHAT, args.threads, args.out + ".chat.gen", 160),
-                "multi": generate(args.binary, args.model, TEST_MULTI, args.threads, args.out + ".multi.gen", 160)}
+    if args.set in ("test", "val"):
+        part = 0 if args.set == "val" else (1 if args.split else None)
+        sel = (lambda lst: lst[part::2]) if part is not None else (lambda lst: lst)
+        outs = {"code": code_text(args.chars, test=True, part=part),
+                "chat": generate(args.binary, args.model, sel(TEST_CHAT), args.threads, args.out + ".chat.gen", 160),
+                "multi": generate(args.binary, args.model, sel(TEST_MULTI), args.threads, args.out + ".multi.gen", 160)}
         for dom, text in outs.items():
             with open(f"{args.out}.{dom}", "w", encoding="utf-8") as f:
                 f.write(text[: args.chars])
