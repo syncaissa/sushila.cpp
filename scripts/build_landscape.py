@@ -79,10 +79,13 @@ def sha256_file(path):
 def fit_sketch(e, h_fit, rank):
     """Rank-r A, B minimising sum over h_fit of ||(e - A B^T) h||^2 (weighted SVD)."""
     d = e.shape[1]
-    c = h_fit.T.astype(np.float64) @ h_fit / len(h_fit)
+    hd = h_fit.astype(np.float64)                                     # same dtype on both sides: BLAS, all cores
+    c = hd.T @ hd / len(hd)
     c += 1e-4 * np.trace(c) / d * np.eye(d)                                       # ridge: c is near singular
     l = np.linalg.cholesky(c)
-    eel = l.T @ (e.T.astype(np.float64) @ e) @ l                                   # (E L)^T (E L)
+    ed = e.astype(np.float64)
+    eel = l.T @ (ed.T @ ed) @ l                                                    # (E L)^T (E L)
+    del ed
     w, vecs = np.linalg.eigh(eel)
     vr = vecs[:, ::-1][:, :rank]
     a = (e @ (l @ vr).astype(np.float32))                                          # E L V_r = U_r S_r

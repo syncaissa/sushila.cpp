@@ -46,10 +46,14 @@ def main():
         sys.exit("width must be a multiple of 32 and at most the hidden size")
     h = np.fromfile(args.calib, dtype=np.float32).reshape(-1, d)
     h = h[: max(1, int(len(h) * args.fit_frac))]
-    c = h.T.astype(np.float64) @ h / len(h)
+    hd = h.astype(np.float64)                                         # same dtype on both sides: BLAS, all cores
+    c = hd.T @ hd / len(hd)
     c += 1e-4 * np.trace(c) / d * np.eye(d)
     l = np.linalg.cholesky(c)
-    w, vecs = np.linalg.eigh(l.T @ (e.T.astype(np.float64) @ e) @ l)
+    ed = e.astype(np.float64)
+    gram = ed.T @ ed
+    del ed
+    w, vecs = np.linalg.eigh(l.T @ gram @ l)
     vr = vecs[:, ::-1][:, : args.width]
     r = (vr.T @ np.linalg.inv(l)).astype(np.float32)                 # [width][hidden]
     b = (e @ (l @ vr).astype(np.float32)).astype(np.float32)          # [vocab][width]
