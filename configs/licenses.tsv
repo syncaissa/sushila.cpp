@@ -2,7 +2,7 @@
 # hosting: yes = commercial hosting and redistribution allowed with the listed conditions;
 #          conditional = allowed only under the listed conditions (threshold, attribution, use policy);
 #          no = not for commercial use (research builds only, ALLOW_NONCOMMERCIAL=1).
-# License ids match column 6 of configs/models.tsv. Not legal advice: see Paper/notes/license_information.txt.
+# License ids match column 6 of configs/models.tsv. Not legal advice: see license_information.txt in the project folder (outside this repository).
 # license_id	hosting	conditions
 Apache-2.0	yes	ship the license text and NOTICE files; keep attribution
 MIT	yes	ship the license text and copyright notice
