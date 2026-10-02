@@ -122,7 +122,9 @@ def main():
     ap.add_argument("out")
     ap.add_argument("--chars", type=int, default=12000, help="characters per domain")
     ap.add_argument("--threads", type=int, default=os.cpu_count())
-    ap.add_argument("--wikitext", default=os.path.join(ROOT, "work/data/wikitext-2-raw/wiki.train.raw"))
+    # same data location rule as scripts/common.sh: $WORK_DIR, else /workspace/mc-work on RunPod, else ./work
+    work = os.environ.get("WORK_DIR") or ("/workspace/mc-work" if os.path.isdir("/workspace/mc-work") else os.path.join(ROOT, "work"))
+    ap.add_argument("--wikitext", default=os.path.join(work, "data/wikitext-2-raw/wiki.train.raw"))
     ap.add_argument("--set", choices=["calib", "test"], default="calib",
                     help="test: held-out prompts and code files, one file per domain (<out>.code/.chat/.multi)")
     args = ap.parse_args()
