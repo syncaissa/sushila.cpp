@@ -629,6 +629,32 @@ static const float * mc_id_col_norms(const struct ggml_tensor * w) {
     return col;
 }
 
+// Row norms ||W_e[n, :]|| of an expert weight tensor [K, N, E] (e.g. ffn_up_exps: one row per neuron), cached.
+static struct { const void * w; float * row; } mc_id_rnorms[MC_MAX_ID_TENSORS];
+static int mc_n_id_rnorms;
+
+static const float * mc_id_row_norms(const struct ggml_tensor * w) {
+    for (int i = 0; i < mc_n_id_rnorms; i++) { if (mc_id_rnorms[i].w == w->data) { return mc_id_rnorms[i].row; } }
+    GGML_ASSERT(mc_n_id_rnorms < MC_MAX_ID_TENSORS);
+    const int64_t K = w->ne[0], N = w->ne[1], E = w->ne[2];
+    float * rn  = calloc((size_t) E * N, sizeof(float));
+    float * row = malloc(sizeof(float) * K);
+    const ggml_to_float_t to_float = ggml_get_type_traits(w->type)->to_float;
+    for (int64_t e = 0; e < E; e++) {
+        for (int64_t n = 0; n < N; n++) {
+            to_float((const char *) w->data + e * w->nb[2] + n * w->nb[1], row, K);
+            float s2 = 0;
+            for (int64_t k = 0; k < K; k++) { s2 += row[k] * row[k]; }
+            rn[e * N + n] = sqrtf(s2);
+        }
+    }
+    free(row);
+    mc_id_rnorms[mc_n_id_rnorms].w = w->data;
+    mc_id_rnorms[mc_n_id_rnorms].row = rn;
+    mc_n_id_rnorms++;
+    return rn;
+}
+
 // k-th largest of a[0..n) (1 <= k <= n); reorders a.
 static float mc_kth_largest(float * a, int64_t n, int64_t k) {
     int64_t lo = 0, hi = n - 1;
@@ -664,11 +690,31 @@ void ggml_mc_mul_mat_id_oracle(const struct ggml_compute_params * params, const 
     if (k < 0) {
         return;
     }
-    // column norms once per tensor (thread 0), then tokens split over threads
+    // GGML_MC_SCORE: act (default, oracle: |a_i| ||W_e[:, i]||), gate (|silu(g_i)|) or gate_norm
+    // (|silu(g_i)| ||W_up,e[i, :]|| ||W_e[:, i]||). The gate scores use only the gate projection g, which a
+    // gate-first kernel reads in full before deciding which up/down rows to read. g is taken from the GLU
+    // that produced this input (x = swiglu(g, u)).
+    static int score_mode = -1;
+    if (score_mode < 0) {
+        const char * sm = getenv("GGML_MC_SCORE");
+        score_mode = !sm || strcmp(sm, "act") == 0 ? 0 : strcmp(sm, "gate") == 0 ? 1 : strcmp(sm, "gate_norm") == 0 ? 2 : -2;
+        GGML_ASSERT(score_mode >= 0 && "GGML_MC_SCORE must be act, gate or gate_norm");
+    }
+    const struct ggml_tensor * g = NULL;
+    const struct ggml_tensor * upw = NULL;
+    if (score_mode > 0) {
+        GGML_ASSERT(x->op == GGML_OP_GLU && x->src[0] && x->src[1] && "gate scores need x = glu(gate, up)");
+        g = x->src[0];
+        upw = x->src[1]->src[0];
+        GGML_ASSERT(g->type == GGML_TYPE_F32 && g->ne[0] == x->ne[0] && upw && upw->ne[1] == x->ne[0]);
+    }
+    // norms once per tensor (thread 0), then tokens split over threads
     if (params->ith == 0) {
         mc_id_col_norms(w);
+        if (score_mode == 2) { mc_id_row_norms(upw); }
     }
     ggml_barrier(params->threadpool);
+    const float * rn_up = score_mode == 2 ? mc_id_row_norms(upw) : NULL;
     GGML_ASSERT(x->type == GGML_TYPE_F32 && x->ne[1] == ids->ne[0]);
     const int64_t K = x->ne[0];
     const int64_t keep = (int64_t) (cfg.budget * K + 0.5f);
@@ -682,7 +728,16 @@ void ggml_mc_mul_mat_id_oracle(const struct ggml_compute_params * params, const 
             const int32_t e = *(const int32_t *) ((const char *) ids->data + j * ids->nb[0] + t * ids->nb[1]);
             if (e < 0 || keep >= K) { continue; }
             float * a = (float *) ((char *) x->data + j * x->nb[1] + t * x->nb[2]);
-            for (int64_t i = 0; i < K; i++) { score[i] = fabsf(a[i]) * col[(int64_t) e * K + i]; tmp[i] = score[i]; }
+            if (score_mode == 0) {
+                for (int64_t i = 0; i < K; i++) { score[i] = fabsf(a[i]) * col[(int64_t) e * K + i]; }
+            } else {
+                const float * gr = (const float *) ((const char *) g->data + j * g->nb[1] + t * g->nb[2]);
+                for (int64_t i = 0; i < K; i++) {
+                    const float sg = fabsf(gr[i] / (1.0f + expf(-gr[i])));
+                    score[i] = score_mode == 1 ? sg : sg * rn_up[(int64_t) e * K + i] * col[(int64_t) e * K + i];
+                }
+            }
+            for (int64_t i = 0; i < K; i++) { tmp[i] = score[i]; }
             const float thr = keep > 0 ? mc_kth_largest(tmp, K, keep) : INFINITY;
             int64_t kept = 0;
             for (int64_t i = 0; i < K; i++) {
