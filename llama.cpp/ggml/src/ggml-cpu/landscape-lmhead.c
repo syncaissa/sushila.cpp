@@ -35,6 +35,8 @@ static struct {
     enum ggml_type bq_type;    // GGML_LANDSCAPE_PREVIEW_TYPE: q8_0 (default) or q4_0
     size_t        bq_row;      // bytes per preview row
     float       * hp, * zp, * sel, * gather;
+    void        * hx;          // h quantized to the output matrix's vec_dot type (preview mode)
+    size_t        row_bytes;   // bytes of one output-matrix row
     int         * sel_idx;     // [V] per-thread candidate tokens (thread t: from its first token)
     ls_block    * hpq;
     int           qi;
@@ -72,7 +74,7 @@ static pthread_once_t ls_once = PTHREAD_ONCE_INIT;
 static void ls_summary(void) {
     double bw = 0, bl = 0;
     for (int t = 0; t < LS_MAX_THREADS; t++) { bw += ls.bytes_w[t]; bl += ls.bytes_l[t]; }
-    const double full = (double) ls.V * ls.ng * sizeof(ls_block) * ls.tokens;
+    const double full = (double) ls.V * (ls.row_bytes ? ls.row_bytes : ls.ng * sizeof(ls_block)) * ls.tokens;
     fprintf(stderr, "landscape: tokens=%.0f survivors/token=%.1f stages/token=%.1f read_frac=%.4f (weights %.4f + landscape %.4f)",
             ls.tokens, ls.survivors / ls.tokens, ls.stages / ls.tokens, (bw + bl) / full, bw / full, bl / full);
     if (ls.check) {
@@ -113,11 +115,13 @@ static void ls_init(void) {
         int32_t hp[4];
         GGML_ASSERT(fread(hp, sizeof(int32_t), 4, f) == 4);
         ls.kind = 1; ls.V = hp[0]; ls.d = hp[1]; ls.W = hp[2]; ls.N = hp[3];
+        const int wf = ls.W;   // width stored in the file; GGML_LANDSCAPE_W may use fewer coordinates
         if ((s = getenv("GGML_LANDSCAPE_N"))) { ls.N = atoi(s); }
-        GGML_ASSERT(ls.W % LS_GROUP == 0 && ls.d % LS_GROUP == 0 && ls.N > 0);
+        if ((s = getenv("GGML_LANDSCAPE_W"))) { ls.W = atoi(s); }
+        GGML_ASSERT(ls.W % LS_GROUP == 0 && ls.W > 0 && ls.W <= wf && ls.d % LS_GROUP == 0 && ls.N > 0);
         ls.ng = ls.d / LS_GROUP;
-        ls.R = ls_read(f, sizeof(float) * ls.W * ls.d);
-        float * b32 = ls_read(f, sizeof(float) * ls.V * ls.W);
+        ls.R = ls_read(f, sizeof(float) * wf * ls.d);
+        float * b32 = ls_read(f, sizeof(float) * ls.V * wf);
         fclose(f);
         ls.bq_type = (s = getenv("GGML_LANDSCAPE_PREVIEW_TYPE")) && strcmp(s, "q4_0") == 0 ? GGML_TYPE_Q4_0 : GGML_TYPE_Q8_0;
         GGML_ASSERT(ggml_get_type_traits_cpu(ls.bq_type)->vec_dot_type == GGML_TYPE_Q8_0);
@@ -125,7 +129,7 @@ static void ls_init(void) {
         const ggml_from_float_t from_float = ggml_get_type_traits_cpu(ls.bq_type)->from_float;
         ls.bq = malloc(ls.bq_row * (size_t) ls.V);
         for (int v = 0; v < ls.V; v++) {
-            from_float(b32 + (size_t) v * ls.W, (char *) ls.bq + (size_t) v * ls.bq_row, ls.W);
+            from_float(b32 + (size_t) v * wf, (char *) ls.bq + (size_t) v * ls.bq_row, ls.W);
         }
         free(b32);
         ls.hq  = malloc(sizeof(ls_block) * ls.ng);
@@ -218,7 +222,8 @@ static bool ls_applies(const struct ggml_tensor * dst) {
         (strcmp(w->name, "output.weight") != 0 && strcmp(w->name, "token_embd.weight") != 0)) {
         return false;
     }
-    if (w->type != GGML_TYPE_Q8_0 || w->ne[0] != ls.d || w->ne[1] != ls.V || !ggml_is_contiguous(x)) {
+    if ((ls.kind == 0 && w->type != GGML_TYPE_Q8_0) || ggml_get_type_traits_cpu(w->type)->vec_dot == NULL ||
+        w->ne[0] != ls.d || w->ne[1] != ls.V || !ggml_is_contiguous(x)) {
         static bool warned = false;
         if (!warned) { fprintf(stderr, "landscape: %s does not match the landscape (type/shape), not applied\n", w->name); warned = true; }
         return false;
@@ -256,13 +261,14 @@ static float ls_kth_largest(float * a, int n, int k) {
 
 // GGML_LANDSCAPE_CHECK: exact top-1 over all logits vs the top-1 of the kernel's output.
 static void ls_check(struct ggml_compute_params * params, const struct ggml_tensor * w, const float * out, int v0, int v1) {
-    const struct ggml_type_traits_cpu * tt = ggml_get_type_traits_cpu(GGML_TYPE_Q8_0);
+    const struct ggml_type_traits_cpu * tt = ggml_get_type_traits_cpu(w->type);
+    const void * hx = ls.kind == 1 ? ls.hx : ls.hq;   // h in the matrix's vec_dot type
     const int ith = params->ith, nth = params->nth;
     float best = -INFINITY, best_k = -INFINITY;
     int arg = -1, arg_k = -1;
     for (int v = v0; v < v1; v++) {
         float z;
-        tt->vec_dot(ls.d, &z, 0, (const char *) w->data + (size_t) v * w->nb[1], 0, ls.hq, 0, 1);
+        tt->vec_dot(ls.d, &z, 0, (const char *) w->data + (size_t) v * w->nb[1], 0, hx, 0, 1);
         if (z > best) { best = z; arg = v; }
         if (out[v] > best_k) { best_k = out[v]; arg_k = v; }
     }
@@ -293,7 +299,15 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
     const int ith = params->ith, nth = params->nth;
     const int V = ls.V, W = ls.W;
     const struct ggml_type_traits_cpu * tt = ggml_get_type_traits_cpu(GGML_TYPE_Q8_0);
+    const struct ggml_type_traits_cpu * tw = ggml_get_type_traits_cpu(w->type);
     const int64_t t0 = ggml_time_us();
+    if (ls.hx == NULL) {
+        if (ith == 0) {
+            ls.hx = malloc(ggml_row_size(tw->vec_dot_type, ls.d));
+            ls.row_bytes = w->nb[1];
+        }
+        ggml_barrier(params->threadpool);
+    }
 
     // 1. rotated coordinates h'[:W] = R h (rows split over threads)
     for (int i = W * ith / nth; i < W * (ith + 1) / nth; i++) {
@@ -302,7 +316,7 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
         for (int j = 0; j < ls.d; j++) { s_ += ri[j] * h[j]; }
         ls.hp[i] = s_;
     }
-    if (ith == 0) { tt->from_float(h, ls.hq, ls.d); }
+    if (ith == 0) { ggml_get_type_traits_cpu(tw->vec_dot_type)->from_float(h, ls.hx, ls.d); }
     ggml_barrier(params->threadpool);
     if (ith == 0) { tt->from_float(ls.hp, ls.hpq, W); }
     ggml_barrier(params->threadpool);
@@ -357,11 +371,11 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
     for (int i = 0; i < c; i++) {
         if (cv[i] >= tau) {
             const int v = ci[i];
-            tt->vec_dot(ls.d, out + v, 0, (const char *) w->data + (size_t) v * w->nb[1], 0, ls.hq, 0, 1);
+            tw->vec_dot(ls.d, out + v, 0, (const char *) w->data + (size_t) v * w->nb[1], 0, ls.hx, 0, 1);
             cnt++;
         }
     }
-    ls.bytes_w[ith] += (double) cnt * ls.ng * sizeof(ls_block);
+    ls.bytes_w[ith] += (double) cnt * ls.row_bytes;
     ls.bytes_l[ith] += (double) nloc * ls.bq_row + (ith == 0 ? (double) W * ls.d * 2 : 0);
     if (ls.check) {
         ls_check(params, w, out, v0, v1);
@@ -428,12 +442,18 @@ bool ggml_landscape_mul_mat(struct ggml_compute_params * params, struct ggml_ten
     const int64_t t0 = ggml_time_us();
     if (ls.dense) {
         // timing reference: every logit with the legacy dot product, same threads and h quantization
-        if (ith == 0) { ggml_get_type_traits_cpu(GGML_TYPE_Q8_0)->from_float(h, ls.hq, ls.d); }
+        const struct ggml_type_traits_cpu * td = ggml_get_type_traits_cpu(w->type);
+        if (ith == 0) {
+            if (ls.hx == NULL) {
+                ls.hx = malloc(ggml_row_size(td->vec_dot_type, ls.d));
+                ls.row_bytes = w->nb[1];
+            }
+            ggml_get_type_traits_cpu(td->vec_dot_type)->from_float(h, ls.hx, ls.d);
+        }
         ggml_barrier(params->threadpool);
         const int a0 = (int) ((int64_t) V * ith / nth), a1 = (int) ((int64_t) V * (ith + 1) / nth);
-        const struct ggml_type_traits_cpu * td = ggml_get_type_traits_cpu(GGML_TYPE_Q8_0);
         for (int v = a0; v < a1; v++) {
-            td->vec_dot(ls.d, out + v, 0, (const char *) w->data + (size_t) v * w->nb[1], 0, ls.hq, 0, 1);
+            td->vec_dot(ls.d, out + v, 0, (const char *) w->data + (size_t) v * w->nb[1], 0, ls.hx, 0, 1);
         }
         ggml_barrier(params->threadpool);
         if (ith == 0) { ls.tokens += 1; ls.survivors += V; ls.stages += ng; ls.t_total += ggml_time_us() - t0; }
