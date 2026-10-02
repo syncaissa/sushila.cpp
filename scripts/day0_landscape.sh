@@ -71,13 +71,18 @@ python3 "$SD/make_calib_mix.py" "$model" "$BIN_DIR/llama-completion" "$OUT/test"
 wiki="$DATA_DIR/wikitext-2-raw/wiki.test.raw"
 head -c 900000 "$wiki" | tail -c +650001 > "$OUT/val.prose"; tail -c +900001 "$wiki" > "$OUT/test.prose"
 c4="$DATA_DIR/c4-validation-00000.txt"
-if [ ! -s "$c4" ]; then
-    curl -sSL https://huggingface.co/datasets/allenai/c4/resolve/main/en/c4-validation.00000-of-00008.json.gz | \
-    python3 -c "import gzip, json, sys; d = gzip.open(sys.stdin.buffer, 'rt'); out = []; n = 0
-for line in d:
+if [ ! -s "$c4" ]; then   # download fully, then read (no pipe: the reader stops early, which pipefail would treat as an error)
+    curl -fsSL -o "$c4.json.gz" https://huggingface.co/datasets/allenai/c4/resolve/main/en/c4-validation.00000-of-00008.json.gz \
+        || die "C4 download failed"
+    python3 - "$c4.json.gz" "$c4" <<'PY'
+import gzip, json, sys
+out, n = [], 0
+for line in gzip.open(sys.argv[1], 'rt'):
     t = json.loads(line)['text']; out.append(t); n += len(t)
     if n > 400000: break
-open('$c4', 'w').write('\n\n'.join(out))"
+open(sys.argv[2], 'w').write('\n\n'.join(out))
+PY
+    rm -f "$c4.json.gz"
 fi
 head -c 200000 "$c4" > "$OUT/val.web"; tail -c +200001 "$c4" | head -c 200000 > "$OUT/test.web"
 for set in val test; do
