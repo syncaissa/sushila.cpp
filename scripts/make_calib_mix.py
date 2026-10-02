@@ -47,6 +47,29 @@ MULTI = [
     "Comment préparer une bonne soupe à l'oignon ?", "¿Cómo se forma un arcoíris?",
 ]
 
+# Held-out evaluation prompts (--set test): none of these appear in CHAT / MULTI above.
+TEST_CHAT = [
+    "How can I save money on groceries?", "What is a black hole?", "Write a haiku about autumn.",
+    "How do I fix a flat bicycle tire?", "Give me tips for a job interview.", "What causes earthquakes?",
+    "Explain how a credit score works.", "Write a limerick about a cat.", "How do I start running safely?",
+    "What is the difference between weather and climate?", "Suggest a weekly meal plan for a family.",
+    "How does a refrigerator keep food cold?", "Explain what DNS does on the internet.",
+    "What are the pros and cons of working from home?", "How do I write a good cover letter?",
+    "Describe the water cycle.", "What is compound interest?", "How do noise-cancelling headphones work?",
+    "Give advice for a first-time manager.", "Why do leaves change color in autumn?",
+]
+TEST_MULTI = [
+    "请介绍一下北京的美食。", "如何提高英语口语？", "解释一下什么是区块链。", "写一首关于月亮的短诗。",
+    "¿Cuál es la capital de Argentina y qué se puede visitar allí?", "¿Cómo puedo aprender a programar?",
+    "Escribe un poema corto sobre el mar.", "¿Por qué es importante el reciclaje?",
+    "Quels sont les avantages du vélo en ville ?", "Comment fonctionne un moteur électrique ?",
+    "Raconte une courte histoire sur un dragon.", "Pourquoi le ciel est-il bleu ?",
+    "Was sind die Vorteile von erneuerbaren Energien?", "Wie lerne ich am besten eine neue Sprache?",
+    "富士山について教えてください。", "日本の伝統的な料理を紹介してください。",
+    "भारत में कौन से त्योहार मनाए जाते हैं?", "योग के क्या फायदे हैं?",
+    "Quali sono le città più belle d'Italia?", "Como funciona a energia solar?",
+]
+
 
 def generate(binary, model, questions, threads, cache, n_tokens=96):
     if os.path.exists(cache):
@@ -63,9 +86,13 @@ def generate(binary, model, questions, threads, cache, n_tokens=96):
     return "\n".join(out)
 
 
-def code_text(chars):
-    files = sorted(glob.glob(os.path.join(ROOT, "llama.cpp/src/*.cpp")))[:12] + \
-            sorted(glob.glob(os.path.join(ROOT, "llama.cpp/gguf-py/gguf/*.py")))[:12]
+def code_text(chars, test=False):
+    if test:   # different files from the calibration set
+        files = sorted(glob.glob(os.path.join(ROOT, "llama.cpp/tools/*/*.cpp")))[:12] + \
+                sorted(glob.glob(os.path.join(ROOT, "llama.cpp/convert*.py")) + glob.glob(os.path.join(ROOT, "scripts/*.py")))[:12]
+    else:
+        files = sorted(glob.glob(os.path.join(ROOT, "llama.cpp/src/*.cpp")))[:12] + \
+                sorted(glob.glob(os.path.join(ROOT, "llama.cpp/gguf-py/gguf/*.py")))[:12]
     parts, n = [], 0
     for i in range(0, 4 * len(files)):
         f = files[(i * 7) % len(files)]            # alternate C++ and Python files
@@ -96,8 +123,19 @@ def main():
     ap.add_argument("--chars", type=int, default=12000, help="characters per domain")
     ap.add_argument("--threads", type=int, default=os.cpu_count())
     ap.add_argument("--wikitext", default=os.path.join(ROOT, "work/data/wikitext-2-raw/wiki.train.raw"))
+    ap.add_argument("--set", choices=["calib", "test"], default="calib",
+                    help="test: held-out prompts and code files, one file per domain (<out>.code/.chat/.multi)")
     args = ap.parse_args()
 
+    if args.set == "test":
+        outs = {"code": code_text(args.chars, test=True),
+                "chat": generate(args.binary, args.model, TEST_CHAT, args.threads, args.out + ".chat.gen", 160),
+                "multi": generate(args.binary, args.model, TEST_MULTI, args.threads, args.out + ".multi.gen", 160)}
+        for dom, text in outs.items():
+            with open(f"{args.out}.{dom}", "w", encoding="utf-8") as f:
+                f.write(text[: args.chars])
+            print(f"{args.out}.{dom}: {min(len(text), args.chars)} characters")
+        return
     prose = open(args.wikitext, encoding="utf-8").read()[100000:100000 + args.chars]
     code = code_text(args.chars)
     chat = generate(args.binary, args.model, CHAT, args.threads, args.out + ".chat")[: args.chars]
