@@ -599,3 +599,105 @@ void ggml_mc_dump_mul_mat_id(const struct ggml_compute_params * params, const st
     }
     fclose(f);
 }
+
+// Oracle for neuron skipping inside experts: with GGML_MC_MODE=topk and a MUL_MAT_ID kind in GGML_MC_TENSORS
+// (e.g. ffn_down_exps), each (token, expert) input row keeps only its top GGML_MC_BUDGET fraction of entries
+// by |a_i| ||W_e[:, i]|| and the rest are set to 0 in place before the regular MUL_MAT_ID runs. Column norms
+// of every expert are computed once per weight tensor.
+#define MC_MAX_ID_TENSORS 256
+static struct { const void * w; float * col; } mc_id_norms[MC_MAX_ID_TENSORS];
+static int mc_n_id_norms;
+
+static const float * mc_id_col_norms(const struct ggml_tensor * w) {
+    for (int i = 0; i < mc_n_id_norms; i++) { if (mc_id_norms[i].w == w->data) { return mc_id_norms[i].col; } }
+    GGML_ASSERT(mc_n_id_norms < MC_MAX_ID_TENSORS);
+    const int64_t K = w->ne[0], N = w->ne[1], E = w->ne[2];
+    float * col = calloc((size_t) E * K, sizeof(float));
+    float * row = malloc(sizeof(float) * K);
+    const ggml_to_float_t to_float = ggml_get_type_traits(w->type)->to_float;
+    for (int64_t e = 0; e < E; e++) {
+        for (int64_t n = 0; n < N; n++) {
+            to_float((const char *) w->data + e * w->nb[2] + n * w->nb[1], row, K);
+            for (int64_t k = 0; k < K; k++) { col[e * K + k] += row[k] * row[k]; }
+        }
+        for (int64_t k = 0; k < K; k++) { col[e * K + k] = sqrtf(col[e * K + k]); }
+    }
+    free(row);
+    mc_id_norms[mc_n_id_norms].w = w->data;
+    mc_id_norms[mc_n_id_norms].col = col;
+    mc_n_id_norms++;
+    return col;
+}
+
+// k-th largest of a[0..n) (1 <= k <= n); reorders a.
+static float mc_kth_largest(float * a, int64_t n, int64_t k) {
+    int64_t lo = 0, hi = n - 1;
+    const int64_t target = k - 1;
+    while (lo < hi) {
+        const float pivot = a[lo + (hi - lo) / 2];
+        int64_t i = lo, j = hi;
+        while (i <= j) {
+            while (a[i] > pivot) { i++; }
+            while (a[j] < pivot) { j--; }
+            if (i <= j) { const float t = a[i]; a[i] = a[j]; a[j] = t; i++; j--; }
+        }
+        if (target <= j) { hi = j; } else if (target >= i) { lo = i; } else { break; }
+    }
+    return a[target];
+}
+
+void ggml_mc_mul_mat_id_oracle(const struct ggml_compute_params * params, const struct ggml_tensor * dst) {
+    pthread_once(&cfg_once, mc_init_config);
+    if (cfg.mode != MC_TOPK || dst->op != GGML_OP_MUL_MAT_ID) {
+        return;
+    }
+    const struct ggml_tensor * w   = dst->src[0];
+    const struct ggml_tensor * x   = dst->src[1];
+    const struct ggml_tensor * ids = dst->src[2];
+    int  layer;
+    char kind[32];
+    if (sscanf(w->name, "blk.%d.%31[^.]", &layer, kind) != 2 || layer < cfg.layer_min || layer > cfg.layer_max) {
+        return;
+    }
+    int k = -1;
+    for (int i = 0; i < cfg.n_kinds; i++) { if (strcmp(kind, cfg.kinds[i]) == 0) { k = i; } }
+    if (k < 0) {
+        return;
+    }
+    // column norms once per tensor (thread 0), then tokens split over threads
+    if (params->ith == 0) {
+        mc_id_col_norms(w);
+    }
+    ggml_barrier(params->threadpool);
+    GGML_ASSERT(x->type == GGML_TYPE_F32 && x->ne[1] == ids->ne[0]);
+    const int64_t K = x->ne[0];
+    const int64_t keep = (int64_t) (cfg.budget * K + 0.5f);
+    const float * col = mc_id_col_norms(w);
+    float * score = malloc(sizeof(float) * K);
+    float * tmp   = malloc(sizeof(float) * K);
+    const int64_t T = ids->ne[1];
+    double kept_all = 0, total_all = 0;
+    for (int64_t t = T * params->ith / params->nth; t < T * (params->ith + 1) / params->nth; t++) {
+        for (int64_t j = 0; j < ids->ne[0]; j++) {
+            const int32_t e = *(const int32_t *) ((const char *) ids->data + j * ids->nb[0] + t * ids->nb[1]);
+            if (e < 0 || keep >= K) { continue; }
+            float * a = (float *) ((char *) x->data + j * x->nb[1] + t * x->nb[2]);
+            for (int64_t i = 0; i < K; i++) { score[i] = fabsf(a[i]) * col[(int64_t) e * K + i]; tmp[i] = score[i]; }
+            const float thr = keep > 0 ? mc_kth_largest(tmp, K, keep) : INFINITY;
+            int64_t kept = 0;
+            for (int64_t i = 0; i < K; i++) {
+                if (score[i] >= thr && kept < keep) { kept++; } else { a[i] = 0.0f; }
+            }
+            kept_all  += kept;
+            total_all += K;
+        }
+    }
+    free(score);
+    free(tmp);
+    stats[k].groups_read[params->ith]  += kept_all;
+    stats[k].groups_total[params->ith] += total_all;
+    if (params->ith == 0) {
+        stats[k].calls++;
+    }
+    ggml_barrier(params->threadpool);
+}

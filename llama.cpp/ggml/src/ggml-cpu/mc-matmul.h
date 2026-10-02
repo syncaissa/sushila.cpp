@@ -59,6 +59,11 @@ bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * d
 // and that expert's input row (float32) to <dir>/<weight name>.f32. Any mode, results unchanged.
 void ggml_mc_dump_mul_mat_id(const struct ggml_compute_params * params, const struct ggml_tensor * dst);
 
+// Oracle for neuron skipping inside experts (GGML_MC_MODE=topk, MUL_MAT_ID kinds in GGML_MC_TENSORS): keeps
+// each (token, expert) input row's top GGML_MC_BUDGET fraction by |a_i| ||W_e[:, i]|| and zeroes the rest in
+// place; the regular MUL_MAT_ID then runs. Called by every thread.
+void ggml_mc_mul_mat_id_oracle(const struct ggml_compute_params * params, const struct ggml_tensor * dst);
+
 #ifdef __cplusplus
 }
 #endif
