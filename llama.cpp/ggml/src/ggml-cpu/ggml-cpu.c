@@ -6,6 +6,7 @@
 #include "traits.h"
 #include "ggml-cpu-impl.h"
 #include "mc-matmul.h"
+#include "landscape-lmhead.h"
 #include "ggml-impl.h"
 #include "quants.h"
 #include "ggml-threading.h"
@@ -1744,6 +1745,11 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
     GGML_ASSERT(params);
 
     if (tensor->op == GGML_OP_NONE || ggml_is_empty(tensor)) {
+        return;
+    }
+
+    // pre-computed landscape search for the output layer (off unless GGML_LANDSCAPE is set)
+    if (ggml_landscape_mul_mat(params, tensor)) {
         return;
     }
 
