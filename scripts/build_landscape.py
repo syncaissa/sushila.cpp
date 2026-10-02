@@ -104,7 +104,7 @@ def load_lm_head(model, tensor=None, cache=None):
     t = tensors[name]
     d, v = int(t.shape[0]), int(t.shape[1])
     e = dequantize_parallel(t.data, t.tensor_type, v, d)
-    if cache:
+    if cache and v * d >= 200_000_000:                         # small matrices load in seconds: not worth the disk
         os.makedirs(cache, exist_ok=True)
         np.save(key + ".tmp.npy", e)
         os.replace(key + ".tmp.npy", key + ".npy")

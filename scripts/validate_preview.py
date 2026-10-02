@@ -154,8 +154,9 @@ def main():
             for n in cands:
                 top1, rec, tvs, rd = evaluate(zp, z_exact, ex1, ex40, pe, topm, n, w, v, d, pbits, row_bytes)
                 m = len(hs)
-                results.setdefault(f'{w}:{n}', {})[dom] = {'top1': 100 * top1 / m, 'recall40': 100 * rec / m,
-                                                           'tv40': tvs / m, 'read': 100 * rd / m, 'tokens': m}
+                results.setdefault(f'{w}:{n}', {})[dom] = {'top1': float(100 * top1 / m), 'recall40': float(100 * rec / m),
+                                                           'tv40': float(tvs / m), 'read': float(100 * rd / m), 'tokens': int(m)}
+                # plain floats: NumPy scalars are not JSON-serializable
                 print(f'{dom:8s} W={w:5d} N={n:6d}  top1 {100 * top1 / m:6.2f}%  recall40 {100 * rec / m:6.2f}%  '
                       f'TV {tvs / m:.4f}  read {100 * rd / m:5.1f}%  ({m} tokens)', flush=True)
     if args.json:
