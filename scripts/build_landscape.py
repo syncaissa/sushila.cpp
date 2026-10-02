@@ -59,12 +59,42 @@ def stage_bin(k, n_groups, bins):
     return min(bins - 1, k * bins // n_groups)
 
 
+_DQ = {}
+
+
+def _dequant_rows(args):
+    lo, hi = args
+    _DQ['out'][lo:hi] = np.asarray(dequantize(_DQ['data'][lo:hi], _DQ['type']), dtype=np.float32).reshape(hi - lo, -1)
+    return hi - lo
+
+
+def dequantize_parallel(data, qtype, rows, cols):
+    """gguf-py dequantization is single-threaded NumPy (tens of minutes for a 70B Q6_K output matrix); rows are
+    independent, so they are split over all cores. Workers (fork) read the memory-mapped data and write into one
+    shared buffer, so no data is copied between processes."""
+    import mmap
+    import multiprocessing as mp
+    n = os.cpu_count() or 1
+    if n == 1 or rows * cols < 200_000_000:                    # small matrices: process start-up costs more
+        return np.asarray(dequantize(data, qtype), dtype=np.float32).reshape(rows, cols)
+    buf = mmap.mmap(-1, rows * cols * 4)                       # anonymous shared memory, inherited by the workers
+    _DQ['out'] = np.frombuffer(buf, dtype=np.float32).reshape(rows, cols)
+    _DQ['data'], _DQ['type'] = data, qtype
+    bounds = [(rows * i // n, rows * (i + 1) // n) for i in range(n)]
+    with mp.get_context('fork').Pool(n) as pool:
+        pool.map(_dequant_rows, bounds)
+    out = np.array(_DQ['out'])                                  # private copy; release the shared buffer
+    del _DQ['out']
+    buf.close()
+    return out
+
+
 def load_lm_head(model, tensor=None):
     tensors = {t.name: t for t in GGUFReader(model).tensors}
     name = tensor or ("output.weight" if "output.weight" in tensors else "token_embd.weight")
     t = tensors[name]
     d, v = int(t.shape[0]), int(t.shape[1])
-    e = np.asarray(dequantize(t.data, t.tensor_type), dtype=np.float32).reshape(v, d)
+    e = dequantize_parallel(t.data, t.tensor_type, v, d)
     return name, e, t.tensor_type.name
 
 
