@@ -17,6 +17,7 @@
 
 #define LS_MAX_THREADS 512
 #define LS_GROUP       32
+#define LS_SAMPLE      16   // preview mode: 1 in LS_SAMPLE previews go to the threshold sample
 
 // One Q8_0 block: 32 weights of one row in one column group.
 typedef struct {
@@ -34,10 +35,9 @@ static struct {
     void        * bq;          // [V] rows of the preview matrix (W values each, type bq_type)
     enum ggml_type bq_type;    // GGML_LANDSCAPE_PREVIEW_TYPE: q8_0 (default) or q4_0
     size_t        bq_row;      // bytes per preview row
-    float       * hp, * zp, * sel, * gather;
+    float       * hp, * zp, * sel;   // sel: the shared threshold sample
     void        * hx;          // h quantized to the output matrix's vec_dot type (preview mode)
     size_t        row_bytes;   // bytes of one output-matrix row
-    int         * sel_idx;     // [V] per-thread candidate tokens (thread t: from its first token)
     ls_block    * hpq;
     int           qi;
     bool          check;
@@ -138,7 +138,6 @@ static void ls_init(void) {
         ls.hpq = malloc(sizeof(ls_block) * (ls.W / LS_GROUP));
         ls.zp  = malloc(sizeof(float) * ls.V);
         ls.sel = malloc(sizeof(float) * ls.V);
-        ls.sel_idx = malloc(sizeof(int) * ls.V);
         ls.on  = true;
         fprintf(stderr, "landscape: %s preview vocab=%d hidden=%d width=%d candidates=%d type=%s check=%d\n",
                 path, ls.V, ls.d, ls.W, ls.N, ggml_type_name(ls.bq_type), ls.check);
@@ -299,91 +298,85 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
     const float * h   = (const float *) dst->src[1]->data;
     float       * out = (float *) dst->data;
     const int ith = params->ith, nth = params->nth;
-    const int V = ls.V, W = ls.W;
+    const int V = ls.V, W = ls.W, nb = ls.W / LS_GROUP;
     const struct ggml_type_traits_cpu * tt = ggml_get_type_traits_cpu(GGML_TYPE_Q8_0);
     const struct ggml_type_traits_cpu * tw = ggml_get_type_traits_cpu(w->type);
     const int64_t t0 = ggml_time_us();
-    if (ith == 0) { ls.row_bytes = w->nb[1]; }
 
-    // 1. rotated coordinates h'[:W] = R h (rows split over threads)
-    for (int i = W * ith / nth; i < W * (ith + 1) / nth; i++) {
-        const float * ri = ls.R + (size_t) i * ls.d;
-        float s_ = 0;
-        for (int j = 0; j < ls.d; j++) { s_ += ri[j] * h[j]; }
-        ls.hp[i] = s_;
+    // 1. rotated coordinates h'[:W] = R h, whole 32-value blocks per thread, each quantized by its thread
+    for (int b = nb * ith / nth; b < nb * (ith + 1) / nth; b++) {
+        for (int i = b * LS_GROUP; i < (b + 1) * LS_GROUP; i++) {
+            const float * ri = ls.R + (size_t) i * ls.d;
+            float s_ = 0;
+            for (int j = 0; j < ls.d; j++) { s_ += ri[j] * h[j]; }
+            ls.hp[i] = s_;
+        }
+        tt->from_float(ls.hp + b * LS_GROUP, ls.hpq + b, LS_GROUP);
     }
-    if (ith == 0) { ggml_get_type_traits_cpu(tw->vec_dot_type)->from_float(h, ls.hx, ls.d); }
-    ggml_barrier(params->threadpool);
-    if (ith == 0) { tt->from_float(ls.hp, ls.hpq, W); }
+    if (ith == nth - 1) {   // the input for the exact rows (only needed after the preview)
+        ls.row_bytes = w->nb[1];
+        ggml_get_type_traits_cpu(tw->vec_dot_type)->from_float(h, ls.hx, ls.d);
+    }
     ggml_barrier(params->threadpool);
     const int64_t t1 = ggml_time_us();
 
-    // 2. preview every logit (dense rows of length W)
+    // 2. preview every logit (dense rows of length W); every LS_SAMPLE-th preview also goes to a
+    //    shared sample
     const int v0 = (int) ((int64_t) V * ith / nth), v1 = (int) ((int64_t) V * (ith + 1) / nth);
-    const int nloc = v1 - v0, kk = ls.N < nloc ? ls.N : nloc;
     const ggml_vec_dot_t pdot = ggml_get_type_traits_cpu(ls.bq_type)->vec_dot;
     for (int v = v0; v < v1; v++) {
         pdot(W, ls.zp + v, 0, (const char *) ls.bq + (size_t) v * ls.bq_row, 0, ls.hpq, 0, 1);
         out[v] = -INFINITY;
+        if (v % LS_SAMPLE == 0) { ls.sel[v / LS_SAMPLE] = ls.zp[v]; }
     }
+    ggml_barrier(params->threadpool);
     const int64_t t2 = ggml_time_us();
 
-    // 3. this thread's candidates: every preview above a threshold estimated from a 1-in-8 sample
-    //    at rank ~1.5 kk, so at least kk pass (if not, all pass); then the global N-th best of them
-    float * cv = ls.sel + v0;
-    int   * ci = ls.sel_idx + v0;
-    const int step = 8;
-    int ns = 0;
-    for (int v = v0; v < v1; v += step) { cv[ns++] = ls.zp[v]; }
-    const int ks = 3 * kk / (2 * step);
-    const float ts = ks >= 1 && ks < ns ? ls_kth_largest(cv, ns, ks) : -INFINITY;
-    int c = 0;
-    for (int v = v0; v < v1; v++) {
-        if (ls.zp[v] >= ts) { cv[c] = ls.zp[v]; ci[c] = v; c++; }
-    }
-    if (c < kk) {
-        c = 0;
-        for (int v = v0; v < v1; v++) { cv[c] = ls.zp[v]; ci[c] = v; c++; }
-    }
-    ls.red_cnt[1][ith] = c;
-    ggml_barrier(params->threadpool);
-    if (ith == 0) {
-        int tot = 0;
-        for (int t = 0; t < nth; t++) { tot += ls.red_cnt[1][t]; }
-        ls.gather = realloc(ls.gather, sizeof(float) * (size_t) tot);
-        tot = 0;
-        for (int t = 0; t < nth; t++) {
-            memcpy(ls.gather + tot, ls.sel + (int) ((int64_t) V * t / nth), sizeof(float) * ls.red_cnt[1][t]);
-            tot += ls.red_cnt[1][t];
-        }
-        ls.red_max[1][0] = tot > ls.N ? ls_kth_largest(ls.gather, tot, ls.N) : -INFINITY;
-    }
-    ggml_barrier(params->threadpool);
-    const float tau = ls.red_max[1][0];
+    // 3. threshold: every thread computes the same value from the shared sample (rank ~1.5 N among
+    //    all previews, so about 1.5 N candidates pass); no serial step
+    const int ns = (V + LS_SAMPLE - 1) / LS_SAMPLE;
+    float samp[ns];   // this thread's scratch copy (on its stack)
+    memcpy(samp, ls.sel, sizeof(float) * ns);
+    const int ks = (3 * ls.N + 2 * LS_SAMPLE - 1) / (2 * LS_SAMPLE);
+    const float tau = ks < ns ? ls_kth_largest(samp, ns, ks) : -INFINITY;
     const int64_t t3 = ggml_time_us();
 
-    // 4. exact logits for this thread's candidates at or above the global threshold (legacy dot product)
+    // 4. exact logits for this thread's previews at or above the threshold (legacy dot product)
     int cnt = 0;
-    for (int i = 0; i < c; i++) {
-        if (cv[i] >= tau) {
-            const int v = ci[i];
+    for (int v = v0; v < v1; v++) {
+        if (ls.zp[v] >= tau) {
             tw->vec_dot(ls.d, out + v, 0, (const char *) w->data + (size_t) v * w->nb[1], 0, ls.hx, 0, 1);
             cnt++;
         }
     }
+    ls.red_cnt[0][ith] = cnt;
+    ggml_barrier(params->threadpool);
+    int total = 0;
+    for (int t = 0; t < nth; t++) { total += ls.red_cnt[0][t]; }
+    if (total < ls.N && tau > -INFINITY) {
+        // rare: too few passed; add the previews down to a lower sample rank (same decision on every thread)
+        const int ks2 = 4 * ks < ns ? 4 * ks : ns;
+        const float tau2 = ks2 < ns ? ls_kth_largest(samp, ns, ks2) : -INFINITY;
+        for (int v = v0; v < v1; v++) {
+            if (ls.zp[v] < tau && ls.zp[v] >= tau2) {
+                tw->vec_dot(ls.d, out + v, 0, (const char *) w->data + (size_t) v * w->nb[1], 0, ls.hx, 0, 1);
+                cnt++;
+            }
+        }
+        ls.red_cnt[1][ith] = cnt;
+        ggml_barrier(params->threadpool);
+        total = 0;
+        for (int t = 0; t < nth; t++) { total += ls.red_cnt[1][t]; }
+    }
     ls.bytes_w[ith] += (double) cnt * ls.row_bytes;
-    ls.bytes_l[ith] += (double) nloc * ls.bq_row + (ith == 0 ? (double) W * ls.d * 2 : 0);
+    ls.bytes_l[ith] += (double) (v1 - v0) * ls.bq_row + (ith == 0 ? (double) W * ls.d * 2 : 0);
     if (ls.check) {
         ls_check(params, w, out, v0, v1);
     }
-    ls.red_cnt[0][ith] = cnt;
-    ggml_barrier(params->threadpool);
     if (ith == 0) {
         const int64_t t4 = ggml_time_us();
-        int tot = 0;
-        for (int t = 0; t < nth; t++) { tot += ls.red_cnt[0][t]; }
         ls.tokens += 1;
-        ls.survivors += tot;
+        ls.survivors += total;
         ls.t_setup += t1 - t0; ls.t_init += t2 - t1; ls.t_stages += t3 - t2; ls.t_final += t4 - t3; ls.t_total += t4 - t0;
     }
     ggml_barrier(params->threadpool);
