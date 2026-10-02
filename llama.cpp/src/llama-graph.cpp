@@ -1,5 +1,7 @@
 #include "llama-graph.h"
 
+#include <cstdlib>
+
 #include "llama-impl.h"
 #include "llama-model.h"
 #include "llama-batch.h"
@@ -2131,6 +2133,19 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
 
     ggml_tensor * weights = ggml_get_rows(ctx0, probs, selected_experts); // [1, n_expert_used, n_tokens]
     cb(weights, "ffn_moe_weights", il);
+
+    // experimental (Sushila): adaptive number of experts per token. With LLAMA_MOE_TOP_P=p in (0, 1), the
+    // selected experts are kept in descending router weight while the weight share of the experts ranked
+    // above them is below p; the others get weight 0 (renormalized below when norm_w is set).
+    static const float moe_top_p = getenv("LLAMA_MOE_TOP_P") ? (float) atof(getenv("LLAMA_MOE_TOP_P")) : 0.0f;
+    if (moe_top_p > 0.0f && moe_top_p < 1.0f && gating_op == LLAMA_EXPERT_GATING_FUNC_TYPE_SOFTMAX) {
+        ggml_tensor * w2     = ggml_reshape_2d(ctx0, weights, n_expert_used, n_tokens);
+        ggml_tensor * share  = ggml_div(ctx0, w2, ggml_sum_rows(ctx0, w2));           // shares within the selected
+        ggml_tensor * before = ggml_sub(ctx0, ggml_cumsum(ctx0, share), share);       // share of higher-ranked experts
+        ggml_tensor * keep   = ggml_step(ctx0, ggml_scale_bias(ctx0, before, -1.0f, moe_top_p)); // before < p
+        weights = ggml_reshape_3d(ctx0, ggml_mul(ctx0, w2, keep), 1, n_expert_used, n_tokens);
+        cb(weights, "ffn_moe_weights_top_p", il);
+    }
 
 
     if (gating_op == LLAMA_EXPERT_GATING_FUNC_TYPE_SOFTMAX_WEIGHT) {
