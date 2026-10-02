@@ -1,6 +1,7 @@
 #include "llama-graph.h"
 
 #include <cstdlib>
+#include <vector>
 
 #include "llama-impl.h"
 #include "llama-model.h"
@@ -2136,17 +2137,37 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
 
     ggml_tensor * exec_experts = selected_experts; // the experts actually computed (see LLAMA_MOE_SKIP)
 
-    // experimental (Sushila): adaptive number of experts per token. With LLAMA_MOE_TOP_P=p in (0, 1), the
-    // selected experts are kept in descending router weight while the weight share of the experts ranked
-    // above them is below p; the others get weight 0 (renormalized below when norm_w is set).
+    // experimental (Sushila): fewer experts per token. Selected experts are ranked by router weight.
+    //   LLAMA_MOE_TOP_P=p in (0, 1): keep an expert while the weight share of the experts ranked above it is
+    //                                below p (adaptive count per token)
+    //   LLAMA_MOE_LAYER_K=k0,k1,...  : keep the k_il best experts in layer il (per-layer budget)
+    // Dropped experts get weight 0 (renormalized below when norm_w is set).
     static const float moe_top_p = getenv("LLAMA_MOE_TOP_P") ? (float) atof(getenv("LLAMA_MOE_TOP_P")) : 0.0f;
-    if (moe_top_p > 0.0f && moe_top_p < 1.0f && gating_op == LLAMA_EXPERT_GATING_FUNC_TYPE_SOFTMAX) {
-        ggml_tensor * w2     = ggml_reshape_2d(ctx0, weights, n_expert_used, n_tokens);
-        ggml_tensor * share  = ggml_div(ctx0, w2, ggml_sum_rows(ctx0, w2));           // shares within the selected
-        ggml_tensor * before = ggml_sub(ctx0, ggml_cumsum(ctx0, share), share);       // share of higher-ranked experts
-        ggml_tensor * keep   = ggml_step(ctx0, ggml_scale_bias(ctx0, before, -1.0f, moe_top_p)); // before < p
+    static const std::vector<int> moe_layer_k = [] {
+        std::vector<int> v;
+        if (const char * e = getenv("LLAMA_MOE_LAYER_K")) {
+            for (const char * c = e; *c; ) { v.push_back(atoi(c)); while (*c && *c != ',') { c++; } if (*c) { c++; } }
+        }
+        return v;
+    }();
+    const bool use_p = moe_top_p > 0.0f && moe_top_p < 1.0f;
+    const bool use_k = il >= 0 && il < (int) moe_layer_k.size() && moe_layer_k[il] < n_expert_used;
+    if ((use_p || use_k) && gating_op == LLAMA_EXPERT_GATING_FUNC_TYPE_SOFTMAX) {
+        ggml_tensor * w2   = ggml_reshape_2d(ctx0, weights, n_expert_used, n_tokens);
+        ggml_tensor * keep = nullptr;                                                         // 1 = keep, 0 = drop
+        if (use_p) {
+            ggml_tensor * share  = ggml_div(ctx0, w2, ggml_sum_rows(ctx0, w2));               // shares within the selected
+            ggml_tensor * before = ggml_sub(ctx0, ggml_cumsum(ctx0, share), share);           // share of higher-ranked experts
+            keep = ggml_step(ctx0, ggml_scale_bias(ctx0, before, -1.0f, moe_top_p));          // before < p
+        }
+        if (use_k) {
+            ggml_tensor * rank  = ggml_arange(ctx0, 0.0f, (float) n_expert_used, 1.0f);       // [n_expert_used]
+            ggml_tensor * keepk = ggml_step(ctx0, ggml_scale_bias(ctx0, rank, -1.0f, moe_layer_k[il] - 0.5f)); // rank < k
+            keepk = ggml_repeat(ctx0, ggml_reshape_2d(ctx0, keepk, n_expert_used, 1), w2);
+            keep  = keep ? ggml_mul(ctx0, keep, keepk) : keepk;
+        }
         weights = ggml_reshape_3d(ctx0, ggml_mul(ctx0, w2, keep), 1, n_expert_used, n_tokens);
-        cb(weights, "ffn_moe_weights_top_p", il);
+        cb(weights, "ffn_moe_weights_fewer", il);
 
         // LLAMA_MOE_SKIP=1: dropped slots get expert id -1, which the CPU MUL_MAT_ID skips (zero output row,
         // expert weights not read). Router weights and biases still use selected_experts. CPU backend only.
