@@ -11,10 +11,18 @@
 // remaining groups are never read. Survivors get exact logits (the legacy dot product, so they
 // match the unmodified engine bit for bit); every other logit is set to -INFINITY.
 //
+// Preview mode (.mclp, scripts/build_preview.py): E is rotated once by the activation-weighted SVD;
+// every logit is previewed from the first W rotated coordinates in one dense pass, and the N best
+// are computed exactly (SVD-softmax with a rotation fitted to real hidden states).
+//
 // Configured with environment variables (read once):
-//   GGML_LANDSCAPE        path of the .mclk file (unset: off)
+//   GGML_LANDSCAPE        path of the landscape file, .mclk (search) or .mclp (preview); unset: off
 //   GGML_LANDSCAPE_Q      quantile index of the multipliers (default 2 = 0.998; see the .mcl header)
 //   GGML_LANDSCAPE_CHECK  1 = also compute all exact logits and count top-1 agreement (slow)
+//   GGML_LANDSCAPE_N      preview mode: number of candidates computed exactly (default: from the file)
+//   GGML_LANDSCAPE_PREVIEW_TYPE  preview mode: q8_0 (default) or q4_0 storage of the preview matrix
+//   GGML_LANDSCAPE_DENSE  1 = compute every logit with the legacy dot product (timing reference)
+//   GGML_LANDSCAPE_TAIL   search mode: stop and finish exactly when at most this many tokens remain (256)
 //
 // Applies only to a Q8_0 output matrix (output.weight or a tied token_embd.weight) with group 32,
 // one token per call, and weights that are not repacked (run with --no-repack). At exit, prints

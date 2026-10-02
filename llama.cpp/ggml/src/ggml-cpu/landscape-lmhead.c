@@ -31,7 +31,9 @@ static struct {
     // preview landscape
     int           W, N;        // preview width, candidates
     float       * R;           // [W][d] rotation rows
-    ls_block    * bq;          // [V][W/32] preview matrix, Q8_0
+    void        * bq;          // [V] rows of the preview matrix (W values each, type bq_type)
+    enum ggml_type bq_type;    // GGML_LANDSCAPE_PREVIEW_TYPE: q8_0 (default) or q4_0
+    size_t        bq_row;      // bytes per preview row
     float       * hp, * zp, * sel, * gather;
     ls_block    * hpq;
     int           qi;
@@ -116,10 +118,13 @@ static void ls_init(void) {
         ls.R = ls_read(f, sizeof(float) * ls.W * ls.d);
         float * b32 = ls_read(f, sizeof(float) * ls.V * ls.W);
         fclose(f);
-        const ggml_from_float_t from_float = ggml_get_type_traits_cpu(GGML_TYPE_Q8_0)->from_float;
-        ls.bq = malloc(sizeof(ls_block) * (size_t) ls.V * (ls.W / LS_GROUP));
+        ls.bq_type = (s = getenv("GGML_LANDSCAPE_PREVIEW_TYPE")) && strcmp(s, "q4_0") == 0 ? GGML_TYPE_Q4_0 : GGML_TYPE_Q8_0;
+        GGML_ASSERT(ggml_get_type_traits_cpu(ls.bq_type)->vec_dot_type == GGML_TYPE_Q8_0);
+        ls.bq_row = ggml_row_size(ls.bq_type, ls.W);
+        const ggml_from_float_t from_float = ggml_get_type_traits_cpu(ls.bq_type)->from_float;
+        ls.bq = malloc(ls.bq_row * (size_t) ls.V);
         for (int v = 0; v < ls.V; v++) {
-            from_float(b32 + (size_t) v * ls.W, ls.bq + (size_t) v * (ls.W / LS_GROUP), ls.W);
+            from_float(b32 + (size_t) v * ls.W, (char *) ls.bq + (size_t) v * ls.bq_row, ls.W);
         }
         free(b32);
         ls.hq  = malloc(sizeof(ls_block) * ls.ng);
@@ -128,8 +133,8 @@ static void ls_init(void) {
         ls.zp  = malloc(sizeof(float) * ls.V);
         ls.sel = malloc(sizeof(float) * ls.V);
         ls.on  = true;
-        fprintf(stderr, "landscape: %s preview vocab=%d hidden=%d width=%d candidates=%d check=%d\n",
-                path, ls.V, ls.d, ls.W, ls.N, ls.check);
+        fprintf(stderr, "landscape: %s preview vocab=%d hidden=%d width=%d candidates=%d type=%s check=%d\n",
+                path, ls.V, ls.d, ls.W, ls.N, ggml_type_name(ls.bq_type), ls.check);
         atexit(ls_summary);
         return;
     }
@@ -284,7 +289,7 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
     const float * h   = (const float *) dst->src[1]->data;
     float       * out = (float *) dst->data;
     const int ith = params->ith, nth = params->nth;
-    const int V = ls.V, W = ls.W, nb = ls.W / LS_GROUP;
+    const int V = ls.V, W = ls.W;
     const struct ggml_type_traits_cpu * tt = ggml_get_type_traits_cpu(GGML_TYPE_Q8_0);
     const int64_t t0 = ggml_time_us();
 
@@ -303,8 +308,9 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
 
     // 2. preview every logit (dense, row-major Q8_0 rows of length W)
     const int v0 = (int) ((int64_t) V * ith / nth), v1 = (int) ((int64_t) V * (ith + 1) / nth);
+    const ggml_vec_dot_t pdot = ggml_get_type_traits_cpu(ls.bq_type)->vec_dot;
     for (int v = v0; v < v1; v++) {
-        tt->vec_dot(W, ls.zp + v, 0, ls.bq + (size_t) v * nb, 0, ls.hpq, 0, 1);
+        pdot(W, ls.zp + v, 0, (const char *) ls.bq + (size_t) v * ls.bq_row, 0, ls.hpq, 0, 1);
         out[v] = -INFINITY;
     }
     const int64_t t2 = ggml_time_us();
@@ -337,7 +343,7 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
         }
     }
     ls.bytes_w[ith] += (double) cnt * ls.ng * sizeof(ls_block);
-    ls.bytes_l[ith] += (double) nloc * nb * sizeof(ls_block) + (ith == 0 ? (double) W * ls.d * 2 : 0);
+    ls.bytes_l[ith] += (double) nloc * ls.bq_row + (ith == 0 ? (double) W * ls.d * 2 : 0);
     if (ls.check) {
         ls_check(params, w, out, v0, v1);
     }
