@@ -35,6 +35,7 @@ static struct {
     enum ggml_type bq_type;    // GGML_LANDSCAPE_PREVIEW_TYPE: q8_0 (default) or q4_0
     size_t        bq_row;      // bytes per preview row
     float       * hp, * zp, * sel, * gather;
+    int         * sel_idx;     // [V] per-thread candidate tokens (thread t: from its first token)
     ls_block    * hpq;
     int           qi;
     bool          check;
@@ -132,6 +133,7 @@ static void ls_init(void) {
         ls.hpq = malloc(sizeof(ls_block) * (ls.W / LS_GROUP));
         ls.zp  = malloc(sizeof(float) * ls.V);
         ls.sel = malloc(sizeof(float) * ls.V);
+        ls.sel_idx = malloc(sizeof(int) * ls.V);
         ls.on  = true;
         fprintf(stderr, "landscape: %s preview vocab=%d hidden=%d width=%d candidates=%d type=%s check=%d\n",
                 path, ls.V, ls.d, ls.W, ls.N, ggml_type_name(ls.bq_type), ls.check);
@@ -306,8 +308,9 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
     ggml_barrier(params->threadpool);
     const int64_t t1 = ggml_time_us();
 
-    // 2. preview every logit (dense, row-major Q8_0 rows of length W)
+    // 2. preview every logit (dense rows of length W)
     const int v0 = (int) ((int64_t) V * ith / nth), v1 = (int) ((int64_t) V * (ith + 1) / nth);
+    const int nloc = v1 - v0, kk = ls.N < nloc ? ls.N : nloc;
     const ggml_vec_dot_t pdot = ggml_get_type_traits_cpu(ls.bq_type)->vec_dot;
     for (int v = v0; v < v1; v++) {
         pdot(W, ls.zp + v, 0, (const char *) ls.bq + (size_t) v * ls.bq_row, 0, ls.hpq, 0, 1);
@@ -315,15 +318,30 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
     }
     const int64_t t2 = ggml_time_us();
 
-    // 3. the N best previews: local top-N per thread, then the global N-th value
-    const int nloc = v1 - v0, kk = ls.N < nloc ? ls.N : nloc;
-    memcpy(ls.sel + v0, ls.zp + v0, sizeof(float) * nloc);
-    if (kk > 0 && kk < nloc) { ls_kth_largest(ls.sel + v0, nloc, kk); }
-    ls.red_cnt[1][ith] = kk;
+    // 3. this thread's candidates: every preview above a threshold estimated from a 1-in-8 sample
+    //    at rank ~1.5 kk, so at least kk pass (if not, all pass); then the global N-th best of them
+    float * cv = ls.sel + v0;
+    int   * ci = ls.sel_idx + v0;
+    const int step = 8;
+    int ns = 0;
+    for (int v = v0; v < v1; v += step) { cv[ns++] = ls.zp[v]; }
+    const int ks = 3 * kk / (2 * step);
+    const float ts = ks >= 1 && ks < ns ? ls_kth_largest(cv, ns, ks) : -INFINITY;
+    int c = 0;
+    for (int v = v0; v < v1; v++) {
+        if (ls.zp[v] >= ts) { cv[c] = ls.zp[v]; ci[c] = v; c++; }
+    }
+    if (c < kk) {
+        c = 0;
+        for (int v = v0; v < v1; v++) { cv[c] = ls.zp[v]; ci[c] = v; c++; }
+    }
+    ls.red_cnt[1][ith] = c;
     ggml_barrier(params->threadpool);
     if (ith == 0) {
-        ls.gather = realloc(ls.gather, sizeof(float) * (size_t) nth * ls.N);
         int tot = 0;
+        for (int t = 0; t < nth; t++) { tot += ls.red_cnt[1][t]; }
+        ls.gather = realloc(ls.gather, sizeof(float) * (size_t) tot);
+        tot = 0;
         for (int t = 0; t < nth; t++) {
             memcpy(ls.gather + tot, ls.sel + (int) ((int64_t) V * t / nth), sizeof(float) * ls.red_cnt[1][t]);
             tot += ls.red_cnt[1][t];
@@ -334,10 +352,11 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
     const float tau = ls.red_max[1][0];
     const int64_t t3 = ggml_time_us();
 
-    // 4. exact logits for the candidates (legacy dot product)
+    // 4. exact logits for this thread's candidates at or above the global threshold (legacy dot product)
     int cnt = 0;
-    for (int v = v0; v < v1; v++) {
-        if (ls.zp[v] >= tau) {
+    for (int i = 0; i < c; i++) {
+        if (cv[i] >= tau) {
+            const int v = ci[i];
             tt->vec_dot(ls.d, out + v, 0, (const char *) w->data + (size_t) v * w->nb[1], 0, ls.hq, 0, 1);
             cnt++;
         }
