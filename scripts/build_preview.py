@@ -15,7 +15,8 @@ Layout (little endian, arrays start at multiples of 64 bytes):
   f32 R[width][hidden]    rows of V^T L^-1: h'[:width] = R h
   f32 B[vocab][width]     preview matrix (the kernel quantizes it to Q8_0 at load)
 Usage: build_preview.py <model.gguf> <calib_hidden.f32> <out.mclp> [--width 256] [--cands 2048] [--tensor NAME]
-Fits C on the first half of the calibration rows (as build_landscape.py does for its sketch).
+Fits C on the first half of the calibration rows by default (as build_landscape.py does for its
+sketch); the preview has no calibrated multipliers, so --fit-frac 1 may use all of them.
 """
 import argparse
 import os
@@ -36,6 +37,7 @@ def main():
     ap.add_argument("--width", type=int, default=256)
     ap.add_argument("--cands", type=int, default=2048)
     ap.add_argument("--tensor")
+    ap.add_argument("--fit-frac", type=float, default=0.5, help="leading fraction of calibration rows used for the fit")
     args = ap.parse_args()
 
     name, e, qtype = load_lm_head(args.model, args.tensor)
@@ -43,7 +45,7 @@ def main():
     if args.width % 32 or args.width > d:
         sys.exit("width must be a multiple of 32 and at most the hidden size")
     h = np.fromfile(args.calib, dtype=np.float32).reshape(-1, d)
-    h = h[: len(h) // 2]
+    h = h[: max(1, int(len(h) * args.fit_frac))]
     c = h.T.astype(np.float64) @ h / len(h)
     c += 1e-4 * np.trace(c) / d * np.eye(d)
     l = np.linalg.cholesky(c)
