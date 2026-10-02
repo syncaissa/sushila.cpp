@@ -54,6 +54,11 @@ typedef void (*ggml_mc_legacy_fn)(struct ggml_compute_params * params, struct gg
 // and applies to this tensor; returns false (doing nothing) otherwise. Called by every thread.
 bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * dst, ggml_mc_legacy_fn legacy);
 
+// GGML_MC_DUMP for mixture-of-experts matmuls (MUL_MAT_ID) of the kinds in GGML_MC_TENSORS (e.g.
+// ffn_down_exps) within GGML_MC_LAYERS: appends, per token and active expert, the expert id (int32)
+// and that expert's input row (float32) to <dir>/<weight name>.f32. Any mode, results unchanged.
+void ggml_mc_dump_mul_mat_id(const struct ggml_compute_params * params, const struct ggml_tensor * dst);
+
 #ifdef __cplusplus
 }
 #endif

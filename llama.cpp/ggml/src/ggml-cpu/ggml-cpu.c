@@ -1748,6 +1748,11 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
         return;
     }
 
+    // analysis aid: dump mixture-of-experts matmul inputs (only with GGML_MC_DUMP)
+    if (tensor->op == GGML_OP_MUL_MAT_ID) {
+        ggml_mc_dump_mul_mat_id(params, tensor);
+    }
+
     // pre-computed landscape search for the output layer (off unless GGML_LANDSCAPE is set)
     if (ggml_landscape_mul_mat(params, tensor)) {
         return;

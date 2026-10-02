@@ -563,3 +563,39 @@ bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * d
     }
     return true;
 }
+
+void ggml_mc_dump_mul_mat_id(const struct ggml_compute_params * params, const struct ggml_tensor * dst) {
+    pthread_once(&cfg_once, mc_init_config);
+    if (!cfg.dump_dir || params->ith != 0 || dst->op != GGML_OP_MUL_MAT_ID) {
+        return;
+    }
+    const struct ggml_tensor * w   = dst->src[0];
+    const struct ggml_tensor * x   = dst->src[1];
+    const struct ggml_tensor * ids = dst->src[2];
+    int  layer;
+    char kind[32];
+    if (sscanf(w->name, "blk.%d.%31[^.]", &layer, kind) != 2 || layer < cfg.layer_min || layer > cfg.layer_max) {
+        return;
+    }
+    bool want = false;
+    for (int i = 0; i < cfg.n_kinds; i++) { if (strcmp(kind, cfg.kinds[i]) == 0) { want = true; } }
+    if (!want) {
+        return;
+    }
+    GGML_ASSERT(x->type == GGML_TYPE_F32 && ids->type == GGML_TYPE_I32);
+    // analysis aid: per token and active expert slot, the int32 expert id followed by that expert's
+    // input row (K float32), appended to <dir>/<weight name>.f32
+    char path[512];
+    snprintf(path, sizeof(path), "%s/%s.f32", cfg.dump_dir, w->name);
+    FILE * f = fopen(path, "ab");
+    GGML_ASSERT(f);
+    for (int64_t t = 0; t < ids->ne[1]; t++) {
+        for (int64_t j = 0; j < ids->ne[0]; j++) {
+            const int32_t id = *(const int32_t *) ((const char *) ids->data + j * ids->nb[0] + t * ids->nb[1]);
+            const int64_t jx = x->ne[1] == 1 ? 0 : j;   // the input is shared by all slots when ne1 == 1
+            fwrite(&id, sizeof(int32_t), 1, f);
+            fwrite((const char *) x->data + jx * x->nb[1] + t * x->nb[2], sizeof(float), x->ne[0], f);
+        }
+    }
+    fclose(f);
+}
