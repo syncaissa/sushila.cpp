@@ -18,6 +18,17 @@ Top tokens are top because their unread remainder tends to point along h, so R_v
 the two sides are calibrated separately.
 Calibration must use hidden states from text the model is not evaluated on (WikiText-2 train).
 
+With --rank r the landscape also stores a low-rank sketch E ~ A B^T that predicts the direction of
+the remainder, not only its size:
+  A         f16 [V, r]         token factors
+  B         f32 [hidden, r]    input factors
+The search starts from P_v = A[v] . (B^T h) and each read group adds the residual part
+(E[v, g] - A[v] B_g^T) h_g, so after the last group P_v is the exact logit. Bounds and calibration
+then apply to the residual D = E - A B^T, and `norms`/`col_norms` hold the norms of D.
+The sketch is the rank-r weighted SVD minimising E||(E - A B^T) h||^2 over calibration hidden
+states; it is fitted on the first half of the calibration rows and the multipliers are calibrated
+on the second half.
+
 File: b"MCLS0001", u32 header length, UTF-8 JSON header (arrays listed with dtype, shape and byte
 offset from the start of the data section), then the arrays.
 
@@ -39,7 +50,7 @@ from gguf import GGUFReader  # noqa: E402
 from gguf.quants import dequantize  # noqa: E402
 
 MAGIC = b"MCLS0001"
-QUANTILES = (0.99, 0.999, 0.9999)
+QUANTILES = (0.99, 0.995, 0.998, 0.999, 0.9999)
 BITS = {"Q8_0": 8.5, "Q6_K": 6.5625, "Q5_K": 5.5, "Q4_K": 4.5, "Q5_0": 5.5, "Q4_0": 4.5, "F16": 16, "BF16": 16, "F32": 32}
 
 
@@ -65,11 +76,30 @@ def sha256_file(path):
     return h.hexdigest()
 
 
-def calibrate(e, norms, col_norms, h_cal, group, top_m, bins):
-    """Quantiles of remainder / sigma and -remainder / sigma for the top_m tokens, per search stage."""
+def fit_sketch(e, h_fit, rank):
+    """Rank-r A, B minimising sum over h_fit of ||(e - A B^T) h||^2 (weighted SVD)."""
+    d = e.shape[1]
+    c = h_fit.T.astype(np.float64) @ h_fit / len(h_fit)
+    c += 1e-4 * np.trace(c) / d * np.eye(d)                                       # ridge: c is near singular
+    l = np.linalg.cholesky(c)
+    eel = l.T @ (e.T.astype(np.float64) @ e) @ l                                   # (E L)^T (E L)
+    w, vecs = np.linalg.eigh(eel)
+    vr = vecs[:, ::-1][:, :rank]
+    a = (e @ (l @ vr).astype(np.float32))                                          # E L V_r = U_r S_r
+    b = np.linalg.solve(l.T, vr)                                                   # B^T h = V_r^T L^-1 h
+    captured = w[::-1][:rank].sum() / w.sum()
+    return a.astype(np.float16), b.astype(np.float32), captured
+
+
+def calibrate(e, norms, col_norms, h_cal, group, top_m, bins, a=None, b=None):
+    """Quantiles of remainder / sigma and -remainder / sigma for the top_m tokens, per search stage.
+    With a sketch (a, b), the remainder is that of the residual e - a b^T."""
     v, d = e.shape
     ng = d // group
     eg = e.reshape(v, ng, group)
+    if a is not None:
+        a = a.astype(np.float32)
+        bg = b.reshape(ng, group, -1)
     ratios = [[] for _ in range(bins)]
     norms2 = norms.astype(np.float64) ** 2
     for h in h_cal:
@@ -79,7 +109,12 @@ def calibrate(e, norms, col_norms, h_cal, group, top_m, bins):
         z = e @ h
         top = np.argpartition(-z, top_m)[:top_m]
         contrib = np.einsum("vgk,gk->vg", eg[top][:, order, :], hg[order])        # [top_m, ng] in read order
-        remainder = z[top][:, None] - np.cumsum(contrib, axis=1)                  # after k+1 groups read
+        zt = z[top]
+        if a is not None:
+            w = np.einsum("gkr,gk->gr", bg, hg)                                    # B_g^T h_g
+            contrib -= a[top] @ w[order].T
+            zt = zt - a[top] @ w.sum(0)
+        remainder = zt[:, None] - np.cumsum(contrib, axis=1)                      # after k+1 groups read
         var_g = norms2[top][:, order] * (hn[order] ** 2) / group
         sigma = np.sqrt(np.maximum(var_g.sum(1)[:, None] - np.cumsum(var_g, axis=1), 0))
         for k in range(ng - 1):                                                  # after the last group nothing is unread
@@ -134,6 +169,7 @@ def main():
     ap.add_argument("--n-cal", type=int, default=1000)
     ap.add_argument("--top-m", type=int, default=200)
     ap.add_argument("--bins", type=int, default=16)
+    ap.add_argument("--rank", type=int, default=0, help="low-rank sketch rank (0 = none)")
     ap.add_argument("--calib-source", default="unspecified")
     args = ap.parse_args()
 
@@ -142,24 +178,37 @@ def main():
     if d % args.group:
         sys.exit(f"group {args.group} does not divide the hidden size {d}")
     ng = d // args.group
-    norms = np.sqrt((e.reshape(v, ng, args.group) ** 2).sum(2)).astype(np.float16)
-    col_norms = np.sqrt((norms.astype(np.float64) ** 2).sum(0)).astype(np.float32)
-
     h_all = np.fromfile(args.calib, dtype=np.float32).reshape(-1, d)
+    sketch, a, b = [], None, None
+    if args.rank:
+        h_fit, h_all = h_all[: len(h_all) // 2], h_all[len(h_all) // 2:]
+        a, b, captured = fit_sketch(e, h_fit, args.rank)
+        sketch = [("A", a), ("B", b)]
+        resid = e - a.astype(np.float32) @ b.T
+    else:
+        resid = e
+    norms = np.sqrt((resid.reshape(v, ng, args.group) ** 2).sum(2)).astype(np.float16)
+    col_norms = np.sqrt((norms.astype(np.float64) ** 2).sum(0)).astype(np.float32)
+    del resid
+
     h_cal = h_all[np.linspace(min(16, len(h_all) - 1), len(h_all) - 1, min(args.n_cal, len(h_all))).astype(int)]
-    zq_hi, zq_lo = calibrate(e, norms, col_norms, h_cal, args.group, args.top_m, args.bins)
+    zq_hi, zq_lo = calibrate(e, norms, col_norms, h_cal, args.group, args.top_m, args.bins, a, b)
 
     header = {
         "format": "sushila-landscape", "version": 1, "kind": "lm_head",
         "model_sha256": sha256_file(args.model), "tensor": name, "tensor_type": qtype,
         "vocab": v, "hidden": d, "group": args.group, "lm_head_bytes": v * d * BITS.get(qtype, 16) / 8,
         "calibration": {"source": args.calib_source, "tokens": len(h_cal), "top_m": args.top_m},
-        "quantiles": list(QUANTILES), "bins": args.bins,
+        "quantiles": list(QUANTILES), "bins": args.bins, "rank": args.rank,
     }
-    write_mcl(args.out, header, [("norms", norms), ("col_norms", col_norms), ("zq_hi", zq_hi), ("zq_lo", zq_lo)])
+    if args.rank:
+        header["sketch"] = {"fit_tokens": len(h_fit), "captured": float(captured)}
+    write_mcl(args.out, header, [("norms", norms), ("col_norms", col_norms), ("zq_hi", zq_hi), ("zq_lo", zq_lo)] + sketch)
     size = os.path.getsize(args.out)
     print(f"{args.out}: {name} {v}x{d} {qtype}, group {args.group}, {size / 1e6:.1f} MB "
           f"({size / header['lm_head_bytes']:.1%} of lm_head), calibrated on {len(h_cal)} hidden states")
+    if args.rank:
+        print(f"rank-{args.rank} sketch fitted on {len(h_fit)} hidden states, captures {captured:.1%} of E[||E h||^2]")
     print("multipliers by stage (fraction of groups read): upper c_hi | lower c_lo, at quantiles", QUANTILES)
     for b in range(args.bins):
         print(f"  {b / args.bins:4.2f}-{(b + 1) / args.bins:4.2f}: " + " ".join(f"{x:6.2f}" for x in zq_hi[b])
