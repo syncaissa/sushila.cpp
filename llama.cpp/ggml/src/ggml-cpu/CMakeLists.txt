@@ -33,6 +33,8 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
         ggml-cpu/mc-matmul.h
         ggml-cpu/landscape-lmhead.c
         ggml-cpu/landscape-lmhead.h
+        ggml-cpu/landscape-sparse.c
+        ggml-cpu/landscape-sparse.h
         ggml-cpu/repack.cpp
         ggml-cpu/repack.h
         ggml-cpu/hbm.cpp

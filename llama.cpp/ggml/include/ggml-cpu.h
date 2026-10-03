@@ -37,6 +37,9 @@ extern "C" {
     GGML_BACKEND_API void    ggml_numa_init(enum ggml_numa_strategy numa); // call once for better performance on NUMA systems
     GGML_BACKEND_API bool    ggml_is_numa(void); // true if init detected that system has >1 NUMA node
 
+    // input-sparse decoding (GGML_SPARSE, landscape-sparse.h): switch it on or off at run time (default on)
+    GGML_BACKEND_API void    ggml_cpu_sparse_set_enabled(bool on);
+
     GGML_BACKEND_API struct ggml_tensor * ggml_new_i32(struct ggml_context * ctx, int32_t value);
     GGML_BACKEND_API struct ggml_tensor * ggml_new_f32(struct ggml_context * ctx, float value);
 

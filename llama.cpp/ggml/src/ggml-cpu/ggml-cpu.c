@@ -7,6 +7,7 @@
 #include "ggml-cpu-impl.h"
 #include "mc-matmul.h"
 #include "landscape-lmhead.h"
+#include "landscape-sparse.h"
 #include "ggml-impl.h"
 #include "quants.h"
 #include "ggml-threading.h"
@@ -1761,6 +1762,11 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
 
     // pre-computed landscape search for the output layer (off unless GGML_LANDSCAPE is set)
     if (ggml_landscape_mul_mat(params, tensor)) {
+        return;
+    }
+
+    // input-sparse matmul with a column-major copy (off unless GGML_SPARSE is set)
+    if (ggml_sparse_mul_mat(params, tensor)) {
         return;
     }
 
