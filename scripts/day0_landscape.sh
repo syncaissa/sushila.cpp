@@ -118,7 +118,7 @@ python3 "$SD/day0_manifest.py" write "$OUT/manifest.json" \
     "landscape=landscape.mclp" "landscape_sha256=sha256:$OUT/landscape.mclp" \
     "mode=$mode" "width=$W" "candidates=$N" "preview_type=$TYPE" \
     "bar={\"top1\": $THRESH, \"recall40\": $RECALL}" \
-    "calibration=\"mixed: WikiText-2 train, llama.cpp sources, model-generated chat and multilingual answers ($CAL_CHUNKS chunks)\"" \
+    "calibration=\"mixed: WikiText-2 train, llama.cpp sources, model-generated chat and multilingual answers (${CAL_CHUNKS:-18} chunks)\"" \
     "seconds={\"calibration\": $t_calib, \"build\": $t_build, \"total\": $(( $(date +%s) - t_start ))}" \
     "validation=$OUT/val.json" "test=$OUT/test.json" "license=$OUT/license.json" \
     "license_file=LICENSE.txt" "license_file_sha256=sha256:$OUT/LICENSE.txt" \
