@@ -74,10 +74,11 @@ static struct {
     struct sp_weight * cur;       // weight of the current call (set by thread 0)
     float            * partial;   // [nth][N] per-thread partial outputs when N is too small to split
     size_t             partial_cap;
+    double             prof[SP_MAX_THREADS][4];  // per thread, microseconds: select, accumulate, wait, reduce
     // statistics (per thread; summed at exit)
     double             cols_read[SP_MAX_THREADS], cols_total[SP_MAX_THREADS];
     double             bytes_read[SP_MAX_THREADS], bytes_total[SP_MAX_THREADS];
-    double             calls, us, build_us, acc_us, sel_us;
+    double             calls, us, build_us;
     const char       * cache_dir; // GGML_SPARSE_CACHE: directory of built copies (<tensor name>.spc), a day-0 artifact
     int                check;     // GGML_SPARSE_CHECK=n: compare the first n calls with the original weights
     double             check_err2, check_ref2, check_calls;
@@ -93,7 +94,18 @@ static void sp_summary(void) {
     for (int t = 0; t < SP_MAX_THREADS; t++) { cr += sp.cols_read[t]; ct += sp.cols_total[t]; br += sp.bytes_read[t]; bt += sp.bytes_total[t]; }
     fprintf(stderr, "sparse: calls=%.0f cols_frac=%.4f bytes_frac=%.4f us/call=%.1f (excluding %.1f s building the copies)\n",
             sp.calls, ct > 0 ? cr / ct : 0.0, bt > 0 ? br / bt : 0.0, sp.calls > 0 ? sp.us / sp.calls : 0.0, sp.build_us * 1e-6);
-    fprintf(stderr, "sparse: us/call select %.1f accumulate %.1f (thread 0)\n", sp.sel_us / sp.calls, sp.acc_us / sp.calls);
+    double pm[4] = {0}, px[4] = {0};
+    int nt = 0;
+    for (int t = 0; t < SP_MAX_THREADS; t++) {
+        if (sp.prof[t][1] == 0) { continue; }
+        nt++;
+        for (int k = 0; k < 4; k++) { pm[k] += sp.prof[t][k]; px[k] = fmax(px[k], sp.prof[t][k]); }
+    }
+    if (nt > 0 && sp.calls > 0) {
+        fprintf(stderr, "sparse: us/call mean (max) over %d threads: select %.1f (%.1f) accumulate %.1f (%.1f) wait %.1f (%.1f) reduce %.1f (%.1f)\n",
+                nt, pm[0] / nt / sp.calls, px[0] / sp.calls, pm[1] / nt / sp.calls, px[1] / sp.calls,
+                pm[2] / nt / sp.calls, px[2] / sp.calls, pm[3] / nt / sp.calls, px[3] / sp.calls);
+    }
     if (sp.check_calls > 0) {
         fprintf(stderr, "sparse: check over %.0f calls: relative error vs the original weights on the kept columns %.2e\n",
                 sp.check_calls, sqrt(sp.check_err2 / sp.check_ref2));
@@ -423,6 +435,55 @@ static void sp_accumulate(const struct sp_weight * e, const int32_t * kept, cons
     }
 }
 
+// Per-thread scratch, grown on demand (no allocation per call).
+static __thread int32_t * tl_kept;
+static __thread float   * tl_xk, * tl_samp, * tl_tmp, * tl_msum;
+static __thread int64_t   tl_cap_k, tl_cap_n;
+
+static void sp_scratch(int64_t K, int64_t N) {
+    if (K > tl_cap_k) {
+        free(tl_kept); free(tl_xk); free(tl_samp);
+        tl_kept = malloc(sizeof(int32_t) * K); tl_xk = malloc(sizeof(float) * K); tl_samp = malloc(sizeof(float) * (K / SP_SAMPLE + 1));
+        GGML_ASSERT(tl_kept && tl_xk && tl_samp);
+        tl_cap_k = K;
+    }
+    if (N > tl_cap_n) {
+        free(tl_tmp); free(tl_msum);
+        tl_tmp = malloc(sizeof(float) * N); tl_msum = malloc(sizeof(float) * (N / 32 + 1));
+        GGML_ASSERT(tl_tmp && tl_msum);
+        tl_cap_n = N;
+    }
+}
+
+// Kept columns with ranks [r0, r1) among all kept columns (score |x_i| ||W[:, i]|| >= tau, x_i != 0), in index order.
+static int sp_collect(const float * x, const float * norms, int64_t K, float tau, int r0, int r1, int32_t * kept, float * xk) {
+    int r = 0, n = 0;
+    for (int64_t i = 0; i < K && r < r1; i++) {
+        if (fabsf(x[i]) * norms[i] >= tau && x[i] != 0.0f) {
+            if (r >= r0) { kept[n] = (int32_t) i; xk[n++] = x[i]; }
+            r++;
+        }
+    }
+    return n;
+}
+
+// Number of kept columns (vectorized).
+static int sp_count(const float * x, const float * norms, int64_t K, float tau) {
+    int64_t i = 0;
+    int n = 0;
+#if defined(__AVX2__)
+    const __m256 vt = _mm256_set1_ps(tau), sign = _mm256_set1_ps(-0.0f), zero = _mm256_setzero_ps();
+    for (; i + 8 <= K; i += 8) {
+        const __m256 vx = _mm256_loadu_ps(x + i);
+        const __m256 sc = _mm256_mul_ps(_mm256_andnot_ps(sign, vx), _mm256_loadu_ps(norms + i));
+        const __m256 m  = _mm256_and_ps(_mm256_cmp_ps(sc, vt, _CMP_GE_OQ), _mm256_cmp_ps(vx, zero, _CMP_NEQ_OQ));
+        n += __builtin_popcount((unsigned) _mm256_movemask_ps(m));
+    }
+#endif
+    for (; i < K; i++) { n += fabsf(x[i]) * norms[i] >= tau && x[i] != 0.0f; }
+    return n;
+}
+
 bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * dst) {
     pthread_once(&sp_once, sp_init);
     float budget = 1.0f;
@@ -434,115 +495,122 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
     const float * x = (const float *) dst->src[1]->data;
     float * y = (float *) dst->data;
     const int ith = params->ith, nth = params->nth;
-    const int64_t K = w->ne[0], N = w->ne[1], bs = ggml_blck_size(w->type);
+    const int64_t K = w->ne[0], N = w->ne[1];
     GGML_ASSERT(nth <= SP_MAX_THREADS);
-    const int64_t t_start = ith == 0 ? ggml_time_us() : 0;
+    const int64_t t_start = ggml_time_us();
 
-    // the weight's copy (thread 0 finds or creates it; all threads build a new one)
-    if (ith == 0) {
-        struct sp_weight * e = sp.list;
-        while (e && e->src != w->data) { e = e->next; }
-        if (!e) {
-            e = calloc(1, sizeof(*e));
-            GGML_ASSERT(e);
-            e->src = w->data; e->K = K; e->N = N; e->kind = kind;
-            e->type = sp.copy_type != GGML_TYPE_COUNT ? sp.copy_type : w->type;
-            e->col_bytes = e->type == GGML_TYPE_Q4_K ? sizeof(sp_q4k) * (size_t) (N / QK_K) : ggml_row_size(e->type, N);
-            e->fd = -1;
-            sp_open_cache(e, w->name);
-            if (!e->cached) {
-                e->data  = malloc(e->col_bytes * (size_t) K);
-                e->norms = malloc(sizeof(float) * (size_t) K);
-                GGML_ASSERT(e->data && e->norms);
-            } else {
-                e->ready = 1;
+    // the weight's copy. Fast path (no barrier): every thread finds it ready. The ready flag only changes inside
+    // the slow path below, which all threads of the call take together, so all threads agree on the path.
+    struct sp_weight * e = sp.list;
+    while (e && e->src != w->data) { e = e->next; }
+    if (!e || !e->ready) {
+        if (ith == 0) {
+            e = sp.list;
+            while (e && e->src != w->data) { e = e->next; }
+            if (!e) {
+                e = calloc(1, sizeof(*e));
+                GGML_ASSERT(e);
+                e->src = w->data; e->K = K; e->N = N; e->kind = kind;
+                e->type = sp.copy_type != GGML_TYPE_COUNT ? sp.copy_type : w->type;
+                e->col_bytes = e->type == GGML_TYPE_Q4_K ? sizeof(sp_q4k) * (size_t) (N / QK_K) : ggml_row_size(e->type, N);
+                e->fd = -1;
+                sp_open_cache(e, w->name);
+                if (!e->cached) {
+                    e->data  = malloc(e->col_bytes * (size_t) K);
+                    e->norms = malloc(sizeof(float) * (size_t) K);
+                    GGML_ASSERT(e->data && e->norms);
+                }
+                e->next = sp.list;
+                __atomic_store_n(&sp.list, e, __ATOMIC_RELEASE);   // published fully initialized (other threads read the list)
             }
-            e->next = sp.list;
-            sp.list = e;
+            sp.cur = e;
         }
-        sp.cur = e;
-        const size_t need = sizeof(float) * (size_t) nth * N;
-        if (need > sp.partial_cap) { free(sp.partial); sp.partial = malloc(need); GGML_ASSERT(sp.partial); sp.partial_cap = need; }
-    }
-    ggml_barrier(params->threadpool);
-    struct sp_weight * e = sp.cur;
-    if (!e->ready) {
-        sp_build(params, w, e);
+        ggml_barrier(params->threadpool);
+        e = sp.cur;
+        if (!e->cached) {
+            sp_build(params, w, e);
+        }
         ggml_barrier(params->threadpool);
         if (ith == 0) {
-            e->ready = 1;
             sp.build_us += (double) (ggml_time_us() - t_start);
             if (e->fd >= 0) { close(e->fd); e->fd = -1; }
+            e->ready = 1;
         }
         ggml_barrier(params->threadpool);
     }
-    const int64_t t_compute = ith == 0 ? ggml_time_us() : 0;
+    const int64_t t_compute = ggml_time_us();
+    sp_scratch(K, N);
 
-    // kept columns: score |x_i| ||W[:, i]||, threshold from a 1-in-SP_SAMPLE sample (identical in every thread)
+    // threshold from a 1-in-SP_SAMPLE sample of the scores (identical in every thread), then this thread's share
+    // of the kept columns by rank (balanced, contiguous runs in index order)
     const int64_t n_keep = (int64_t) llroundf(budget * (float) K);
-    int32_t * kept  = malloc(sizeof(int32_t) * K);
-    float   * xk    = malloc(sizeof(float) * K);
-    float   * score = malloc(sizeof(float) * K);
-    float   * samp  = malloc(sizeof(float) * (K / SP_SAMPLE + 1));
-    int n_kept = 0;
-    if (n_keep >= K) {
-        for (int64_t i = 0; i < K; i++) { kept[n_kept] = (int32_t) i; xk[n_kept++] = x[i]; }
-    } else {
+    float tau = 0.0f;
+    if (n_keep < K) {
         int ns = 0;
-        for (int64_t i = 0; i < K; i++) {
-            score[i] = fabsf(x[i]) * e->norms[i];
-            if (i % SP_SAMPLE == 0) { samp[ns++] = score[i]; }
-        }
+        for (int64_t i = 0; i < K; i += SP_SAMPLE) { tl_samp[ns++] = fabsf(x[i]) * e->norms[i]; }
         int ks = (int) ((n_keep + SP_SAMPLE - 1) / SP_SAMPLE);
         ks = ks < 1 ? 1 : (ks > ns ? ns : ks);
-        const float tau = sp_kth_largest(samp, ns, ks);
-        for (int64_t i = 0; i < K; i++) {
-            if (score[i] >= tau && x[i] != 0.0f) { kept[n_kept] = (int32_t) i; xk[n_kept++] = x[i]; }
-        }
+        tau = sp_kth_largest(tl_samp, ns, ks);
+    } else {
+        tau = -1.0f;   // keep every column with x_i != 0
     }
-    // each thread adds its share of the kept columns (whole columns: contiguous reads), then the partial outputs
-    // are summed, each thread over its part of the output
-    float * tmp  = malloc(sizeof(float) * N);
-    float * msum = malloc(sizeof(float) * (N / 32 + 1));
+    const int n_kept = sp_count(x, e->norms, K, tau);
+    const int c0 = (int) ((int64_t) n_kept * ith / nth), c1 = (int) ((int64_t) n_kept * (ith + 1) / nth);
+    const int my = sp_collect(x, e->norms, K, tau, c0, c1, tl_kept, tl_xk);
+    const int64_t t_sel = ggml_time_us();
+
+    // partial outputs: one N-vector per thread (grown by thread 0 on the slow path of a larger weight)
+    if (sp.partial_cap < sizeof(float) * (size_t) nth * N) {
+        ggml_barrier(params->threadpool);
+        if (ith == 0) { free(sp.partial); sp.partial = malloc(sizeof(float) * (size_t) nth * N); GGML_ASSERT(sp.partial); sp.partial_cap = sizeof(float) * (size_t) nth * N; }
+        ggml_barrier(params->threadpool);
+    }
     float * pt = sp.partial + (size_t) ith * N;
     memset(pt, 0, sizeof(float) * (size_t) N);
-    const int c0 = (int) ((int64_t) n_kept * ith / nth), c1 = (int) ((int64_t) n_kept * (ith + 1) / nth);
-    const int64_t ta = ith == 0 ? ggml_time_us() : 0;
-    sp_accumulate(e, kept + c0, xk + c0, c1 - c0, pt, tmp, msum);
-    if (ith == 0) { sp.acc_us += (double) (ggml_time_us() - ta); sp.sel_us += (double) (ta - t_compute); }
+    sp_accumulate(e, tl_kept, tl_xk, my, pt, tl_tmp, tl_msum);
+    const int64_t t_acc = ggml_time_us();
     ggml_barrier(params->threadpool);
+    const int64_t t_bar = ggml_time_us();
     const int64_t n0 = N * ith / nth, n1 = N * (ith + 1) / nth;
-    for (int64_t n = n0; n < n1; n++) {
-        float s = 0;
-        for (int t = 0; t < nth; t++) { s += sp.partial[(size_t) t * N + n]; }
-        y[n] = s;
+    memcpy(y + n0, sp.partial + n0, sizeof(float) * (size_t) (n1 - n0));
+    for (int t = 1; t < nth; t++) {
+        const float * pp = sp.partial + (size_t) t * N;
+        for (int64_t n = n0; n < n1; n++) { y[n] += pp[n]; }
     }
-    free(msum);
-    if (ith == 0 && sp.check_calls < sp.check) {
-        // reference on the kept columns from the original row-major weights (copy, kernel and selection check)
+    const int64_t t_end = ggml_time_us();
+    sp.prof[ith][0] += (double) (t_sel - t_compute);
+    sp.prof[ith][1] += (double) (t_acc - t_sel);
+    sp.prof[ith][2] += (double) (t_bar - t_acc);
+    sp.prof[ith][3] += (double) (t_end - t_bar);
+    sp.cols_read[ith] += my;
+    sp.bytes_read[ith] += (double) my * e->col_bytes;
+
+    if (sp.check_calls < sp.check) {
+        // reference on all kept columns from the original row-major weights (thread 0; others wait)
         ggml_barrier(params->threadpool);
-        const ggml_to_float_t to_float = ggml_get_type_traits(w->type)->to_float;
-        float * row = malloc(sizeof(float) * K);
-        for (int64_t n = 0; n < N; n++) {
-            to_float((const char *) w->data + n * w->nb[1], row, K);
-            double r = 0;
-            for (int c = 0; c < n_kept; c++) { r += (double) row[kept[c]] * xk[c]; }
-            sp.check_err2 += ((double) y[n] - r) * ((double) y[n] - r);
-            sp.check_ref2 += r * r;
+        if (ith == 0) {
+            int32_t * kept = malloc(sizeof(int32_t) * K);
+            float   * xk   = malloc(sizeof(float) * K);
+            const int nk = sp_collect(x, e->norms, K, tau, 0, n_kept, kept, xk);
+            const ggml_to_float_t to_float = ggml_get_type_traits(w->type)->to_float;
+            float * row = malloc(sizeof(float) * K);
+            for (int64_t n = 0; n < N; n++) {
+                to_float((const char *) w->data + n * w->nb[1], row, K);
+                double r = 0;
+                for (int c = 0; c < nk; c++) { r += (double) row[kept[c]] * xk[c]; }
+                sp.check_err2 += ((double) y[n] - r) * ((double) y[n] - r);
+                sp.check_ref2 += r * r;
+            }
+            free(row); free(kept); free(xk);
+            sp.check_calls += 1;
         }
-        free(row);
-        sp.check_calls += 1;
-    } else if (sp.check_calls < sp.check) {
         ggml_barrier(params->threadpool);
     }
     if (ith == 0) {
-        sp.cols_read[0]  += n_kept;
-        sp.cols_total[0] += (double) K;
-        sp.bytes_read[0] += (double) n_kept * e->col_bytes;
+        sp.cols_total[0]  += (double) K;
         sp.bytes_total[0] += (double) K * e->col_bytes;
         sp.calls += 1;
-        sp.us += (double) (ggml_time_us() - t_compute);
+        sp.us += (double) (t_end - t_compute);
     }
-    free(kept); free(xk); free(score); free(samp); free(tmp);
     return true;
 }
