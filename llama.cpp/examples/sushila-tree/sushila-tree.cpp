@@ -167,6 +167,10 @@ int main(int argc, char ** argv) {
     }
     std::vector<float> pending(g.begin() + (size_t) (N - 1) * n_embd_dec, g.begin() + (size_t) N * n_embd_dec);
     int L = N;   // committed tokens 0..L-1 are in both caches; cur (position L) is not yet in the target cache
+    // draft pairs of the last commit, decoded together with the next seed (one draft call instead of two)
+    std::vector<llama_token> pend_tok;
+    std::vector<llama_pos>   pend_pos;
+    std::vector<float>       pend_g;
 
     std::vector<llama_token> out = { cur };
     int n_cycles = 0, n_accepted = 0, n_tree = 0;
@@ -178,13 +182,16 @@ int main(int argc, char ** argv) {
         const int64_t c0 = ggml_time_us();
         std::vector<node> nodes;
         nodes.push_back({ cur, -1, 0, 0.0f, 0, {} });
-        // seed: pair (cur, pending) at draft position L-1 in sequence 0 -> children of the root
-        llama_memory_seq_rm(mem_dft, 0, L - 1, -1);
+        // seed: the last commit's pairs, then (cur, pending) at draft position L-1 in sequence 0 -> children of the root
+        llama_memory_seq_rm(mem_dft, 0, pend_pos.empty() ? L - 1 : pend_pos[0], -1);
         common_batch_clear(bd);
+        for (size_t i = 0; i < pend_tok.size(); i++) { bd_add(pend_tok[i], pend_pos[i], 0, pend_g.data() + i * n_embd_dec, false); }
+        pend_tok.clear(); pend_pos.clear(); pend_g.clear();
         bd_add(cur, L - 1, 0, pending.data(), true);
+        const int i_seed = bd.n_tokens - 1;
         if (llama_decode(ctx_dft, bd) != 0) { LOG_ERR("draft seed failed\n"); return 1; }
-        nodes[0].prenorm.assign(llama_get_embeddings_nextn_ith(ctx_dft, 0), llama_get_embeddings_nextn_ith(ctx_dft, 0) + n_embd_dec);
-        topk_logprobs(llama_get_logits_ith(ctx_dft, 0), n_vocab_dft, K, top);
+        nodes[0].prenorm.assign(llama_get_embeddings_nextn_ith(ctx_dft, i_seed), llama_get_embeddings_nextn_ith(ctx_dft, i_seed) + n_embd_dec);
+        topk_logprobs(llama_get_logits_ith(ctx_dft, i_seed), n_vocab_dft, K, top);
         std::vector<int> frontier;
         for (auto & [lp, t] : top) { nodes.push_back({ t, 0, 1, lp, -1, {} }); frontier.push_back((int) nodes.size() - 1); }
         int buf = 0;
@@ -281,9 +288,11 @@ int main(int argc, char ** argv) {
 
         // draft: pairs (token[P+1], g[P]) for the root and accepted nodes, P = L .. L+m-1; g[L+m] becomes pending
         if (!encode_rows(acc_rows)) { LOG_ERR("encode failed\n"); return 1; }
-        common_batch_clear(bd);
-        for (int i = 0; i < m; i++) { bd_add(nodes[tree[acc_rows[i + 1]]].tok, L + i, 0, g.data() + (size_t) i * n_embd_dec, false); }
-        if (bd.n_tokens > 0 && llama_decode(ctx_dft, bd) != 0) { LOG_ERR("draft commit failed\n"); return 1; }
+        for (int i = 0; i < m; i++) {   // decoded with the next seed
+            pend_tok.push_back(nodes[tree[acc_rows[i + 1]]].tok);
+            pend_pos.push_back(L + i);
+            pend_g.insert(pend_g.end(), g.begin() + (size_t) i * n_embd_dec, g.begin() + (size_t) (i + 1) * n_embd_dec);
+        }
         pending.assign(g.begin() + (size_t) m * n_embd_dec, g.begin() + (size_t) (m + 1) * n_embd_dec);
 
         L += m + 1;
