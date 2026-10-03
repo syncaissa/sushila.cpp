@@ -170,10 +170,12 @@ int main(int argc, char ** argv) {
 
     std::vector<llama_token> out = { cur };
     int n_cycles = 0, n_accepted = 0, n_tree = 0;
+    double us_draft = 0, us_verify = 0, us_commit = 0;
     std::vector<std::pair<float, llama_token>> top;
     const int64_t t0 = ggml_time_us();
     while ((int) out.size() < n_gen && !llama_vocab_is_eog(vocab, cur)) {
         // ---- 1. draft a tree ----
+        const int64_t c0 = ggml_time_us();
         std::vector<node> nodes;
         nodes.push_back({ cur, -1, 0, 0.0f, 0, {} });
         // seed: pair (cur, pending) at draft position L-1 in sequence 0 -> children of the root
@@ -228,6 +230,7 @@ int main(int argc, char ** argv) {
         std::vector<char> has_child(nodes.size(), 0);
         for (size_t r = 1; r < tree.size(); r++) { has_child[nodes[tree[r]].parent] = 1; }
 
+        const int64_t c1 = ggml_time_us();
         // ---- 2. verify the tree in one target batch ----
         std::vector<std::vector<llama_seq_id>> seqs(tree.size());
         llama_seq_id n_leaf = 0;
@@ -259,6 +262,7 @@ int main(int argc, char ** argv) {
             if ((int) out.size() >= n_gen) { break; }
         }
         const int m = (int) acc_rows.size() - 1;
+        const int64_t c2 = ggml_time_us();
         n_cycles++; n_accepted += m; n_tree += (int) tree.size() - 1;
 
         // ---- 3. commit: accepted path into sequence 0, drop the branches ----
@@ -284,6 +288,8 @@ int main(int argc, char ** argv) {
 
         L += m + 1;
         cur = next_tok;
+        const int64_t c3 = ggml_time_us();
+        us_draft += c1 - c0; us_verify += c2 - c1; us_commit += c3 - c2;
         if ((int) out.size() < n_gen) { out.push_back(cur); }
     }
     const double dt = (ggml_time_us() - t0) / 1e6;
@@ -294,6 +300,9 @@ int main(int argc, char ** argv) {
     LOG_INF("sushila-tree: depth=%d k=%d nt=%d generated %zu tokens in %.3f s, %.3f t/s; cycles=%d accepted/cycle=%.2f tokens/cycle=%.2f tree=%.1f\n",
             D, K, NT, out.size(), dt, (out.size() - 1) / dt, n_cycles, n_cycles ? (double) n_accepted / n_cycles : 0.0,
             n_cycles ? (double) (n_accepted + n_cycles) / n_cycles : 0.0, n_cycles ? (double) n_tree / n_cycles : 0.0);
+    if (n_cycles > 0) {
+        LOG_INF("sushila-tree: ms/cycle draft %.2f verify %.2f commit %.2f\n", us_draft / n_cycles / 1e3, us_verify / n_cycles / 1e3, us_commit / n_cycles / 1e3);
+    }
     if (const char * f = getenv("SUSHILA_OUT")) {
         FILE * fo = fopen(f, "w");
         for (auto id : out) { fprintf(fo, "%d\n", id); }
