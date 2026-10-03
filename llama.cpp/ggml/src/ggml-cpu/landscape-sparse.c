@@ -311,7 +311,10 @@ static float sp_kth_largest(float * a, int n, int k) {
 #ifndef SP_PF
 #define SP_PF 2    // superblocks prefetched ahead
 #endif
-#define SP_CH 32   // columns per chunk (one int8 coefficient scale per chunk, superblock and sub-block)
+#ifndef SP_CH
+#define SP_CH 32   // columns per chunk (one int8 coefficient scale per chunk, superblock and sub-block); the output
+                   // is loaded and stored once per chunk
+#endif
 // Integer Q4_K accumulation: per chunk of SP_CH columns, superblock s and 32-value sub-block j, the coefficients
 // a = x d sc_j are quantized to int8 with one scale; pairs of columns are interleaved and multiplied with maddubs
 // (4-bit q x int8 a -> int16), summed over 8 pairs in int16 (|sum| <= 8 * 2 * 15 * 127 < 32768), widened to int32,
