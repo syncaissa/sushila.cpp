@@ -319,6 +319,12 @@ bool ggml_cuda_should_use_mmvq(enum ggml_type type, int cc, int64_t ne11) {
     if (!ggml_is_quantized(type)) {
         return false;
     }
+    // Sushila: GGML_CUDA_MMVQ_MAX_BATCH=n overrides the switch from the vector kernel (MMVQ) to MMQ for k-quants,
+    // e.g. to tune speculative verification batches (2..16 tokens) on GPUs without a tuned table (Ampere)
+    static const int mmvq_override = getenv("GGML_CUDA_MMVQ_MAX_BATCH") ? atoi(getenv("GGML_CUDA_MMVQ_MAX_BATCH")) : -1;
+    if (mmvq_override >= 0 && type >= GGML_TYPE_Q2_K && type <= GGML_TYPE_Q6_K) {
+        return ne11 <= mmvq_override;
+    }
     // k-quants cost more to decode and mvq redoes that per column, so MMQ wins sooner.
     // Only list quant-types MMQ supports, others would fall back to cuBLAS.
     if (GGML_CUDA_CC_IS_NVIDIA(cc) && cc == GGML_CUDA_CC_ADA_LOVELACE) {
