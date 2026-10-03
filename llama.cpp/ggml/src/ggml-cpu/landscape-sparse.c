@@ -76,7 +76,7 @@ static struct {
     float            * partial;   // [nth][N] per-thread partial outputs when N is too small to split
     size_t             partial_cap;
     double             prof[SP_MAX_THREADS][4];
-    int                next_item;   // shared work counter of the current call (reset by thread 0 after use)  // per thread, microseconds: select, accumulate, wait, reduce
+    int64_t            next_col;    // shared work counter of the current call (reset by thread 0 after use)  // per thread, microseconds: select, accumulate, wait, reduce
     // statistics (per thread; summed at exit)
     double             cols_read[SP_MAX_THREADS], cols_total[SP_MAX_THREADS];
     double             bytes_read[SP_MAX_THREADS], bytes_total[SP_MAX_THREADS];
@@ -563,14 +563,18 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
     float * pt = sp.partial + (size_t) ith * N;
     memset(pt, 0, sizeof(float) * (size_t) N);
     memset(tl_msum, 0, sizeof(float) * (size_t) (N / 32));
-    // dynamic work sharing: threads take blocks of SP_KCH input columns until none are left, so threads that are
-    // faster (or have fewer kept columns in their blocks) take more
-    const int n_items = (int) ((K + SP_KCH - 1) / SP_KCH);
+    // guided work sharing: threads take contiguous blocks of input columns from a shared counter, large first
+    // (remaining / (2 nth), long contiguous streams) and down to SP_KCH at the end (balance)
     int my = 0;
     for (;;) {
-        const int it = __atomic_fetch_add(&sp.next_item, 1, __ATOMIC_RELAXED);
-        if (it >= n_items) { break; }
-        const int64_t i0 = (int64_t) it * SP_KCH, i1 = i0 + SP_KCH < K ? i0 + SP_KCH : K;
+        int64_t i0 = __atomic_load_n(&sp.next_col, __ATOMIC_RELAXED), len;
+        do {
+            if (i0 >= K) { break; }
+            len = (K - i0) / (2 * nth);
+            len = len < SP_KCH ? SP_KCH : (len / SP_KCH) * SP_KCH;
+        } while (!__atomic_compare_exchange_n(&sp.next_col, &i0, i0 + len, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+        if (i0 >= K) { break; }
+        const int64_t i1 = i0 + len < K ? i0 + len : K;
         int n = 0;
         for (int64_t i = i0; i < i1; i++) {
             if (fabsf(x[i]) * e->norms[i] >= tau && x[i] != 0.0f) { tl_kept[n] = (int32_t) i; tl_xk[n++] = x[i]; }
@@ -582,7 +586,7 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
     }
     const int64_t t_acc = ggml_time_us();
     ggml_barrier(params->threadpool);
-    if (ith == 0) { sp.next_item = 0; }   // every thread is past its last fetch; the next call starts after a graph barrier
+    if (ith == 0) { sp.next_col = 0; }   // every thread is past its last fetch; the next call starts after a graph barrier
     const int64_t t_bar = ggml_time_us();
     const int64_t n0 = N * ith / nth, n1 = N * (ith + 1) / nth;
     memcpy(y + n0, sp.partial + n0, sizeof(float) * (size_t) (n1 - n0));
