@@ -14,6 +14,7 @@ static const char * mc_mode_names[] = { "off", "exact", "mc", "zeros", "topk", "
 
 #define MC_MAX_KINDS   16
 #define MC_MAX_THREADS 512
+#define MC_MAX_LAYERS  512
 
 static struct {
     enum mc_mode mode;
@@ -27,6 +28,7 @@ static struct {
     bool         stats;
     const char * cv_path;
     const char * dump_dir;
+    float        layer_budget[MC_MAX_LAYERS][MC_MAX_KINDS]; // GGML_MC_BUDGETS; < 0: use budget
 } cfg;
 
 // Per-kind statistics. calls is written by thread 0 only; the rest by each thread into its own slot.
@@ -137,6 +139,31 @@ static struct mc_cv * mc_get_cv(const struct ggml_tensor * w, int64_t K, int64_t
     return NULL;
 }
 
+// GGML_MC_BUDGETS=<file>: per-layer, per-kind topk budgets (a calibrated landscape), one "layer kind budget"
+// per line; layer may be "*" for all layers; '#' starts a comment. Unlisted weights use GGML_MC_BUDGET.
+static void mc_load_budgets(const char * path) {
+    FILE * f = fopen(path, "r");
+    if (!f) { GGML_ABORT("mc: cannot open GGML_MC_BUDGETS file '%s'", path); }
+    char line[256], ls[32], kind[32];
+    float b;
+    int n = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (line[0] == '#' || sscanf(line, "%31s %31s %f", ls, kind, &b) != 3) {
+            continue;
+        }
+        int k = -1;
+        for (int i = 0; i < cfg.n_kinds; i++) { if (strcmp(kind, cfg.kinds[i]) == 0) { k = i; } }
+        if (k < 0) { GGML_ABORT("mc: GGML_MC_BUDGETS kind '%s' is not in GGML_MC_TENSORS", kind); }
+        GGML_ASSERT(b >= 0.0f && b <= 1.0f);
+        const int l0 = strcmp(ls, "*") == 0 ? 0 : atoi(ls), l1 = strcmp(ls, "*") == 0 ? MC_MAX_LAYERS - 1 : atoi(ls);
+        GGML_ASSERT(l0 >= 0 && l1 < MC_MAX_LAYERS);
+        for (int l = l0; l <= l1; l++) { cfg.layer_budget[l][k] = b; }
+        n++;
+    }
+    fclose(f);
+    fprintf(stderr, "mc: loaded %d budget lines from %s\n", n, path);
+}
+
 static void mc_init_config(void) {
     const char * s;
     cfg.mode = MC_OFF;
@@ -179,6 +206,11 @@ static void mc_init_config(void) {
             cfg.stats, cfg.cv_path ? cfg.cv_path : "none");
     if (cfg.cv_path) {
         mc_load_cv(cfg.cv_path);
+    }
+    for (int l = 0; l < MC_MAX_LAYERS; l++) { for (int k = 0; k < MC_MAX_KINDS; k++) { cfg.layer_budget[l][k] = -1.0f; } }
+    if ((s = getenv("GGML_MC_BUDGETS"))) {
+        GGML_ASSERT(cfg.mode == MC_TOPK);
+        mc_load_budgets(s);
     }
     atexit(mc_print_summary);
 }
@@ -268,6 +300,7 @@ static struct {
     size_t           cap[8];  // capacity in bytes of each array above, in order
     const float    * norms;   // group scores use these column-group norms (residual ones with a CV)
     struct mc_cv   * cv;
+    float            budget;  // topk budget of this call (per layer and kind with GGML_MC_BUDGETS)
     int              kind;
     uint64_t         call;
 } sc;
@@ -314,7 +347,7 @@ static int64_t mc_select(const float * x, int64_t K, int64_t t, struct mc_pair *
     int64_t n_exact = 0, m = 0;
     switch (cfg.mode) {
         case MC_EXACT:   n_exact = n_groups; break;
-        case MC_TOPK:    n_exact = llroundf(cfg.budget * (float) n_groups); break;
+        case MC_TOPK:    n_exact = llroundf(sc.budget * (float) n_groups); break;
         case MC_ZEROS:   n_exact = llroundf(cfg.exact  * (float) n_groups); break;
         case MC_MC:
         case MC_PLACEBO: n_exact = llroundf(cfg.exact  * (float) n_groups);
@@ -456,6 +489,10 @@ bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * d
     }
     if (ith == 0) {
         sc.kind    = kind;
+        int layer  = 0;
+        sscanf(src0->name, "blk.%d.", &layer);
+        sc.budget  = layer >= 0 && layer < MC_MAX_LAYERS && cfg.layer_budget[layer][kind] >= 0.0f
+                   ? cfg.layer_budget[layer][kind] : cfg.budget;
         sc.call    = stats[kind].calls++ ^ ((uint64_t) kind << 56);
         sc.x_exact = mc_grow(sc.x_exact, &sc.cap[0], T * K * sizeof(float));
         sc.x_tail  = mc_grow(sc.x_tail,  &sc.cap[1], T * K * sizeof(float));

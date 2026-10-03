@@ -123,8 +123,26 @@ llama_model_llama::graph<embed>::graph(const llama_model & model, const llm_grap
 
     ggml_tensor * inp_out_ids = build_inp_out_ids();
 
+    // Research switch: LLAMA_SKIP_LAYERS=a-b,c,... skips whole layers (identity residual); never the last layer.
+    static const std::vector<bool> skip_layer = [] {
+        std::vector<bool> v(4096, false);
+        if (const char * e = getenv("LLAMA_SKIP_LAYERS")) {
+            for (const char * c = e; *c; ) {
+                int a = atoi(c), b = a;
+                while (*c && *c != ',' && *c != '-') { c++; }
+                if (*c == '-') { c++; b = atoi(c); while (*c && *c != ',') { c++; } }
+                for (int i = a; i <= b && i < 4096; i++) { if (i >= 0) { v[i] = true; } }
+                if (*c) { c++; }
+            }
+        }
+        return v;
+    }();
+
     for (int il = 0; il < n_layer; ++il) {
         res->t_layer_inp[il] = inpL;
+        if (skip_layer[il] && il != n_layer - 1) {
+            continue;
+        }
 
         ggml_tensor * inpSA = inpL;
 
