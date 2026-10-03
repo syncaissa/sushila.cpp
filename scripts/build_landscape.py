@@ -131,7 +131,7 @@ def fit_sketch(e, h_fit, rank):
     eel = l.T @ (ed.T @ ed) @ l                                                    # (E L)^T (E L)
     del ed
     w, vecs = np.linalg.eigh(eel)
-    vr = vecs[:, ::-1][:, :rank]
+    vr = np.ascontiguousarray(vecs[:, ::-1][:, :rank])                             # negative strides would bypass BLAS
     a = (e @ (l @ vr).astype(np.float32))                                          # E L V_r = U_r S_r
     b = np.linalg.solve(l.T, vr)                                                   # B^T h = V_r^T L^-1 h
     captured = w[::-1][:rank].sum() / w.sum()

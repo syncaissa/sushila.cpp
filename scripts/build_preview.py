@@ -54,7 +54,7 @@ def main():
     gram = ed.T @ ed
     del ed
     w, vecs = np.linalg.eigh(l.T @ gram @ l)
-    vr = vecs[:, ::-1][:, : args.width]
+    vr = np.ascontiguousarray(vecs[:, ::-1][:, : args.width])         # reversed view has negative strides: BLAS needs a copy
     r = (vr.T @ np.linalg.inv(l)).astype(np.float32)                 # [width][hidden]
     b = (e @ (l @ vr).astype(np.float32)).astype(np.float32)          # [vocab][width]
     with open(args.out, "wb") as f:
