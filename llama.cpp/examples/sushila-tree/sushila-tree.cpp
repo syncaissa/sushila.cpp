@@ -76,6 +76,10 @@ int main(int argc, char ** argv) {
     const int K  = getenv("SUSHILA_TREE_K")  ? atoi(getenv("SUSHILA_TREE_K"))  : 8;
     const int NT = getenv("SUSHILA_TREE_NT") ? atoi(getenv("SUSHILA_TREE_NT")) : 32;
     const int n_gen = params.n_predict > 0 ? params.n_predict : 256;
+    // fusing the commit pairs into the next seed decode lowers acceptance (measured 4.55 -> 2.98 tokens/cycle): off by default
+    const bool fuse = getenv("SUSHILA_TREE_FUSE") != nullptr && atoi(getenv("SUSHILA_TREE_FUSE")) != 0;
+    // chain verification in sequence 0 only (no leaf sequences), to measure the cost of multi-sequence verification
+    const bool one_seq = K == 1 && getenv("SUSHILA_TREE_ONESEQ") != nullptr;
 
     // target: one sequence per leaf (at most NT) plus the committed sequence 0, unified KV cache
     params.n_parallel = NT + 1;
@@ -174,7 +178,7 @@ int main(int argc, char ** argv) {
 
     std::vector<llama_token> out = { cur };
     int n_cycles = 0, n_accepted = 0, n_tree = 0;
-    double us_draft = 0, us_verify = 0, us_commit = 0;
+    double us_draft = 0, us_verify = 0, us_commit = 0, us_vdec = 0;
     std::vector<std::pair<float, llama_token>> top;
     const int64_t t0 = ggml_time_us();
     while ((int) out.size() < n_gen && !llama_vocab_is_eog(vocab, cur)) {
@@ -243,15 +247,20 @@ int main(int argc, char ** argv) {
         llama_seq_id n_leaf = 0;
         for (size_t r = 1; r < tree.size(); r++) {
             if (has_child[tree[r]]) { continue; }
+            if (one_seq) { continue; }
             const llama_seq_id s = ++n_leaf;
             for (int x = tree[r]; x >= 0; x = nodes[x].parent) { seqs[row_of[x]].push_back(s); }
             llama_memory_seq_rm(mem_tgt, s, -1, -1);
             llama_memory_seq_cp(mem_tgt, 0, s, -1, -1);
         }
         seqs[0].push_back(0);
+        if (one_seq) { for (size_t r = 1; r < tree.size(); r++) { seqs[r] = { 0 }; } }
         common_batch_clear(bt);
         for (size_t r = 0; r < tree.size(); r++) { common_batch_add(bt, nodes[tree[r]].tok, L + nodes[tree[r]].depth, seqs[r], true); }
+        const int64_t cd0 = ggml_time_us();
         if (llama_decode(ctx_tgt, bt) != 0) { LOG_ERR("verify decode failed\n"); return 1; }
+        llama_synchronize(ctx_tgt);
+        us_vdec += ggml_time_us() - cd0;
 
         // walk the tree along the target's greedy choices
         std::vector<int> acc_rows = { 0 };
@@ -273,7 +282,9 @@ int main(int argc, char ** argv) {
         n_cycles++; n_accepted += m; n_tree += (int) tree.size() - 1;
 
         // ---- 3. commit: accepted path into sequence 0, drop the branches ----
-        if (m > 0) {
+        if (one_seq) {
+            llama_memory_seq_rm(mem_tgt, 0, L + m + 1, -1);
+        } else if (m > 0) {
             llama_seq_id s_star = -1;
             for (size_t r = 1; r < tree.size(); r++) {   // any leaf below the deepest accepted node
                 if (!has_child[tree[r]]) {
@@ -293,6 +304,12 @@ int main(int argc, char ** argv) {
             pend_pos.push_back(L + i);
             pend_g.insert(pend_g.end(), g.begin() + (size_t) i * n_embd_dec, g.begin() + (size_t) (i + 1) * n_embd_dec);
         }
+        if (!fuse && !pend_tok.empty()) {   // reference: decode the commit pairs now
+            common_batch_clear(bd);
+            for (size_t i = 0; i < pend_tok.size(); i++) { bd_add(pend_tok[i], pend_pos[i], 0, pend_g.data() + i * n_embd_dec, false); }
+            if (llama_decode(ctx_dft, bd) != 0) { LOG_ERR("draft commit failed\n"); return 1; }
+            pend_tok.clear(); pend_pos.clear(); pend_g.clear();
+        }
         pending.assign(g.begin() + (size_t) m * n_embd_dec, g.begin() + (size_t) (m + 1) * n_embd_dec);
 
         L += m + 1;
@@ -310,7 +327,7 @@ int main(int argc, char ** argv) {
             D, K, NT, out.size(), dt, (out.size() - 1) / dt, n_cycles, n_cycles ? (double) n_accepted / n_cycles : 0.0,
             n_cycles ? (double) (n_accepted + n_cycles) / n_cycles : 0.0, n_cycles ? (double) n_tree / n_cycles : 0.0);
     if (n_cycles > 0) {
-        LOG_INF("sushila-tree: ms/cycle draft %.2f verify %.2f commit %.2f\n", us_draft / n_cycles / 1e3, us_verify / n_cycles / 1e3, us_commit / n_cycles / 1e3);
+        LOG_INF("sushila-tree: ms/cycle draft %.2f verify %.2f (target decode %.2f) commit %.2f\n", us_draft / n_cycles / 1e3, us_verify / n_cycles / 1e3, us_vdec / n_cycles / 1e3, us_commit / n_cycles / 1e3);
     }
     if (const char * f = getenv("SUSHILA_OUT")) {
         FILE * fo = fopen(f, "w");
