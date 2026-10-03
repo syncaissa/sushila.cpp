@@ -13,6 +13,6 @@ cmake -S "$REPO_ROOT/llama.cpp" -B "$BUILD_DIR" \
     -DLLAMA_BUILD_TESTS=OFF \
     -DLLAMA_BUILD_SERVER=OFF \
     -DLLAMA_USE_PREBUILT_UI=OFF
-cmake --build "$BUILD_DIR" -j "$(nproc)" --target llama-perplexity llama-bench llama-completion llama-sushila-spec llama-speculative-simple
+cmake --build "$BUILD_DIR" -j "$(nproc)" --target llama-perplexity llama-bench llama-completion llama-sushila-spec llama-speculative-simple llama-sushila-capture
 
 ls -1 "$BIN_DIR" | grep -E '^llama-(perplexity|bench|completion)$'
