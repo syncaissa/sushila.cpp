@@ -20,6 +20,10 @@ OUT="${DAY0_DIR:-$WORK_DIR/day0}/$name"
 THRESH="${THRESH:-99.5}"; RECALL="${RECALL:-98}"; TYPE="${PREVIEW_TYPE:-q4_0}"; TOKENS="${TOKENS:-1000}"
 THREADS="${THREADS:-$(nproc)}"
 mkdir -p "$OUT"
+trap 'log "ERROR: day0_landscape.sh failed at line $LINENO (exit $?)"' ERR   # never die silently under set -e
+# byte range of a file without pipes (file start length out): "tail | head" makes tail die of SIGPIPE, which
+# pipefail turns into a silent exit
+cut_bytes() { python3 -c "import sys; f = open(sys.argv[1], 'rb'); f.seek(int(sys.argv[2])); open(sys.argv[4], 'wb').write(f.read(int(sys.argv[3])))" "$@"; }
 export LANDSCAPE_CACHE="$OUT/cache"   # dequantized output matrix, shared by build, validation and test
 t_start=$(date +%s)
 
@@ -61,7 +65,7 @@ t_calib=$(( $(date +%s) - t0 ))
 
 log "3 build: preview landscape, width $wmax"
 t0=$(date +%s)
-calib=$(ls "$OUT"/dump_calib/*.f32 | grep -E 'output|token_embd' | head -1)
+calib=$(ls "$OUT"/dump_calib/*.f32 | grep -E 'output|token_embd' | sed -n 1p)   # sed reads all input: no SIGPIPE
 python3 "$SD/build_preview.py" "$model" "$calib" "$OUT/landscape.mclp" --width "$wmax" --cands "$nmax" --fit-frac 1 \
     | tee "$OUT/build.txt" || die "build failed"
 t_build=$(( $(date +%s) - t0 ))
@@ -70,7 +74,7 @@ log "4/5 held-out text: validation and test (disjoint prompts, files and text ra
 python3 "$SD/make_calib_mix.py" "$model" "$BIN_DIR/llama-completion" "$OUT/val" --set val --chars 20000 --threads "$THREADS" > /dev/null
 python3 "$SD/make_calib_mix.py" "$model" "$BIN_DIR/llama-completion" "$OUT/test" --set test --split --chars 20000 --threads "$THREADS" > /dev/null
 wiki="$DATA_DIR/wikitext-2-raw/wiki.test.raw"
-head -c 900000 "$wiki" | tail -c +650001 > "$OUT/val.prose"; tail -c +900001 "$wiki" > "$OUT/test.prose"
+cut_bytes "$wiki" 650000 250000 "$OUT/val.prose"; tail -c +900001 "$wiki" > "$OUT/test.prose"
 c4="$DATA_DIR/c4-validation-00000.txt"
 if [ ! -s "$c4" ]; then   # download fully, then read (no pipe: the reader stops early, which pipefail would treat as an error)
     curl -fsSL -o "$c4.json.gz" https://huggingface.co/datasets/allenai/c4/resolve/main/en/c4-validation.00000-of-00008.json.gz \
@@ -85,7 +89,7 @@ open(sys.argv[2], 'w').write('\n\n'.join(out))
 PY
     rm -f "$c4.json.gz"
 fi
-head -c 200000 "$c4" > "$OUT/val.web"; tail -c +200001 "$c4" | head -c 200000 > "$OUT/test.web"
+cut_bytes "$c4" 0 200000 "$OUT/val.web"; cut_bytes "$c4" 200000 200000 "$OUT/test.web"
 for set in val test; do
     for dom in prose web code chat multi; do dump "$OUT/$set.$dom" "$OUT/dump_${set}_$dom" $([ $dom = prose ] || [ $dom = web ] && echo 6); done
 done
