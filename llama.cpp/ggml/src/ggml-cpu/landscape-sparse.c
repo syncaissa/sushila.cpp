@@ -25,6 +25,7 @@
 #define SP_MAX_LAYERS  512
 #define SP_MAX_THREADS 512
 #define SP_SAMPLE      16    // 1 in SP_SAMPLE scores go to the threshold sample
+#define SP_KCH         64    // input columns per work item (threads take work items from a shared counter)
 #define SP_CHUNK       256   // columns transposed at a time while building a copy
 
 // Q4_K superblock of the copy with the 6-bit scales and mins unpacked to bytes (148 instead of 144 bytes), so the
@@ -74,7 +75,8 @@ static struct {
     struct sp_weight * cur;       // weight of the current call (set by thread 0)
     float            * partial;   // [nth][N] per-thread partial outputs when N is too small to split
     size_t             partial_cap;
-    double             prof[SP_MAX_THREADS][4];  // per thread, microseconds: select, accumulate, wait, reduce
+    double             prof[SP_MAX_THREADS][4];
+    int                next_item;   // shared work counter of the current call (reset by thread 0 after use)  // per thread, microseconds: select, accumulate, wait, reduce
     // statistics (per thread; summed at exit)
     double             cols_read[SP_MAX_THREADS], cols_total[SP_MAX_THREADS];
     double             bytes_read[SP_MAX_THREADS], bytes_total[SP_MAX_THREADS];
@@ -317,7 +319,6 @@ static float sp_kth_largest(float * a, int n, int k) {
 static void sp_accumulate_q4k_int(const struct sp_weight * e, const int32_t * kept, const float * xk, int n_kept,
                                   float * y, float * msum) {
     const int64_t N = e->N, nsb = N / QK_K;
-    memset(msum, 0, sizeof(float) * (size_t) (N / 32));
     const __m256i m4 = _mm256_set1_epi8(0x0F);
     const __m256 sign = _mm256_set1_ps(-0.0f);
     for (int c = 0; c < n_kept; c += SP_CH) {
@@ -390,7 +391,6 @@ static void sp_accumulate_q4k_int(const struct sp_weight * e, const int32_t * ke
             }
         }
     }
-    for (int64_t n = 0; n < N; n++) { y[n] -= msum[n / 32]; }
 }
 #endif
 
@@ -409,8 +409,7 @@ static void sp_accumulate(const struct sp_weight * e, const int32_t * kept, cons
     if (e->type == GGML_TYPE_Q4_K) {
         // float reference: y += (x d sc_j) q per 32-value sub-block j; min terms summed per sub-block
         const int64_t nsb = N / QK_K;
-        memset(msum, 0, sizeof(float) * (size_t) (N / 32));
-        for (int c = 0; c < n_kept; c++) {
+            for (int c = 0; c < n_kept; c++) {
             const sp_q4k * b = (const sp_q4k *) (e->data + (size_t) kept[c] * e->col_bytes);
             for (int64_t s = 0; s < nsb; s++) {
                 const float d = xk[c] * GGML_CPU_FP16_TO_FP32(b[s].d), dm = xk[c] * GGML_CPU_FP16_TO_FP32(b[s].dmin);
@@ -424,7 +423,6 @@ static void sp_accumulate(const struct sp_weight * e, const int32_t * kept, cons
                 }
             }
         }
-        for (int64_t n = 0; n < N; n++) { y[n] -= msum[n / 32]; }
         return;
     }
     const ggml_to_float_t to_float = ggml_get_type_traits(e->type)->to_float;
@@ -554,9 +552,6 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
     } else {
         tau = -1.0f;   // keep every column with x_i != 0
     }
-    const int n_kept = sp_count(x, e->norms, K, tau);
-    const int c0 = (int) ((int64_t) n_kept * ith / nth), c1 = (int) ((int64_t) n_kept * (ith + 1) / nth);
-    const int my = sp_collect(x, e->norms, K, tau, c0, c1, tl_kept, tl_xk);
     const int64_t t_sel = ggml_time_us();
 
     // partial outputs: one N-vector per thread (grown by thread 0 on the slow path of a larger weight)
@@ -567,9 +562,27 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
     }
     float * pt = sp.partial + (size_t) ith * N;
     memset(pt, 0, sizeof(float) * (size_t) N);
-    sp_accumulate(e, tl_kept, tl_xk, my, pt, tl_tmp, tl_msum);
+    memset(tl_msum, 0, sizeof(float) * (size_t) (N / 32));
+    // dynamic work sharing: threads take blocks of SP_KCH input columns until none are left, so threads that are
+    // faster (or have fewer kept columns in their blocks) take more
+    const int n_items = (int) ((K + SP_KCH - 1) / SP_KCH);
+    int my = 0;
+    for (;;) {
+        const int it = __atomic_fetch_add(&sp.next_item, 1, __ATOMIC_RELAXED);
+        if (it >= n_items) { break; }
+        const int64_t i0 = (int64_t) it * SP_KCH, i1 = i0 + SP_KCH < K ? i0 + SP_KCH : K;
+        int n = 0;
+        for (int64_t i = i0; i < i1; i++) {
+            if (fabsf(x[i]) * e->norms[i] >= tau && x[i] != 0.0f) { tl_kept[n] = (int32_t) i; tl_xk[n++] = x[i]; }
+        }
+        if (n > 0) { sp_accumulate(e, tl_kept, tl_xk, n, pt, tl_tmp, tl_msum); my += n; }
+    }
+    if (e->type == GGML_TYPE_Q4_K) {
+        for (int64_t n = 0; n < N; n++) { pt[n] -= tl_msum[n / 32]; }
+    }
     const int64_t t_acc = ggml_time_us();
     ggml_barrier(params->threadpool);
+    if (ith == 0) { sp.next_item = 0; }   // every thread is past its last fetch; the next call starts after a graph barrier
     const int64_t t_bar = ggml_time_us();
     const int64_t n0 = N * ith / nth, n1 = N * (ith + 1) / nth;
     memcpy(y + n0, sp.partial + n0, sizeof(float) * (size_t) (n1 - n0));
@@ -591,7 +604,7 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
         if (ith == 0) {
             int32_t * kept = malloc(sizeof(int32_t) * K);
             float   * xk   = malloc(sizeof(float) * K);
-            const int nk = sp_collect(x, e->norms, K, tau, 0, n_kept, kept, xk);
+            const int nk = sp_collect(x, e->norms, K, tau, 0, (int) K, kept, xk);
             const ggml_to_float_t to_float = ggml_get_type_traits(w->type)->to_float;
             float * row = malloc(sizeof(float) * K);
             for (int64_t n = 0; n < N; n++) {
