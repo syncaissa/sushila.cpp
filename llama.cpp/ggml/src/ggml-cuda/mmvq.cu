@@ -327,6 +327,18 @@ bool ggml_cuda_should_use_mmvq(enum ggml_type type, int cc, int64_t ne11) {
     }
     // k-quants cost more to decode and mvq redoes that per column, so MMQ wins sooner.
     // Only list quant-types MMQ supports, others would fall back to cuBLAS.
+    if (GGML_CUDA_CC_IS_NVIDIA(cc) && cc == GGML_CUDA_CC_AMPERE) {
+        switch (type) { // tuned on A100 80GB (Llama-3.1-8B Q4_K_M: MMQ from 5 tokens is 18-38% faster for 5-8 tokens)
+            case GGML_TYPE_Q2_K:
+            case GGML_TYPE_Q3_K:
+            case GGML_TYPE_Q4_K:
+            case GGML_TYPE_Q5_K:
+            case GGML_TYPE_Q6_K:
+                return ne11 <= 4;
+            default:
+                return ne11 <= MMVQ_MAX_BATCH_SIZE;
+        }
+    }
     if (GGML_CUDA_CC_IS_NVIDIA(cc) && cc == GGML_CUDA_CC_ADA_LOVELACE) {
         switch (type) { // tuned on RTX 4090
             case GGML_TYPE_Q2_K:
