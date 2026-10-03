@@ -219,7 +219,9 @@ static inline float ls_dot_a(const ggml_fp16_t * a, const float * u, int r) {
 static bool ls_applies(const struct ggml_tensor * dst) {
     const struct ggml_tensor * w = dst->src[0];
     const struct ggml_tensor * x = dst->src[1];
-    if (dst->op != GGML_OP_MUL_MAT || x->ne[1] != 1 || x->ne[2] != 1 || x->ne[3] != 1 || x->type != GGML_TYPE_F32 ||
+    // preview mode also takes a few tokens per call (e.g. the frontier of a draft tree), one after another
+    const int64_t max_tokens = ls.kind == 1 ? 64 : 1;
+    if (dst->op != GGML_OP_MUL_MAT || x->ne[1] < 1 || x->ne[1] > max_tokens || x->ne[2] != 1 || x->ne[3] != 1 || x->type != GGML_TYPE_F32 ||
         (strcmp(w->name, "output.weight") != 0 && strcmp(w->name, "token_embd.weight") != 0)) {
         return false;
     }
@@ -395,7 +397,19 @@ bool ggml_landscape_mul_mat(struct ggml_compute_params * params, struct ggml_ten
     const int V = ls.V, ng = ls.ng, r = ls.r;
     GGML_ASSERT(nth <= LS_MAX_THREADS);
     if (ls.kind == 1 && !ls.dense) {
-        return ls_preview(params, dst);
+        const struct ggml_tensor * x = dst->src[1];
+        if (x->ne[1] == 1) {
+            return ls_preview(params, dst);
+        }
+        // several tokens: one preview pass per token on views of the input and output columns
+        struct ggml_tensor xt = *x, dt = *dst;
+        xt.ne[1] = 1; dt.ne[1] = 1; dt.src[1] = &xt;
+        for (int64_t t = 0; t < x->ne[1]; t++) {
+            xt.data = (char *) x->data + t * x->nb[1];
+            dt.data = (char *) dst->data + t * dst->nb[1];
+            ls_preview(params, &dt);
+        }
+        return true;
     }
 
     // once per weight buffer: the group-major Q8_0 copy of the residual D = E - A B^T (all threads)
