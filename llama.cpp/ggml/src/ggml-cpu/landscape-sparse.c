@@ -12,6 +12,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #if defined(__AVX2__)
 #include <immintrin.h>
@@ -52,6 +56,9 @@ struct sp_weight {
     int                kind;
     float              budget;
     volatile int       ready;
+    int                cached;    // 1: data and norms are mapped from the cache file
+    int                fd;        // cache file being written (-1: none)
+    char               path[512];
     struct sp_weight * next;
 };
 
@@ -71,6 +78,7 @@ static struct {
     double             cols_read[SP_MAX_THREADS], cols_total[SP_MAX_THREADS];
     double             bytes_read[SP_MAX_THREADS], bytes_total[SP_MAX_THREADS];
     double             calls, us, build_us, acc_us, sel_us;
+    const char       * cache_dir; // GGML_SPARSE_CACHE: directory of built copies (<tensor name>.spc), a day-0 artifact
     int                check;     // GGML_SPARSE_CHECK=n: compare the first n calls with the original weights
     double             check_err2, check_ref2, check_calls;
 } sp;
@@ -139,6 +147,7 @@ static void sp_init(void) {
         fprintf(stderr, "sparse: loaded %d budget lines from %s\n", n, s);
     }
     sp.check = (s = getenv("GGML_SPARSE_CHECK")) ? atoi(s) : 0;
+    sp.cache_dir = getenv("GGML_SPARSE_CACHE");
     sp.copy_type = GGML_TYPE_COUNT;
     if ((s = getenv("GGML_SPARSE_COPY_TYPE"))) {
         for (int t = 0; t < GGML_TYPE_COUNT; t++) {
@@ -188,6 +197,39 @@ static int sp_applies(const struct ggml_tensor * dst, float * budget) {
     return k;
 }
 
+// Cache file: 64-byte header (magic, K, N, type, col_bytes), K float norms, then K columns of col_bytes.
+#define SP_HDR 64
+static size_t sp_file_bytes(const struct sp_weight * e) { return SP_HDR + sizeof(float) * (size_t) e->K + e->col_bytes * (size_t) e->K; }
+
+// Thread 0: map an existing cache file for this weight, or create one to be written by sp_build.
+static void sp_open_cache(struct sp_weight * e, const char * name) {
+    if (!sp.cache_dir) {
+        return;
+    }
+    snprintf(e->path, sizeof(e->path), "%s/%s.spc", sp.cache_dir, name);
+    int64_t hdr[8] = { 0x31435053 /* "SPC1" */, e->K, e->N, e->type, (int64_t) e->col_bytes, 0, 0, 0 };
+    int fd = open(e->path, O_RDONLY);
+    struct stat st;
+    if (fd >= 0 && fstat(fd, &st) == 0 && (size_t) st.st_size == sp_file_bytes(e)) {
+        char * m = mmap(NULL, sp_file_bytes(e), PROT_READ, MAP_SHARED, fd, 0);
+        if (m != MAP_FAILED && memcmp(m, hdr, sizeof(hdr)) == 0) {
+            e->norms  = (float *) (m + SP_HDR);
+            e->data   = m + SP_HDR + sizeof(float) * (size_t) e->K;
+            e->cached = 1;
+            close(fd);
+            return;
+        }
+        if (m != MAP_FAILED) { munmap(m, sp_file_bytes(e)); }
+    }
+    if (fd >= 0) { close(fd); }
+    e->fd = open(e->path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+    if (e->fd < 0 || ftruncate(e->fd, (off_t) sp_file_bytes(e)) != 0 || pwrite(e->fd, hdr, sizeof(hdr), 0) != (ssize_t) sizeof(hdr)) {
+        fprintf(stderr, "sparse: cannot write cache file %s, not caching\n", e->path);
+        if (e->fd >= 0) { close(e->fd); unlink(e->path); }
+        e->fd = -1;
+    }
+}
+
 // All threads: build the column-major copy of w, columns split across threads in source-block units.
 static void sp_build(struct ggml_compute_params * params, const struct ggml_tensor * w, struct sp_weight * e) {
     const int ith = params->ith, nth = params->nth;
@@ -225,6 +267,13 @@ static void sp_build(struct ggml_compute_params * params, const struct ggml_tens
     free(tile);
     free(col);
     free(qb);
+    if (e->fd >= 0 && c1 > c0) {   // each thread writes its columns to the cache file
+        const size_t nb = sizeof(float) * (size_t) (c1 - c0), db = e->col_bytes * (size_t) (c1 - c0);
+        const off_t  on = SP_HDR + sizeof(float) * (size_t) c0, od = SP_HDR + sizeof(float) * (size_t) e->K + e->col_bytes * (size_t) c0;
+        if (pwrite(e->fd, e->norms + c0, nb, on) != (ssize_t) nb || pwrite(e->fd, e->data + e->col_bytes * (size_t) c0, db, od) != (ssize_t) db) {
+            fprintf(stderr, "sparse: write to %s failed\n", e->path);
+        }
+    }
 }
 
 // k-th largest of a[0..n) (partially reorders a).
@@ -399,9 +448,15 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
             e->src = w->data; e->K = K; e->N = N; e->kind = kind;
             e->type = sp.copy_type != GGML_TYPE_COUNT ? sp.copy_type : w->type;
             e->col_bytes = e->type == GGML_TYPE_Q4_K ? sizeof(sp_q4k) * (size_t) (N / QK_K) : ggml_row_size(e->type, N);
-            e->data  = malloc(e->col_bytes * (size_t) K);
-            e->norms = malloc(sizeof(float) * (size_t) K);
-            GGML_ASSERT(e->data && e->norms);
+            e->fd = -1;
+            sp_open_cache(e, w->name);
+            if (!e->cached) {
+                e->data  = malloc(e->col_bytes * (size_t) K);
+                e->norms = malloc(sizeof(float) * (size_t) K);
+                GGML_ASSERT(e->data && e->norms);
+            } else {
+                e->ready = 1;
+            }
             e->next = sp.list;
             sp.list = e;
         }
@@ -414,7 +469,11 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
     if (!e->ready) {
         sp_build(params, w, e);
         ggml_barrier(params->threadpool);
-        if (ith == 0) { e->ready = 1; sp.build_us += (double) (ggml_time_us() - t_start); }
+        if (ith == 0) {
+            e->ready = 1;
+            sp.build_us += (double) (ggml_time_us() - t_start);
+            if (e->fd >= 0) { close(e->fd); e->fd = -1; }
+        }
         ggml_barrier(params->threadpool);
     }
     const int64_t t_compute = ith == 0 ? ggml_time_us() : 0;
