@@ -7,7 +7,7 @@ R_v of each token's logit is bounded by
     -c_lo * sigma_v <= R_v <= c_hi * sigma_v,   sigma_v^2 = sum over unread g of ||E[v, g]||^2 ||h_g||^2 / G
 and tokens whose upper bound falls below the K-th best lower bound are dropped.
 
-Stored (built once per model, e.g. on release day):
+Stored (built once per model, e.g. right after its release):
   norms     f16 [V, n_groups]  ||E[v, g]||, the per-token group norms that give sigma_v
   col_norms f32 [n_groups]     ||E[:, g]||_F, used to order the groups for a given h
   zq_hi     f32 [bins, n_q]    calibrated upper multipliers: quantiles of R_v / sigma_v over the top

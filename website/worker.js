@@ -377,7 +377,7 @@ function page(env) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sushila.cpp — faster LLM inference, same model files</title>
-<meta name="description" content="Sushila.cpp: a llama.cpp-based engine that precomputes per-model artifacts once on release day so every token costs less. Same GGUF files, same output.">
+<meta name="description" content="Sushila.cpp: a llama.cpp-based engine that precomputes per-model artifacts once, right after each model's release, so every token costs less. Same GGUF files, same output.">
 ${ICON_LINKS}
 <style>
 ${STYLE}</style>
@@ -391,7 +391,7 @@ ${STYLE}</style>
 <main class="wrap">
 <div class="hero"><div class="herotext">
   <h1>Faster LLM inference.<br>Same model files, same answers.</h1>
-  <p>Sushila.cpp is a llama.cpp-based engine that does the expensive work once per model on release day,
+  <p>Sushila.cpp is a llama.cpp-based engine that does the expensive work once per model, right after the model is released,
   so every token you generate afterwards costs less. Open models run up to 2.66× faster on a GPU and 2.28× on a CPU,
   with exactly the output of the stock engine.</p>
   <div class="row">${dl('', 'Get Sushila.cpp')}<a class="btn ghost" href="#models">Download models</a><a class="btn ghost" href="#api">Serverless API</a></div>
