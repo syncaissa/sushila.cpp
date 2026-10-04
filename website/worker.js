@@ -375,7 +375,7 @@ ${STYLE}</style>
 <section id="how">
   <h2>What Sushila.cpp does</h2>
   <p class="lead">Decoding is limited by how many bytes of weights the hardware reads per token. Sushila
-  (<b>S</b>elf-tuning <b>U</b>pstream <b>S</b>earch for <b>H</b>ybrid <b>I</b>nference in <b>L</b>LM <b>A</b>cceleration)
+  (<b>S</b>elf-tuning <b>U</b>pstream <b>S</b>ynthesis for <b>H</b>ybrid <b>I</b>nference in <b>L</b>LM <b>A</b>cceleration)
   computes small artifacts once per model so each token reads fewer bytes or the model runs fewer passes.</p>
   <div class="grid">
     <div class="card"><h3>Landscapes</h3><p>A precomputed map of each model's output layer: a cheap preview picks a short list of candidate tokens,
