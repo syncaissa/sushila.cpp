@@ -15,7 +15,11 @@ After the paper is published, the engine will be released as **Sushila.cpp**
 (**S**elf-tuning **U**pstream **S**earch for **H**ybrid **I**nference in **L**LM **A**cceleration): llama.cpp and an
 Ollama build with day-0 landscapes, draft heads and kernels, using the same model files, commands and API.
 
-## Quick start
+## Install
+
+Linux, macOS and Windows (WSL2): see **[INSTALL.md](INSTALL.md)**.
+
+## Quick start (reproducing the paper)
 
 ```sh
 git clone https://github.com/syncaissa/sushila.cpp.git
@@ -41,6 +45,8 @@ RunPod; [REPRODUCE.md](REPRODUCE.md) covers each, and how to split a sweep over 
 | `runpod/` | Create, list and stop RunPod CPU and GPU pods from the command line (optional) |
 | `notebooks/` | `colab_sweep.ipynb`: the same experiments on Google Colab |
 | `results/` | One folder per run: environment, raw logs, summary table |
+| `website/` | `worker.js`: the sushila.ai site as one Cloudflare Worker |
+| `docs/` | `REPRODUCE_70B.md`: Llama-3.3-70B against vanilla Ollama, step by step |
 
 The first commit in this repository is the unmodified upstream source of both
 projects. All Monte Carlo changes come in later commits, so

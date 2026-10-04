@@ -1,6 +1,10 @@
 # Shared settings, sourced by the other scripts.
 set -euo pipefail
 
+# macOS has neither sha256sum nor nproc by default; use the built-in equivalents.
+command -v sha256sum > /dev/null || sha256sum() { shasum -a 256 "$@"; }
+command -v nproc > /dev/null || nproc() { sysctl -n hw.ncpu; }
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # On RunPod, /workspace is the persistent volume; elsewhere use ./work inside the repo.
 if [ -d /workspace ] && [ -w /workspace ]; then

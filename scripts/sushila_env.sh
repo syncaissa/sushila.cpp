@@ -4,6 +4,7 @@
 # Usage: eval "$(scripts/sushila_env.sh <manifest.json> <model.gguf>)"
 # Prints nothing (stock engine) if the manifest is in exact mode; exits non-zero on a checksum mismatch.
 set -euo pipefail
+command -v sha256sum > /dev/null || sha256sum() { shasum -a 256 "$@"; }   # macOS
 manifest="${1:?usage: sushila_env.sh <manifest.json> <model.gguf>}"
 model="${2:?usage: sushila_env.sh <manifest.json> <model.gguf>}"
 dir="$(cd "$(dirname "$manifest")" && pwd)"
