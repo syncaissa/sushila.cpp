@@ -71,8 +71,9 @@ const LISTED = [
 
 // Measured speedups (paper, Table "Speed at a glance"); same output as the stock engine unless marked.
 const RESULTS = [
-  ['Llama 3.3 70B, 4-bit', 'A100, SGLang', '34.3', '80.4', '2.51×', 'precomputed draft head on EAGLE-3 trees'],
-  ['Llama 3.1 70B, 4-bit', 'A100, llama.cpp', '22.1', '58.9', '2.66×', '1B draft model, chosen on day 0'],
+  ['Llama 3.3 70B, 4-bit', 'A100, vs. vanilla Ollama', '21.6', '77.4', '3.58×', 'SGLang + precomputed draft head (4.0× on MT-Bench, HumanEval, GSM8K)'],
+  ['Llama 3.3 70B, 4-bit', 'A100, SGLang', '33.8', '77.4', '2.29×', 'precomputed draft head on EAGLE-3 trees'],
+  ['Llama 3.1 70B, 4-bit', 'A100, llama.cpp', '22.2', '44.9', '2.02×', '1B draft model, chosen for this model'],
   ['Llama 3.1 70B, 4-bit', 'CPU, 30 threads', '2.73', '6.22', '2.28×', '1B draft model, chosen on day 0'],
   ['Llama 3.1 8B, 16-bit', 'A100, SGLang', '89.5', '193', '2.29×', 'precomputed draft head on EAGLE-3 trees'],
   ['Llama 3.1 8B, 4-bit', 'A100, llama.cpp', '153', '199', '1.30×', 'precomputed draft head, tree verification, kernel setting'],
@@ -404,8 +405,8 @@ ${STYLE}</style>
 <div class="hero"><div class="herotext">
   <h1>Faster LLM inference.<br>Same model files, same answers.</h1>
   <p>Sushila.cpp is a llama.cpp-based engine that does the expensive work once per model, right after the model is released,
-  so every token you generate afterwards costs less. Open models run up to 2.66× faster on a GPU and 2.28× on a CPU,
-  with exactly the output of the stock engine.</p>
+  so every token you generate afterwards costs less. Llama-3.3-70B runs 3.6× faster than vanilla Ollama on the same GPU;
+  on the very same model file, Llama-3.1-70B runs 2.0× faster than stock llama.cpp on a GPU and 2.3× on a CPU, with exactly its output.</p>
   <div class="row">${dl('', 'Get Sushila.cpp')}<a class="btn ghost" href="#models">Download models</a><a class="btn ghost" href="#api">Serverless API</a></div>
 </div><div class="herologo" id="swanlogo" role="img" aria-label="Sushila logo: a swan shaped like the letter S, with an S-marked integrated circuit, on a base"><img class="swan" src="/logo-swan.png" alt=""><img class="base" src="/logo-base.png" alt=""></div></div>
 
@@ -434,7 +435,7 @@ ${STYLE}</style>
     <thead><tr><th>Model</th><th>Hardware, engine</th><th class="num">Stock</th><th class="num">Sushila</th><th class="num">Speedup</th><th>How</th></tr></thead>
     <tbody>${resultRows}</tbody>
   </table></div>
-  <p class="note">The output is identical to the stock engine in every row. The full method, scripts and raw logs are in the repository.</p>
+  <p class="note">Same model file and exactly the stock output in every row except the Ollama comparison, where Ollama reads a different 4-bit file of the same model (Q4_K_M against AWQ; same GSM8K accuracy). The full method, scripts and raw logs are in the repository.</p>
 </section>
 
 <section id="download">
