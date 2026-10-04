@@ -2,23 +2,26 @@
  * sushila.ai — single-file Cloudflare Worker front end for Sushila.cpp.
  *
  * Routes
- *   GET  /                    the site (what Sushila.cpp does, downloads, models, serverless API)
- *   GET  /models.json         the model list as JSON
- *   GET  /download/<file>     a model file we host (streamed from the R2 bucket bound as MODELS)
- *   POST /api/waitlist        serverless-API early-access sign-up (stored in the KV namespace bound as WAITLIST)
- *   GET  /terms, /privacy     Terms of Service and Privacy Policy
- *   GET  /media/<file>        the logo animation, streamed from R2 with range requests (for video players)
- *   GET  /logo.png, /favicon.png, /favicon-32.png, /favicon.ico, /apple-touch-icon.png, /robots.txt
+ *   GET  /                      the site (what Sushila.cpp does, downloads, models, serverless API)
+ *   GET  /signin, /account      passwordless sign-in (6-digit code by e-mail) and the account page
+ *   GET  /download/<file>       license confirmation for a hosted model file (signed-in users)
+ *   POST /api/auth/send-code    {email, purpose: SIGN_IN | SIGN_UP | ADD_EMAIL}  e-mails a code (Resend)
+ *   POST /api/auth/verify-code  {email, code, firstName?, lastName?, organization?}  sets the session cookie
+ *   POST /api/auth/sign-out
+ *   GET|POST /api/account       profile, linked e-mails, download history
+ *   POST /api/download          {file, accept: true}  records the download, returns a 24-hour B2 link
+ *   POST /api/waitlist          serverless-API early access
+ *   GET  /models.json, /terms, /privacy, /media/<file> (logo animation from B2, with ranges), images, /robots.txt
  *
- * Optional bindings and variables (Workers dashboard or wrangler.toml); the site works without any of them:
- *   MODELS    R2 bucket holding the hosted .gguf files under the key given in HOSTED[].file. Without it,
- *             hosted downloads fall back to the public source (Hugging Face).
- *   MEDIA     R2 bucket holding the logo animation (key in VIDEO.key); MODELS is used if MEDIA is not bound.
- *   WAITLIST  KV namespace for sign-ups. Without it, the form falls back to e-mail.
- *   RELEASED  "true" once the Sushila.cpp repository is public; until then the download buttons say "with the paper".
- *   REPO_URL  source repository shown on the page (default: the current GitHub repository).
- *   CONTACT   contact e-mail (default contact@sushila.ai; create it with Cloudflare Email Routing).
- *   GOVERNING_LAW  governing law for the Terms, e.g. "the State of Delaware, USA" (confirm with counsel).
+ * Environment (Cloudflare secrets/variables):
+ *   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION   DynamoDB; tables sushilaai-* (website/setup/aws_tables.sh)
+ *   B2_KEY_ID, B2_APP_KEY, B2_BUCKET_NAME (sushila-ai)     Backblaze B2: models/<model id>/<file>, media/<file>
+ *   RESEND_API_KEY, RESEND_FROM                             sign-in e-mails
+ *   SESSION_SECRET                                          signs sessions, hashes sign-in codes
+ *   RELEASED ("true" once the repository is public), REPO_URL, CONTACT, GOVERNING_LAW   optional
+ *   (DEEPINFRA_API_KEY and DEEPSEEK_PLATFORM_API_KEY are reserved for the serverless API and not used here yet.)
+ * Without AWS / B2 / Resend settings the site still works: sign-in is unavailable, downloads go to Hugging Face,
+ * the waitlist falls back to e-mail and the video is left out.
  *
  * Deploy: npx wrangler deploy worker.js --name sushila --compatibility-date 2026-10-01
  */
@@ -82,7 +85,7 @@ const gb = (b) => (b / 1e9).toFixed(b < 1e10 ? 1 : 0) + ' GB';
 
 // Logo (logo/SushilaLogoWithBaseG.jpg: background made transparent, cropped, resized, 256-colour palette), served from memory.
 // Logo animation (logo/SushilaLogoWithBaseG.mp4, 10 s, 1280x720, 24 fps, H.264 + AAC, 4.3 MB): too large to embed, so it is
-// served from the R2 bucket bound as MEDIA (or MODELS) under this key; without a bucket the page omits it.
+// served from B2 under media/<key>; without B2 settings the page omits it.
 const VIDEO = { key: 'SushilaLogoWithBaseG.mp4', type: 'video/mp4' };
 
 const IMAGES = {
@@ -165,6 +168,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--mut);fon
 .doc .meta{color:var(--mut);margin:0 0 24px}
 `;
 
+const accountLink = (user) => user ? `<a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
 const brand = () => `<a class="brand" href="/"><img src="/logo.png" width="32" height="32" alt=""> Sushila.cpp</a>`;
 
 const footer = (contact) => `<footer><div class="wrap row" style="justify-content:space-between">
@@ -172,7 +176,7 @@ const footer = (contact) => `<footer><div class="wrap row" style="justify-conten
   <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
 </div></footer>`;
 
-function docPage(env, title, desc, body) {
+function docPage(env, title, desc, body, user) {
   const contact = env.CONTACT || DEFAULT_CONTACT;
   return `<!doctype html>
 <html lang="en">
@@ -188,7 +192,7 @@ ${STYLE}</style>
 <body>
 <header><div class="wrap"><nav>
   ${brand()}
-  <div class="links"><a href="/">Home</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div>
+  <div class="links"><a href="/">Home</a><a href="/#models" class="hide">Models</a>${user ? `<a href="/account">Account</a>` : `<a href="/signin">Sign in</a>`}</div>
 </nav></div></header>
 <main class="wrap"><article class="doc">
 ${body(contact)}
@@ -215,6 +219,11 @@ confirm that you may do so. If you do not agree, do not use the Services.</p>
 that license, not these Terms, governs your rights to the source code. The model files are made by third parties (such as Meta and
 Alibaba Cloud) and are governed by their own licenses and acceptable use policies, which you must read and follow. Llama models are
 licensed under the applicable Llama Community License. "Built with Llama."</p>
+
+<h2>1a. Accounts</h2>
+<p>Downloading hosted files requires a free account. You sign in with one-time codes sent to e-mail addresses you control; keep access
+to them secure, because anyone who can read those e-mails can sign in. Give accurate information, and use one account per person. Each
+download is recorded together with your acceptance of the model's license. You may delete your account at any time by contacting us.</p>
 
 <h2>2. The serverless API</h2>
 <p>The serverless API is a paid service that runs open models on our GPUs. Pricing, usage limits and any API-specific terms are shown
@@ -280,6 +289,10 @@ Sushila serverless API, why, and your choices. We collect as little as we can.</
 
 <h2>1. What we collect</h2>
 <ul>
+<li><b>Your account:</b> the e-mail addresses you add and verify, your name and (optionally) organization, when you created the
+account and last signed in, and records of sign-ins and e-mail changes. Sign-in codes are stored only as a keyed hash and expire after
+5 minutes.</li>
+<li><b>Downloads:</b> for each download, which file, when, that you accepted its license, and the country of your connection.</li>
 <li><b>Early-access sign-up:</b> the e-mail address and the optional list of models you enter, the time of sign-up and the country
 of your connection (derived by our hosting provider from your IP address). If you choose to e-mail us instead, we receive what you
 send.</li>
@@ -288,7 +301,8 @@ the pages and files requested and the time, to deliver the site, prevent abuse a
 <li><b>Serverless API (when you use it):</b> your account and billing details, API usage (such as token counts and times) for
 billing and capacity, and the Inputs and Outputs needed to answer each request.</li>
 </ul>
-<p>The website uses no advertising, no tracking cookies and no third-party analytics scripts. Copying a checksum uses your browser's
+<p>The website sets one cookie, a signed session cookie, only when you sign in. It uses no advertising, no tracking cookies and no
+third-party analytics scripts. Copying a checksum uses your browser's
 clipboard locally.</p>
 
 <h2>2. Why we use it</h2>
@@ -306,16 +320,18 @@ where the law requires it.</p>
 
 <h2>4. Sharing</h2>
 <p>We do not sell or rent personal data. We share it only with service providers that process it for us under contract, such as
-Cloudflare (website hosting, storage and network), GPU cloud providers that run the API, a payment processor for billing, and e-mail
-providers; with professional advisers; when the law requires it; or as part of a merger or sale of our business, under this policy.</p>
+Cloudflare (website hosting and network), Amazon Web Services (DynamoDB, where account and download records are stored), Backblaze
+(B2, where the files you download are stored), Resend (which sends sign-in codes), GPU cloud providers that run the API, and a payment
+processor for billing; with professional advisers; when the law requires it; or as part of a merger or sale of our business, under this policy.</p>
 
 <h2>5. International transfers</h2>
 <p>Our providers may process data in the United States and other countries. Where required, we use legal safeguards such as the
 European Commission's Standard Contractual Clauses.</p>
 
 <h2>6. How long we keep it</h2>
-<p>Sign-up data is kept until you ask us to delete it or until early access ends and you have not become a customer, whichever is
-first. API account and billing records are kept for as long as your account is open and then as long as tax and accounting laws
+<p>Account data and download records are kept while your account exists; ask us to delete your account and we will delete them,
+except where the law requires us to keep them. Early-access sign-ups are kept until you ask us to delete them or until early access ends
+and you have not become a customer, whichever is first. API account and billing records are kept for as long as your account is open and then as long as tax and accounting laws
 require. Hosting logs are kept by Cloudflare for a short period under its own policies.</p>
 
 <h2>7. Your rights</h2>
@@ -340,7 +356,7 @@ material changes.</p>
 <p>The Sushila project, <a href="mailto:${esc(contact)}">${esc(contact)}</a>.</p>
 `;
 
-function page(env) {
+function page(env, user) {
   const REPO = String(env.REPO_URL || REPO_DEFAULT).replace(/\/+$/, '');
   const released = String(env.RELEASED || '').toLowerCase() === 'true';
   const contact = env.CONTACT || DEFAULT_CONTACT;
@@ -362,7 +378,7 @@ function page(env) {
     <tr><td><b>${esc(m.name)}</b></td><td>${esc(m.license)}</td>
       <td class="act"><a class="btn small ghost" href="${esc(m.hf)}">Hugging Face ↗</a></td></tr>`).join('');
 
-  const video = (env.MEDIA || env.MODELS) ? `<figure class="intro">
+  const video = (env.B2_KEY_ID && env.B2_APP_KEY && env.B2_BUCKET_NAME) ? `<figure class="intro">
   <video src="/media/${VIDEO.key}" poster="/logo.png" autoplay muted loop playsinline controls preload="metadata"
     width="1280" height="720" aria-label="Sushila logo animation"></video>
 </figure>` : '';
@@ -385,7 +401,7 @@ ${STYLE}</style>
 <body>
 <header><div class="wrap"><nav>
   ${brand()}
-  <div class="links"><a href="#how">How</a><a href="#results" class="hide">Results</a><a href="#download">Download</a><a href="#models">Models</a><a href="#api">API</a></div>
+  <div class="links"><a href="#how">How</a><a href="#results" class="hide">Results</a><a href="#download">Download</a><a href="#models">Models</a><a href="#api" class="hide">API</a>${accountLink(user)}</div>
 </nav></div></header>
 
 <main class="wrap">
@@ -475,7 +491,7 @@ build/bin/llama-server -m model.gguf -ngl 99 --port 8080</code></pre></div>
 
 <section id="models">
   <h2>Models</h2>
-  <p class="lead">We host these files ourselves. Each is byte-identical to the public release, so check its sha256 after you download it.
+  <p class="lead">We host these files ourselves. Downloads are free with a <a href="/signin">sushila.ai account</a> (no password: a code is sent to your e-mail), so we can record that you accepted each model's license. Each file is byte-identical to the public release, so check its sha256 after you download it.
   Models tagged <span class="tag">day-0 tuned</span> come with measured Sushila artifacts.</p>
   <div class="tablewrap"><table>
     <thead><tr><th>Model</th><th>Quant</th><th class="num">Size</th><th>License</th><th></th></tr></thead>
@@ -572,108 +588,563 @@ document.getElementById('wl').addEventListener('submit', async (e) => {
 </html>`;
 }
 
+// ============================================================
+// Account pages (bodies for docPage; each returns (contact) => html)
+// ============================================================
+const FORM_CSS = `<style>
+.auth{max-width:440px}.auth label{display:block;font-size:14px;font-weight:600;margin:14px 0 6px}
+.auth input{width:100%;flex:none}.auth .btn{margin-top:16px}.auth .alt{font-size:14px;color:var(--mut);margin-top:18px}
+.auth .code{font-size:24px;letter-spacing:8px;text-align:center}.msg{margin-top:12px;font-size:14px;min-height:1.4em}
+.msg.err{color:#b42318}.msg.ok{color:var(--acc)}.hidden{display:none}
+.list{list-style:none;padding:0;margin:0}.list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.linkbtn{background:none;border:0;color:var(--acc);cursor:pointer;font-size:14px;padding:0}
+</style>`;
+
+// Shared browser helper: POST JSON, show the message.
+const CLIENT = `<script>
+async function api(path, data){
+  const r = await fetch(path, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(data||{})});
+  let d = {}; try { d = await r.json(); } catch(e) {}
+  if(!r.ok) throw Object.assign(new Error(d.error || 'Something went wrong.'), d);
+  return d;
+}
+function say(id, text, ok){ const m=document.getElementById(id); m.textContent=text||''; m.className='msg '+(ok?'ok':'err'); }
+</script>`;
+
+const SIGNIN = (url) => () => {
+  const next = (url.searchParams.get('next') || '/account').startsWith('/') ? url.searchParams.get('next') || '/account' : '/account';
+  return `${FORM_CSS}
+<h1>Sign in</h1>
+<p class="meta">No password: we e-mail you a one-time code. Any e-mail linked to your account works.</p>
+<div class="auth">
+  <div id="step1">
+    <label for="email">E-mail</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+    <div id="newfields" class="hidden">
+      <label for="fn">First name</label><input id="fn" autocomplete="given-name">
+      <label for="ln">Last name (optional)</label><input id="ln" autocomplete="family-name">
+      <label for="org">Organization (optional)</label><input id="org" autocomplete="organization">
+      <p class="note">By creating an account you agree to the <a href="/terms">Terms of Service</a> and the <a href="/privacy">Privacy Policy</a>.</p>
+    </div>
+    <button class="btn" id="send">Send code</button>
+    <p class="alt" id="toggle"><span id="t1">New here? </span><button class="linkbtn" id="mode">Create an account</button></p>
+  </div>
+  <div id="step2" class="hidden">
+    <p>We sent a 6-digit code to <b id="shown"></b>. It expires in 5 minutes.</p>
+    <label for="code">Code</label><input id="code" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+    <button class="btn" id="verify">Continue</button>
+    <p class="alt"><button class="linkbtn" id="resend" disabled>Resend code</button> · <button class="linkbtn" id="back">Use another e-mail</button></p>
+  </div>
+  <div class="msg" id="m" role="status"></div>
+</div>
+${CLIENT}
+<script>
+(function(){
+  let signup = false, email = '';
+  const $ = (id) => document.getElementById(id), NEXT = ${JSON.stringify(next)};
+  function setMode(s){ signup = s; $('newfields').classList.toggle('hidden', !s); $('t1').textContent = s ? 'Have an account? ' : 'New here? ';
+    $('mode').textContent = s ? 'Sign in' : 'Create an account'; document.querySelector('h1').textContent = s ? 'Create an account' : 'Sign in'; say('m',''); }
+  function timer(){ const b=$('resend'); let s=10; b.disabled=true; b.textContent='Resend code ('+s+'s)';
+    const t=setInterval(()=>{ s--; if(s<=0){clearInterval(t); b.disabled=false; b.textContent='Resend code';} else b.textContent='Resend code ('+s+'s)'; },1000); }
+  async function send(){
+    email = $('email').value.trim();
+    if(signup && !$('fn').value.trim()) return say('m','Please enter your first name.');
+    try { await api('/api/auth/send-code', {email, purpose: signup ? 'SIGN_UP' : 'SIGN_IN'});
+      $('shown').textContent = email; $('step1').classList.add('hidden'); $('step2').classList.remove('hidden'); $('code').focus(); timer(); say('m','Code sent.', true);
+    } catch(e){ say('m', e.message); if(e.noAccount) setMode(true); if(e.exists) setMode(false); }
+  }
+  $('mode').onclick = () => setMode(!signup);
+  $('send').onclick = send;
+  $('email').addEventListener('keydown', (e) => { if(e.key==='Enter') send(); });
+  $('resend').onclick = async () => { try { await api('/api/auth/send-code', {email, purpose: signup ? 'SIGN_UP' : 'SIGN_IN'}); timer(); say('m','New code sent.', true); } catch(e){ say('m', e.message); } };
+  $('back').onclick = () => { $('step2').classList.add('hidden'); $('step1').classList.remove('hidden'); say('m',''); };
+  async function verify(){
+    try { await api('/api/auth/verify-code', {email, code: $('code').value.trim(), firstName: $('fn').value, lastName: $('ln').value, organization: $('org').value});
+      location.href = NEXT; } catch(e){ say('m', e.message); }
+  }
+  $('verify').onclick = verify;
+  $('code').addEventListener('keydown', (e) => { if(e.key==='Enter') verify(); });
+})();
+</script>`;
+};
+
+const ACCOUNT = (u) => () => `${FORM_CSS}
+<h1>Your account</h1>
+<p class="meta">Signed in as ${esc(u.email)}</p>
+<div class="auth">
+  <h2>Profile</h2>
+  <label for="fn">First name</label><input id="fn" value="${esc(u.firstName)}">
+  <label for="ln">Last name</label><input id="ln" value="${esc(u.lastName === '-' ? '' : u.lastName)}">
+  <label for="org">Organization</label><input id="org" value="${esc(u.organization === '-' ? '' : u.organization)}">
+  <button class="btn" id="save">Save</button>
+  <div class="msg" id="m1" role="status"></div>
+
+  <h2>E-mail addresses</h2>
+  <p class="note" style="margin-top:0">You can sign in with any of these. The first one is your primary e-mail.</p>
+  <ul class="list" id="emails">${u.emails.map((e) => `<li><span>${esc(e)}${e === u.email ? ' <span class="tag">primary</span>' : ''}</span>${e === u.email ? '' : `<button class="linkbtn" data-rm="${esc(e)}">Remove</button>`}</li>`).join('')}</ul>
+  <div id="add1"><label for="ne">Add another e-mail</label><input id="ne" type="email" placeholder="work@example.com"><button class="btn ghost" id="addsend">Send code</button></div>
+  <div id="add2" class="hidden"><label for="nc">Code sent to <b id="neshown"></b></label><input id="nc" class="code" inputmode="numeric" maxlength="6" placeholder="123456"><button class="btn" id="addverify">Add e-mail</button></div>
+  <div class="msg" id="m2" role="status"></div>
+</div>
+
+<h2>Your downloads</h2>
+<div class="tablewrap"><table><thead><tr><th>When (UTC)</th><th>Model</th><th>File</th></tr></thead><tbody id="dl"><tr><td colspan="3" class="sub">Loading…</td></tr></tbody></table></div>
+
+<form method="POST" action="/api/auth/sign-out" style="margin-top:32px"><button class="btn ghost" type="submit">Sign out</button></form>
+${CLIENT}
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  $('save').onclick = async () => { try { await api('/api/account', {action:'profile', firstName:$('fn').value, lastName:$('ln').value, organization:$('org').value}); say('m1','Saved.', true); } catch(e){ say('m1', e.message); } };
+  $('emails').addEventListener('click', async (ev) => { const e = ev.target.getAttribute('data-rm'); if(!e || !confirm('Remove '+e+' from your account?')) return;
+    try { await api('/api/account', {action:'remove-email', email:e}); location.reload(); } catch(err){ say('m2', err.message); } });
+  let ne = '';
+  $('addsend').onclick = async () => { ne = $('ne').value.trim(); try { await api('/api/auth/send-code', {email:ne, purpose:'ADD_EMAIL'});
+    $('neshown').textContent = ne; $('add1').classList.add('hidden'); $('add2').classList.remove('hidden'); say('m2','Code sent.', true); } catch(e){ say('m2', e.message); } };
+  $('addverify').onclick = async () => { try { await api('/api/auth/verify-code', {email:ne, code:$('nc').value.trim()}); location.reload(); } catch(e){ say('m2', e.message); } };
+  fetch('/api/account').then(r => r.json()).then(d => {
+    const rows = (d.downloads||[]).map(x => '<tr><td>'+x.at.slice(0,16).replace('T',' ')+'</td><td>'+x.model.replace(/</g,'&lt;')+'</td><td><code>'+x.file.replace(/</g,'&lt;')+'</code></td></tr>');
+    $('dl').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="3" class="sub">No downloads yet.</td></tr>';
+  }).catch(() => { $('dl').innerHTML = '<tr><td colspan="3" class="sub">Could not load downloads.</td></tr>'; });
+})();
+</script>`;
+
+const DOWNLOAD = (m) => () => `${FORM_CSS}
+<h1>${esc(m.name)} <span class="sub" style="font-size:20px">${esc(m.quant)}</span></h1>
+<p class="meta">${esc(m.file)} · ${gb(m.bytes)}</p>
+<div class="auth" style="max-width:640px">
+  <p>This model is made by a third party and licensed under the <a href="${esc(m.licenseUrl)}" target="_blank" rel="noopener">${esc(m.license)}</a>.
+  Read it before downloading. It is provided as is, without warranty (see the <a href="/#disclaimer">disclaimer</a>).</p>
+  <p class="sub">sha256 <code style="word-break:break-all">${m.sha256}</code>. Check it after downloading:
+  <code>sha256sum ${esc(m.file)}</code> (macOS: <code>shasum -a 256 ${esc(m.file)}</code>).</p>
+  <label style="display:flex;gap:10px;align-items:flex-start;font-weight:400"><input type="checkbox" id="ok" style="width:auto;flex:none;margin-top:4px">
+    <span>I have read and accept the ${esc(m.license)}${/Llama/.test(m.license) ? ' and Meta\'s Acceptable Use Policy' : ''}.</span></label>
+  <button class="btn" id="go">Download</button>
+  <div class="msg" id="m" role="status"></div>
+  <p class="note">The link is personal and works for 24 hours, and downloads can be resumed. Your downloads are listed in <a href="/account">your account</a>.</p>
+</div>
+${CLIENT}
+<script>
+document.getElementById('go').onclick = async () => {
+  if(!document.getElementById('ok').checked) return say('m','Please accept the license first.');
+  try { const d = await api('/api/download', {file: ${JSON.stringify(m.file)}, accept: true}); say('m','Your download is starting…', true); location.href = d.url; }
+  catch(e){ if(e.signin) location.href = '/signin?next=' + encodeURIComponent(location.pathname); else say('m', e.message); }
+};
+</script>`;
+
 const SEC = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-frame-options': 'DENY',
 };
 
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj, null, 1), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...SEC } });
+function json(obj, status = 200, extra = {}) {
+  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...SEC, ...extra } });
 }
 
-async function media(request, env, file) {
-  const bucket = env.MEDIA || env.MODELS;
-  if (file !== VIDEO.key || !bucket) return new Response('Not found', { status: 404 });
-  const range = request.headers.get('range');
-  const obj = await bucket.get(file, range ? { range: request.headers } : {});
-  if (!obj) return new Response('Not found', { status: 404 });
+// ============================================================
+// Storage and services (credentials come from the worker's environment):
+//   DynamoDB  AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION; every table is named sushilaai-*
+//   B2        B2_KEY_ID, B2_APP_KEY, B2_BUCKET_NAME (downloads and media; keys listed in B2_KEYS below)
+//   Resend    RESEND_API_KEY, RESEND_FROM (sign-in codes)
+//   Sessions  SESSION_SECRET (signs session cookies and hashes sign-in codes)
+// ============================================================
+const TABLES = {
+  users: 'sushilaai-users',         // PK email (the account's primary e-mail)
+  emails: 'sushilaai-emails',       // PK email -> primaryEmail (every verified e-mail of every account)
+  otps: 'sushilaai-otps',           // PK email; one pending sign-in code per e-mail; TTL attribute "ttl"
+  downloads: 'sushilaai-downloads', // PK userEmail, SK downloadedAt: one row per download
+  waitlist: 'sushilaai-waitlist',   // PK email: serverless-API early access
+  audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads
+};
+const OTP_TTL_MS = 5 * 60 * 1000;      // a code is valid for 5 minutes
+const OTP_RESEND_MS = 10 * 1000;       // at most one code every 10 seconds per e-mail
+const OTP_MAX_ATTEMPTS = 5;            // wrong guesses before the code is discarded
+const SESSION_DAYS = 30;
+const MAX_EMAILS = 5;                  // e-mail addresses per account
+const B2_LINK_SECONDS = 24 * 3600;     // a download link works for 24 hours (resumable)
+// B2 layout: models/<model id>/<file> for weights and their Sushila artifacts (landscapes, draft heads, manifests),
+// media/<file> for the site's media.
+const b2ModelKey = (m, file) => `models/${m.id}/${file}`;
+const B2_MEDIA_KEY = `media/${VIDEO.key}`;
+
+const enc = new TextEncoder();
+const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+const sha256Hex = async (data) => hex(await crypto.subtle.digest('SHA-256', typeof data === 'string' ? enc.encode(data) : data));
+async function hmac(key, data) {
+  const k = await crypto.subtle.importKey('raw', typeof key === 'string' ? enc.encode(key) : key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return crypto.subtle.sign('HMAC', k, enc.encode(data));
+}
+const hmacHex = async (key, data) => hex(await hmac(key, data));
+function safeEqual(a, b) {  // constant-time string comparison
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+const randomId = () => hex(crypto.getRandomValues(new Uint8Array(8)));
+const normEmail = (e) => String(e || '').trim().toLowerCase().slice(0, 254);
+const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+const clean = (s, n = 100) => String(s || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, n);
+
+// --- AWS Signature V4 (DynamoDB JSON API) ---
+class DynamoDB {
+  constructor(env) {
+    this.env = env;
+    this.region = env.AWS_REGION || 'us-east-1';
+    this.host = `dynamodb.${this.region}.amazonaws.com`;
+  }
+  get configured() { return !!(this.env.AWS_ACCESS_KEY_ID && this.env.AWS_SECRET_ACCESS_KEY && this.env.AWS_REGION); }
+  async request(action, payload) {
+    const body = JSON.stringify(payload);
+    const amzDate = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const date = amzDate.slice(0, 8);
+    const headers = { 'content-type': 'application/x-amz-json-1.0', host: this.host, 'x-amz-date': amzDate, 'x-amz-target': `DynamoDB_20120810.${action}` };
+    const names = Object.keys(headers).sort();
+    const canonical = ['POST', '/', '', names.map((n) => `${n}:${headers[n]}`).join('\n') + '\n', names.join(';'), await sha256Hex(body)].join('\n');
+    const scope = `${date}/${this.region}/dynamodb/aws4_request`;
+    const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, await sha256Hex(canonical)].join('\n');
+    let key = await hmac('AWS4' + this.env.AWS_SECRET_ACCESS_KEY, date);
+    for (const part of [this.region, 'dynamodb', 'aws4_request']) key = await hmac(key, part);
+    const signature = await hmacHex(key, toSign);
+    headers.authorization = `AWS4-HMAC-SHA256 Credential=${this.env.AWS_ACCESS_KEY_ID}/${scope}, SignedHeaders=${names.join(';')}, Signature=${signature}`;
+    delete headers.host;
+    const r = await fetch(`https://${this.host}/`, { method: 'POST', headers, body });
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const err = new Error(`DynamoDB ${action}: ${out.__type || r.status} ${out.message || out.Message || ''}`);
+      err.type = String(out.__type || '');
+      throw err;
+    }
+    return out;
+  }
+  get(table, key) { return this.request('GetItem', { TableName: table, Key: key, ConsistentRead: true }).then((r) => r.Item || null); }
+  put(table, item, condition) { return this.request('PutItem', { TableName: table, Item: item, ...(condition ? { ConditionExpression: condition } : {}) }); }
+  del(table, key) { return this.request('DeleteItem', { TableName: table, Key: key }); }
+  update(table, key, expr, values, names) {
+    return this.request('UpdateItem', { TableName: table, Key: key, UpdateExpression: expr,
+      ...(values ? { ExpressionAttributeValues: values } : {}), ...(names ? { ExpressionAttributeNames: names } : {}), ReturnValues: 'ALL_NEW' })
+      .then((r) => r.Attributes || null);
+  }
+  query(table, keyExpr, values, opts = {}) {
+    return this.request('Query', { TableName: table, KeyConditionExpression: keyExpr, ExpressionAttributeValues: values, ...opts }).then((r) => r.Items || []);
+  }
+}
+const S = (v) => ({ S: String(v) });
+const N = (v) => ({ N: String(v) });
+const str = (item, k) => (item && item[k] && item[k].S) || '';
+
+async function audit(db, event, email, request, extra = {}) {
+  try {
+    const now = new Date().toISOString();
+    await db.put(TABLES.audit, { day: S(now.slice(0, 10)), at: S(`${now}#${randomId()}`), event: S(event), email: S(email || '-'),
+      country: S((request.cf && request.cf.country) || '-'), ...Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, S(v)])) });
+  } catch (e) { console.error('audit', e.message); }
+}
+
+// --- Backblaze B2 (native API) ---
+let b2Cache = null;  // per isolate: { auth, bucketId, until }
+class B2 {
+  constructor(env) { this.env = env; }
+  get configured() { return !!(this.env.B2_KEY_ID && this.env.B2_APP_KEY && this.env.B2_BUCKET_NAME); }
+  async auth() {
+    if (b2Cache && b2Cache.until > Date.now()) return b2Cache;
+    const r = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
+      headers: { authorization: 'Basic ' + btoa(`${this.env.B2_KEY_ID}:${this.env.B2_APP_KEY}`) } });
+    if (!r.ok) throw new Error('B2 authorize: ' + r.status);
+    const a = await r.json();
+    const api = a.apiInfo && a.apiInfo.storageApi ? a.apiInfo.storageApi : a;
+    let bucketId = (api.allowed && api.allowed.buckets && (api.allowed.buckets.find((b) => b.name === this.env.B2_BUCKET_NAME) || {}).id)
+      || (api.allowed && api.allowed.bucketName === this.env.B2_BUCKET_NAME && api.allowed.bucketId) || null;
+    if (!bucketId) {
+      const lb = await fetch(`${api.apiUrl}/b2api/v3/b2_list_buckets`, { method: 'POST', headers: { authorization: a.authorizationToken, 'content-type': 'application/json' },
+        body: JSON.stringify({ accountId: a.accountId, bucketName: this.env.B2_BUCKET_NAME }) });
+      if (!lb.ok) throw new Error('B2 list buckets: ' + lb.status);
+      bucketId = ((await lb.json()).buckets || [])[0]?.bucketId;
+      if (!bucketId) throw new Error('B2 bucket not found: ' + this.env.B2_BUCKET_NAME);
+    }
+    b2Cache = { token: a.authorizationToken, apiUrl: api.apiUrl, downloadUrl: api.downloadUrl, bucketId, until: Date.now() + 20 * 3600 * 1000 };
+    return b2Cache;
+  }
+  fileUrl(base, key) { return `${base}/file/${encodeURIComponent(this.env.B2_BUCKET_NAME)}/${key.split('/').map(encodeURIComponent).join('/')}`; }
+  async signedUrl(key, seconds, filename) {  // a time-limited link straight to B2 (large files never pass through the worker)
+    const a = await this.auth();
+    const r = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST',
+      headers: { authorization: a.token, 'content-type': 'application/json' },
+      body: JSON.stringify({ bucketId: a.bucketId, fileNamePrefix: key, validDurationInSeconds: seconds,
+        b2ContentDisposition: `attachment; filename="${filename}"` }) });
+    if (!r.ok) throw new Error('B2 download authorization: ' + r.status);
+    const d = await r.json();
+    return `${this.fileUrl(a.downloadUrl, key)}?Authorization=${encodeURIComponent(d.authorizationToken)}&b2ContentDisposition=${encodeURIComponent(`attachment; filename="${filename}"`)}`;
+  }
+  async fetchFile(key, request) {  // stream a (small) file through the worker, passing Range on for video players
+    const a = await this.auth();
+    const h = { authorization: a.token };
+    const range = request.headers.get('range');
+    if (range) h.range = range;
+    return fetch(this.fileUrl(a.downloadUrl, key), { headers: h, cf: { cacheEverything: true, cacheTtl: 86400 } });
+  }
+}
+
+// --- Resend (e-mail) ---
+async function sendEmail(env, to, subject, text, html) {
+  const r = await fetch('https://api.resend.com/emails', { method: 'POST',
+    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ from: env.RESEND_FROM || 'sushila.ai <support@sushila.ai>', to: [to], subject, text, ...(html ? { html } : {}) }) });
+  if (!r.ok) throw new Error('Resend: ' + r.status + ' ' + (await r.text()).slice(0, 200));
+}
+
+// --- Sessions: signed cookie "sushila_session" = base64(email|expires|hmac) ---
+const COOKIE = 'sushila_session';
+async function createSession(email, secret) {
+  const exp = Date.now() + SESSION_DAYS * 86400 * 1000;
+  return btoa(`${email}|${exp}|${await hmacHex(secret, `session|${email}|${exp}`)}`);
+}
+async function readSession(request, env) {
+  if (!env.SESSION_SECRET) return null;
+  const m = (request.headers.get('cookie') || '').match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
+  if (!m) return null;
+  try {
+    const [email, exp, sig] = atob(m[1]).split('|');
+    if (!email || !exp || Date.now() > Number(exp)) return null;
+    return safeEqual(sig, await hmacHex(env.SESSION_SECRET, `session|${email}|${exp}`)) ? { email } : null;
+  } catch { return null; }
+}
+const sessionCookie = (token) => `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`;
+const clearCookie = () => `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+
+// --- Rate limiting (per isolate, per IP and path; codes also have per-e-mail limits in DynamoDB) ---
+const rate = new Map();
+function limited(request, path, max = 30, windowMs = 60000) {
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const k = `${ip}|${path}`, now = Date.now();
+  const e = rate.get(k);
+  if (!e || now - e.t > windowMs) { rate.set(k, { t: now, n: 1 }); if (rate.size > 5000) rate.clear(); return false; }
+  return ++e.n > max;
+}
+
+// Only accept state-changing requests from our own pages: JSON bodies from the same origin.
+function sameOriginJson(request) {
+  const origin = request.headers.get('origin');
+  const ct = request.headers.get('content-type') || '';
+  return ct.includes('application/json') && (!origin || origin === new URL(request.url).origin);
+}
+async function body(request) {
+  const t = await request.text();
+  if (t.length > 8192) throw new Error('too large');
+  return t ? JSON.parse(t) : {};
+}
+
+async function loadUser(db, session) {
+  if (!session || !db.configured) return null;
+  try {
+    const u = await db.get(TABLES.users, { email: S(session.email) });
+    if (!u) return null;
+    return { email: str(u, 'email'), firstName: str(u, 'firstName'), lastName: str(u, 'lastName'), organization: str(u, 'organization'),
+      emails: (u.emails && u.emails.SS) || [str(u, 'email')], createdAt: str(u, 'createdAt') };
+  } catch (e) { console.error('loadUser', e.message); return null; }
+}
+
+// --- Sign-in codes (no passwords): SIGN_UP creates an account, SIGN_IN uses any e-mail linked to one,
+//     ADD_EMAIL links another e-mail to the signed-in account. ---
+async function sendCode(request, env, db, session) {
+  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+  if (limited(request, 'send-code', 10)) return json({ error: 'Too many requests. Please wait a minute.' }, 429);
+  if (!db.configured || !env.RESEND_API_KEY || !env.SESSION_SECRET) return json({ error: 'Sign-in is not available yet.' }, 503);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  const email = normEmail(d.email), purpose = d.purpose;
+  if (!validEmail(email)) return json({ error: 'Please enter a valid e-mail address.' }, 400);
+  if (!['SIGN_IN', 'SIGN_UP', 'ADD_EMAIL'].includes(purpose)) return json({ error: 'Bad request.' }, 400);
+  const link = await db.get(TABLES.emails, { email: S(email) });
+  if (purpose === 'SIGN_IN' && !link) return json({ error: 'No account uses this e-mail. Create an account first.', noAccount: true }, 400);
+  if (purpose === 'SIGN_UP' && link) return json({ error: 'An account already uses this e-mail. Please sign in.', exists: true }, 400);
+  if (purpose === 'ADD_EMAIL') {
+    if (!session) return json({ error: 'Please sign in first.' }, 401);
+    if (link) return json({ error: 'This e-mail is already linked to an account.' }, 400);
+    const u = await loadUser(db, session);
+    if (!u) return json({ error: 'Please sign in first.' }, 401);
+    if (u.emails.length >= MAX_EMAILS) return json({ error: `An account can have up to ${MAX_EMAILS} e-mail addresses.` }, 400);
+  }
+  const prev = await db.get(TABLES.otps, { email: S(email) });
+  if (prev && Date.now() - Number(prev.sentAt.N) < OTP_RESEND_MS) return json({ error: 'Please wait a few seconds before requesting another code.' }, 429);
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+  const now = Date.now();
+  await db.put(TABLES.otps, { email: S(email), codeHash: S(await hmacHex(env.SESSION_SECRET, `otp|${email}|${code}`)), purpose: S(purpose),
+    forEmail: S(purpose === 'ADD_EMAIL' ? session.email : ''), sentAt: N(now), expiresAt: N(now + OTP_TTL_MS), attempts: N(0),
+    ttl: N(Math.floor((now + OTP_TTL_MS) / 1000) + 3600) });
+  const what = purpose === 'SIGN_UP' ? 'create your sushila.ai account' : purpose === 'ADD_EMAIL' ? 'add this e-mail to your sushila.ai account' : 'sign in to sushila.ai';
+  await sendEmail(env, email, `Your sushila.ai code: ${code}`,
+    `Your code to ${what} is ${code}.\n\nIt expires in 5 minutes. If you did not ask for it, ignore this e-mail.\n\nsushila.ai`,
+    `<p>Your code to ${what} is</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>It expires in 5 minutes. If you did not ask for it, ignore this e-mail.</p><p>sushila.ai</p>`);
+  return json({ ok: true });
+}
+
+async function verifyCode(request, env, db, session) {
+  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+  if (limited(request, 'verify-code', 20)) return json({ error: 'Too many requests. Please wait a minute.' }, 429);
+  if (!db.configured || !env.SESSION_SECRET) return json({ error: 'Sign-in is not available yet.' }, 503);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  const email = normEmail(d.email), code = String(d.code || '').trim();
+  if (!validEmail(email) || !/^\d{6}$/.test(code)) return json({ error: 'Please enter the 6-digit code.' }, 400);
+  const o = await db.get(TABLES.otps, { email: S(email) });
+  if (!o) return json({ error: 'No code is pending for this e-mail. Please request a new one.' }, 400);
+  if (Date.now() > Number(o.expiresAt.N)) { await db.del(TABLES.otps, { email: S(email) }); return json({ error: 'The code has expired. Please request a new one.' }, 400); }
+  if (!safeEqual(str(o, 'codeHash'), await hmacHex(env.SESSION_SECRET, `otp|${email}|${code}`))) {
+    const left = OTP_MAX_ATTEMPTS - Number(o.attempts.N) - 1;
+    if (left <= 0) { await db.del(TABLES.otps, { email: S(email) }); return json({ error: 'Too many wrong codes. Please request a new one.' }, 400); }
+    await db.update(TABLES.otps, { email: S(email) }, 'ADD attempts :one', { ':one': N(1) });
+    return json({ error: `Wrong code. ${left} attempt${left === 1 ? '' : 's'} left.` }, 400);
+  }
+  await db.del(TABLES.otps, { email: S(email) });
+  const purpose = str(o, 'purpose'), now = new Date().toISOString();
+  let primary;
+  if (purpose === 'SIGN_UP') {
+    const firstName = clean(d.firstName, 60), lastName = clean(d.lastName, 60), organization = clean(d.organization, 120);
+    if (!firstName) return json({ error: 'Please enter your name.' }, 400);
+    try { await db.put(TABLES.emails, { email: S(email), primaryEmail: S(email), linkedAt: S(now) }, 'attribute_not_exists(email)'); }
+    catch (e) { if (e.type.includes('ConditionalCheckFailed')) return json({ error: 'An account already uses this e-mail. Please sign in.' }, 400); throw e; }
+    await db.put(TABLES.users, { email: S(email), emails: { SS: [email] }, firstName: S(firstName), lastName: S(lastName || '-'),
+      organization: S(organization || '-'), createdAt: S(now), lastLoginAt: S(now) });
+    primary = email;
+    await audit(db, 'sign-up', email, request);
+  } else if (purpose === 'SIGN_IN') {
+    const link = await db.get(TABLES.emails, { email: S(email) });
+    if (!link) return json({ error: 'No account uses this e-mail.' }, 400);
+    primary = str(link, 'primaryEmail');
+    await db.update(TABLES.users, { email: S(primary) }, 'SET lastLoginAt = :t', { ':t': S(now) });
+    await audit(db, 'sign-in', primary, request, { via: email });
+  } else if (purpose === 'ADD_EMAIL') {
+    if (!session || session.email !== str(o, 'forEmail')) return json({ error: 'Please sign in with the account you are adding this e-mail to.' }, 401);
+    try { await db.put(TABLES.emails, { email: S(email), primaryEmail: S(session.email), linkedAt: S(now) }, 'attribute_not_exists(email)'); }
+    catch (e) { if (e.type.includes('ConditionalCheckFailed')) return json({ error: 'This e-mail is already linked to an account.' }, 400); throw e; }
+    await db.update(TABLES.users, { email: S(session.email) }, 'ADD emails :e', { ':e': { SS: [email] } });
+    await audit(db, 'add-email', session.email, request, { added: email });
+    return json({ ok: true });
+  } else return json({ error: 'Bad request.' }, 400);
+  return json({ ok: true }, 200, { 'set-cookie': sessionCookie(await createSession(primary, env.SESSION_SECRET)) });
+}
+
+async function account(request, env, db, session) {
+  if (!session) return json({ error: 'Please sign in.' }, 401);
+  const u = await loadUser(db, session);
+  if (!u) return json({ error: 'Please sign in.' }, 401, { 'set-cookie': clearCookie() });
+  if (request.method === 'GET') {
+    const rows = await db.query(TABLES.downloads, 'userEmail = :e', { ':e': S(u.email) }, { ScanIndexForward: false, Limit: 50 });
+    return json({ user: u, downloads: rows.map((r) => ({ at: str(r, 'downloadedAt').split('#')[0], model: str(r, 'modelName'), file: str(r, 'file'), bytes: Number((r.bytes || {}).N || 0) })) });
+  }
+  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  if (d.action === 'profile') {
+    const firstName = clean(d.firstName, 60);
+    if (!firstName) return json({ error: 'Please enter your name.' }, 400);
+    await db.update(TABLES.users, { email: S(u.email) }, 'SET firstName = :f, lastName = :l, organization = :o',
+      { ':f': S(firstName), ':l': S(clean(d.lastName, 60) || '-'), ':o': S(clean(d.organization, 120) || '-') });
+    return json({ ok: true });
+  }
+  if (d.action === 'remove-email') {
+    const e = normEmail(d.email);
+    if (e === u.email) return json({ error: 'The primary e-mail cannot be removed.' }, 400);
+    if (!u.emails.includes(e)) return json({ error: 'This e-mail is not on your account.' }, 400);
+    await db.del(TABLES.emails, { email: S(e) });
+    await db.update(TABLES.users, { email: S(u.email) }, 'DELETE emails :e', { ':e': { SS: [e] } });
+    await audit(db, 'remove-email', u.email, request, { removed: e });
+    return json({ ok: true });
+  }
+  return json({ error: 'Bad request.' }, 400);
+}
+
+// --- Downloads: signed-in users accept the model's license; each download is recorded, then sent straight to B2 ---
+async function createDownload(request, env, db, b2, session) {
+  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+  if (!session) return json({ error: 'Please sign in to download.', signin: true }, 401);
+  if (limited(request, 'download', 30)) return json({ error: 'Too many requests. Please wait a minute.' }, 429);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  const m = HOSTED.find((x) => x.file === d.file);
+  if (!m) return json({ error: 'Unknown file.' }, 404);
+  if (d.accept !== true) return json({ error: 'Please accept the license first.' }, 400);
+  if (!b2.configured) return json({ url: m.hf, external: true });
+  const now = new Date().toISOString();
+  await db.put(TABLES.downloads, { userEmail: S(session.email), downloadedAt: S(`${now}#${randomId()}`), modelId: S(m.id), modelName: S(`${m.name} ${m.quant}`),
+    file: S(m.file), b2Key: S(b2ModelKey(m, m.file)), bytes: N(m.bytes), sha256: S(m.sha256), license: S(m.license), licenseAccepted: S(now),
+    country: S((request.cf && request.cf.country) || '-') });
+  await audit(db, 'download', session.email, request, { file: m.file });
+  return json({ url: await b2.signedUrl(b2ModelKey(m, m.file), B2_LINK_SECONDS, m.file) });
+}
+
+async function media(request, env, b2, file) {
+  if (file !== VIDEO.key || !b2.configured) return new Response('Not found', { status: 404 });
+  const r = await b2.fetchFile(B2_MEDIA_KEY, request);
+  if (!r.ok && r.status !== 206) return new Response('Not found', { status: 404 });
   const h = new Headers(SEC);
-  h.set('content-type', VIDEO.type);
-  h.set('accept-ranges', 'bytes');
-  h.set('etag', obj.httpEtag);
-  h.set('cache-control', 'public, max-age=86400');
-  if (range && obj.range) {
-    const off = obj.range.offset ?? 0;
-    const len = obj.range.length ?? obj.size - off;
-    h.set('content-range', `bytes ${off}-${off + len - 1}/${obj.size}`);
-    h.set('content-length', String(len));
-    return new Response(request.method === 'HEAD' ? null : obj.body, { status: 206, headers: h });
-  }
-  h.set('content-length', String(obj.size));
-  return new Response(request.method === 'HEAD' ? null : obj.body, { headers: h });
+  for (const k of ['content-length', 'content-range', 'etag', 'last-modified']) if (r.headers.get(k)) h.set(k, r.headers.get(k));
+  h.set('content-type', VIDEO.type); h.set('accept-ranges', 'bytes'); h.set('cache-control', 'public, max-age=86400');
+  return new Response(request.method === 'HEAD' ? null : r.body, { status: r.status, headers: h });
 }
 
-async function download(request, env, file) {
-  const m = HOSTED.find((x) => x.file === file);
-  if (!m) return new Response('Not found', { status: 404 });
-  if (!env.MODELS) return Response.redirect(m.hf, 302); // no bucket bound: send users to the public source
-  const range = request.headers.get('range');
-  const obj = await env.MODELS.get(m.file, range ? { range: request.headers } : {});
-  if (!obj) return Response.redirect(m.hf, 302);
-  const h = new Headers(SEC);
-  obj.writeHttpMetadata(h);
-  h.set('content-type', 'application/octet-stream');
-  h.set('content-disposition', `attachment; filename="${m.file}"`);
-  h.set('accept-ranges', 'bytes');
-  h.set('etag', obj.httpEtag);
-  h.set('x-sha256', m.sha256);
-  h.set('cache-control', 'public, max-age=86400');
-  if (range && obj.range) {
-    const off = obj.range.offset ?? 0;
-    const len = obj.range.length ?? obj.size - off;
-    h.set('content-range', `bytes ${off}-${off + len - 1}/${obj.size}`);
-    h.set('content-length', String(len));
-    return new Response(request.method === 'HEAD' ? null : obj.body, { status: 206, headers: h });
+async function waitlist(request, env, db) {
+  if (!sameOriginJson(request)) return json({ ok: false, error: 'Bad request.' }, 400);
+  if (limited(request, 'waitlist', 10)) return json({ ok: false, error: 'Too many requests. Please wait a minute.' }, 429);
+  let d; try { d = await body(request); } catch { return json({ ok: false, error: 'Invalid request.' }, 400); }
+  const email = normEmail(d.email), model = clean(d.model, 300);
+  if (!validEmail(email)) return json({ ok: false, error: 'Please enter a valid e-mail address.' }, 400);
+  if (!db.configured) {
+    const contact = env.CONTACT || DEFAULT_CONTACT;
+    return json({ ok: true, mailto: `mailto:${contact}?subject=${encodeURIComponent('Sushila serverless API: early access')}&body=${encodeURIComponent(`Please add ${email} to the early-access list.${model ? `\nModels: ${model}` : ''}`)}` });
   }
-  h.set('content-length', String(obj.size));
-  return new Response(request.method === 'HEAD' ? null : obj.body, { headers: h });
-}
-
-async function waitlist(request, env) {
-  let body;
-  try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid request.' }, 400); }
-  const email = String(body.email || '').trim().slice(0, 200);
-  const model = String(body.model || '').trim().slice(0, 300);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ ok: false, error: 'Please enter a valid e-mail address.' }, 400);
-  const contact = env.CONTACT || DEFAULT_CONTACT;
-  if (!env.WAITLIST) {
-    const subject = encodeURIComponent('Sushila serverless API: early access');
-    const text = encodeURIComponent(`Please add ${email} to the early-access list.${model ? `\nModels: ${model}` : ''}`);
-    return json({ ok: true, mailto: `mailto:${contact}?subject=${subject}&body=${text}` });
-  }
-  await env.WAITLIST.put(`signup:${email.toLowerCase()}`, JSON.stringify({
-    email, model, at: new Date().toISOString(), country: request.cf?.country || null,
-  }));
+  await db.put(TABLES.waitlist, { email: S(email), models: S(model || '-'), at: S(new Date().toISOString()), country: S((request.cf && request.cf.country) || '-') });
   return json({ ok: true });
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const p = url.pathname;
-    if (request.method === 'POST' && p === '/api/waitlist') return waitlist(request, env);
-    if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
-    if (p === '/' || p === '/index.html') {
-      return new Response(page(env), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', ...SEC } });
+    const p = url.pathname, method = request.method;
+    const db = new DynamoDB(env), b2 = new B2(env);
+    const session = await readSession(request, env);
+    const html = (b, extra = {}) => new Response(b, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': session ? 'private, no-store' : 'public, max-age=300', ...SEC, ...extra } });
+    try {
+      if (method === 'POST') {
+        if (p === '/api/waitlist') return waitlist(request, env, db);
+        if (p === '/api/auth/send-code') return sendCode(request, env, db, session);
+        if (p === '/api/auth/verify-code') return verifyCode(request, env, db, session);
+        if (p === '/api/auth/sign-out') return new Response(null, { status: 303, headers: { location: '/', 'set-cookie': clearCookie() } });
+        if (p === '/api/account') return account(request, env, db, session);
+        if (p === '/api/download') return createDownload(request, env, db, b2, session);
+        return new Response('Not found', { status: 404, headers: SEC });
+      }
+      if (method !== 'GET' && method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
+      if (p === '/api/account') return account(request, env, db, session);
+      const user = session ? await loadUser(db, session) : null;
+      if (p === '/' || p === '/index.html') return html(page(env, user));
+      if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env), user));
+      if (p === '/privacy' || p === '/privacy/') return html(docPage(env, 'Privacy Policy', 'How the Sushila project handles personal data on sushila.ai and the Sushila serverless API.', PRIVACY(env), user));
+      if (p === '/signin' || p === '/signin/') return html(docPage(env, 'Sign in', 'Sign in to sushila.ai with a one-time code sent to your e-mail.', SIGNIN(url), user));
+      if (p === '/account' || p === '/account/') {
+        if (!user) return Response.redirect(`${url.origin}/signin?next=/account`, 302);
+        return html(docPage(env, 'Your account', 'Your sushila.ai account.', ACCOUNT(user), user));
+      }
+      if (p.startsWith('/download/')) {
+        const m = HOSTED.find((x) => x.file === decodeURIComponent(p.slice('/download/'.length)));
+        if (!m) return new Response('Not found', { status: 404, headers: SEC });
+        if (!user) return Response.redirect(`${url.origin}/signin?next=${encodeURIComponent(p)}`, 302);
+        return html(docPage(env, `Download ${m.name} ${m.quant}`, 'Download a model file.', DOWNLOAD(m), user));
+      }
+      if (p === '/models.json') {
+        return json({
+          hosted: HOSTED.map(({ id, name, quant, file, bytes, sha256, license, hf, tuned }) =>
+            ({ id, name, quant, bytes, sha256, license, tuned, url: `${url.origin}/download/${file}`, b2Key: `models/${id}/${file}`, source: hf })),
+          huggingface: LISTED,
+        });
+      }
+      if (p.startsWith('/media/')) return media(request, env, b2, decodeURIComponent(p.slice('/media/'.length)));
+      if (IMAGES[p]) {
+        const bytes = Uint8Array.from(atob(IMAGES[p]), (c) => c.charCodeAt(0));
+        return new Response(bytes, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' } });
+      }
+      if (p === '/robots.txt') return new Response('User-agent: *\nAllow: /\nDisallow: /download/\nDisallow: /account\nDisallow: /api/\n', { headers: { 'content-type': 'text/plain' } });
+      return new Response('Not found', { status: 404, headers: SEC });
+    } catch (e) {
+      console.error(p, e && e.stack || e);
+      return p.startsWith('/api/') ? json({ error: 'Something went wrong. Please try again.' }, 500) : new Response('Something went wrong. Please try again.', { status: 500, headers: SEC });
     }
-    const html = (body) => new Response(body, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', ...SEC } });
-    if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env)));
-    if (p === '/privacy' || p === '/privacy/') return html(docPage(env, 'Privacy Policy', 'How the Sushila project handles personal data on sushila.ai and the Sushila serverless API.', PRIVACY(env)));
-    if (p === '/models.json') {
-      return json({
-        hosted: HOSTED.map(({ id, name, quant, file, bytes, sha256, license, hf, tuned }) =>
-          ({ id, name, quant, bytes, sha256, license, tuned, url: `${url.origin}/download/${file}`, source: hf })),
-        huggingface: LISTED,
-      });
-    }
-    if (p.startsWith('/media/')) return media(request, env, decodeURIComponent(p.slice('/media/'.length)));
-    if (p.startsWith('/download/')) return download(request, env, decodeURIComponent(p.slice('/download/'.length)));
-    if (IMAGES[p]) {
-      const bytes = Uint8Array.from(atob(IMAGES[p]), (c) => c.charCodeAt(0));
-      return new Response(bytes, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' } });
-    }
-    if (p === '/robots.txt') return new Response('User-agent: *\nAllow: /\nDisallow: /download/\n', { headers: { 'content-type': 'text/plain' } });
-    return new Response('Not found', { status: 404, headers: SEC });
   },
 };

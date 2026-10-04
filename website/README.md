@@ -1,40 +1,69 @@
 # sushila.ai website
 
-`worker.js` is the entire sushila.ai site as one Cloudflare Worker: the home page (what Sushila.cpp does,
-measured speed, install steps for Linux, macOS and Windows, models, serverless API sign-up, disclaimer stating that
-Sushila is a research project),
-`/terms`, `/privacy`, `/models.json`, `/download/<file>`, and the logo and icons (`/logo.png`, `/favicon.png`,
-`/favicon-32.png`, `/favicon.ico`, `/apple-touch-icon.png`, and `/logo-swan.png` + `/logo-base.png`, the two layers
-that let the hero swan rock on its base, like the logo animation, whenever the visitor moves the mouse, touches,
-scrolls or uses the wheel anywhere on the page),
-which are embedded in the file (made from
-`assets/logo/SushilaLogoWithBaseG.jpg`: background made transparent, cropped, resized to a 256-colour palette).
-The logo animation (`assets/logo/SushilaLogoWithBaseG.mp4`, 4.3 MB) is too large to embed: upload it to an R2 bucket
-and bind that bucket as `MEDIA` (or reuse `MODELS`); the page shows it under the headline only when it is available:
+`worker.js` is the whole sushila.ai site as one Cloudflare Worker. It serves:
+
+- **Pages:** the home page (what Sushila.cpp does, measured speed, install steps for Linux, macOS and Windows, models,
+  serverless API sign-up, and a disclaimer stating that Sushila is a research project), `/terms` and `/privacy`.
+- **Accounts:** passwordless sign-in at `/signin` (a 6-digit code is e-mailed), and `/account` (profile, several linked
+  e-mail addresses, download history).
+- **Downloads:** each hosted model file has a license page at `/download/<file>`. A signed-in user accepts the license,
+  the download is recorded, and the user gets a personal 24-hour link straight to Backblaze B2.
+- **Logo:** the logo and icons are embedded in the file, made from `assets/logo/SushilaLogoWithBaseG.jpg`. The hero swan
+  is two layers (`/logo-swan.png`, `/logo-base.png`). It rocks on its base, like the logo animation, whenever the visitor
+  moves the mouse, touches, scrolls or uses the wheel. The animation itself is served from B2 at `/media/…`.
+
+## Services and settings
+
+The worker reads these Cloudflare secrets and variables:
+
+| Name | Used for |
+|---|---|
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | DynamoDB. Every table is named `sushilaai-*`. |
+| `B2_KEY_ID`, `B2_APP_KEY`, `B2_BUCKET_NAME` (`sushila-ai`) | Backblaze B2, for downloads and media |
+| `RESEND_API_KEY`, `RESEND_FROM` (`sushila.ai <support@sushila.ai>`) | sign-in e-mails |
+| `SESSION_SECRET` | signs session cookies and hashes sign-in codes; use a long random value |
+| `RELEASED` (`"true"`), `REPO_URL`, `CONTACT`, `GOVERNING_LAW` | optional: download buttons, source link, contact e-mail, Terms |
+| `DEEPINFRA_API_KEY`, `DEEPSEEK_PLATFORM_API_KEY` | reserved for the serverless API; not used yet |
+
+**Graceful fallback:** without the AWS, B2 or Resend settings the site still works. Sign-in is unavailable, downloads
+go to Hugging Face, the waitlist falls back to e-mail, and the video is left out.
+
+**DynamoDB tables** (create them with `setup/aws_tables.sh`; the worker's key needs only `setup/iam_policy.json`):
+
+| Table | Key | Holds |
+|---|---|---|
+| `sushilaai-users` | `email` (primary e-mail) | linked e-mails (set), name, organization, created, last sign-in |
+| `sushilaai-emails` | `email` | every verified e-mail → `primaryEmail` of its account |
+| `sushilaai-otps` | `email` | the pending code as a keyed hash, its purpose, expiry and attempts; removed by TTL |
+| `sushilaai-downloads` | `userEmail` + `downloadedAt` | model, file, B2 key, sha256, license accepted, country |
+| `sushilaai-waitlist` | `email` | serverless-API early access |
+| `sushilaai-audit` | `day` + `at` | sign-ups, sign-ins, e-mail changes, downloads |
+
+**Backblaze B2 layout** (bucket `sushila-ai`; upload with `setup/b2_upload.sh`):
+
+| Path | Content |
+|---|---|
+| `models/<model id>/<file>` | the model file, byte-identical to the Ollama registry blob; the script checks its sha256 before uploading |
+| `models/<model id>/sushila/<file>` | that model's Sushila artifacts: landscapes, draft heads, manifest |
+| `media/SushilaLogoWithBaseG.mp4` | the logo animation |
+
+**Sign-in rules:**
+- **Codes:** 6 digits, valid for 5 minutes, at most one every 10 seconds per e-mail, and 5 wrong guesses discard the
+  code. Codes are stored only as a keyed hash.
+- **Sessions:** a signed, HttpOnly, Secure, SameSite=Lax cookie lasting 30 days.
+- **E-mails:** an account can have up to 5 verified e-mails, and any of them signs in.
+- **Requests:** state-changing calls must be same-origin JSON, and every route is rate-limited per IP.
+
+## Deploy
 
 ```sh
-npx wrangler r2 bucket create sushila-media
-npx wrangler r2 object put sushila-media/SushilaLogoWithBaseG.mp4 --file ../assets/logo/SushilaLogoWithBaseG.mp4 --content-type video/mp4 --remote
-```
-
-Deploy:
-
-```sh
+AWS_REGION=<region> bash setup/aws_tables.sh               # once
+bash setup/b2_upload.sh media                              # logo animation
+bash setup/b2_upload.sh model llama3.2-1b-q8               # each hosted model (see the list in the script)
 npx wrangler deploy worker.js --name sushila --compatibility-date 2026-10-01
 ```
 
-Then attach the `sushila.ai` domain in the Cloudflare dashboard (Workers → sushila → Domains).
+Then attach the `sushila.ai` domain under Workers → sushila → Domains. In Resend, verify `sushila.ai` as a sending
+domain so `support@sushila.ai` can send.
 
-Optional settings (Workers → sushila → Settings); the site works without any of them:
-
-| Name | Kind | Purpose |
-|---|---|---|
-| `MODELS` | R2 bucket binding | hosted `.gguf` files, keyed by the file names in `HOSTED`; without it, downloads redirect to Hugging Face |
-| `MEDIA` | R2 bucket binding | the logo animation `SushilaLogoWithBaseG.mp4`; without it (and without `MODELS`) the page leaves the video out |
-| `WAITLIST` | KV namespace binding | API early-access sign-ups; without it, the form opens an e-mail |
-| `RELEASED` | variable, `"true"` | turns on the download buttons once this repository is public |
-| `CONTACT` | variable | contact e-mail (default `contact@sushila.ai`; create it with Cloudflare Email Routing) |
-| `REPO_URL` | variable | source repository shown on the page (default: this repository) |
-| `GOVERNING_LAW` | variable | governing law named in the Terms of Service |
-
-The Terms of Service and Privacy Policy are templates; have them reviewed by counsel before charging for the API.
+The Terms of Service and Privacy Policy are templates. Have them reviewed by counsel before charging for the API.
