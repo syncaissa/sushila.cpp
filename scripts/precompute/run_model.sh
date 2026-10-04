@@ -182,7 +182,8 @@ for k in range(0, len(rows), ch):
 print(len(rows))
 PYX
 PREV=$D/pub_head; n=0
-for c in $(ls $D/chunk_*.jsonl | sort); do
+CHUNKS=$(ls $D/chunk_*.jsonl | sort); [ -s $D/chosen.txt ] && [ -d "$(cat $D/chosen.txt)" ] && CHUNKS=""   # head chosen already (or restored from B2): no retraining
+for c in $CHUNKS; do
   k=$(basename $c .jsonl); out=$D/ckpt_$k
   if [ -z "$(ls -d $out/run-$k-step* 2>/dev/null)" ]; then
     rm -rf $D/hs $D/cache_$k; t0=$(date +%s)

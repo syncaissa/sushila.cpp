@@ -137,4 +137,6 @@ results/<model>/     timings, outputs, logs and summary of the run
 ```sh
 python3 scripts/precompute/b2_save.py precomputed $W <model> scripts/precompute/models/<model>.env
 python3 scripts/precompute/b2_save.py verify precomputed/<model>      # run this before deleting the machine
+python3 scripts/precompute/b2_save.py restore precomputed/<model> $W/<model>/head_ckpt_chunk_01 --only draft-head/
+#   reuse a saved head on a new machine: write its path into $W/<model>/chosen.txt and run_model.sh skips training
 ```

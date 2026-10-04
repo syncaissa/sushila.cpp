@@ -14,6 +14,7 @@ Commands:
   b2_save.py precomputed W MODEL ENVFILE   save $W/MODEL's precomputed artifacts and results (run_model.sh does this)
   b2_save.py tree LOCAL PREFIX [--exclude X ...]   upload any folder (skips identical files; writes PREFIX/MANIFEST.json)
   b2_save.py verify PREFIX                 check every file listed in PREFIX/CHECKSUMS.json (or MANIFEST.json) exists in B2
+  b2_save.py restore PREFIX LOCAL [--only draft-head/]   download the listed files (or one subfolder) and check sha256
 
 Credentials (never committed): B2_KEY_ID and B2_APP_KEY in the environment, or ~/.b2_key (two lines: key id, key).
 """
@@ -221,6 +222,26 @@ def verify(prefix):
     return True
 
 
+def restore(prefix, local, only=''):
+    b2 = B2()
+    prefix = prefix.strip('/')
+    base = _download_url(b2)
+    have = b2.existing(prefix + '/')
+    idx = 'CHECKSUMS.json' if f'{prefix}/CHECKSUMS.json' in have else 'MANIFEST.json'
+    get = lambda name: urllib.request.urlopen(urllib.request.Request(f"{base}/file/{b2.bucket}/{urllib.parse.quote(name)}", headers={'Authorization': b2.tok}), timeout=900)
+    listing = json.loads(get(f'{prefix}/{idx}').read())
+    for f in [x for x in listing['files'] if x['path'].startswith(only)]:
+        dst = os.path.join(local, f['path'][len(only):] if only else f['path'])
+        os.makedirs(os.path.dirname(dst) or '.', exist_ok=True)
+        with get(f"{prefix}/{f['path']}") as r, open(dst, 'wb') as o:
+            for b in iter(lambda: r.read(8 << 20), b''):
+                o.write(b)
+        if digest(dst, 'sha256') != f['sha256']:
+            sys.exit(f'sha256 mismatch: {dst}')
+        print('restored', dst)
+    print(f'restored the {only or "all"} files of b2://{b2.bucket}/{prefix}/ into {local}')
+
+
 def _download_url(b2):
     kid, key = _creds()
     a = json.loads(urllib.request.urlopen(urllib.request.Request('https://api.backblazeb2.com/b2api/v3/b2_authorize_account',
@@ -242,6 +263,8 @@ def main():
         print(f'{len(files)} files in b2://{b2.bucket}/{sys.argv[3].strip("/")}/ (MANIFEST.json)')
     elif cmd == 'verify':
         verify(sys.argv[2])
+    elif cmd == 'restore' and len(sys.argv) >= 4:
+        restore(sys.argv[2], sys.argv[3], sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else '')
     else:
         sys.exit(__doc__)
 
