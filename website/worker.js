@@ -399,7 +399,7 @@ ${STYLE}</style>
 <body>
 <header><div class="wrap"><nav>
   ${brand()}
-  <div class="links"><a href="#how">How</a><a href="#results" class="hide">Results</a><a href="#download">Download</a><a href="#models">Models</a><a href="#api" class="hide">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
+  <div class="links"><a href="#how" class="hide">How</a><a href="#results" class="hide">Results</a><a href="#download">Download</a><a href="#models">Models</a><a href="#api" class="hide">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
 </nav></div></header>
 
 <main class="wrap">
