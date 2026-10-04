@@ -99,3 +99,20 @@ After the run:
 | 30B-class model (2,000 answers) | about 3 h | $5 |
 
 The smoke run first costs about $1 and catches setup problems before the full run.
+
+## Saving everything for reuse (Backblaze B2)
+
+`scripts/precompute/b2_save.py` uploads a run's files to the `sushila-ai` bucket. It skips files that are already there
+and writes a `MANIFEST.json` with the sha256 of every file. It needs a B2 application key limited to that bucket,
+given as `B2_KEY_ID` and `B2_APP_KEY`, or as `~/.b2_key` (two lines).
+
+| What | B2 path |
+|---|---|
+| Results, logs, prompt sets, the model's own answers, summary | `results/<model>/` |
+| The chosen precomputed draft head | `models/<model>/sushila/draft-head/` |
+| All checkpoints | `results/<model>/checkpoints/` |
+
+```sh
+python3 b2_save.py $W/<model> results/<model> --exclude hs/ cache_ ckpt_chunk_ head_ckpt pub_head
+python3 b2_save.py $(cat $W/<model>/chosen.txt) models/<model>/sushila/draft-head
+```
