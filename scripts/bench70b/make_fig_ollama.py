@@ -27,6 +27,12 @@ o = wall(json.load(open(o70)) if os.path.exists(o70) else ld('ollama.json'))
 rows.append(('Llama-3.3-70B, 4-bit', o, None, wall(ld('dz_ck01_s4n16.json')), 'SGLang + precomputed draft head'))
 oo, dz = ld('rigor/ollama_ood.json'), ld('rigor/dz_ood.json')
 rows.append(('Llama-3.3-70B, unseen sets', wall(oo), None, wall(dz), 'MT-Bench, HumanEval, GSM8K'))
+# more models from the per-model pipeline (scripts/precompute): unseen prompts, Ollama vs Sushila.cpp's serving path
+QD = os.environ.get('QWEN_DIR')
+if QD:
+    for m, name in [('qwen3-32b', 'Qwen3-32B, unseen sets'), ('qwen3-30b-a3b', 'Qwen3-30B-A3B, unseen sets')]:
+        t = json.load(open(f'{QD}/{m}/summary.json'))['sets']['ood']['tok_s']
+        rows.append((name, t['ollama'], None, t['ours'], 'SGLang + precomputed draft head'))
 for r in rows:
     print(f'{r[0]} & {r[1]:.1f} & {"" if r[2] is None else f"{r[2]:.1f}"} & {r[3]:.1f} & \\textbf{{{r[3] / r[1]:.2f}$\\times$}} & {r[4]} \\\\')
 names = [r[0].replace(', Q4\\_K\\_M', '').replace(', 4-bit', '').replace(', unseen sets', '$^{*\\dagger}$') + ('$^*$' if r[2] is None and 'unseen' not in r[0] else '') for r in rows]
@@ -36,7 +42,7 @@ cs = ' '.join(f'({r[3]:.1f},{i})' for i, r in enumerate(rows))
 cx = ' '.join(f'({r[3] / r[1]:.2f},{i})' for i, r in enumerate(rows))
 xmax = max(r[3] for r in rows) * 1.22
 smax = max(r[3] / r[1] for r in rows) * 1.3
-common = (r'height=6.4cm, enlarge y limits=0.16, ytick=data, y dir=reverse, xmin=0, xmajorgrids, grid style={gray!25}, '
+common = (r'height=7.6cm, enlarge y limits=0.16, ytick=data, y dir=reverse, xmin=0, xmajorgrids, grid style={gray!25}, '
           r'tick label style={font=\footnotesize}, label style={font=\footnotesize}, nodes near coords, '
           r'nodes near coords style={font=\scriptsize, anchor=west}, point meta=x')
 open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fig_ollama.tex'), 'w').write(rf"""\documentclass[border=4pt]{{standalone}}

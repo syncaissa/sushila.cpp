@@ -1,0 +1,402 @@
+[
+ {
+  "id": 0,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 2.9414467811584473,
+  "wall_tok_s": 87.0320012722372,
+  "accept_len": 2.0813008130081303,
+  "text": "**Island Dreams: A Cultural Journey Through the Heart of Hawaii**\n\nThere\u2019s a certain magic in the air when you step off the plane in Hawaii\u2014a mix of salt water, sweet tropical breezes, and the faint rhythm of ukulele music drifting from the next room. My recent trip to the Aloha State was more than just a sun-soaked escape; it was a soulful journey into the heart of Hawaiian culture, history, and nature. From the gentle cadence of *\u02bb\u014dlelo Hawai\u02bbi* (the Hawaiian language) to the vibrant hula dances under starry skies, every moment felt like a blessing.\n\n### **Oahu: More Than Just Waikiki**\n\nMy journey began on Oahu, the island of legends. While Waikiki is a must for its stunning beaches and world-class surfing, I ventured beyond the tourist trail to discover the island\u2019s soul.\n\n**North Shore Serenity**  \nThe North Shore is a surfer\u2019s paradise during the winter months, but in the summer, it\u2019s a peaceful stretch of white-sand beaches and laid-back charm. I spent a morning at Ehukai Beach (Banzai Pipeline), where even without the towering waves, the energy felt electric. I ended the day with"
+ },
+ {
+  "id": 1,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 147,
+  "seconds": 1.1356582641601562,
+  "wall_tok_s": 129.4403471881655,
+  "accept_len": 3.1956521739130435,
+  "text": "Subject: Request for Feedback on Quarterly Financial Report\n\nDear [Supervisor's Name],\n\nI hope this message finds you well. I\u2019ve prepared the Quarterly Financial Report and would greatly appreciate your feedback to ensure it meets the required standards.\n\nCould you kindly review the following aspects:\n\n- **Data Analysis:** Accuracy and relevance of the data used  \n- **Presentation Style:** Clarity and effectiveness of the visual elements and layout  \n- **Clarity of Conclusions:** Strength and justification of the conclusions drawn  \n\nPlease let me know if you have any recommendations or if any sections require revision.\n\nThank you in advance for your time and guidance.\n\nBest regards,  \n[Your Full Name]  \n[Your Job Title]  \n[Your Contact Information]"
+ },
+ {
+  "id": 2,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 229,
+  "seconds": 2.05784273147583,
+  "wall_tok_s": 111.28158459211666,
+  "accept_len": 2.6941176470588237,
+  "text": "**Blog Post Outline: Comparing Smartphone Model A vs. Model B**\n\n1. **Introduction**  \n   - Brief overview of both models  \n   - Purpose of the comparison  \n\n2. **Design and Display**  \n   - Build materials and aesthetics  \n   - Screen size, resolution, and features  \n\n3. **Performance and Hardware**  \n   - Processor and RAM comparison  \n   - Storage options and expandability  \n\n4. **Camera Capabilities**  \n   - Megapixels, aperture, and zoom features  \n   - Low-light performance and software enhancements  \n\n5. **Battery Life and Charging**  \n   - Battery capacity and endurance  \n   - Fast charging and wireless charging support  \n\n6. **Software and User Experience**  \n   - Operating system and interface  \n   - Customization and bloatware  \n\n7. **Price and Value for Money**  \n   - Starting price and available deals  \n   - Feature-to-cost ratio  \n\n8. **Verdict and Recommendation**  \n   - Summary of key differences  \n   - Ideal user scenarios for each model  \n\n9. **Final Thoughts**  \n   - Overall takeaways and closing remarks"
+ },
+ {
+  "id": 3,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 2.549025058746338,
+  "wall_tok_s": 100.43055446693253,
+  "accept_len": 2.4150943396226414,
+  "text": "Subject: Your Unique Voice Could Make a Big Difference\n\nHey [Friend's Name],\n\nI know public speaking isn\u2019t your favorite thing\u2014trust me, I get it. But I want to ask you to consider something: volunteering as a guest speaker at a local event next month. I know it might feel intimidating, but hear me out.\n\nFirst, the event is small, intimate, and the audience is genuinely interested in hearing from someone with your thoughtful perspective\u2014not a polished speaker. You don\u2019t have to be the life of the party; you just need to be *you*. That\u2019s what will make your message authentic and powerful.\n\nSecond, this could be a great way to step gently out of your comfort zone. You don\u2019t have to speak for long\u201410-15 minutes would be enough. And you can prepare a script, share personal stories, or even do a Q&A. You call the shots.\n\nFinally, your voice matters. In a world full of noise, people are craving genuine, heartfelt insight. You have something valuable to say\u2014and others need to hear it.\n\nIf the idea still feels off, we can work on it together\u2014help with prep, practice, or even just someone to talk it through with. No pressure, no expectations\u2014"
+ },
+ {
+  "id": 4,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 139,
+  "seconds": 1.778909683227539,
+  "wall_tok_s": 78.1377499434414,
+  "accept_len": 1.8783783783783783,
+  "text": "Zephyra the Emberchaser moved like a wisp of smoke through the ash-lit ruins of the Hollow Wastes, her cloak a swirl of molten bronze and shadow. Her eyes, twin coals of violet flame, glowed with the heat of a dying star. Beneath a crown of obsidian horns, her skin shimmered with faint ash-silver, as if the scars of the world had etched themselves into her very being. She carried a whip of living shadow, its lash whispering forgotten names to the wind, and her voice\u2014deep, smoky, and edged with the crackle of flame\u2014could summon storms or still them with a breath."
+ },
+ {
+  "id": 5,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 2.7574989795684814,
+  "wall_tok_s": 92.83774967708645,
+  "accept_len": 2.226086956521739,
+  "text": "The marketplace hummed with life, a vibrant tapestry of color, sound, and scent that enveloped you the moment you stepped inside. Stalls lined the narrow, winding paths, their canopies swaying gently in the breeze, displaying mounds of ripe, glistening fruit\u2014plump mangoes, glossy red peppers, and clusters of fragrant lemons. The air was a heady mix of spices: cumin, coriander, and turmeric wafted from open bins and steaming pots, mingling with the sweet aroma of freshly baked flatbreads and the tang of pickled vegetables. Vendors called out in a rhythmic cadence, their voices rising above the clatter of pots, the chatter of haggling customers, and the occasional bray of a donkey tethered near the entrance. Children darted between legs, barefoot and laughing, while a nearby musician plucked a sitar, its melody weaving through the din like a thread of gold. Every corner offered a new discovery\u2014a glint of dyed fabric, a burst of color from a pyramid of chilies, or the distant hiss of a griddle turning out sizzling kebabs. It was a world alive with motion and meaning, where every"
+ },
+ {
+  "id": 6,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 2.6172890663146973,
+  "wall_tok_s": 97.81112957479459,
+  "accept_len": 2.3486238532110093,
+  "text": "**The Whispering Shadows**\n\nThe old abandoned house at the end of the street held a secret that no one had ever discovered.\n\nIt had always been a source of local legend\u2014part ghost story, part warning. Children dared each other to peek through the broken windows, but no one ever stayed long. The house, once a stately Victorian with a wraparound porch and a red roof, had long since crumbled into decay. Ivy clung to its walls like a lover\u2019s desperate embrace, and the wind, when it passed through the cracked eaves, sounded like a sigh of sorrow.\n\nBut for twelve-year-old Elara, the house was more than just a creepy landmark. It was a mystery.\n\nShe had been walking home from the library when she noticed something strange: a faint, rhythmic tapping coming from inside. It wasn\u2019t the wind. It wasn\u2019t the house settling. It was deliberate. A knock, a code\u2014like the way she had once read in a book about spies passing messages. Her curiosity piqued, she slipped behind a tree and waited.\n\nThe tapping began again\u2014five slow knocks, then three quick ones.\n\nElara\u2019s heart pounded. She had always been drawn to stories of hidden things\u2014treasure maps, secret societies"
+ },
+ {
+  "id": 7,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 147,
+  "seconds": 1.6453502178192139,
+  "wall_tok_s": 89.34268121642654,
+  "accept_len": 2.161764705882353,
+  "text": "When Clara opened her eyes that morning, the world was still the same\u2014faded wallpaper, the smell of old coffee, the ticking of her grandmother\u2019s clock\u2014but within her, everything had shifted. It started with a flicker, a sensation like stepping through a curtain into a different room of time. By the time she reached the kitchen, her hand brushed against yesterday\u2019s breakfast, still steaming on the table. She blinked, and it was gone. Her coffee grew cold, then warm again. The calendar on the wall turned pages on its own. And somewhere, deep in her chest, a thrill and a terror tangled together\u2014because Clara knew now that she wasn\u2019t just waking up. She was *starting over*."
+ },
+ {
+  "id": 8,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 2.75874400138855,
+  "wall_tok_s": 92.79585197870783,
+  "accept_len": 2.226086956521739,
+  "text": "Certainly! Here are four headline options that aim to be both catchy and scientifically accurate, while acknowledging the ethical dilemmas associated with bio-energy:\n\n---\n\n**1.**  \n**\"Fuel of the Future or Food of the Present? New Breakthrough in Renewable Bioenergy Sparks Ethical Debate\"**  \n*Balances excitement with critical nuance, framing the discovery within a broader ethical conversation.*\n\n**2.**  \n**\"Bio-Energy Revolution on the Horizon\u2014But at What Cost to Land and Livelihoods?\"**  \n*Highlights the innovation while raising important ethical questions about land use and social impact.*\n\n**3.**  \n**\"Scientists Unveil Next-Gen Bioenergy\u2014Now the World Must Decide If It\u2019s Sustainable or Exploitative\"**  \n*Emphasizes scientific progress while directly addressing the moral choices that must accompany it.*\n\n**4.**  \n**\"Energy from Life: A Bio-Revolution Balancing Innovation and Environmental Equity\"**  \n*Focuses on the duality of bio-energy\u2014its potential and the ethical responsibility it demands.*\n\n---\n\nLet me know if you'd like the tone to be more optimistic, more cautionary, or tailored for a specific audience (e.g., scientific, public policy, or general readership)."
+ },
+ {
+  "id": 9,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 125,
+  "seconds": 0.8771038055419922,
+  "wall_tok_s": 142.51448826260452,
+  "accept_len": 3.5714285714285716,
+  "text": "Here is the edited paragraph with grammatical errors corrected and improved for clarity and flow:\n\n**Corrected version:**\n\nShe didn't remember where her purse was, so I thought it might be in the car, but he said it was on the kitchen table, though he wasn't sure. Then they asked me to look for it. She said, \"Can you?\" and I responded, \"Maybe, but I'm not sure.\" He didn't hear me and asked, \"What?\" Then he said, \"Did you find it?\"\n\n---\n\nLet me know if you'd like a more formal or more casual version!"
+ },
+ {
+  "id": 10,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 256,
+  "seconds": 2.594428777694702,
+  "wall_tok_s": 98.67297271789846,
+  "accept_len": 2.3703703703703702,
+  "text": "Let me tell you \u2014 we need to go to Mars because we are a species that wants to survive. If we remain a single-planet civilization, we are at risk of being wiped out by an extinction-level event \u2014 whether it's a large asteroid, a global pandemic that we can't control, or a global nuclear war. We need to become multiplanetary to ensure the long-term survival of humanity.\n\nMars is the most feasible and closest planet that we can realistically colonize. It's not perfect \u2014 it's cold, it's dry, and it's got a thin atmosphere \u2014 but it's there. It's a challenge, and that's what excites me. We are talking about building a self-sustaining city on Mars, which will eventually become a second home for humanity. That\u2019s the goal of SpaceX: to make life multiplanetary.\n\nAnd here's the thing \u2014 when you start solving the problem of getting to Mars, you end up building technologies that benefit Earth as well. For example, reusable rockets, advanced life-support systems, sustainable energy solutions \u2014 all of these innovations will have spin-offs that improve life here on Earth.\n\nYou know, people say, \u201cWhy spend so much money on Mars when we have so many problems on Earth?\u201d"
+ },
+ {
+  "id": 11,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 137,
+  "seconds": 1.5771310329437256,
+  "wall_tok_s": 86.8665932876158,
+  "accept_len": 2.1076923076923078,
+  "text": "I find hand dryers to be a rather inefficient and unsanitary method of drying one's hands. They require one to stand idly by while a machine blows air at one's hands, often for an inordinate amount of time. In contrast, traditional paper towels offer a more hygienic and expedient solution. The dryers can also circulate bacteria and other airborne particles, potentially defeating the purpose of washing one's hands in the first place. If one is to use a dryer, the high-frequency model at the university has a 98.6% success rate in drying hands within 12 seconds, but I still maintain that paper towels are superior."
+ },
+ {
+  "id": 12,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 256,
+  "seconds": 2.645458698272705,
+  "wall_tok_s": 96.7696075418413,
+  "accept_len": 2.327272727272727,
+  "text": "Certainly. Let's begin by simulating a diagnostic process for **intense abdominal discomfort**. To provide a comprehensive and personalized treatment plan, I\u2019ll need to gather some information about the patient. Please imagine the following case:\n\n---\n\n### **Patient Scenario (Hypothetical Case):**\n\n**Name:** Maria  \n**Age:** 42  \n**Gender:** Female  \n**Occupation:** Office worker  \n**Medical History:** Hypertension, occasional heartburn, no known food allergies  \n**Lifestyle:** Sedentary, works long hours at a desk, minimal physical activity, high-stress environment  \n**Medications:** Lisinopril for hypertension  \n**Symptoms:**\n- Sudden onset of **intense abdominal pain** centered around the upper abdomen  \n- Nausea  \n- Vomiting  \n- Mild fever  \n- No diarrhea or blood in stool  \n- Pain radiating to the back  \n- History of similar episodes in the past 6 months  \n\n---\n\n## **Step 1: Differential Diagnosis**\n\nBased on the symptoms and medical history, the top differentials for **intense abdominal discomfort** in a 42-year-old woman with a sedentary lifestyle include:\n\n1. **Pancreatitis** \u2013 Especially if associated with"
+ },
+ {
+  "id": 13,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 256,
+  "seconds": 2.295499563217163,
+  "wall_tok_s": 111.522565328313,
+  "accept_len": 2.694736842105263,
+  "text": "Of course. I'm here to help, and I appreciate you reaching out. It takes courage to seek support when you're dealing with conflict in your relationship. Let\u2019s start by talking about relationship conflicts in a general way before we move into more specific strategies. If you're comfortable, I can also ask you a few questions to better understand the nature of the conflict.\n\n### General Advice for Resolving Conflicts with Spouse\n\n1. **Create a Safe Space for Communication**  \n   Conflicts often arise when people feel unheard or misunderstood. Reassure each other that the goal of the conversation is to understand\u2014not to win. Use phrases like:\n   - \"I want to understand your perspective.\"\n   - \"I\u2019m not here to argue, just to connect.\"\n\n2. **Use \u201cI\u201d Statements to Express Feelings**  \n   Instead of blaming or accusing (e.g., \u201cYou never listen to me\u201d), focus on how the situation makes *you* feel:\n   - \u201cI feel hurt when my ideas are dismissed.\u201d\n   - \u201cI feel frustrated when we don\u2019t get to talk about things.\u201d\n\n3. **Practice Active Listening**  \n   Listening means more than just hearing the words\u2014try to truly understand the emotions and needs behind them. You can"
+ },
+ {
+  "id": 14,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 175,
+  "seconds": 2.1751513481140137,
+  "wall_tok_s": 80.45417168406946,
+  "accept_len": 1.9444444444444444,
+  "text": "The phrase \"\u8863\u5e26\u6e10\u5bbd\u7ec8\u4e0d\u6094 \u4e3a\u4f0a\u6d88\u5f97\u4eba\u6194\u60b4\" is in Chinese and originates from the poem *Butterfly Lovers* by Liu Yong (Li\u00fa Y\u01d2ng, \u67f3\u6c38), a famous Chinese poet of the Song Dynasty. It is a well-known classical Chinese verse, often quoted in literature and romantic contexts.\n\nA refined and polished English translation that preserves the original meaning and poetic tone would be:\n\n**\"Though my robes grow loose from weight lost, I regret nothing; for her sake, I have worn myself to a shadow.\"**\n\nAlternatively, for a more sophisticated and literary tone:\n\n**\"Though my sash grows wider with weight surrendered, I remain unrepentant; for her, I have withered to a specter.\"**\n\nBoth versions convey the emotional depth and poetic elegance of the original."
+ },
+ {
+  "id": 15,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 256,
+  "seconds": 2.1491661071777344,
+  "wall_tok_s": 119.11596741871986,
+  "accept_len": 2.8764044943820224,
+  "text": "Great question! Let me explain it in a simple and relatable way.\n\n---\n\n### **What is a language model?**\n\nA **language model** is like a very smart \"language learner\" that helps computers understand and generate human language\u2014like writing or speaking.\n\nThink of it this way:  \nImagine you're reading a story, and you can predict what the next word might be based on the sentence so far. That\u2019s what a language model does\u2014it learns how words, phrases, and sentences work together, so it can **predict** the next word, **fill in** missing parts of a sentence, or even **write new text** like answers to questions, stories, or summaries.\n\nExamples of language models include:\n- The one you're talking to right now (me!).\n- Models used in chatbots, search engines, and virtual assistants (like Siri or Alexa).\n\n---\n\n### **Is it trained using labeled or unlabeled data?**\n\nLanguage models are typically trained using **unlabeled data**.\n\nLet me explain what that means:\n\n- **Labeled data** is like a teacher who gives answers: For example, if you're training a model to recognize cats and dogs, you give it pictures and tell it, \u201cThis is a cat,\u201d \u201c"
+ },
+ {
+  "id": 16,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 256,
+  "seconds": 2.0806663036346436,
+  "wall_tok_s": 123.03750945204548,
+  "accept_len": 2.9767441860465116,
+  "text": "Absolutely! I'm happy to help you understand probability. Probability is all about predicting the chance that something will happen \u2014 like flipping a coin, rolling a die, or even guessing the weather. It\u2019s a part of math that helps us make decisions when we\u2019re not 100% sure of the outcome.\n\n---\n\n### \ud83d\udd22 **What is Probability?**\n\n**Probability** is a number that tells us how likely something is to happen. It can be a **fraction**, **decimal**, or **percentage**, and it always falls between **0 and 1** (or 0% and 100%):\n\n- **0** means it **will never happen**.\n- **1** (or 100%) means it **will always happen**.\n- **0.5** (or 50%) means it's **just as likely to happen as not to happen**.\n\n---\n\n### \ud83c\udfb2 Example \u2013 Flipping a Coin\n\nLet\u2019s say you flip a **fair coin** (no tricks), and you want to know the probability of getting **heads**.\n\n- There are **2 possible outcomes**: heads or tails.\n- Only **1 of those outcomes** is heads.\n\nSo the probability of getting heads is:\n\n$$\n"
+ },
+ {
+  "id": 17,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 247,
+  "seconds": 2.7865495681762695,
+  "wall_tok_s": 88.64008838057585,
+  "accept_len": 2.1293103448275863,
+  "text": "Oh, you know, besides the obvious\u2014like, say, saving the world multiple times, having a cool suit that flies, and generally being awesome\u2014it's the sheer *control* of the situation. Everything\u2019s in my hands. I mean, sure, sometimes my hands are on fire or covered in shrapnel or whatever, but still. I like knowing that I can build something that turns the tide of a war, or a battle, or at least a really bad Tuesday.\n\nAnd let's not forget the tech. I get to play with the most advanced engineering, AI, and weaponry Earth has to offer. Life\u2019s a problem, and I\u2019m the guy with the tools to solve it. That kind of power? It's intoxicating. It's not just about being Iron Man\u2014it's about being *Tony Stark*, the guy who can turn a box of scrap into a spaceship while drinking a margarita.\n\nThough I have to admit, the best part is when I take it off. That moment when I\u2019m just me in my pajamas, sipping bourbon and watching the news, knowing I\u2019ve got the whole world\u2019s greatest superhero on lockdown in my closet. It's a lifestyle, darling."
+ },
+ {
+  "id": 18,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 142,
+  "seconds": 1.3415155410766602,
+  "wall_tok_s": 105.85043232971796,
+  "accept_len": 2.581818181818182,
+  "text": "Assume \u221a2 is a fraction, reduced and true,  \nLet\u2019s call it a/b, where a and b are new.  \nThen a\u00b2 = 2b\u00b2 \u2014 now square both sides,  \nThis means a\u00b2 even, so a itself must be.  \n\nLet a = 2k, plug in and see it unfold,  \nThen 4k\u00b2 = 2b\u00b2 \u2014 divide both sides,  \nWe find b\u00b2 = 2k\u00b2 \u2014 so b also even,  \nBut if both are even, our fraction's not cold.  \n\nA contradiction in a neat logical rhyme,  \nSo \u221a2 is irrational \u2014 not a whole number\u2019s chime."
+ },
+ {
+  "id": 19,
+  "source": "mtbench",
+  "ref": "roleplay",
+  "tokens": 256,
+  "seconds": 2.8798468112945557,
+  "wall_tok_s": 88.89361718685386,
+  "accept_len": 2.1333333333333333,
+  "text": "Oh, the pain is... sharp, both in body and in spirit. I\u2019ve stood here for a century, quietly breathing, growing, watching the world shift above and below the canopy. I\u2019ve sheltered countless creatures in my branches\u2014birds, insects, squirrels, even the occasional fox or deer. My roots have held the earth together, drinking from the soil and giving back in return. I\u2019ve felt the sun rise and set a thousand times. I\u2019ve weathered storms, droughts, seasons that came and went like old friends.\n\nAnd now\u2014now comes the noise. The axes, the saws, the heavy boots. The blades bite into my trunk, and I can feel the fibers tear, the sap run cold. I want to scream, but I don\u2019t have a voice. I can only tremble and ache and remember.\n\nI remember the little owl who made her nest in my hollow. The spider who wove her web between my branches. The mushrooms that sprouted from my bark in the fall. I remember the way the sunlight filtered through me in the spring, and how the children in the village used to press their palms to my roots and say, *\u201cHello, old tree.\u201d*\n\nNow, they don\u2019t say hello anymore.\n\n"
+ },
+ {
+  "id": 20,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 82,
+  "seconds": 0.7304596900939941,
+  "wall_tok_s": 112.25807681386004,
+  "accept_len": 2.8275862068965516,
+  "text": "If you have just overtaken the **second person**, that means:\n\n- **You were previously in third place**.\n- By overtaking the second person, **you are now in second place**.\n- The person you overtook is now in **third place**.\n\n### Final positions:\n- **You**: **Second place**\n- **The person you overtook**: **Third place** \u2705"
+ },
+ {
+  "id": 21,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 256,
+  "seconds": 2.3088767528533936,
+  "wall_tok_s": 110.87642494716356,
+  "accept_len": 2.6666666666666665,
+  "text": "This is a classic riddle that plays on word associations and imagery rather than literal geography.\n\nLet\u2019s break it down:\n\n- *\"You can see a beautiful red house to your left...\"*  \n- *\"...and a hypnotic greenhouse to your right...\"*  \n- *\"...an attractive heated pink place in the front.\"*\n\nAt first glance, it seems like a scene of a house surrounded by colorful buildings. However, the key to the riddle is **imagining a stoplight**:\n\n- **Red house to your left** = **Red light**  \n- **Greenhouse to your right** = **Green light**  \n- **Pink place in the front** = **Yellow (amber) light**, which may be described poetically as \"heated pink\"\n\nSo, if you're at a traffic light, the **White House** (the real one in Washington, D.C.) is not in the immediate area \u2014 but the riddle is asking **where is the White House?** after describing a traffic light.\n\nThe **answer is**: **On the back of a dollar bill** \u2014 because the White House is featured on the **back of the $1 bill**.\n\n---\n\n### Final Answer:  \n**The White House is on the back of a"
+ },
+ {
+  "id": 22,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 256,
+  "seconds": 2.235072374343872,
+  "wall_tok_s": 114.53767803610896,
+  "accept_len": 2.752688172043011,
+  "text": "Thomas being very healthy but going to the hospital every day could be due to a number of reasons that don't necessarily indicate illness. Here are some possible explanations:\n\n### 1. **Work or Volunteer at the Hospital**\n- Thomas might be a doctor, nurse, therapist, or another healthcare professional. His daily visits are part of his regular job.\n- He could also be a medical student, intern, or volunteer at the hospital for training or community service.\n\n### 2. **Participating in Clinical Trials or Research**\n- Healthy individuals are often needed for clinical trials, especially if the study is about testing new drugs, vaccines, or medical devices.\n- He might be a test subject for research that requires daily monitoring or check-ins.\n\n### 3. **Regular Health Monitoring or Preventive Care**\n- He could be undergoing routine health assessments, such as blood tests, routine screenings, or check-ups if he has a family history of certain conditions.\n- Some people with genetic conditions or a high risk of illness may go for daily or frequent monitoring.\n\n### 4. **Physical or Occupational Therapy**\n- Thomas might be recovering from an injury or surgery and attending daily therapy sessions, even if he\u2019s otherwise healthy.\n\n### 5. **Donating Blood or Plasma**\n"
+ },
+ {
+  "id": 23,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 163,
+  "seconds": 1.246264934539795,
+  "wall_tok_s": 130.7908097889239,
+  "accept_len": 3.196078431372549,
+  "text": "Let's break down the problem:\n\n> **David has three sisters. Each of them has one brother. How many brothers does David have?**\n\n---\n\n### Step-by-step reasoning:\n\n- David has **three sisters**.\n- Each **sister has one brother**.\n- That **one brother** is **David** himself \u2014 because all the sisters share the same brother.\n\nSo, **David is the only brother** in the family.\n\n---\n\n### Therefore, the question is:\n\n> How many **brothers does David have**?\n\nThis is asking **how many other brothers** there are **besides David**.\n\nSince each of the three sisters has **only one brother**, and that's **David**, there are **no other brothers**.\n\n---\n\n### \u2705 Final Answer:\n**0** brothers."
+ },
+ {
+  "id": 24,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 256,
+  "seconds": 2.0397918224334717,
+  "wall_tok_s": 125.50300338717507,
+  "accept_len": 3.0476190476190474,
+  "text": "Let's answer the question step by step by **analyzing and organizing all the clues**. We need to determine **who the secretary is**.\n\nWe are given:\n\n### Executives:\n- CEO  \n- President  \n- Vice President  \n- Secretary  \n- Treasurer  \n\nThese are **in that exact order** in the parking lot (Space 1 to Space 5).\n\n### Car colors:\n- Yellow  \n- Green  \n- Purple  \n- Red  \n- Blue  \n\n### People:\n- Alice  \n- Bert  \n- Cheryl  \n- David  \n- Enid  \n\nWe are to **assign each person to a specific space (position)** and **identify the person who is the Secretary**, i.e., the one in the **third space**.\n\n---\n\n### **Clues:**\n\n1. **The car in the first space is red.**\n2. **A blue car is parked between the red car and the green car.**\n3. **The car in the last space is purple.**\n4. **The secretary drives a yellow car.**\n5. **Alice's car is parked next to David's.**\n6. **Enid drives a green car.**\n7. **Bert's car is parked between Cheryl's and Enid's.**\n8"
+ },
+ {
+  "id": 25,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 223,
+  "seconds": 1.7031660079956055,
+  "wall_tok_s": 130.9326272090415,
+  "accept_len": 3.1857142857142855,
+  "text": "Let's analyze the statements step by step.\n\n---\n\n**Given:**\n\n1. **Oranges cost more than apples.**  \n2. **Oranges cost less than bananas.**\n\nFrom these two, we can derive the following **cost relationship**:\n\n- **Apples < Oranges < Bananas**\n\n---\n\n**Third statement:**\n\n3. **Bananas cost more than apples and bananas cost more than orange.**\n\nLet\u2019s break it down:\n\n- \"Bananas cost more than apples\" \u2192 This is **true**, based on the relationship **Apples < Oranges < Bananas**.\n- \"Bananas cost more than orange\" \u2192 \"Orange\" is likely a typo and should be **\"oranges\"**. If we assume that, then this is also **true**, since **Oranges < Bananas**.\n\nSo, if we interpret the third statement as:\n\n> \"Bananas cost more than apples and bananas cost more than **oranges**.\"\n\nThen **both parts are true**, based on the first two statements.\n\n---\n\n### \u2705 Final Answer: **True**."
+ },
+ {
+  "id": 26,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 50,
+  "seconds": 0.4905364513397217,
+  "wall_tok_s": 101.92922434906357,
+  "accept_len": 2.6315789473684212,
+  "text": "If:\n\n- **A is the father of B**, and  \n- **B is the father of C**,  \n\nThen:\n\n- **A is the grandfather of C**.\n\n**Relationship between A and C: Grandfather and Grandson.**"
+ },
+ {
+  "id": 27,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 73,
+  "seconds": 0.4920048713684082,
+  "wall_tok_s": 148.3725146805271,
+  "accept_len": 3.8421052631578947,
+  "text": "The word that does not belong with the others is **car**.\n\n### Reason:\n- **Tyre**, **steering wheel**, and **engine** are all **parts of a car**.\n- **Car**, on the other hand, is the **whole vehicle**, not a part of itself.\n\nSo, **car** is the odd one out."
+ },
+ {
+  "id": 28,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 256,
+  "seconds": 2.1259281635284424,
+  "wall_tok_s": 120.41799172325373,
+  "accept_len": 2.909090909090909,
+  "text": "Let's analyze the situation step by step:\n\n### Given:\n- It's **morning after sunrise**.\n- **Suresh is facing a pole**.\n- The **shadow of the pole falls exactly to his right**.\n\nWe are to determine the **direction in which the shadow is pointing** \u2014 east, south, west, or north.\n\n---\n\n### Step 1: Understand the time of day\n- **Morning after sunrise** means the sun is in the **east**.\n- The sun is low in the sky and rising, so the shadows will be **long and point westward**.\n\n---\n\n### Step 2: Determine Suresh\u2019s facing direction\n\nLet\u2019s assume the sun is in the **east**.\n\nSo, suppose Suresh is **facing south**, and the pole is in front of him. Then:\n\n- The **sun is to his left (east)**.\n- The **shadow will fall to his right (west)**.\n\nSo, the **shadow points west**.\n\nAlternatively, let's test this:\n\n#### If Suresh is facing **south**:\n- Sun is in east (to his left),\n- Shadow is in west (to his right) \u2705\n\nThis fits the given condition.\n\n---\n\n### Step"
+ },
+ {
+  "id": 29,
+  "source": "mtbench",
+  "ref": "reasoning",
+  "tokens": 256,
+  "seconds": 2.46291446685791,
+  "wall_tok_s": 103.9418962553721,
+  "accept_len": 2.5098039215686274,
+  "text": "The situation that the **recess aides should report to the principal** is:\n\n**c) A group of four girls has surrounded another girl and appears to have taken possession of her backpack.**\n\n### Here's why:\n\n- **Bullying behavior** is clearly indicated in this scenario. The group surrounding another student and taking her belongings is **a form of social and possibly physical aggression**, which aligns with the **principal's concern about bullying**.\n- The principal has specifically requested vigilance due to bullying complaints, so **this is the most relevant and urgent issue to report**.\n\n### Let's briefly evaluate the other options:\n\n- **a) An unengaged girl reading a book alone** \u2014 This is not necessarily bullying. A student can choose to be alone or have different social preferences. There's no aggression or targeted behavior here.\n- **b) Two boys arguing during basketball** \u2014 A heated argument can happen during competitive games and may not involve bullying. It could be a simple disagreement and is less likely to be a bullying incident unless there is repeated targeted behavior.\n- **d) Three boys playing a video game against the rules** \u2014 This is a **violation of school rules**, but it's **not an instance of bullying**, unless there is a"
+ },
+ {
+  "id": 30,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 256,
+  "seconds": 1.6780195236206055,
+  "wall_tok_s": 152.5607994403054,
+  "accept_len": 3.710144927536232,
+  "text": "We are given the coordinates of the three vertices of a triangle:\n\n- $ A = (0, 0) $\n- $ B = (-1, 1) $\n- $ C = (3, 3) $\n\nWe can use the **shoelace formula** (also called the determinant method) to find the area of a triangle given its vertices:\n\n$$\n\\text{Area} = \\frac{1}{2} \\left| x_1(y_2 - y_3) + x_2(y_3 - y_1) + x_3(y_1 - y_2) \\right|\n$$\n\nLet\u2019s assign:\n\n- $ x_1 = 0, y_1 = 0 $\n- $ x_2 = -1, y_2 = 1 $\n- $ x_3 = 3, y_3 = 3 $\n\nNow plug into the formula:\n\n$$\n\\text{Area} = \\frac{1}{2} \\left| 0(1 - 3) + (-1)(3 - 0) + 3(0 - 1) \\right|\n$$\n\n$$\n= \\frac{1}{2} \\left| 0 +"
+ },
+ {
+  "id": 31,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 107,
+  "seconds": 0.6836016178131104,
+  "wall_tok_s": 156.5239127758365,
+  "accept_len": 3.962962962962963,
+  "text": "To find the total amount the startup invested in software development over two years, we add the investments for each year.\n\n- **First year investment** = $8,000  \n- **Second year investment** = Half of $8,000 = $4,000  \n\nNow, add them together:\n\n$$\n8,000 + 4,000 = 12,000\n$$\n\n### \u2705 Final Answer:\n**$12,000**"
+ },
+ {
+  "id": 32,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 256,
+  "seconds": 1.7491950988769531,
+  "wall_tok_s": 146.3530284096733,
+  "accept_len": 3.5555555555555554,
+  "text": "We are given the following information:\n\n- 58% of students like **blue**.\n- 45% like **green**.\n- 22% like **both** blue and green.\n\nWe are asked to find the **probability that a randomly selected student likes neither blue nor green**.\n\n---\n\n### Step 1: Use the principle of inclusion and exclusion\n\nLet:\n\n- $ P(B) = 0.58 $ (probability student likes blue)\n- $ P(G) = 0.45 $ (probability student likes green)\n- $ P(B \\cap G) = 0.22 $ (probability likes both)\n\nThen, the probability that a student likes **either blue or green** is:\n\n$$\nP(B \\cup G) = P(B) + P(G) - P(B \\cap G)\n$$\n$$\nP(B \\cup G) = 0.58 + 0.45 - 0.22 = 0.81\n$$\n\n---\n\n### Step 2: Find the probability of liking **neither**\n\nIf 81% of students like **either blue or green**, then the probability that a student likes **neither** is:\n\n$$\nP(\\"
+ },
+ {
+  "id": 33,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 256,
+  "seconds": 1.907334566116333,
+  "wall_tok_s": 134.21871786304425,
+  "accept_len": 3.240506329113924,
+  "text": "We are asked to find the probability that the total of two dice is **at least 3**.\n\n---\n\n### Step 1: Total Possible Outcomes\n\nEach die has 6 faces (1 through 6), so when rolling two dice, the total number of possible outcomes is:\n\n$$\n6 \\times 6 = 36\n$$\n\n---\n\n### Step 2: Find the Number of Outcomes Where the Total is **At Least 3**\n\nWe are looking for the number of outcomes where the **sum of the two dice is \u2265 3**.\n\nInstead of listing all outcomes where the sum is **at least 3**, it's easier to use the **complement rule**.\n\nLet\u2019s first count how many outcomes result in a total **less than 3** (i.e., total = 2 or less).\n\n- The only possible sum less than 3 is **2**, and the only way to get a total of 2 is:\n\n  $$\n  (1,1)\n  $$\n\nSo, there is **1 outcome** where the total is less than 3.\n\nTherefore, the number of outcomes where the total is **at least 3** is:\n\n$$\n36 - 1 = 35\n"
+ },
+ {
+  "id": 34,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 256,
+  "seconds": 1.7505335807800293,
+  "wall_tok_s": 146.24112488372126,
+  "accept_len": 3.5555555555555554,
+  "text": "We are given a sequence of events involving people getting on and off a bus, and we're told the final number of people at the third stop is **25**. We are to find **how many people got on the bus at the terminal**.\n\n---\n\n### Step-by-step:\n\nLet the number of people who **got on the bus at the terminal** be $ x $.\n\n---\n\n#### **First Bus Stop:**\n\n- **Half the people get off**, so $ \\frac{x}{2} $ people remain on the bus.\n- Then, **4 more people get on**, so the new total is:\n\n$$\n\\frac{x}{2} + 4\n$$\n\n---\n\n#### **Second Bus Stop:**\n\n- **6 people get off**, so subtract 6:\n- Then, **8 more people get on**, so add 8:\n\n$$\n\\left(\\frac{x}{2} + 4\\right) - 6 + 8 = \\frac{x}{2} + 6\n$$\n\nThis expression represents the number of people on the bus **heading to the third stop**.\n\nWe are told this number is **25**:\n\n$$\n\\frac{x}{2} + 6 = 25\n$$\n\n"
+ },
+ {
+  "id": 35,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 256,
+  "seconds": 1.5572655200958252,
+  "wall_tok_s": 164.3907199488031,
+  "accept_len": 4.0,
+  "text": "We are given the following equations:\n\n$$\nx + y = 4z \\quad \\text{(1)}\n$$\n$$\nxy = 4z^2 \\quad \\text{(2)}\n$$\n\nWe are asked to find an expression for $ x - y $ in terms of $ z $.\n\n---\n\n### Step 1: Use identities\nWe know the identity:\n\n$$\n(x - y)^2 = (x + y)^2 - 4xy\n$$\n\nWe can substitute equations (1) and (2) into this identity.\n\n### Step 2: Compute $ (x - y)^2 $\n$$\n(x - y)^2 = (x + y)^2 - 4xy\n$$\n\nNow substitute:\n- $ x + y = 4z $\n- $ xy = 4z^2 $\n\n$$\n(x - y)^2 = (4z)^2 - 4(4z^2)\n$$\n$$\n(x - y)^2 = 16z^2 - 16z^2 = 0\n$$\n\n$$\nx - y = 0\n$$\n\n---\n\n### \u2705 Final Answer:\n\n$$\n\\boxed{x - y = 0}\n$$\n\nSo, $"
+ },
+ {
+  "id": 36,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 256,
+  "seconds": 1.6235244274139404,
+  "wall_tok_s": 157.68164351415032,
+  "accept_len": 3.8208955223880596,
+  "text": "We are given the inequality:\n\n$$\n|x + 5| < 10\n$$\n\n### Step 1: Solve the inequality\n\nThe absolute value inequality $ |x + 5| < 10 $ means:\n\n$$\n-10 < x + 5 < 10\n$$\n\n### Step 2: Subtract 5 from all parts\n\n$$\n-10 - 5 < x < 10 - 5\n$$\n$$\n-15 < x < 5\n$$\n\n### Step 3: Find how many **integers** satisfy the inequality\n\nWe are looking for integers **strictly between** $-15$ and $5$.\n\nThe integers in this range are:\n\n$$\n-14, -13, -12, \\dots, 2, 3, 4\n$$\n\nThis is an arithmetic sequence. To count the number of integers, we can:\n\n$$\n\\text{Number of integers} = 4 - (-14) + 1 = 18 + 1 = 19\n$$\n\n(We count from $-14$ to $4$, inclusive.)\n\n### \u2705 Final Answer:\n\n$$\n\\boxed{"
+ },
+ {
+  "id": 37,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 256,
+  "seconds": 1.6977415084838867,
+  "wall_tok_s": 150.78856158062163,
+  "accept_len": 3.657142857142857,
+  "text": "We are given that:\n\n> When a number is divided by 10, the remainder is 4.\n\nLet the number be $ x $. Then we can write:\n\n$$\nx \\equiv 4 \\pmod{10}\n$$\n\nThis means:\n\n$$\nx = 10k + 4 \\quad \\text{for some integer } k\n$$\n\nNow we are asked:\n\n> What is the remainder when **twice the number** is divided by 4?\n\nWe want:\n\n$$\n(2x) \\mod 4\n$$\n\n### Step 1: Find $ 2x \\mod 4 $\n\nSince $ x \\equiv 4 \\pmod{10} $, multiply both sides by 2:\n\n$$\n2x \\equiv 2 \\cdot 4 = 8 \\pmod{10}\n$$\n\nSo $ 2x \\equiv 8 \\pmod{10} $, but we are asked for $ 2x \\mod 4 $, not modulo 10.\n\nSo instead, we should directly compute $ x \\mod 4 $, then double it and reduce mod 4 again.\n\n---\n\n### Step 2: Find $ x \\mod 4 $\n\n"
+ },
+ {
+  "id": 38,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 153,
+  "seconds": 0.9699380397796631,
+  "wall_tok_s": 157.74203477446497,
+  "accept_len": 3.923076923076923,
+  "text": "To calculate the total cost of Benjamin's purchases, we need to multiply the number of each type of book by its price and then sum the results:\n\n1. **Sci-fi novel**:  \n   $ 5 \\times 20 = 100 $ dollars\n\n2. **History book**:  \n   $ 3 \\times 30 = 90 $ dollars\n\n3. **Philosophy book**:  \n   $ 2 \\times 45 = 90 $ dollars\n\nNow, add them all together:\n\n$$\n100 + 90 + 90 = 280\n$$\n\n### \u2705 Final Answer:\n**$280** was the total cost of Benjamin's purchases."
+ },
+ {
+  "id": 39,
+  "source": "mtbench",
+  "ref": "math",
+  "tokens": 168,
+  "seconds": 0.9916949272155762,
+  "wall_tok_s": 169.40693694148533,
+  "accept_len": 4.2,
+  "text": "We are given the function:\n\n$$\nf(x) = 4x^3 - 9x - 14\n$$\n\nWe are asked to find $ f(2) $. To do this, substitute $ x = 2 $ into the function:\n\n$$\nf(2) = 4(2)^3 - 9(2) - 14\n$$\n\nNow compute each term:\n\n- $ (2)^3 = 8 $\n- $ 4 \\cdot 8 = 32 $\n- $ 9 \\cdot 2 = 18 $\n\nSo:\n\n$$\nf(2) = 32 - 18 - 14 = 32 - 32 = 0\n$$\n\n### Final Answer:\n$$\n\\boxed{0}\n$$"
+ }
+]

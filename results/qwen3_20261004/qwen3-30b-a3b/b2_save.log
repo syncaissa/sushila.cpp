@@ -1,0 +1,18 @@
+precomputed: 7 files -> b2://sushila-ai/precomputed/qwen3-30b-a3b/ (CHECKSUMS.json)
+uploaded results/qwen3-30b-a3b/ollama_pull.log (0.2 MB)
+uploaded results/qwen3-30b-a3b/ollama_serve.log (10.0 MB)
+uploaded results/qwen3-30b-a3b/run.log (0.0 MB)
+uploaded results/qwen3-30b-a3b/summary.json (0.0 MB)
+uploaded results/qwen3-30b-a3b/summary.md (0.0 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_blob.txt (0.0 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_gsm100.json (0.1 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_gsm100.log (0.0 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_main.json (0.0 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_main.log (0.0 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_model_name.txt (0.0 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_mt_t07.json (0.0 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_mt_t07.log (0.0 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_ood.json (0.2 MB)
+uploaded results/qwen3-30b-a3b/out/ollama_ood.log (0.0 MB)
+results: 77 files -> b2://sushila-ai/results/qwen3-30b-a3b/
+verified: all 7 files listed in precomputed/qwen3-30b-a3b/CHECKSUMS.json are in B2

@@ -1,0 +1,202 @@
+[
+ {
+  "id": 0,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.3485229015350342,
+  "wall_tok_s": 189.8373395873316,
+  "accept_len": 2.245614035087719,
+  "text": "I wake up before the sun, stretched out in the quiet of the morning, waiting for the first flicker of light. My master stirs, and I am already there, clinging to the edge of their silhouette. The day begins with a yawn, a stretch, and a slow shuffle toward the kitchen. I follow every step, a silent companion, a second skin.\n\nThe morning light hits the floor, and I stretch across the tiles, a dark river flowing where my master walks. I feel the warmth of the sun on my edges, the coolness of the shade when they step into the hallway. I am everywhere they are, yet invisible, a secret part of them that moves without a voice.\n\nThey talk to others, and I am there, a shadow in the background, a quiet witness to their conversations. I feel their laughter, their sighs, their pauses. I am the dark echo of their presence, the proof that they are here, now, in this moment.\n\nI watch as they walk through the day\u2014through the office, the park, the caf\u00e9. I am there in the fluorescent lights, in the golden afternoon, in the soft glow of evening. I am the line between them and the world, the boundary that marks their presence.\n\n"
+ },
+ {
+  "id": 1,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 191,
+  "seconds": 0.923616886138916,
+  "wall_tok_s": 206.7956994576567,
+  "accept_len": 2.4805194805194803,
+  "text": "In *A Song of Ice and Fire* by George R. R. Martin, the founder of **House Redwyne** is **Ser Harlan Redwyne**, also known as **Harlan the Hedge Knight**.\n\nHe is a legendary figure in the history of the Reach. According to the lore, Harlan was a knight who was born to a minor lord but was not of noble birth. He was known for his chivalry and his quest to prove himself. He is said to have fought in the **Dance of the Dragons**, a civil war in the Targaryen dynasty, and was killed in the Battle of the Trident. His son, **Ser Loras Redwyne**, later became the Lord of the Reach and the Hand of the King under King Aerys II Targaryen.\n\nHarlan Redwyne is remembered as a hero and a symbol of the honor and valor of the Reach."
+ },
+ {
+  "id": 2,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 43,
+  "seconds": 0.21290802955627441,
+  "wall_tok_s": 201.96514001664053,
+  "accept_len": 2.8666666666666667,
+  "text": "Phil Knight announced he would step down as chairman of Nike in **mid-2015**, with his official departure from all duties occurring on **June 30, 2016**."
+ },
+ {
+  "id": 3,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 87,
+  "seconds": 0.37224864959716797,
+  "wall_tok_s": 233.7147497892814,
+  "accept_len": 3.0,
+  "text": "The author of the *Harry Potter* book series is **J.K. Rowling**. Her full name is **Joanne Rowling**, but she writes under the pen name **J.K. Rowling**. The first book, *Harry Potter and the Sorcerer's Stone* (published as *Harry Potter and the Philosopher's Stone* in some countries), was released in 1997 and became a global phenomenon."
+ },
+ {
+  "id": 4,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.1636958122253418,
+  "wall_tok_s": 219.9887610753276,
+  "accept_len": 2.694736842105263,
+  "text": "**Geomorphometry** is the science and practice of quantitatively analyzing the Earth's surface (or other planetary surfaces) using digital elevation models (DEMs). It involves the measurement and analysis of landform characteristics, such as slope, aspect, curvature, elevation, and other topographic parameters.\n\n### Key Aspects of Geomorphometry:\n1. **Digital Elevation Models (DEMs):** The primary data source, which are grid-based representations of the Earth's surface.\n2. **Topographic Parameters:** Calculation of metrics like:\n   - **Slope** (rate of elevation change)\n   - **Aspect** (direction a slope faces)\n   - **Curvature** (rate of change of slope)\n   - **Elevation** (height above a reference surface)\n   - **Roughness** (surface variability)\n   - **Hillshade** (simulated illumination for visual interpretation)\n3. **Landform Classification:** Using these parameters to identify and classify landforms (e.g., hills, valleys, ridges, plains).\n4. **Hydrological Analysis:** Modeling water flow, drainage patterns, and watershed boundaries.\n5. **Remote Sensing Integration:** Often used in conjunction with satellite or LiDAR data for high-resolution terrain"
+ },
+ {
+  "id": 5,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.1786715984344482,
+  "wall_tok_s": 217.19366135573972,
+  "accept_len": 2.6391752577319587,
+  "text": "The phrase **\"Troll the respawn, Jeremy\"** is a mix of internet slang, gaming terminology, and a reference to a meme or inside joke, often used in online communities, especially in gaming or meme culture.\n\nLet\u2019s break it down:\n\n### 1. **\"Troll\"**\n- In internet slang, \"troll\" means to provoke, annoy, or mock someone online, often for entertainment or to provoke a reaction.\n- In gaming, it can also mean to \"troll\" a player by intentionally annoying them, like by camping a spot or using cheap tactics.\n\n### 2. **\"Respawn\"**\n- In video games, \"respawn\" means to come back to life after dying. Players often \"respawn\" at a specific location or point in the game.\n- The term is also used metaphorically to mean \"coming back\" or \"restarting.\"\n\n### 3. **\"Jeremy\"**\n- This is likely a username, a character, or a reference to someone (real or fictional) who is being \"trolled.\"\n- It could also be a nod to the meme or character \"Jeremy\" from various online communities, such as the \"Jeremy\" meme that gained popularity on platforms like Reddit or 4"
+ },
+ {
+  "id": 6,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.3327434062957764,
+  "wall_tok_s": 192.08498709554732,
+  "accept_len": 2.3486238532110093,
+  "text": "The World Chess Championship in 2021 was won by **Magnus Carlsen**. He defended his title against **Ian Nepomniachtchi** in a **match that ended in a tie** (12-12 in classical games), which meant that Carlsen retained the title under the rules of the time, as the match was decided by tiebreaks. However, the **2021 World Chess Championship** was actually the **2021 Candidates Tournament**, which determined the challenger for the 2022 championship.\n\nThe **2021 World Chess Championship** (the match between the reigning champion and the challenger) was **not held in 2021** due to the pandemic and organizational changes. The **2021 World Chess Championship** match was **postponed** and eventually held in **2023**, where **Ding Liren** defeated **Ian Nepomniachtchi** to become the new World Champion.\n\nSo, to clarify:\n\n- **Magnus Carlsen** was the reigning World Champion in 2021.\n- The **2021 World Chess Championship match** was **not held** in 2021.\n- The **2"
+ },
+ {
+  "id": 7,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 0.9995770454406738,
+  "wall_tok_s": 256.1083221825485,
+  "accept_len": 3.1219512195121952,
+  "text": "Walking every day is a great idea for a variety of health and lifestyle reasons. Here are some of the key benefits:\n\n### 1. **Improves Cardiovascular Health**\n- Walking is a form of **aerobic exercise** that strengthens the heart and improves circulation.\n- It can help lower blood pressure, reduce the risk of heart disease, and improve cholesterol levels.\n\n### 2. **Helps with Weight Management**\n- Walking burns calories and can help you maintain or lose weight, depending on your pace and duration.\n- It's a low-impact exercise that's accessible to most people, making it easier to stick with long-term.\n\n### 3. **Boosts Mental Health**\n- Walking can reduce stress, anxiety, and symptoms of depression.\n- It increases the production of **endorphins**, the brain's \"feel-good\" chemicals.\n- Being outdoors and in nature (like walking in a park) can also improve mood and mental clarity.\n\n### 4. **Strengthens Muscles and Bones**\n- Walking works the legs, hips, and core muscles.\n- It can help improve **bone density**, reducing the risk of osteoporosis.\n\n### 5. **Improves Sleep**\n- Regular physical activity like walking can help you fall asleep faster and"
+ },
+ {
+  "id": 8,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 105,
+  "seconds": 0.521414041519165,
+  "wall_tok_s": 201.37547445802844,
+  "accept_len": 2.5,
+  "text": "The creator of Python is **Guido van Rossum**.\n\nHe developed Python in the late 1980s and early 1990s, with the first version (Python 0.9.0) released in 1991. Guido van Rossum is often referred to as the **\"Benevolent Dictator For Life\" (BDFL)** of the Python community, a title he held until he stepped down from the role in 2018."
+ },
+ {
+  "id": 9,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 0.931396484375,
+  "wall_tok_s": 274.85609436435124,
+  "accept_len": 3.4133333333333336,
+  "text": "A **graph** is a mathematical structure used to model pairwise relationships between objects. It consists of:\n\n- **Vertices (also called nodes)**: These are the individual elements or points in the graph.\n- **Edges (also called links or arcs)**: These are the connections between pairs of vertices.\n\n### Basic Definitions:\n\n- **Vertex (Node)**: A point in the graph.\n- **Edge**: A connection between two vertices.\n- **Undirected Graph**: Edges have no direction; the relationship is mutual.\n- **Directed Graph (Digraph)**: Edges have a direction, meaning the relationship is one-way.\n- **Weighted Graph**: Edges can have weights or values associated with them (e.g., distance, cost).\n- **Loop**: An edge that connects a vertex to itself.\n- **Multiple Edges**: More than one edge between the same pair of vertices (in a multigraph).\n\n### Example:\n\nConsider a simple undirected graph with 4 vertices (A, B, C, D) and edges:\n- A connected to B\n- B connected to C\n- C connected to D\n- D connected to A\n\nThis forms a cycle: A-B-C-D-A.\n\n### Uses of Graphs:\n\nGraphs are used in"
+ },
+ {
+  "id": 10,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.2913618087768555,
+  "wall_tok_s": 198.24033687543894,
+  "accept_len": 2.392523364485981,
+  "text": "Zigalga National Park, located in the Southern Ural Mountains, is known for its unique and diverse flora, shaped by its high-altitude environment and its position at the ecological crossroads between Europe and Siberia. The park supports a range of **Ice Age relict floral communities**, which are remnants of ancient plant species that survived the last Ice Age and now thrive in the park's varied altitude zones.\n\n### Common Florals Found in Zigalga National Park:\n\n1. **Pine (Pinus sylvestris)**  \n   - The dominant tree in the lower forest zones, forming **pine and birch forests**. These forests are part of the **dark coniferous taiga** that covers much of the park.\n\n2. **Birch (Betula pendula / Betula pubescens)**  \n   - Often found in association with pines, especially in the **pine-birch forest** zones. These trees are common in the transitional areas between taiga and alpine meadows.\n\n3. **Siberian Fir (Abies sibirica)**  \n   - A conifer that grows in the higher elevations, contributing to the **dark coniferous taiga**. It is adapted to the cold, mountain"
+ },
+ {
+  "id": 11,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 112,
+  "seconds": 0.45113134384155273,
+  "wall_tok_s": 248.26472717740683,
+  "accept_len": 3.111111111111111,
+  "text": "Neither **Banjo** nor **Guitar** is a species of fish. \n\n- A **banjo** is a stringed musical instrument.\n- A **guitar** is also a stringed musical instrument.\n\nIf you're looking for a fish with a name that sounds similar, there are fish like the **Banjo Catfish** or **Guitarfish**, but those are not commonly referred to as \"Banjo\" or \"Guitar\" on their own.\n\nSo, the answer is: **Neither is a species of fish.**"
+ },
+ {
+  "id": 12,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.0770657062530518,
+  "wall_tok_s": 237.68280664193196,
+  "accept_len": 2.9767441860465116,
+  "text": "**Linux Bootloader** is a **critical component of the Linux operating system** that is responsible for **loading the Linux kernel into memory** and **starting the operating system** when the computer is powered on.\n\n---\n\n### \ud83d\udd0d What is a Bootloader?\n\nA **bootloader** is a **small program** that runs when a computer starts. Its main job is to **initialize the hardware**, **load the operating system kernel into memory**, and **pass control to the kernel** so that the OS can start running.\n\nIn the context of **Linux**, the bootloader is the **first software that runs after the computer is turned on**, before the Linux kernel is loaded.\n\n---\n\n### \ud83e\udde9 How Does the Linux Bootloader Work?\n\n1. **Power On**: The computer is turned on.\n2. **BIOS/UEFI Initialization**: The **Basic Input/Output System (BIOS)** or **Unified Extensible Firmware Interface (UEFI)** starts running.\n3. **Boot Device Selection**: The firmware checks for bootable devices (like hard drives, USB sticks, etc.).\n4. **Bootloader Execution**: The firmware loads and executes the **bootloader** from the selected boot device.\n5. **Kernel Loading**: The bootloader loads the **Linux kernel"
+ },
+ {
+  "id": 13,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.0981032848358154,
+  "wall_tok_s": 233.12925435632062,
+  "accept_len": 2.8131868131868134,
+  "text": "The United States has a vast and diverse network of roads, each serving different purposes and connecting different types of areas. Road types in the U.S. can be categorized based on their function, design, and the level of traffic they handle. Here's an overview of the main types of roads in the U.S.:\n\n---\n\n### 1. **Interstate Highways**\n- **Description**: The most important and heavily traveled roads in the U.S.\n- **Design**: Controlled-access highways with full interchanges, no traffic lights, and no cross traffic.\n- **Purpose**: Connect major cities, states, and regions. Designed for high-speed, long-distance travel.\n- **Numbering**: Follows a grid system (e.g., I-10, I-95, I-80).\n- **Maintenance**: Federal government funds and maintains them.\n- **Speed Limits**: Typically 65\u201375 mph (105\u2013120 km/h), depending on the state.\n\n---\n\n### 2. **U.S. Highways (US Routes)**\n- **Description**: Older system of roads, established in the 1920s.\n- **Design**: Can be two-lane or multi-lane, with some having limited"
+ },
+ {
+  "id": 14,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.2618839740753174,
+  "wall_tok_s": 202.87126650260498,
+  "accept_len": 2.4615384615384617,
+  "text": "The **one-child policy** was a **population control measure** implemented in **China** from **1980 to 2015**, though the broader family planning program that included it ran from **1970 to 2021**. The policy **specifically restricted most urban families to having only one child**, with exceptions for certain groups (e.g., rural families, ethnic minorities, or couples where one parent was an only child).\n\n### Key Features of the One-Child Policy:\n- **Enforcement**: Local governments monitored compliance through household registration (hukou) systems, and families who had more than one child faced **fines, job loss, or loss of benefits**.\n- **Exceptions**: Rural families were often allowed to have a second child if the first was a girl, and some ethnic minorities were exempt.\n- **Social and Cultural Impact**: The policy led to **gender imbalance** (due to a preference for sons), **aging population**, and **pressure on single children** to care for aging parents.\n\n### Effects and Controversies:\n- **Demographic Impact**: China's population growth slowed significantly, and the country now faces a **shrinking workforce** and **aging population**.\n- **Human Rights Concern"
+ },
+ {
+  "id": 15,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 0.9135370254516602,
+  "wall_tok_s": 280.22947386662463,
+  "accept_len": 3.3684210526315788,
+  "text": "It sounds like you're asking **\"How do I accept the change?\"** \u2014 but the context isn't clear. To help you better, could you clarify what kind of change you're referring to? Here are a few common interpretations:\n\n---\n\n### 1. **Emotional/Personal Change (e.g., loss, transition, growth)**\nIf you're struggling to accept a personal change (like a breakup, job loss, or life transition), here are some steps:\n\n- **Acknowledge your feelings**: It's okay to feel sad, angry, or confused.\n- **Give yourself time**: Acceptance doesn\u2019t happen overnight.\n- **Talk to someone**: A friend, therapist, or support group can help.\n- **Focus on what you can control**: Shift your energy to actions that bring you peace.\n- **Practice self-compassion**: Be kind to yourself during the process.\n\n---\n\n### 2. **Technical/Software Change (e.g., updating a program, accepting a system update)**\nIf you're referring to a software or system update:\n\n- **Read the release notes**: Understand what\u2019s changed.\n- **Backup your data**: Before accepting a change, especially a major update.\n- **Follow the prompts**: Most systems will guide you through the"
+ },
+ {
+  "id": 16,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.0622706413269043,
+  "wall_tok_s": 240.99319894619802,
+  "accept_len": 3.011764705882353,
+  "text": "**What is a laser?**  \nA **laser** is a device that emits **light through a process of optical amplification based on the stimulated emission of electromagnetic radiation**. The term \"laser\" is an acronym for **Light Amplification by Stimulated Emission of Radiation**.\n\n**Key characteristics of lasers:**\n- **Coherent light**: Lasers emit light that is **spatially and temporally coherent**, meaning the light waves are in phase and have a very narrow frequency range.\n- **Highly directional**: Laser beams can be focused into very tight spots or travel long distances with minimal spreading.\n- **Monochromatic**: Most lasers emit light of a single wavelength (color), though some can produce a range of wavelengths.\n\n---\n\n**Who created the laser?**  \nThe **first working laser** was built in **1960** by **Theodore Maiman** at **Hughes Research Laboratories**.  \n- Maiman used a **synthetic ruby crystal** as the **gain medium** and **pumped it with a flash lamp** to produce light amplification.\n- This was based on **theoretical work** by **Charles H. Townes** and **Arthur Leonard Schawlow**, who had published"
+ },
+ {
+  "id": 17,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.0441629886627197,
+  "wall_tok_s": 245.17245179113684,
+  "accept_len": 2.9767441860465116,
+  "text": "The main differences between a **road bike** and a **mountain bike** lie in their **design, purpose, components, and riding conditions**. Here's a breakdown:\n\n---\n\n### **1. Purpose and Riding Environment**\n- **Road Bike**:\n  - Designed for **paved roads** (city streets, highways, bike paths).\n  - Optimized for **speed and efficiency** on smooth surfaces.\n  - Ideal for **commuting, racing, or long-distance riding**.\n\n- **Mountain Bike**:\n  - Built for **off-road trails**, including dirt, gravel, rocks, and mud.\n  - Designed for **tough terrain** and **technical riding**.\n  - Ideal for **hiking, trail riding, or mountain biking**.\n\n---\n\n### **2. Frame Geometry**\n- **Road Bike**:\n  - **Steeper seat tube angle** for a more aggressive, aerodynamic position.\n  - **Lower bottom bracket** for better handling on pavement.\n  - **Lighter and more aerodynamic frame**.\n\n- **Mountain Bike**:\n  - **More relaxed geometry** (slacker seat tube angle) for better **control and stability** on rough terrain.\n  - **Higher bottom bracket** to avoid pedal strikes on"
+ },
+ {
+  "id": 18,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.1046264171600342,
+  "wall_tok_s": 231.75255998147261,
+  "accept_len": 2.782608695652174,
+  "text": "Geographic Information Systems (GIS) play a significant role in the real estate investment industry by providing spatial data analysis, visualization, and decision-making support. Here are several key ways GIS helps in real estate investment:\n\n---\n\n### 1. **Site Selection and Location Analysis**\n- **Market Analysis**: GIS helps investors analyze potential real estate markets by overlaying data such as population density, income levels, employment rates, and transportation access.\n- **Competitive Analysis**: Investors can use GIS to identify areas with high demand and low supply, or to assess the proximity of similar properties.\n- **Zoning and Land Use**: GIS can show zoning regulations, land use designations, and future development plans, helping investors understand the potential of a property.\n\n---\n\n### 2. **Risk Assessment and Due Diligence**\n- **Environmental Risk**: GIS can map flood zones, soil conditions, and proximity to hazardous sites, helping investors assess environmental risks.\n- **Infrastructure and Accessibility**: By analyzing proximity to roads, public transit, schools, and hospitals, investors can evaluate the long-term value and desirability of a property.\n- **Crime and Safety**: GIS can integrate crime statistics to help investors understand the safety of a neighborhood.\n\n---\n\n### 3. **Market Trend Analysis**\n- **"
+ },
+ {
+  "id": 19,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 1.2596232891082764,
+  "wall_tok_s": 203.23536585388936,
+  "accept_len": 2.4380952380952383,
+  "text": "The **Masters Tournament**, commonly referred to as **The Masters**, is one of the four major championships in professional golf. It is widely regarded as the most prestigious and iconic of the four, and it is the only major championship played at the same course every year.\n\n### Key Details About The Masters:\n\n- **Location**: Augusta National Golf Club in Augusta, Georgia, USA.\n- **First Held**: 1934 (originally called the \"Augusta National Invitation Tournament\").\n- **Hosted By**: The Augusta National Golf Club, which is a private club.\n- **Tournament Format**: A 72-hole stroke play event (four rounds of 18 holes each).\n- **Field**: Typically consists of around 100 players, including the top-ranked golfers in the world, past champions, and other invitees.\n- **Green Jacket**: The winner of The Masters is presented with a **green jacket**, which has become one of the most recognizable symbols in sports.\n\n### Notable Aspects:\n\n- **\"Amen Corner\"**: A famous stretch of the course (holes 11, 12, and 13) that has been the site of many dramatic moments in Masters history.\n- **\"Shot Heard '"
+ }
+]

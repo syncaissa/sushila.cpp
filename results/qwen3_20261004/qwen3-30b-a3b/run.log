@@ -1,0 +1,39 @@
+[18:25:45] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[18:27:16] base_main: 5372 tokens in 27.1 s = 198.5 tok/s (median per prompt 200.2)
+[18:30:12] base_ood: 34397 tokens in 173.1 s = 198.7 tok/s (median per prompt 199.0)
+[18:30:59] base_mt_t07: 8025 tokens in 43.1 s = 186.4 tok/s (median per prompt 187.3)
+[18:33:03] base_gsm100: 23850 tokens in 121.5 s = 196.2 tok/s (median per prompt 197.6)
+[18:34:56] pub_main: 5373 tokens in 26.1 s = 205.6 tok/s (median per prompt 207.8)
+[18:37:06] pub_ood: 34266 tokens in 127.5 s = 268.7 tok/s (median per prompt 283.3)
+[18:37:43] pub_mt_t07: 7895 tokens in 33.9 s = 232.6 tok/s (median per prompt 245.3)
+[18:44:16] answers: 2000 conversations from 2300 prompts -> /workspace/sushila/qwen3-30b-a3b/regen.jsonl
+[18:49:19] chunk_00: capture 137 s, train 166 s, 'acc_0': 0.7134503126144409
+[18:54:27] chunk_01: capture 137 s, train 171 s, 'acc_0': 0.7021276354789734
+[18:56:17] val_ckpt_chunk_00: 4378 tokens in 19.5 s = 224.0 tok/s (median per prompt 225.9)
+[18:58:24] val_ckpt_chunk_01: 4261 tokens in 19.0 s = 224.3 tok/s (median per prompt 230.3)
+[18:58:41] chosen on validation: head_ckpt_chunk_01 (224.30307219990763 tok/s)
+[19:00:03] saved head to B2: 
+[19:00:19] ours_main: 5360 tokens in 24.7 s = 217.3 tok/s (median per prompt 213.1)
+[19:02:29] ours_ood: 34379 tokens in 127.0 s = 270.6 tok/s (median per prompt 282.1)
+[19:03:05] ours_mt_t07: 8081 tokens in 33.6 s = 240.5 tok/s (median per prompt 261.0)
+[19:04:28] ours_gsm100: 23916 tokens in 80.6 s = 296.7 tok/s (median per prompt 296.4)
+[19:10:44] load base: concurrency 1: 199.0 tok/s total, 199.2 tok/s per user (median);concurrency 4: 499.8 tok/s total, 127.0 tok/s per user (median);concurrency 16: 1145.9 tok/s total, 73.7 tok/s per user (median);concurrency 64: 2319.3 tok/s total, 38.4 tok/s per user (median);
+[19:16:11] load pub: concurrency 1: 269.8 tok/s total, 282.6 tok/s per user (median);concurrency 4: 631.1 tok/s total, 168.8 tok/s per user (median);concurrency 16: 1379.5 tok/s total, 97.2 tok/s per user (median);concurrency 64: 1528.5 tok/s total, 26.9 tok/s per user (median);
+[19:21:25] load ours: concurrency 1: 271.7 tok/s total, 280.8 tok/s per user (median);concurrency 4: 635.6 tok/s total, 168.7 tok/s per user (median);concurrency 16: 1492.1 tok/s total, 101.0 tok/s per user (median);concurrency 64: 2365.7 tok/s total, 42.8 tok/s per user (median);
+[19:22:43] ollama_main: 6521 tokens: 168.2 tok/s with prompt processing (38.8 s), 175.1 tok/s decode only
+[19:26:54] ollama_ood: 40574 tokens: 164.8 tok/s with prompt processing (246.2 s), 174.4 tok/s decode only
+[19:28:00] ollama_mt_t07: 10240 tokens: 167.3 tok/s with prompt processing (61.2 s), 174.8 tok/s decode only
+[19:33:07] ollama_gsm100: 50292 tokens: 168.4 tok/s with prompt processing (298.6 s), 173.9 tok/s decode only
+[19:34:33] summary: /workspace/sushila/qwen3-30b-a3b/summary.md
+[19:34:33] DONE
+[19:35:18] saved all to B2: 
+[22:25:38] redo Ollama baseline with the original release (qwen3:30b-a3b-q4_K_M)
+[22:25:51] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/qwen3-30b-a3b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/qwen3-30b-a3b/CHECKSUMS.json are in B2 
+[22:27:36] Ollama qwen3:30b-a3b-q4_K_M is "name=Qwen3 30B A3B"; SGLang serves Qwen/Qwen3-30B-A3B-GPTQ-Int4 (check they are the same model)
+[22:28:17] ollama_main: 5230 tokens: 167.1 tok/s with prompt processing (31.3 s), 175.4 tok/s decode only
+[22:31:52] ollama_ood: 34487 tokens: 163.8 tok/s with prompt processing (210.6 s), 174.9 tok/s decode only
+[22:32:44] ollama_mt_t07: 8129 tokens: 167.8 tok/s with prompt processing (48.4 s), 175.9 tok/s decode only
+[22:35:14] ollama_gsm100: 24419 tokens: 166.4 tok/s with prompt processing (146.8 s), 175.3 tok/s decode only
+[22:36:41] summary: /workspace/sushila/qwen3-30b-a3b/summary.md
+[22:36:54] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/qwen3-30b-a3b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/qwen3-30b-a3b/CHECKSUMS.json are in B2 
+[22:36:54] DONE

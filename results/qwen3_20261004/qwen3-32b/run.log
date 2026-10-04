@@ -1,0 +1,37 @@
+[19:36:16] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[19:39:52] base_main: 5229 tokens in 75.7 s = 69.1 tok/s (median per prompt 69.4)
+[19:48:37] base_ood: 35386 tokens in 515.2 s = 68.7 tok/s (median per prompt 68.8)
+[19:50:48] base_mt_t07: 8261 tokens in 121.7 s = 67.9 tok/s (median per prompt 68.0)
+[19:56:51] base_gsm100: 24329 tokens in 354.5 s = 68.6 tok/s (median per prompt 68.6)
+[19:59:33] pub: server died (see server_pub.log)
+[19:59:33] stopped at line 117
+[20:02:00] published head AngelSlim/Qwen3-32B_eagle3 crashes SGLang (head_dim 80 vs 128); switching to thoughtworks/Qwen3-32B-Eagle3
+[20:02:08] stopped at line 50
+[20:03:31] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[20:04:02] pub: server died (see server_pub.log)
+[20:04:02] stopped at line 121
+[20:07:42] pub_main: 5230 tokens in 49.1 s = 106.4 tok/s (median per prompt 109.2)
+[20:12:12] pub_ood: 35461 tokens in 264.6 s = 134.0 tok/s (median per prompt 143.0)
+[20:13:30] pub_mt_t07: 8248 tokens in 71.5 s = 115.4 tok/s (median per prompt 115.1)
+[20:25:32] answers: 2000 conversations from 2300 prompts -> /workspace/sushila/qwen3-32b/regen.jsonl
+[20:40:14] chunk_00: capture 339 s, train 543 s, 'acc_0': 0.5880077481269836
+[20:54:36] chunk_01: capture 330 s, train 532 s, 'acc_0': 0.7755101919174194
+[20:58:03] val_ckpt_chunk_00: 4421 tokens in 39.5 s = 112.0 tok/s (median per prompt 115.0)
+[21:01:38] val_ckpt_chunk_01: 4421 tokens in 39.2 s = 112.7 tok/s (median per prompt 115.4)
+[21:01:53] chosen on validation: head_ckpt_chunk_01 (112.67540015724471 tok/s)
+[21:03:45] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/qwen3-32b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/qwen3-32b/CHECKSUMS.json are in B2 
+[21:06:50] ours_main: 5225 tokens in 47.9 s = 109.0 tok/s (median per prompt 110.6)
+[21:11:17] ours_ood: 35448 tokens in 261.2 s = 135.7 tok/s (median per prompt 144.7)
+[21:12:37] ours_mt_t07: 8395 tokens in 74.1 s = 113.3 tok/s (median per prompt 113.4)
+[21:15:11] ours_gsm100: 24253 tokens in 149.9 s = 161.8 tok/s (median per prompt 162.6)
+[21:29:34] load base: concurrency 1: 68.7 tok/s total, 68.8 tok/s per user (median);concurrency 4: 247.0 tok/s total, 62.5 tok/s per user (median);concurrency 16: 754.0 tok/s total, 48.5 tok/s per user (median);concurrency 64: 1506.7 tok/s total, 25.9 tok/s per user (median);
+[21:40:51] load pub: concurrency 1: 134.0 tok/s total, 142.8 tok/s per user (median);concurrency 4: 329.1 tok/s total, 87.6 tok/s per user (median);concurrency 16: 455.5 tok/s total, 30.6 tok/s per user (median);concurrency 64: 489.4 tok/s total, 8.6 tok/s per user (median);
+[21:51:53] load ours: concurrency 1: 135.6 tok/s total, 144.0 tok/s per user (median);concurrency 4: 333.2 tok/s total, 88.3 tok/s per user (median);concurrency 16: 459.0 tok/s total, 30.7 tok/s per user (median);concurrency 64: 494.7 tok/s total, 8.6 tok/s per user (median);
+[21:53:59] Ollama qwen3:32b is "name=Qwen3 32B"; SGLang serves Qwen/Qwen3-32B-AWQ (check they are the same model)
+[21:56:24] ollama_main: 5306 tokens: 43.6 tok/s with prompt processing (121.6 s), 44.6 tok/s decode only
+[22:10:03] ollama_ood: 34710 tokens: 43.2 tok/s with prompt processing (804.1 s), 44.4 tok/s decode only
+[22:13:29] ollama_mt_t07: 8273 tokens: 43.4 tok/s with prompt processing (190.8 s), 44.5 tok/s decode only
+[22:22:51] ollama_gsm100: 23832 tokens: 43.5 tok/s with prompt processing (547.9 s), 44.5 tok/s decode only
+[22:24:24] summary: /workspace/sushila/qwen3-32b/summary.md
+[22:24:48] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/qwen3-32b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/qwen3-32b/CHECKSUMS.json are in B2 
+[22:24:48] DONE
