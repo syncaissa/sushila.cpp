@@ -55,6 +55,10 @@ td = snapshot_download(target)
 import json as _j
 open(d + '/target_dtype.txt', 'w').write(_j.load(open(td + '/config.json')).get('torch_dtype') or 'bfloat16')
 hd = snapshot_download(head, local_dir=d + '/pub_head')
+# some published heads label themselves as plain Llama models; SGLang and SpecForge need the EAGLE-3 class
+c = json.load(open(hd + '/config.json'))
+if not any('Eagle3' in a for a in c.get('architectures') or []):
+    c['architectures'] = ['LlamaForCausalLMEagle3']; json.dump(c, open(hd + '/config.json', 'w'), indent=2)
 f = hd + '/pytorch_model.bin'
 sd = torch.load(f, map_location='cpu') if os.path.exists(f) else __import__('safetensors.torch', fromlist=['load_file']).load_file(hd + '/model.safetensors')
 torch.save({'d2t': sd['d2t'], 't2d': sd['t2d']}, d + '/vocab_mapping.pt')
