@@ -132,7 +132,7 @@ build/bin/llama-speculative-simple -m Llama-3.1-70B-Q4_K_M.gguf -md Llama-3.2-1B
 |---|---|---|
 | Llama-3.1-70B, 4-bit, A100, with the 1B draft model | 2.66× | identical |
 | Llama-3.1-70B, 4-bit, CPU, with the 1B draft model | 2.28× | identical |
-| Llama-3.1-8B, 4-bit, A100, with the day-0 draft head and tree verification | 1.30× | identical |
+| Llama-3.1-8B, 4-bit, A100, with the precomputed draft head and tree verification | 1.30× | identical |
 
 Full results and how to reproduce them: [REPRODUCE.md](REPRODUCE.md) and
 [docs/REPRODUCE_70B.md](docs/REPRODUCE_70B.md).

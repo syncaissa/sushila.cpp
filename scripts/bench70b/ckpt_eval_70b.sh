@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Data-scaling check for the 70B day-0 head on the same pod: the 6,000-answer head (chunk_05) was slower than the
+# Data-scaling check for the 70B precomputed draft head on the same pod: the 6,000-answer head (chunk_05) was slower than the
 # 1,000-answer smoke head of the lost pod (2.36x vs 2.51x, 16-token tree). Export and time the checkpoints after
 # 1,000 / 2,000 / 3,000 / 5,000 answers with the same evaluation. Runs after COMPARE_DONE (one GPU). Logs CKPT_DONE.
 set -u

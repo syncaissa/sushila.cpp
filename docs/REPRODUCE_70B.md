@@ -2,7 +2,7 @@
 
 This guide checks the headline 70B number yourself on one rented GPU. It times stock Ollama,
 SGLang without speculation, SGLang with the published EAGLE-3 head and SGLang with the Sushila
-day-0 head. All four run on the same GPU with the same 26 prompts and the same settings.
+precomputed draft head. All four run on the same GPU with the same 26 prompts and the same settings.
 
 Scripts: [`scripts/bench70b/`](../scripts/bench70b/). Every program is explained step by step in
 [BENCHMARK_PIPELINE.md](BENCHMARK_PIPELINE.md). To run everything unattended:
@@ -15,12 +15,12 @@ Scripts: [`scripts/bench70b/`](../scripts/bench70b/). Every program is explained
 | A. Vanilla Ollama | Ollama (stock install) | `llama3.3:70b`: GGUF Q4_K_M, 42.5 GB, sha256 `4824460d…` | none |
 | B. SGLang base | SGLang 0.5.x | `casperhansen/llama-3.3-70b-instruct-awq`: AWQ 4-bit | none |
 | C. Published head | SGLang | same AWQ file | EAGLE-3, `lmsys/sglang-EAGLE3-LLaMA3.3-Instruct-70B`, 32-token tree |
-| D. Sushila day-0 head | SGLang | same AWQ file | EAGLE-3 head refitted on day 0 (ours), same tree |
+| D. Sushila precomputed draft head | SGLang | same AWQ file | EAGLE-3 head refitted once at release (ours), same tree |
 
 Read the results honestly:
 
 - **D over B is the speculative gain.** Same engine and file, and the output is the same as B up to
-  floating-point near-ties. The day-0 head's share is D over C. The published EAGLE-3 head is
+  floating-point near-ties. The precomputed draft head's share is D over C. The published EAGLE-3 head is
   existing work by Li et al. and LMSYS.
 - **D over A is what an Ollama user gains by switching.** It mixes three things: a faster engine
   (SGLang, CUDA graphs, Marlin 4-bit kernels), a different 4-bit file (AWQ instead of Q4_K_M), and
@@ -52,7 +52,7 @@ python3 prompts.py --tokenizer casperhansen/llama-3.3-70b-instruct-awq --out pro
 ```
 
 `prompts.jsonl` contains 26 prompts: 20 from Dolly-15k and 6 of ours. The 20 Dolly prompts are
-held out: the day-0 head never trains on Dolly's last 40 rows. Each prompt is rendered with the
+held out: the precomputed draft head never trains on Dolly's last 40 rows. Each prompt is rendered with the
 model's chat template, so every engine sees exactly the same text.
 
 ## 2. Run A: vanilla Ollama
@@ -74,14 +74,14 @@ The script prints two figures:
 
 Afterwards, stop Ollama to free the GPU: `pkill ollama`.
 
-## 3. Runs B, C, D: SGLang, published head, day-0 head
+## 3. Runs B, C, D: SGLang, published head, precomputed draft head
 
 The day-0 script does everything:
 
 - installs the CUDA toolkit, SGLang and SpecForge;
 - downloads the AWQ model and the published head;
 - times B and C;
-- builds the day-0 head;
+- builds the precomputed draft head;
 - times D.
 
 ```sh
@@ -93,7 +93,7 @@ When it finishes, `p3.log` ends with `P4_DONE`, and `out/` holds `base.json` (B)
 `pub_tree.json` (C), `dz_full_tree.json` (D) and `dz_full_tree_s4n16.json` (D with a smaller
 tree). Use `NCONV=1000` to repeat the paper's 1,000-answer head; it takes about 2 hours less.
 
-### What "building the day-0 head" means
+### What "building the precomputed draft head" means
 
 This is the part that is ours. It uses the existing EAGLE-3 method, the SpecForge trainer and
 self-distillation. The script's steps:
@@ -151,9 +151,9 @@ You can also time any running SGLang server yourself:
 | A. Vanilla Ollama 0.35.1, Q4_K_M, `--threads 16` | 21.6 | 1.00× | | our run, 2026-10-04 |
 | B. SGLang base, AWQ | 33.8 | 1.56× | 1.00× | our run |
 | C. + published EAGLE-3 head | 64.1 | 2.96× | 1.93× | our run |
-| D. + Sushila day-0 head (6,000 answers, 32-token tree) | 70.3 | 3.25× | 2.26× | our run |
-| D. + Sushila day-0 head (6,000 answers, 16-token tree) | **75.5** | **3.49×** | 2.36× | our run |
-| D. + Sushila day-0 head (1,000 answers, 16-token tree) | 80.4 | | 2.51× | paper, first machine (base 34.3) |
+| D. + Sushila precomputed draft head (6,000 answers, 32-token tree) | 70.3 | 3.25× | 2.26× | our run |
+| D. + Sushila precomputed draft head (6,000 answers, 16-token tree) | **75.5** | **3.49×** | 2.36× | our run |
+| D. + Sushila precomputed draft head (1,000 answers, 16-token tree) | 80.4 | | 2.51× | paper, first machine (base 34.3) |
 
 All "our run" rows come from one A100 80GB PCIe (RunPod, driver 13.0) and the same 26 prompts.
 
@@ -170,7 +170,7 @@ and between machines with the same GPU model.
 | server dies on the first speculative request | FlashInfer workspace overflow | `--cuda-graph-max-bs-decode 4` |
 | `context length ... exceeds` | head declares 2,048 tokens | `--context-length 2048` |
 | `Half != BFloat16` in training | AWQ model is float16 | `torch_dtype: float16` and the TargetHead patch |
-| day-0 head *slower* than the published head (~1.1×) | embeddings lost in the checkpoint and export | `SF_EMBED_FROM` patch and re-inserted embeddings (both in the script) |
+| precomputed draft head *slower* than the published head (~1.1×) | embeddings lost in the checkpoint and export | `SF_EMBED_FROM` patch and re-inserted embeddings (both in the script) |
 | `nproc` shows 200+ cores on a container | host cores, not your quota | set thread counts explicitly |
 | Ollama 70B at ~10 tok/s on an A100 with all 81 layers on the GPU | Ollama starts one thread per *reported* core (252 on a RunPod container limited to 26) | `bench_ollama.py --threads 16` (Ollama option `num_thread`); gives 22 tok/s |
 

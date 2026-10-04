@@ -3,7 +3,7 @@
 
 Rows 1-3: same GGUF file (Ollama's own blob), decode speed: Ollama vs Sushila.cpp (our llama.cpp + 1B draft, best draft
 length). Row 4: Llama-3.3-70B, speed including prompt processing: Ollama (Q4_K_M) vs Sushila.cpp serving path
-(SGLang AWQ + day-0 head). Also prints a LaTeX table body.
+(SGLang AWQ + precomputed draft head). Also prints a LaTeX table body.
 Usage: python3 make_fig_ollama.py <results dir with out/ and out/compare/>
 """
 import json
@@ -23,7 +23,7 @@ for m, name in [('llama3_2_3b', 'Llama-3.2-3B'), ('llama3_1_8b', 'Llama-3.1-8B')
 o70 = f'{R}/out/compare/ollama_llama3_3_70b.json'  # our run: re-timed here with 16 threads; out/ollama.json had 252
 o = wall(json.load(open(o70)) if os.path.exists(o70) else ld('ollama.json'))
 dz = max(((n, wall(ld(f'{n}.json'))) for n in ('dz_full_tree', 'dz_full_tree_s4n16')), key=lambda x: x[1])
-rows.append(('Llama-3.3-70B, 4-bit', o, None, dz[1], 'SGLang + day-0 head'))
+rows.append(('Llama-3.3-70B, 4-bit', o, None, dz[1], 'SGLang + precomputed draft head'))
 for r in rows:
     print(f'{r[0]} & {r[1]:.1f} & {"" if r[2] is None else f"{r[2]:.1f}"} & {r[3]:.1f} & \\textbf{{{r[3] / r[1]:.2f}$\\times$}} & {r[4]} \\\\')
 names = [r[0].replace(', Q4\\_K\\_M', '').replace(', 4-bit', '') + ('$^*$' if r[2] is None else '') for r in rows]

@@ -2,11 +2,11 @@
 # Robustness checks for the Llama-3.3-70B comparison (runs after the main benchmark; one timing job at a time):
 #  1. choose the day-0 checkpoint on 20 VALIDATION prompts (Dolly rows never used for training or the main evaluation),
 #     never on reported prompts;
-#  2. time SGLang base, published head and the chosen day-0 head (16-token tree) and vanilla Ollama on standard sets
+#  2. time SGLang base, published head and the chosen precomputed draft head (16-token tree) and vanilla Ollama on standard sets
 #     the head never saw: MT-Bench (80), HumanEval (40), GSM8K (40); greedy, 256 tokens;
-#  3. sampling: MT-Bench at temperature 0.7 for SGLang base, day-0 head and Ollama;
+#  3. sampling: MT-Bench at temperature 0.7 for SGLang base, precomputed draft head and Ollama;
 #  4. answer quality of the two 4-bit files: GSM8K accuracy (100 problems, greedy, 512 tokens) for Ollama (Q4_K_M),
-#     SGLang base (AWQ) and the day-0 head (must equal SGLang base: speculative decoding does not change the model);
+#     SGLang base (AWQ) and the precomputed draft head (must equal SGLang base: speculative decoding does not change the model);
 #  5. Ollama with flash attention on (its default is off) on the 26 main prompts.
 # Logs RIGOR_DONE in $W/p3.log; results in $W/out/rigor/.
 set -u
@@ -57,7 +57,7 @@ for n in 00 01 02 03 04 05; do
 done
 log "rigor: checkpoint chosen on validation = chunk_$best ($(( (10#$best + 1) * 1000 )) answers, $bestv tok/s on validation)"
 HB=$S/head_val_$best
-# 2-4. SGLang: base, published head, chosen day-0 head
+# 2-4. SGLang: base, published head, chosen precomputed draft head
 serve || log "rigor base server died"
 bench base_ood --prompts ood.jsonl; bench base_mt_t07 --prompts mt40.jsonl --temperature 0.7
 bench base_gsm100 --prompts gsm8k.jsonl --max-tokens 512; stop

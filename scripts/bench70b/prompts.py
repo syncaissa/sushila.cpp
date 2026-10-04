@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The 26 held-out evaluation prompts used for every 70B speed number in the paper.
 
-20 from Dolly-15k (the first 20 of its last 40 rows; the day-0 draft head is never trained on the last 40 rows) and
+20 from Dolly-15k (the first 20 of its last 40 rows; the precomputed draft head is never trained on the last 40 rows) and
 6 of our own (explanation, code, comparison, story, history, French). Each is rendered with the model's own chat
 template, so every engine sees exactly the same text.
 

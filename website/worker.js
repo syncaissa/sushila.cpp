@@ -64,12 +64,12 @@ const LISTED = [
 
 // Measured speedups (paper, Table "Speed at a glance"); same output as the stock engine unless marked.
 const RESULTS = [
-  ['Llama 3.3 70B, 4-bit', 'A100, SGLang', '34.3', '80.4', '2.51×', 'day-0 draft head on EAGLE-3 trees'],
+  ['Llama 3.3 70B, 4-bit', 'A100, SGLang', '34.3', '80.4', '2.51×', 'precomputed draft head on EAGLE-3 trees'],
   ['Llama 3.1 70B, 4-bit', 'A100, llama.cpp', '22.1', '58.9', '2.66×', '1B draft model, chosen on day 0'],
   ['Llama 3.1 70B, 4-bit', 'CPU, 30 threads', '2.73', '6.22', '2.28×', '1B draft model, chosen on day 0'],
-  ['Llama 3.1 8B, 16-bit', 'A100, SGLang', '89.5', '193', '2.29×', 'day-0 draft head on EAGLE-3 trees'],
-  ['Llama 3.1 8B, 4-bit', 'A100, llama.cpp', '153', '199', '1.30×', 'day-0 head, tree verification, kernel setting'],
-  ['Llama 3.1 8B, 4-bit', 'CPU, 30 threads', '19.9', '24.0', '1.21×', 'day-0 head with a landscape inside it'],
+  ['Llama 3.1 8B, 16-bit', 'A100, SGLang', '89.5', '193', '2.29×', 'precomputed draft head on EAGLE-3 trees'],
+  ['Llama 3.1 8B, 4-bit', 'A100, llama.cpp', '153', '199', '1.30×', 'precomputed draft head, tree verification, kernel setting'],
+  ['Llama 3.1 8B, 4-bit', 'CPU, 30 threads', '19.9', '24.0', '1.21×', 'precomputed draft head with a landscape inside it'],
   ['Qwen2.5 0.5B, 4-bit', 'CPU, 8 threads', '145.5', '183.3', '1.26×', 'output-layer landscape'],
 ];
 
@@ -380,7 +380,7 @@ ${STYLE}</style>
   <div class="grid">
     <div class="card"><h3>Landscapes</h3><p>A precomputed map of each model's output layer: a cheap preview picks a short list of candidate tokens,
       which are then scored exactly. About 13–15% of the layer is read, with the same top token.</p></div>
-    <div class="card"><h3>Day-0 draft heads</h3><p>A small head fitted on the model's own answers proposes several tokens; the full model checks them all
+    <div class="card"><h3>Precomputed draft heads</h3><p>A small head fitted on the model's own answers proposes several tokens; the full model checks them all
       in one pass. Accepted tokens are exactly what the model would have produced.</p></div>
     <div class="card"><h3>Landscape hunt</h3><p>Each model gets the stack that suits it. New models first try the existing landscapes,
       and a new one is searched for only if none fits.</p></div>

@@ -9,10 +9,10 @@ order they run, and what each one reads and writes. All of them are in
 
 ```
 create_pod.sh ──► run_all.sh
-                   ├─ 1 day0_head_70b.sh   SGLang base, published EAGLE-3 head, day-0 head build + timing  → P4_DONE
+                   ├─ 1 day0_head_70b.sh   SGLang base, published EAGLE-3 head, precomputed draft head build + timing  → P4_DONE
                    ├─ 2 pod_ollama.sh      vanilla Ollama, Llama-3.3-70B                                   → OLLAMA_DONE
                    ├─ 3 pod_compare.sh     Ollama vs Sushila.cpp, same GGUF files (3B, 8B, 70B)             → COMPARE_DONE
-                   ├─ 4 ckpt_eval_70b.sh   day-0 head after 1,000 … 5,000 answers                          → CKPT_DONE
+                   ├─ 4 ckpt_eval_70b.sh   precomputed draft head after 1,000 … 5,000 answers                          → CKPT_DONE
                    └─ 5 rigor_70b.sh       robustness checks (validation choice, standard sets, sampling,
                                            answer quality, Ollama flash attention)                         → RIGOR_DONE
 local:  compare.py, grade_gsm8k.py, make_fig_ollama.py  (tables, intervals, figure)
@@ -52,7 +52,7 @@ It needs `~/.runpod_api_key`. Any Ubuntu 22.04 machine with an 80 GB NVIDIA GPU 
 works the same way. Then copy this repository to the machine and run
 `W=/workspace/day0 bash scripts/bench70b/run_all.sh`.
 
-## Step 1: `day0_head_70b.sh`, the SGLang runs and the day-0 head
+## Step 1: `day0_head_70b.sh`, the SGLang runs and the precomputed draft head
 
 | Part | What the code does | Output |
 |---|---|---|
@@ -66,7 +66,7 @@ works the same way. Then copy this repository to the machine and run
 | Chunks | Drops empty answers, adds an empty system turn (as served), and splits the data into 6 chunks of 1,000. | `chunk_0N.jsonl` |
 | Train | For each chunk: `prepare_hidden_states.py` captures the target's hidden states (uncompressed). Then `specforge train`: 1 epoch, learning rate 2e-5, float16, `load_target_embedding: false`, warm-started from the previous checkpoint (chunk 0 starts from the published head). | `out2_chunk_0N/` |
 | Export | `specforge export --to sglang`. Re-inserts the published head's `embed_tokens`, converts to float16 and fixes the config dtype. | `head_dz_full/` |
-| `evalrun dz_full_*` | Times the day-0 head with the 32-token tree and with the 16-token tree (`steps 4, topk 4, 16 tokens`). | `out/dz_full_tree*.json`, `P4_DONE` |
+| `evalrun dz_full_*` | Times the precomputed draft head with the 32-token tree and with the 16-token tree (`steps 4, topk 4, 16 tokens`). | `out/dz_full_tree*.json`, `P4_DONE` |
 
 ## Step 2: `pod_ollama.sh`, vanilla Ollama
 
@@ -113,9 +113,9 @@ used to choose a head**; step 5 does that.
 | Concern | What the script measures |
 |---|---|
 | Choosing the best checkpoint on the reported prompts inflates the result | It picks the checkpoint (chunks 00–05) by speed on **20 validation prompts**, Dolly's last 20 rows, which are used nowhere else. Only that head is evaluated on the reported sets. |
-| 20 of the 26 main prompts are Dolly, like the training answers | It times the published head, the chosen day-0 head, SGLang base and Ollama on **MT-Bench (80), HumanEval (40) and GSM8K (40)**, sets the head never saw. |
-| Speculative gains shrink when sampling | It times SGLang base, the day-0 head and Ollama on MT-Bench (40 prompts) at **temperature 0.7**. |
-| The two 4-bit files (Q4_K_M vs AWQ) may differ in quality | It measures **GSM8K accuracy** (100 problems, greedy, 512 tokens) for Ollama, SGLang base and the day-0 head. The day-0 head must match SGLang base, since speculative decoding does not change the model. 95% Wilson intervals come from `grade_gsm8k.py`. |
+| 20 of the 26 main prompts are Dolly, like the training answers | It times the published head, the chosen precomputed draft head, SGLang base and Ollama on **MT-Bench (80), HumanEval (40) and GSM8K (40)**, sets the head never saw. |
+| Speculative gains shrink when sampling | It times SGLang base, the precomputed draft head and Ollama on MT-Bench (40 prompts) at **temperature 0.7**. |
+| The two 4-bit files (Q4_K_M vs AWQ) may differ in quality | It measures **GSM8K accuracy** (100 problems, greedy, 512 tokens) for Ollama, SGLang base and the precomputed draft head. The precomputed draft head must match SGLang base, since speculative decoding does not change the model. 95% Wilson intervals come from `grade_gsm8k.py`. |
 | Ollama ran with default settings | It also times **Ollama with flash attention on** (`OLLAMA_FLASH_ATTENTION=1`; Ollama's default is off). |
 
 ## Local analysis
