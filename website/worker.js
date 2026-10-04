@@ -115,7 +115,7 @@ a{color:var(--acc)}
 header{border-bottom:1px solid var(--line)}
 nav{display:flex;align-items:center;gap:20px;height:60px}
 nav .brand{font-weight:700;font-size:18px;color:var(--fg);text-decoration:none;display:flex;gap:8px;align-items:center}
-nav .links{margin-left:auto;display:flex;gap:18px;font-size:15px;white-space:nowrap}
+nav .links{margin-left:auto;display:flex;gap:18px;font-size:15px;flex-wrap:wrap;justify-content:flex-end}
 nav .links a{color:var(--mut);text-decoration:none}
 nav .links a:hover{color:var(--fg)}
 .herologo{position:relative;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -162,7 +162,7 @@ form{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 input{flex:1 1 240px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font-size:15px}
 #msg{margin-top:10px;font-size:14px;min-height:1.4em}
 footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--mut);font-size:14px}
-@media (max-width:640px){.hero{flex-direction:column-reverse;align-items:flex-start;gap:12px}.herologo{width:120px;height:120px}nav .links{gap:12px;font-size:14px}nav .links .hide{display:none}.hero{padding:40px 0 28px}th,td{padding:8px 10px}}
+@media (max-width:640px){.hero{flex-direction:column-reverse;align-items:flex-start;gap:12px}.herologo{width:120px;height:120px}nav{height:auto;flex-wrap:wrap;padding:10px 0;gap:8px}nav .links{margin-left:0;gap:6px 14px;font-size:14px;justify-content:flex-start}.hero{padding:40px 0 28px}th,td{padding:8px 10px}}
 .doc{max-width:760px;padding:40px 0 56px}
 .doc h1{font-size:34px;margin:0 0 4px;letter-spacing:-.02em}
 .doc h2{font-size:20px;margin:32px 0 8px}
@@ -399,7 +399,7 @@ ${STYLE}</style>
 <body>
 <header><div class="wrap"><nav>
   ${brand()}
-  <div class="links"><a href="#how" class="hide">How</a><a href="#results" class="hide">Results</a><a href="#download">Download</a><a href="#models">Models</a><a href="#api" class="hide">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
+  <div class="links"><a href="#how">How</a><a href="#results">Results</a><a href="#download">Download</a><a href="#models">Models</a><a href="#api">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
 </nav></div></header>
 
 <main class="wrap">
