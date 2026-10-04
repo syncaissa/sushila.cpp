@@ -14,7 +14,7 @@ raw results of every run we report. See **[REPRODUCE.md](REPRODUCE.md)**, and
 ## Release
 
 After the paper is published, the engine will be released as **Sushila.cpp**
-(**S**elf-tuning **U**pstream **S**ynthesis for **H**ybrid **I**nference in **L**LM **A**cceleration): llama.cpp and an
+(**S**calable **U**pstream **S**ynthesis for **H**ybrid **I**nference in **L**LM **A**cceleration): llama.cpp and an
 Ollama build with day-0 landscapes, draft heads and kernels, using the same model files, commands and API.
 
 ## Install
