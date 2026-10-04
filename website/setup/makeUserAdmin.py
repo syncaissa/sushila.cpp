@@ -14,8 +14,33 @@ import argparse
 import datetime
 import secrets
 import sys
+import time
 
 import botocore.session
+
+
+class FreshClient:
+    """DynamoDB client that reconnects with reloaded credentials and retries once if they are rejected (rotating tokens)."""
+    RETRY = ('ExpiredToken', 'UnrecognizedClient', 'InvalidClientTokenId', 'RequestExpired')
+
+    def __init__(self, profile, region):
+        self.profile, self.region = profile, region
+        self.c = self._new()
+
+    def _new(self):
+        return botocore.session.Session(profile=self.profile).create_client('dynamodb', region_name=self.region)
+
+    def __getattr__(self, name):
+        def call(*a, **k):
+            try:
+                return getattr(self.c, name)(*a, **k)
+            except Exception as e:  # noqa: BLE001
+                if not any(t in str(e) for t in self.RETRY):
+                    raise
+                time.sleep(2)
+                self.c = self._new()
+                return getattr(self.c, name)(*a, **k)
+        return call
 
 
 def main():
@@ -26,7 +51,7 @@ def main():
     ap.add_argument('--revoke', action='store_true', help='remove admin rights instead of granting them')
     ap.add_argument('--list', action='store_true', help='list the current admins')
     a = ap.parse_args()
-    ddb = botocore.session.Session(profile=a.profile).create_client('dynamodb', region_name=a.region)
+    ddb = FreshClient(a.profile, a.region)
 
     if a.list:
         items, start = [], None
