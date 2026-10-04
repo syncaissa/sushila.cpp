@@ -95,7 +95,7 @@ serve() {  # serve <label> [sglang args...]
   for i in $(seq 1 240); do curl -sf localhost:30000/health > /dev/null && return 0; kill -0 $SP 2>/dev/null || { log "$label: server died (see server_$label.log)"; return 1; }; sleep 10; done
   log "$label: server did not start"; return 1
 }
-stop() { [ -n "$SP" ] && { kill $SP 2>/dev/null; wait $SP 2>/dev/null; }; SP=""; pkill -f sglang.launch_server 2>/dev/null; sleep 10; }
+stop() { if [ -n "$SP" ]; then kill $SP 2>/dev/null || true; wait $SP 2>/dev/null || true; fi; SP=""; pkill -f sglang.launch_server 2>/dev/null || true; sleep 10; }  # a killed server exits non-zero: not a failure
 bench() {  # bench <name> [bench_sglang args]
   [ -s $D/out/$1.json ] && return 0
   python3 $BENCH/bench_sglang.py --reps 1 --out $D/out/$1.json "${@:2}" > $D/out/$1.log 2>&1 && log "$1: $(tail -1 $D/out/$1.log)" || log "$1 failed"
@@ -257,7 +257,7 @@ if [ ! -s $D/out/ollama_gsm100.json ]; then
   ob ollama_mt_t07 --prompts $D/mt40.jsonl --temperature 0.7
   ob ollama_gsm100 --prompts $D/gsm8k.jsonl --max-tokens 512
   ollama show --modelfile $OLLAMA_TAG | sed -n 's/^FROM \(\/.*\)/\1/p' | head -1 | xargs -r sha256sum > $D/out/ollama_blob.txt
-  pkill -x ollama; sleep 5
+  pkill -x ollama || true; sleep 5
 fi
 
 # ---------- 10 summary ----------

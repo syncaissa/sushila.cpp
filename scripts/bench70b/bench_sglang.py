@@ -21,13 +21,17 @@ def main():
     ap.add_argument('--max-tokens', type=int, default=256)
     ap.add_argument('--temperature', type=float, default=0.0)
     ap.add_argument('--seed', type=int, default=0)
-    ap.add_argument('--reps', type=int, default=2, help='runs per prompt; the last is kept. With 1, one extra warm-up request is sent first')
+    ap.add_argument('--reps', type=int, default=2, help='runs per prompt; the last is kept')
+    ap.add_argument('--warmup', type=int, default=3, help='untimed requests first (the first prompts), so compilation and caches do not count')
     args = ap.parse_args()
     res = []
+    for line in list(open(args.prompts))[:args.warmup]:
+        w = {'text': json.loads(line)['text'], 'sampling_params': {'temperature': args.temperature, 'max_new_tokens': args.max_tokens}}
+        urllib.request.urlopen(urllib.request.Request(f'http://localhost:{args.port}/generate', data=json.dumps(w).encode(), headers={'Content-Type': 'application/json'}), timeout=1800).read()
     for line in open(args.prompts):
         p = json.loads(line)
         body = {'text': p['text'], 'sampling_params': {'temperature': args.temperature, 'max_new_tokens': args.max_tokens}}
-        for rep in range(args.reps + (1 if args.reps == 1 and not res else 0)):  # warm-up on the first prompt
+        for rep in range(args.reps):
             t0 = time.time()
             r = json.loads(urllib.request.urlopen(urllib.request.Request(f'http://localhost:{args.port}/generate', data=json.dumps(body).encode(),
                            headers={'Content-Type': 'application/json'}), timeout=1800).read())

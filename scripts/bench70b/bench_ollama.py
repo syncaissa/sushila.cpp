@@ -25,17 +25,22 @@ def main():
     ap.add_argument('--max-tokens', type=int, default=256)
     ap.add_argument('--temperature', type=float, default=0.0)
     ap.add_argument('--seed', type=int, default=0)
-    ap.add_argument('--reps', type=int, default=2, help='runs per prompt; the last is kept. With 1, one extra warm-up request is sent first')
+    ap.add_argument('--reps', type=int, default=2, help='runs per prompt; the last is kept')
+    ap.add_argument('--warmup', type=int, default=3, help='untimed requests first (the first prompts), so compilation and caches do not count')
     ap.add_argument('--threads', type=int, help='CPU threads (num_thread); set it in containers that report more cores than they get')
     args = ap.parse_args()
     res = []
+    for line in list(open(args.prompts))[:args.warmup]:
+        w = {'model': args.model, 'prompt': json.loads(line)['text'], 'raw': True, 'stream': False,
+             'options': {'temperature': args.temperature, 'num_predict': args.max_tokens, 'num_ctx': 4096, **({'num_thread': args.threads} if args.threads else {})}}
+        urllib.request.urlopen(urllib.request.Request(args.host + '/api/generate', data=json.dumps(w).encode(), headers={'Content-Type': 'application/json'}), timeout=1800).read()
     for line in open(args.prompts):
         p = json.loads(line)
         body = {'model': args.model, 'prompt': p['text'], 'raw': True, 'stream': False,
                 'options': {'temperature': args.temperature, 'num_predict': args.max_tokens, 'num_ctx': 4096, 'seed': args.seed}}
         if args.threads:
             body['options']['num_thread'] = args.threads
-        for rep in range(args.reps + (1 if args.reps == 1 and not res else 0)):  # warm-up on the first prompt
+        for rep in range(args.reps):
             r = json.loads(urllib.request.urlopen(urllib.request.Request(args.host + '/api/generate', data=json.dumps(body).encode(),
                            headers={'Content-Type': 'application/json'}), timeout=1800).read())
         n = r['eval_count']
