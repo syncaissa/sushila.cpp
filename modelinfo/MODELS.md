@@ -1,6 +1,6 @@
 # Model and data files used
 
-Pinned 2026-10-04T17:25Z by `collect.py`. Full lists of files with sha256: `models.json`. Download and verify: `fetch.sh`.
+Pinned 2026-10-04T19:38Z by `collect.py`. Full lists of files with sha256: `models.json`. Download and verify: `fetch.sh`.
 
 ## Hugging Face (repository at a fixed commit)
 
@@ -30,7 +30,8 @@ Pinned 2026-10-04T17:25Z by `collect.py`. Full lists of files with sha256: `mode
 | `llama3.2:1b` | `74701a8c35f6c8d9…` | 1.32 GB | the 1B draft model |
 | `qwen2.5:7b` | `2bada8a745067700…` | 4.68 GB | output-layer landscape (Qwen2.5-7B) |
 | `qwen2.5:0.5b` | `c5396e06af294bd1…` | 0.40 GB | CPU landscape kernel (1.13-1.26x); day-0 pipeline demo |
-| `qwen3:30b-a3b` | `58574f2e94b99fb9…` | 18.56 GB | MoE expert count; Ollama baseline Qwen3-30B-A3B |
+| `qwen3:30b-a3b` | `58574f2e94b99fb9…` | 18.56 GB | MoE expert count (this tag holds Qwen3-30B-A3B-Thinking-2507) |
+| `qwen3:30b-a3b-q4_K_M` | `e9183b5c18a0cf73…` | 18.62 GB | Ollama baseline for Qwen3-30B-A3B (the original release, same model as the SGLang runs) |
 | `qwen3:32b` | `3291abe70f16ee96…` | 20.20 GB | Ollama baseline Qwen3-32B |
 
 ## Datasets

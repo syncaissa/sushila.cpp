@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-10-04T17:25Z",
+ "generated_utc": "2026-10-04T19:38Z",
  "huggingface": [
   {
    "repo": "casperhansen/llama-3.3-70b-instruct-awq",
@@ -997,7 +997,7 @@
   },
   {
    "model": "qwen3:30b-a3b",
-   "used_for": "MoE expert count; Ollama baseline Qwen3-30B-A3B",
+   "used_for": "MoE expert count (this tag holds Qwen3-30B-A3B-Thinking-2507)",
    "gguf_sha256": "58574f2e94b99fb9e4391408b57e5aeaaaec10f6384e9a699fc2cb43a5c8eabf",
    "gguf_bytes": 18556685856,
    "gguf_url": "https://registry.ollama.ai/v2/library/qwen3/blobs/sha256:58574f2e94b99fb9e4391408b57e5aeaaaec10f6384e9a699fc2cb43a5c8eabf",
@@ -1011,6 +1011,35 @@
      "media_type": "template",
      "digest": "sha256:2d54db2b9bb29ce7db54fea63a891f5859603813c555b1f88b5e0994652897f9",
      "bytes": 1506
+    },
+    {
+     "media_type": "license",
+     "digest": "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12",
+     "bytes": 11338
+    },
+    {
+     "media_type": "params",
+     "digest": "sha256:cff3f395ef3756ab63e58b0ad1b32bb6f802905cae1472e6a12034e4246fbbdb",
+     "bytes": 120
+    }
+   ]
+  },
+  {
+   "model": "qwen3:30b-a3b-q4_K_M",
+   "used_for": "Ollama baseline for Qwen3-30B-A3B (the original release, same model as the SGLang runs)",
+   "gguf_sha256": "e9183b5c18a0cf736578c1e3d1cbd4b7e98e3ad3be6176b68c20f156d54a07ac",
+   "gguf_bytes": 18622549504,
+   "gguf_url": "https://registry.ollama.ai/v2/library/qwen3/blobs/sha256:e9183b5c18a0cf736578c1e3d1cbd4b7e98e3ad3be6176b68c20f156d54a07ac",
+   "layers": [
+    {
+     "media_type": "model",
+     "digest": "sha256:e9183b5c18a0cf736578c1e3d1cbd4b7e98e3ad3be6176b68c20f156d54a07ac",
+     "bytes": 18622549504
+    },
+    {
+     "media_type": "template",
+     "digest": "sha256:ae370d884f108d16e7cc8fd5259ebc5773a0afa6e078b11f4ed7e39a27e0dfc4",
+     "bytes": 1723
     },
     {
      "media_type": "license",
