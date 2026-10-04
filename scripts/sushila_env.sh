@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Print the engine settings for a day-0 landscape (scripts/day0_landscape.sh), after checking that the model
+# Print the engine settings for a precomputed landscape (scripts/day0_landscape.sh), after checking that the model
 # file and the landscape are the exact files the manifest was built and validated for.
 # Usage: eval "$(scripts/sushila_env.sh <manifest.json> <model.gguf>)"
 # Prints nothing (stock engine) if the manifest is in exact mode; exits non-zero on a checksum mismatch.

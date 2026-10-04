@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Day-0 landscape pipeline: turn a newly released model file into a validated, ready-to-ship output-layer
+# Precomputed-landscape pipeline: turn a newly released model file into a validated, ready-to-ship output-layer
 # landscape, so the first request is already accelerated. Steps:
 #   0 license  refuse models whose license is not approved for commercial hosting (configs/licenses.tsv);
 #              fetch the license text to ship with the landscape (scripts/check_license.sh)
