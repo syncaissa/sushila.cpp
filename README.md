@@ -1,4 +1,4 @@
-# Monte Carlo AI Inference
+# Sushila.cpp
 
 Approximate LLM inference: replace exact weight-matrix multiplication with
 importance-sampled Monte Carlo estimates (exact top contributions + sampled
@@ -6,19 +6,20 @@ tail), trading a controllable amount of accuracy for fewer weight bytes read.
 
 Everything needed to reproduce our numbers is in this repository: pinned source,
 pinned model files (by sha256), pinned dataset, build and run scripts, and the
-raw results of every run we report. See **[REPRODUCE.md](REPRODUCE.md)**.
+raw results of every run we report. See **[REPRODUCE.md](REPRODUCE.md)**, and
+**[docs/REPRODUCE_70B.md](docs/REPRODUCE_70B.md)** to time Llama-3.3-70B against vanilla Ollama on one GPU.
 
 ## Release
 
 After the paper is published, the engine will be released as **Sushila.cpp**
-(**S**tochastic **U**nbiased **S**ampling for **H**ybrid **I**mportance-weighted **L**LM **A**pproximation): a build of
-Ollama with the Monte Carlo matmul, using the same model files, commands and API.
+(**S**elf-tuning **U**pstream **S**earch for **H**ybrid **I**nference in **L**LM **A**cceleration): llama.cpp and an
+Ollama build with day-0 landscapes, draft heads and kernels, using the same model files, commands and API.
 
 ## Quick start
 
 ```sh
-git clone https://github.com/syncaissa/Monte-Carlo-AI-Inference.git
-cd Monte-Carlo-AI-Inference
+git clone https://github.com/syncaissa/sushila.cpp.git
+cd sushila.cpp
 scripts/setup.sh                        # build tools (Ubuntu 22.04)
 scripts/build.sh                        # llama.cpp, CUDA if available
 scripts/get_model.sh llama3.1-8b-q4km   # from the Ollama registry, sha256-verified

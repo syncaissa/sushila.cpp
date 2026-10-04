@@ -54,12 +54,12 @@ tail -f sweep.log
 ```
 
 Copy results back to your own machine with
-`rsync -az user@server:Monte-Carlo-AI-Inference/results/ results/`.
+`rsync -az user@server:sushila.cpp/results/ results/`.
 
 ### b) Google Colab
 
 Open [`notebooks/colab_sweep.ipynb`](notebooks/colab_sweep.ipynb) in Colab
-([direct link](https://colab.research.google.com/github/syncaissa/Monte-Carlo-AI-Inference/blob/main/notebooks/colab_sweep.ipynb))
+([direct link](https://colab.research.google.com/github/syncaissa/sushila.cpp/blob/main/notebooks/colab_sweep.ipynb))
 and run the cells in order. It builds the code, downloads the pinned model and dataset, checks
 that `exact` equals `off`, and runs the sweep with results saved to your Google Drive.
 
