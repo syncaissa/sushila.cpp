@@ -168,7 +168,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--mut);fon
 const brand = () => `<a class="brand" href="/"><img src="/logo.png" width="32" height="32" alt=""> Sushila.cpp</a>`;
 
 const footer = (contact) => `<footer><div class="wrap row" style="justify-content:space-between">
-  <span>© ${new Date().getUTCFullYear()} Sushila, a research project</span>
+  <span>© ${new Date().getUTCFullYear()} Sushila, an open research project</span>
   <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
 </div></footer>`;
 
