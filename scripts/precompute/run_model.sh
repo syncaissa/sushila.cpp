@@ -11,6 +11,7 @@
 #   8 ours       SGLang + the chosen precomputed head: main, ood, temperature 0.7, GSM8K accuracy
 #   8b load      throughput with 1, 4, 16, 64 simultaneous users: SGLang alone, published head, ours (bench_load.py)
 #   9 ollama     vanilla Ollama (16 threads): main, ood, temperature 0.7, GSM8K accuracy
+#   7b save      precomputed/<model>/ to B2 as soon as the head is chosen (b2_save.py), again after the summary
 #  10 summary    summary.json and summary.md (speeds, cumulative steps, bootstrap intervals, accuracy)
 # Usage:  W=/workspace/sushila bash run_model.sh models/qwen3-32b.env      (SMOKE=1 for a 15-minute check of every stage)
 set -u
@@ -228,6 +229,15 @@ if [ ! -s $D/chosen.txt ]; then
   echo "$best" > $D/chosen.txt; log "chosen on validation: $(basename $best) ($bestv tok/s)"
 fi
 HB=$(cat $D/chosen.txt)
+save_b2() {  # precomputed artifacts are computed once and must never be lost: save them to B2 right away
+  if [ -s $HOME/.b2_key ] || [ -n "${B2_KEY_ID:-}" ]; then
+    python3 $P/b2_save.py precomputed $W $MODEL $ENV_FILE > $D/b2_save.log 2>&1 && log "saved to B2: $(grep -E '^precomputed|^verified' $D/b2_save.log | tr '\n' ' ')" \
+      || log "B2 SAVE FAILED (see b2_save.log): precomputed artifacts are only on this machine"
+  else
+    log "WARNING: no B2 credentials (~/.b2_key): precomputed artifacts are only on this machine"
+  fi
+}
+save_b2
 
 # ---------- 8 ours ----------
 sglang_suite ours $S16 --speculative-draft-model-path $HB
@@ -261,4 +271,6 @@ if [ ! -s $D/out/ollama_gsm100.json ]; then
 fi
 
 # ---------- 10 summary ----------
-python3 $P/summarize.py $D "$MODEL" > $D/summary.md && log "summary: $D/summary.md" && log DONE
+python3 $P/summarize.py $D "$MODEL" > $D/summary.md && log "summary: $D/summary.md"
+save_b2   # again, now with every result
+log DONE

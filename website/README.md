@@ -50,7 +50,8 @@ it to match (`--dry-run` shows the plan). The worker's key needs only `setup/iam
 | Path | Content |
 |---|---|
 | `models/<model id>/<file>` | the model file, byte-identical to the Ollama registry blob; the script checks its sha256 before uploading |
-| `models/<model id>/sushila/<file>` | that model's Sushila artifacts: landscapes, draft heads, manifest |
+| `precomputed/<model>/` | that model's precomputed artifacts, one folder per model: `CHECKSUMS.json` (what they are bound to, and the sha256 of every file), `draft-head/`, `checkpoints/`, `training-data/`, `config.env` |
+| `results/<model>/` | timings, outputs and logs of the run that produced them |
 | `media/SushilaLogoWithBaseG.mp4` | the logo animation |
 
 **Sign-in rules:**

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Upload the hosted files to Backblaze B2 (bucket sushila-ai) in the layout the worker serves:
 #   models/<model id>/<file>   model weights, byte-identical to the Ollama registry blob (sha256-verified before upload),
-#                              plus that model's Sushila artifacts (landscapes, draft heads, manifest) when they exist
+#   precomputed/<model>/       that model's precomputed artifacts (prefer scripts/precompute/b2_save.py, which also
+#                              writes CHECKSUMS.json)
 #   media/<file>               the site's logo animation
 # Needs the B2 command-line tool (pip install b2) and:  export B2_APPLICATION_KEY_ID=... B2_APPLICATION_KEY=...
 # Usage:  bash b2_upload.sh media [file.mp4]       upload the logo animation (default: assets/logo/SushilaLogoWithBaseG.mp4)
@@ -34,6 +35,6 @@ case "${1:-}" in
     rm -f "$tmp" ;;
   artifact)
     id=${2:?model id}; f=${3:?local file}
-    b2 file upload --info sha256="$(sha "$f")" "$BUCKET" "$f" "models/$id/sushila/$(basename "$f")" ;;
+    b2 file upload --info sha256="$(sha "$f")" "$BUCKET" "$f" "precomputed/$id/$(basename "$f")" ;;
   *) sed -n 2,12p "$0"; exit 1 ;;
 esac

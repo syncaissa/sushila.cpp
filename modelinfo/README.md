@@ -25,8 +25,9 @@ The files are 1-43 GB each and about 150 GB in total. GitHub's limits:
 Pinning by revision and sha256 is exact. Hugging Face serves a repository at a fixed commit forever, and Ollama's
 registry serves files by their sha256. A file that no longer matches is rejected by `fetch.py`.
 
-**Mirror:** sushila.ai keeps its own copies in Backblaze B2 (bucket `sushila-ai`, `models/<model id>/`), in case an
-upstream source disappears. The sha256 values here identify those copies too.
+**Mirror:** sushila.ai keeps its own copies in Backblaze B2 (bucket `sushila-ai`), in case an upstream source disappears.
+Model files go under `models/<model id>/`, precomputed artifacts under `precomputed/<model>/` (each with a
+`CHECKSUMS.json`), and run results under `results/`. The sha256 values here identify those copies too.
 
 ## Our own precomputed artifacts
 
@@ -34,7 +35,7 @@ upstream source disappears. The sha256 values here identify those copies too.
 |---|---|---|
 | Output-layer landscapes (`.mclp`) | rebuilt from the model file by `scripts/day0_landscape.sh` (deterministic, sha256 in each manifest) | reproducible from this repository |
 | Precomputed draft heads: Llama-3.1-8B, Llama-3.3-70B | built by `scripts/bench70b/day0_head_70b.sh` and `scripts/precompute/run_model.sh` | the head files from those runs were not kept when the rented machines were deleted; rerunning the pipeline rebuilds them (about $5-13 each), and every measured output is in `results/` |
-| Precomputed draft heads: Qwen3-32B, Qwen3-30B-A3B | `scripts/precompute/run_model.sh` | will be uploaded to B2 (`models/<model id>/sushila/`) and pinned here with sha256 |
+| Precomputed draft heads: Qwen3-32B, Qwen3-30B-A3B | `scripts/precompute/run_model.sh` | saved automatically to B2 as `precomputed/<model>/` (draft head, every checkpoint, training answers, config) with one `CHECKSUMS.json`; run results in `results/<model>/` |
 
 ## Licenses
 

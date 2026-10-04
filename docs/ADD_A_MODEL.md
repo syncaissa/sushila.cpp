@@ -102,17 +102,22 @@ The smoke run first costs about $1 and catches setup problems before the full ru
 
 ## Saving everything for reuse (Backblaze B2)
 
-`scripts/precompute/b2_save.py` uploads a run's files to the `sushila-ai` bucket. It skips files that are already there
-and writes a `MANIFEST.json` with the sha256 of every file. It needs a B2 application key limited to that bucket,
-given as `B2_KEY_ID` and `B2_APP_KEY`, or as `~/.b2_key` (two lines).
+Precomputed work is computed once and reused for every request, so it must never be lost. `run_model.sh` saves it to
+the `sushila-ai` bucket as soon as the head is chosen, and again at the end. It uses `b2_save.py` with a B2 key, given
+as `B2_KEY_ID`/`B2_APP_KEY` or as `~/.b2_key` (two lines). Without a key the run log warns on every save.
 
-| What | B2 path |
-|---|---|
-| Results, logs, prompt sets, the model's own answers, summary | `results/<model>/` |
-| The chosen precomputed draft head | `models/<model>/sushila/draft-head/` |
-| All checkpoints | `results/<model>/checkpoints/` |
+```
+precomputed/<model>/
+  CHECKSUMS.json     what the artifacts are bound to (SGLang model and revision, warm-start head, Ollama GGUF sha256),
+                     how to serve them, and the sha256 and size of every file below
+  draft-head/        the precomputed draft head chosen on validation prompts
+  checkpoints/       every other trained checkpoint
+  training-data/     the model's own answers (regen.jsonl) and the prompts
+  config.env         the pipeline config
+results/<model>/     timings, outputs, logs and summary of the run
+```
 
 ```sh
-python3 b2_save.py $W/<model> results/<model> --exclude hs/ cache_ ckpt_chunk_ head_ckpt pub_head
-python3 b2_save.py $(cat $W/<model>/chosen.txt) models/<model>/sushila/draft-head
+python3 scripts/precompute/b2_save.py precomputed $W <model> scripts/precompute/models/<model>.env
+python3 scripts/precompute/b2_save.py verify precomputed/<model>      # run this before deleting the machine
 ```
