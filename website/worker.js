@@ -16,14 +16,16 @@
  *   MEDIA     R2 bucket holding the logo animation (key in VIDEO.key); MODELS is used if MEDIA is not bound.
  *   WAITLIST  KV namespace for sign-ups. Without it, the form falls back to e-mail.
  *   RELEASED  "true" once the Sushila.cpp repository is public; until then the download buttons say "with the paper".
- *   CONTACT   contact e-mail (default below).
+ *   REPO_URL  source repository shown on the page (default: the current GitHub repository).
+ *   CONTACT   contact e-mail (default contact@sushila.ai; create it with Cloudflare Email Routing).
  *   GOVERNING_LAW  governing law for the Terms, e.g. "the State of Delaware, USA" (confirm with counsel).
  *
  * Deploy: npx wrangler deploy worker.js --name sushila --compatibility-date 2026-10-01
  */
 
-const REPO = 'https://github.com/syncaissa/sushila.cpp';
-const DEFAULT_CONTACT = 'syncaissa@outlook.com';
+// Source repository; override with the REPO_URL variable (e.g. after moving the repository to a sushila organization).
+const REPO_DEFAULT = 'https://github.com/syncaissa/sushila.cpp';
+const DEFAULT_CONTACT = 'contact@sushila.ai';  // set up with Cloudflare Email Routing, or override with CONTACT
 
 // Models whose files we host (byte-identical to the Ollama registry blobs; sha256 is the file's digest).
 // "tuned": has Sushila day-0 artifacts (landscapes / draft head) measured in the paper.
@@ -166,7 +168,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--mut);fon
 const brand = () => `<a class="brand" href="/"><img src="/logo.png" width="32" height="32" alt=""> Sushila.cpp</a>`;
 
 const footer = (contact) => `<footer><div class="wrap row" style="justify-content:space-between">
-  <span>© ${new Date().getUTCFullYear()} Syncaissa Systems Inc.</span>
+  <span>© ${new Date().getUTCFullYear()} Sushila, a research project</span>
   <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
 </div></footer>`;
 
@@ -198,13 +200,13 @@ ${footer(contact)}
 
 const EFFECTIVE = '4 October 2026';
 // Governing law and courts: set GOVERNING_LAW (e.g. "the State of Delaware, USA") once counsel confirms it.
-const law = (env) => env.GOVERNING_LAW || 'the jurisdiction in which Syncaissa Systems Inc. is incorporated';
+const law = (env) => env.GOVERNING_LAW || 'the jurisdiction in which the operator of sushila.ai is established';
 
 const TERMS = (env) => (contact) => `
 <h1>Terms of Service</h1>
 <p class="meta">Effective ${EFFECTIVE}</p>
 <p>These Terms of Service ("Terms") govern your use of the sushila.ai website, the Sushila.cpp software and scripts, the model
-files we host, and the Sushila serverless API (together, the "Services"), provided by Syncaissa Systems Inc. ("Syncaissa", "we",
+files we host, and the Sushila serverless API (together, the "Services"), provided by the Sushila research project ("Sushila", "we",
 "us"). By using the Services you agree to these Terms. If you use the Services for an organization, you agree on its behalf and
 confirm that you may do so. If you do not agree, do not use the Services.</p>
 
@@ -245,13 +247,13 @@ IMPLIED OR GIVEN BY ANYTHING ON THE WEBSITE OR IN ANY COMMUNICATION FROM US. YOU
 RISKS OF THAT USE. Speed figures are measurements on specific hardware and settings; your results may differ.</p>
 
 <h2>7. Limitation of liability</h2>
-<p>TO THE FULLEST EXTENT PERMITTED BY LAW, SYNCAISSA, ITS CONTRIBUTORS AND SUPPLIERS ARE NOT LIABLE FOR ANY INDIRECT, INCIDENTAL,
+<p>TO THE FULLEST EXTENT PERMITTED BY LAW, SUSHILA, ITS CONTRIBUTORS AND SUPPLIERS ARE NOT LIABLE FOR ANY INDIRECT, INCIDENTAL,
 SPECIAL, CONSEQUENTIAL, EXEMPLARY OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF DATA, PROFITS, REVENUE OR BUSINESS, ARISING FROM OR RELATED
 TO THE SERVICES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. OUR TOTAL LIABILITY FOR ALL CLAIMS RELATED TO THE SERVICES IS
 LIMITED TO THE GREATER OF (A) THE AMOUNTS YOU PAID US FOR THE SERVICES IN THE 12 MONTHS BEFORE THE CLAIM AND (B) US$100.</p>
 
 <h2>8. Indemnity</h2>
-<p>You will defend and indemnify Syncaissa against third-party claims, and the resulting losses and costs (including reasonable
+<p>You will defend and indemnify Sushila against third-party claims, and the resulting losses and costs (including reasonable
 legal fees), that arise from your Inputs, your use of Outputs, or your breach of these Terms or of a model's license.</p>
 
 <h2>9. Changes and termination</h2>
@@ -267,13 +269,13 @@ effect. Failing to enforce a term is not a waiver. These Terms, the Privacy Poli
 agreement about the Services. You may not transfer these Terms without our consent; we may transfer them with our business.</p>
 
 <h2>11. Contact</h2>
-<p>Syncaissa Systems Inc., <a href="mailto:${esc(contact)}">${esc(contact)}</a>.</p>
+<p>The Sushila project, <a href="mailto:${esc(contact)}">${esc(contact)}</a>.</p>
 `;
 
 const PRIVACY = (env) => (contact) => `
 <h1>Privacy Policy</h1>
 <p class="meta">Effective ${EFFECTIVE}</p>
-<p>This policy explains what personal data Syncaissa Systems Inc. ("we") collects through sushila.ai, the model downloads and the
+<p>This policy explains what personal data the Sushila research project ("we") collects through sushila.ai, the model downloads and the
 Sushila serverless API, why, and your choices. We collect as little as we can.</p>
 
 <h2>1. What we collect</h2>
@@ -335,10 +337,11 @@ given us personal data, contact us and we will delete it.</p>
 material changes.</p>
 
 <h2>11. Contact</h2>
-<p>Syncaissa Systems Inc., <a href="mailto:${esc(contact)}">${esc(contact)}</a>.</p>
+<p>The Sushila project, <a href="mailto:${esc(contact)}">${esc(contact)}</a>.</p>
 `;
 
 function page(env) {
+  const REPO = String(env.REPO_URL || REPO_DEFAULT).replace(/\/+$/, '');
   const released = String(env.RELEASED || '').toLowerCase() === 'true';
   const contact = env.CONTACT || DEFAULT_CONTACT;
   const dl = (path, label) => released
@@ -508,18 +511,21 @@ build/bin/llama-server -m model.gguf -ngl 99 --port 8080</code></pre></div>
 <section id="disclaimer">
   <h2>Disclaimer</h2>
   <div class="card disc">
+  <p><b>Sushila is a research project.</b> Sushila.cpp, the precomputed landscapes and draft heads, the benchmarks, the hosted
+  model files and the serverless API are research software and research results, published so that others can study, reproduce and
+  build on them. They are experimental, may change or stop at any time, and are not a finished commercial product.</p>
   <p><b>Use at your own risk.</b> Sushila.cpp, the model files, scripts, benchmarks, the serverless API and everything else on this
   website are provided <b>"as is" and "as available", without warranty of any kind</b>, express or implied. This includes, without
   limitation, any warranty of merchantability, fitness for a particular purpose, accuracy, reliability, availability, security or
-  non-infringement. No warranty is implied or given by anything on this website or in any communication from Syncaissa Systems Inc.</p>
+  non-infringement. No warranty is implied or given by anything on this website or in any communication from the Sushila project.</p>
   <p>By downloading or using any of it, you <b>assume all risks</b> of that use, including the risk of incorrect, harmful or offensive
   model output, data loss, hardware or system damage, security issues and costs. You are responsible for checking what the
   software and models produce before you rely on it, and for complying with each model's license and acceptable use policy.</p>
-  <p>To the fullest extent permitted by law, Syncaissa Systems Inc., its contributors and its suppliers are not liable for any direct,
+  <p>To the fullest extent permitted by law, the Sushila project, its contributors and its suppliers are not liable for any direct,
   indirect, incidental, special, consequential or punitive damages, or any loss of data, profits or business, arising from or related
   to the use of, or inability to use, anything provided here, even if advised of the possibility of such damages.</p>
   <p>Speed figures are measurements on specific hardware and settings; your results may differ. Models are made by third parties
-  and are governed by their own licenses; Syncaissa does not endorse or take responsibility for their content. Some jurisdictions do
+  and are governed by their own licenses; Sushila does not endorse or take responsibility for their content. Some jurisdictions do
   not allow certain warranty exclusions or liability limits, in which case they apply only as far as the law allows.</p>
   </div>
 </section>
@@ -651,7 +657,7 @@ export default {
     }
     const html = (body) => new Response(body, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', ...SEC } });
     if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env)));
-    if (p === '/privacy' || p === '/privacy/') return html(docPage(env, 'Privacy Policy', 'How Syncaissa Systems handles personal data on sushila.ai and the Sushila serverless API.', PRIVACY(env)));
+    if (p === '/privacy' || p === '/privacy/') return html(docPage(env, 'Privacy Policy', 'How the Sushila project handles personal data on sushila.ai and the Sushila serverless API.', PRIVACY(env)));
     if (p === '/models.json') {
       return json({
         hosted: HOSTED.map(({ id, name, quant, file, bytes, sha256, license, hf, tuned }) =>
