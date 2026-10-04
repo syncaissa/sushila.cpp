@@ -18,15 +18,18 @@ rows = []
 for m, name in [('llama3_2_3b', 'Llama-3.2-3B'), ('llama3_1_8b', 'Llama-3.1-8B'), ('llama3_1_70b', 'Llama-3.1-70B')]:
     o = dec(ld(f'compare/ollama_{m}.json'))
     st = dec(ld(f'compare/stock_{m}.json'))
-    best = max(((dm, dec(ld(f'compare/sushila_{m}_dm{dm}.json'))) for dm in (8, 16)), key=lambda x: x[1])
-    rows.append((name + ', Q4\\_K\\_M', o, st, best[1], f'1B draft, {best[0]} tokens'))
-o70 = f'{R}/out/compare/ollama_llama3_3_70b.json'  # our run: re-timed here with 16 threads; out/ollama.json had 252
+    # Sushila.cpp uses the portfolio's choice for the model: the 1B draft only where it is faster than plain decoding
+    opts = [('plain decoding', st)] + [(f'1B draft, {dm} tokens', dec(ld(f'compare/sushila_{m}_dm{dm}.json'))) for dm in (8, 16)]
+    best = max(opts, key=lambda x: x[1])
+    rows.append((name + ', Q4\\_K\\_M', o, st, best[1], best[0]))
+o70 = f'{R}/out/compare/ollama_llama3_3_70b.json'  # our run: re-timed with 16 threads; out/ollama.json had 252
 o = wall(json.load(open(o70)) if os.path.exists(o70) else ld('ollama.json'))
-dz = max(((n, wall(ld(f'{n}.json'))) for n in ('dz_full_tree', 'dz_full_tree_s4n16')), key=lambda x: x[1])
-rows.append(('Llama-3.3-70B, 4-bit', o, None, dz[1], 'SGLang + precomputed draft head'))
+rows.append(('Llama-3.3-70B, 4-bit', o, None, wall(ld('dz_ck01_s4n16.json')), 'SGLang + precomputed draft head'))
+oo, dz = ld('rigor/ollama_ood.json'), ld('rigor/dz_ood.json')
+rows.append(('Llama-3.3-70B, unseen sets', wall(oo), None, wall(dz), 'MT-Bench, HumanEval, GSM8K'))
 for r in rows:
     print(f'{r[0]} & {r[1]:.1f} & {"" if r[2] is None else f"{r[2]:.1f}"} & {r[3]:.1f} & \\textbf{{{r[3] / r[1]:.2f}$\\times$}} & {r[4]} \\\\')
-names = [r[0].replace(', Q4\\_K\\_M', '').replace(', 4-bit', '') + ('$^*$' if r[2] is None else '') for r in rows]
+names = [r[0].replace(', Q4\\_K\\_M', '').replace(', 4-bit', '').replace(', unseen sets', '$^{*\\dagger}$') + ('$^*$' if r[2] is None and 'unseen' not in r[0] else '') for r in rows]
 ylabels = ','.join('{' + n + '}' for n in names)
 co = ' '.join(f'({r[1]:.1f},{i})' for i, r in enumerate(rows))
 cs = ' '.join(f'({r[3]:.1f},{i})' for i, r in enumerate(rows))

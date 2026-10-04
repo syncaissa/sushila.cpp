@@ -150,10 +150,14 @@ You can also time any running SGLang server yourself:
 |-----|------:|-----------:|----------------:|--------|
 | A. Vanilla Ollama 0.35.1, Q4_K_M, `--threads 16` | 21.6 | 1.00× | | our run, 2026-10-04 |
 | B. SGLang base, AWQ | 33.8 | 1.56× | 1.00× | our run |
-| C. + published EAGLE-3 head | 64.1 | 2.96× | 1.93× | our run |
-| D. + Sushila precomputed draft head (6,000 answers, 32-token tree) | 70.3 | 3.25× | 2.26× | our run |
-| D. + Sushila precomputed draft head (6,000 answers, 16-token tree) | **75.5** | **3.49×** | 2.36× | our run |
-| D. + Sushila precomputed draft head (1,000 answers, 16-token tree) | 80.4 | | 2.51× | paper, first machine (base 34.3) |
+| C. + published EAGLE-3 head (32-token tree) | 64.1 | 2.96× | 1.93× | our run |
+| D. + Sushila precomputed draft head, **checkpoint chosen on validation prompts** (2,000 answers, 16-token tree) | **77.4** | **3.58×** (95% CI 3.20–3.89) | 2.29× | our run |
+| D′. same head on MT-Bench + HumanEval + GSM8K (160 prompts, never seen) | 83.7 vs Ollama 21.2 | **3.95×** (3.88–4.01) | 2.48× | our run (`rigor_70b.sh`) |
+| D″. same head at temperature 0.7 (MT-Bench 40) | 76.5 vs Ollama 21.3 | 3.59× | 2.27× | our run |
+| GSM8K accuracy (100 problems) | Ollama 97%, SGLang base 96%, precomputed head 96% | | | our run |
+
+Other heads, for reference: after 6,000 answers 75.5 tok/s (3.49×); after 1,000 answers 78.7 (3.64×). These were measured on
+the reported prompts, so they were not used to choose the head.
 
 All "our run" rows come from one A100 80GB PCIe (RunPod, driver 13.0) and the same 26 prompts.
 
@@ -176,5 +180,6 @@ and between machines with the same GPU model.
 
 ## 7. Where the raw logs of our runs are
 
-`results/70b_day0/` holds our runs: `p3.log`, `out/*.json` (every generated text, including
+`results/70b_day0/` holds our runs (`out/rigor/` for the robustness checks, `out/compare/` for Ollama against
+Sushila.cpp on the same GGUF files): `p3.log`, `out/*.json` (every generated text, including
 `ollama.json` from run A), and the exact `train.yaml`.

@@ -1,0 +1,27 @@
+p0: 255 tokens, decode 22.2 tok/s
+p1: 255 tokens, decode 22.2 tok/s
+p2: 12 tokens, decode 21.7 tok/s
+p3: 255 tokens, decode 22.2 tok/s
+p4: 255 tokens, decode 22.2 tok/s
+p5: 64 tokens, decode 22.1 tok/s
+p6: 255 tokens, decode 22.2 tok/s
+p7: 38 tokens, decode 22.0 tok/s
+p8: 46 tokens, decode 22.1 tok/s
+p9: 149 tokens, decode 22.2 tok/s
+p10: 255 tokens, decode 22.2 tok/s
+p11: 19 tokens, decode 21.8 tok/s
+p12: 255 tokens, decode 22.2 tok/s
+p13: 28 tokens, decode 22.0 tok/s
+p14: 81 tokens, decode 22.2 tok/s
+p15: 255 tokens, decode 22.2 tok/s
+p16: 255 tokens, decode 22.2 tok/s
+p17: 16 tokens, decode 21.7 tok/s
+p18: 231 tokens, decode 22.2 tok/s
+p19: 255 tokens, decode 22.1 tok/s
+p20: 255 tokens, decode 22.2 tok/s
+p21: 255 tokens, decode 22.2 tok/s
+p22: 255 tokens, decode 22.1 tok/s
+p23: 255 tokens, decode 22.1 tok/s
+p24: 255 tokens, decode 22.1 tok/s
+p25: 186 tokens, decode 22.2 tok/s
+4695 tokens: 22.2 tok/s decode (median per prompt 22.2)

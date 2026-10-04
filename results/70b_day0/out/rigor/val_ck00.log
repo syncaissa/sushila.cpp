@@ -1,0 +1,21 @@
+p0: 256 tokens, 63.7 tok/s, 2.72 tokens per pass
+p1: 187 tokens, 77.0 tok/s, 3.34 tokens per pass
+p2: 23 tokens, 52.7 tok/s, 4.60 tokens per pass
+p3: 14 tokens, 67.2 tok/s, 4.67 tokens per pass
+p4: 256 tokens, 84.1 tok/s, 3.61 tokens per pass
+p5: 217 tokens, 61.1 tok/s, 2.61 tokens per pass
+p6: 70 tokens, 57.8 tok/s, 2.59 tokens per pass
+p7: 256 tokens, 98.3 tok/s, 4.27 tokens per pass
+p8: 79 tokens, 70.1 tok/s, 3.16 tokens per pass
+p9: 256 tokens, 83.6 tok/s, 3.61 tokens per pass
+p10: 145 tokens, 80.9 tok/s, 4.03 tokens per pass
+p11: 44 tokens, 80.3 tok/s, 4.00 tokens per pass
+p12: 256 tokens, 69.1 tok/s, 3.37 tokens per pass
+p13: 256 tokens, 76.2 tok/s, 3.28 tokens per pass
+p14: 129 tokens, 76.7 tok/s, 3.69 tokens per pass
+p15: 256 tokens, 94.0 tok/s, 4.06 tokens per pass
+p16: 120 tokens, 72.8 tok/s, 4.00 tokens per pass
+p17: 256 tokens, 83.2 tok/s, 3.61 tokens per pass
+p18: 256 tokens, 92.5 tok/s, 4.00 tokens per pass
+p19: 256 tokens, 72.6 tok/s, 3.12 tokens per pass
+3588 tokens in 46.5 s = 77.1 tok/s (median per prompt 76.4)
