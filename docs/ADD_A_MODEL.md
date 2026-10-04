@@ -80,7 +80,7 @@ W=/workspace/sushila bash run_models.sh models/mymodel.env          # the real r
 | Qwen3-32B, Qwen3-30B-A3B | running (2026-10-04) | config in `models/` |
 | DeepSeek-R1-Distill-Llama-70B | next for the paper; `models/deepseek-r1-distill-llama-70b.env` has the checklist | a 4-bit release; a published EAGLE-3 head, or a "train from scratch" path (not built yet); longer outputs (reasoning) |
 | Gemma 3 27B (Google) | next for the paper; `models/gemma3-27b.env` has the checklist | a 4-bit release; an EAGLE-3 head or the from-scratch path; a Gemma chat template in SpecForge and `regen.py`; SGLang speculative support for Gemma 3 (sliding-window attention, multimodal) |
-| Kimi-Dev-72B (Moonshot AI) | candidate; `models/kimi-dev-72b.env` has the findings | no published EAGLE-3 head: warm-start from the closest compatible one (`AQ-MedAI/Qwen2.5-VL-72B-Instruct-eagle3`) and refit; 4-bit GPTQ/AWQ files exist; Ollama via an imported GGUF; coding prompts |
+| Kimi-Dev-72B (Moonshot AI) | next for the paper; `models/kimi-dev-72b.env` has the findings | no published EAGLE-3 head: warm-start from the closest compatible one (`AQ-MedAI/Qwen2.5-VL-72B-Instruct-eagle3`) and refit; 4-bit GPTQ/AWQ files exist; Ollama via an imported GGUF; coding prompts |
 
 ## When a model has no published draft head
 
