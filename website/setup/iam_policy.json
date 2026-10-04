@@ -9,7 +9,8 @@
         "dynamodb:PutItem",
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
-        "dynamodb:Query"
+        "dynamodb:Query",
+        "dynamodb:Scan"
       ],
       "Resource": [
         "arn:aws:dynamodb:*:*:table/sushilaai-*",

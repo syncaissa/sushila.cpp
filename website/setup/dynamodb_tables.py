@@ -9,12 +9,18 @@ For each table in SCHEMA below, the script checks what exists and makes it match
   - billing mode, TTL, point-in-time recovery, deletion protection -> set as below
   - table whose primary key differs    -> cannot be changed in place; reported. With --recreate-empty the table is
                                           deleted and recreated, but only if it holds no items.
+  --migrate-users                       -> one-time move of sushilaai-users from the old key (email) to userId: backs every
+                                          row up to backups/<table>-<time>.json, recreates the table, gives each account a
+                                          new userId, and repoints its rows in sushilaai-emails (and sushilaai-downloads).
 Nothing is deleted without one of those flags. Run with --dry-run to see the plan without changing anything.
 
 Usage:  python3 dynamodb_tables.py --region us-east-1 [--dry-run] [--prune] [--recreate-empty] [--profile NAME]
 Needs botocore (installed with the AWS CLI; or: pip install botocore) and credentials allowed to manage these tables.
 """
 import argparse
+import json
+import os
+import secrets
 import sys
 import time
 
@@ -22,13 +28,13 @@ import botocore.session
 
 # Every table and index. Keys are strings. Keep this in step with TABLES in worker.js.
 SCHEMA = {
-    'sushilaai-users': {                 # one row per account; key = primary e-mail
-        'hash': 'email',
+    'sushilaai-users': {                 # one row per account; key = permanent random userId (e-mails can change)
+        'hash': 'userId',
         'pitr': True, 'protect': True,
     },
-    'sushilaai-emails': {                # every verified e-mail -> primaryEmail of its account
+    'sushilaai-emails': {                # every verified e-mail -> userId of its account
         'hash': 'email',
-        'indexes': {'primaryEmail-index': {'hash': 'primaryEmail', 'projection': 'KEYS_ONLY'}},
+        'indexes': {'userId-index': {'hash': 'userId', 'projection': 'KEYS_ONLY'}},
         'pitr': True, 'protect': True,
     },
     'sushilaai-otps': {                  # pending sign-in code (keyed hash); removed by TTL
@@ -36,19 +42,51 @@ SCHEMA = {
         'ttl': 'ttl',
     },
     'sushilaai-downloads': {             # one row per download
-        'hash': 'userEmail', 'range': 'downloadedAt',
+        'hash': 'userId', 'range': 'downloadedAt',
         'indexes': {'modelId-downloadedAt-index': {'hash': 'modelId', 'range': 'downloadedAt', 'projection': 'ALL'}},
+        'pitr': True, 'protect': True,
+    },
+    'sushilaai-models': {                # hosted models, their precomputed artifacts, visible flag (admin page)
+        'hash': 'modelId',
         'pitr': True, 'protect': True,
     },
     'sushilaai-waitlist': {              # serverless-API early access
         'hash': 'email',
         'pitr': True,
     },
-    'sushilaai-audit': {                 # sign-ups, sign-ins, e-mail changes, downloads
+    'sushilaai-audit': {                 # sign-ups, sign-ins, e-mail changes, downloads, admin changes
         'hash': 'day', 'range': 'at',
     },
 }
 TAGS = [{'Key': 'project', 'Value': 'sushila.ai'}]
+
+
+class FreshClient:
+    """A DynamoDB client that reloads credentials and retries once when they expire mid-run (rotating session tokens)."""
+    RETRY = ('ExpiredToken', 'UnrecognizedClient', 'InvalidClientTokenId', 'RequestExpired')
+
+    def __init__(self, profile, region):
+        self.profile, self.region = profile, region
+        self._new()
+
+    def _new(self):
+        self.c = botocore.session.Session(profile=self.profile).create_client('dynamodb', region_name=self.region)
+        self.exceptions = self.c.exceptions
+
+    def get_waiter(self, name):
+        return self.c.get_waiter(name)
+
+    def __getattr__(self, name):
+        def call(*a, **k):
+            try:
+                return getattr(self.c, name)(*a, **k)
+            except Exception as e:  # noqa: BLE001
+                if not any(t in str(e) for t in self.RETRY):
+                    raise
+                time.sleep(3)
+                self._new()
+                return getattr(self.c, name)(*a, **k)
+        return call
 
 
 def key_schema(spec):
@@ -192,6 +230,49 @@ class Reconciler:
             print(f'  deletion protection {"on" if spec.get("protect") else "off"} ok')
 
 
+def migrate_users(ddb, dry):
+    """Old layout: users keyed by email (with primaryEmail on e-mail rows). New: users keyed by a random userId."""
+    t = ddb.describe_table(TableName='sushilaai-users')['Table']
+    if [k['AttributeName'] for k in t['KeySchema']] != ['email']:
+        print('sushilaai-users already keyed by userId: nothing to migrate')
+        return
+    items, start = [], None
+    while True:
+        r = ddb.scan(TableName='sushilaai-users', **({'ExclusiveStartKey': start} if start else {}))
+        items += r['Items']; start = r.get('LastEvaluatedKey')
+        if not start:
+            break
+    os.makedirs('backups', exist_ok=True)
+    path = f'backups/sushilaai-users-{time.strftime("%Y%m%d-%H%M%S")}.json'
+    json.dump(items, open(path, 'w'), indent=1)
+    print(f'backed up {len(items)} user rows to {path}')
+    if dry:
+        print('  [plan] recreate sushilaai-users keyed by userId and repoint e-mails'); return
+    new = []
+    for it in items:
+        uid = 'u_' + secrets.token_hex(12)
+        email = it['email']['S']
+        row = {k: v for k, v in it.items() if k != 'email'}
+        row.update({'userId': {'S': uid}, 'primaryEmail': {'S': email}})
+        row.setdefault('isAdmin', {'BOOL': False})
+        new.append((uid, row, row.get('emails', {}).get('SS', [email])))
+    if t.get('DeletionProtectionEnabled'):
+        ddb.update_table(TableName='sushilaai-users', DeletionProtectionEnabled=False)
+        ddb.get_waiter('table_exists').wait(TableName='sushilaai-users')
+    ddb.delete_table(TableName='sushilaai-users')
+    ddb.get_waiter('table_not_exists').wait(TableName='sushilaai-users')
+    ddb.create_table(TableName='sushilaai-users', BillingMode='PAY_PER_REQUEST', KeySchema=[{'AttributeName': 'userId', 'KeyType': 'HASH'}],
+                     AttributeDefinitions=[{'AttributeName': 'userId', 'AttributeType': 'S'}], Tags=TAGS, DeletionProtectionEnabled=True)
+    ddb.get_waiter('table_exists').wait(TableName='sushilaai-users')
+    for uid, row, emails in new:
+        ddb.put_item(TableName='sushilaai-users', Item=row)
+        for e in emails:
+            ddb.update_item(TableName='sushilaai-emails', Key={'email': {'S': e}}, UpdateExpression='SET userId = :u REMOVE primaryEmail',
+                            ExpressionAttributeValues={':u': {'S': uid}})
+        print(f'  {row["primaryEmail"]["S"]} -> {uid} ({len(emails)} e-mail{"s" if len(emails) != 1 else ""})')
+    print(f'migrated {len(new)} accounts')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--region', required=True)
@@ -199,11 +280,14 @@ def main():
     ap.add_argument('--dry-run', action='store_true')
     ap.add_argument('--prune', action='store_true', help='remove or replace indexes that differ from SCHEMA')
     ap.add_argument('--recreate-empty', action='store_true', help='recreate EMPTY tables whose primary key differs')
+    ap.add_argument('--migrate-users', action='store_true', help='move sushilaai-users from the old email key to userId (backs up first)')
     a = ap.parse_args()
     sess = botocore.session.Session(profile=a.profile)
-    ddb = sess.create_client('dynamodb', region_name=a.region)
+    ddb = FreshClient(a.profile, a.region)
     who = sess.create_client('sts', region_name=a.region).get_caller_identity()
     print(f'account {who["Account"]}, region {a.region}{" (dry run)" if a.dry_run else ""}\n')
+    if a.migrate_users:
+        migrate_users(ddb, a.dry_run)
     r = Reconciler(ddb, a.dry_run, a.prune, a.recreate_empty)
     for name, spec in SCHEMA.items():
         r.reconcile(name, spec)

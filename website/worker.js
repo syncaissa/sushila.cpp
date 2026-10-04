@@ -168,7 +168,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--mut);fon
 .doc .meta{color:var(--mut);margin:0 0 24px}
 `;
 
-const accountLink = (user) => user ? `<a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
+const accountLink = (user) => user ? `${user.isAdmin ? '<a href="/admin">Admin</a>' : ''}<a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
 const brand = () => `<a class="brand" href="/"><img src="/logo.png" width="32" height="32" alt=""> Sushila.cpp</a>`;
 
 const footer = (contact) => `<footer><div class="wrap row" style="justify-content:space-between">
@@ -192,7 +192,7 @@ ${STYLE}</style>
 <body>
 <header><div class="wrap"><nav>
   ${brand()}
-  <div class="links"><a href="/">Home</a><a href="/#models" class="hide">Models</a>${user ? `<a href="/account">Account</a>` : `<a href="/signin">Sign in</a>`}</div>
+  <div class="links"><a href="/">Home</a><a href="/#models" class="hide">Models</a>${accountLink(user)}</div>
 </nav></div></header>
 <main class="wrap"><article class="doc">
 ${body(contact)}
@@ -356,7 +356,7 @@ material changes.</p>
 <p>The Sushila project, <a href="mailto:${esc(contact)}">${esc(contact)}</a>.</p>
 `;
 
-function page(env, user) {
+function page(env, user, models) {
   const REPO = String(env.REPO_URL || REPO_DEFAULT).replace(/\/+$/, '');
   const released = String(env.RELEASED || '').toLowerCase() === 'true';
   const contact = env.CONTACT || DEFAULT_CONTACT;
@@ -364,9 +364,9 @@ function page(env, user) {
     ? `<a class="btn" href="${REPO}${path}">${label}</a>`
     : `<span class="btn off" title="The source is released together with the paper">${label} — with the paper</span>`;
 
-  const hostedRows = HOSTED.map((m) => `
+  const hostedRows = models.map((m) => `
     <tr>
-      <td><b>${esc(m.name)}</b>${m.tuned ? ' <span class="tag">day-0 tuned</span>' : ''}${m.note ? `<div class="sub">${esc(m.note)}</div>` : ''}</td>
+      <td><b>${esc(m.name)}</b>${m.tuned ? ' <span class="tag">precomputed</span>' : ''}${m.note ? `<div class="sub">${esc(m.note)}</div>` : ''}</td>
       <td>${esc(m.quant)}</td>
       <td class="num">${gb(m.bytes)}</td>
       <td><a href="${esc(m.licenseUrl)}">${esc(m.license)}</a></td>
@@ -487,7 +487,7 @@ build/bin/llama-server -m model.gguf -ngl 99 --port 8080</code></pre></div>
 <section id="models">
   <h2>Models</h2>
   <p class="lead">We host these files ourselves. Downloads are free with a <a href="/signin">sushila.ai account</a> (no password: a code is sent to your e-mail), so we can record that you accepted each model's license. Each file is byte-identical to the public release, so check its sha256 after you download it.
-  Models tagged <span class="tag">day-0 tuned</span> come with measured Sushila artifacts.</p>
+  Models tagged <span class="tag">precomputed</span> come with measured Sushila artifacts.</p>
   <div class="tablewrap"><table>
     <thead><tr><th>Model</th><th>Quant</th><th class="num">Size</th><th>License</th><th></th></tr></thead>
     <tbody>${hostedRows}</tbody>
@@ -664,7 +664,7 @@ ${CLIENT}
 
 const ACCOUNT = (u) => () => `${FORM_CSS}
 <h1>Your account</h1>
-<p class="meta">Signed in as ${esc(u.email)}</p>
+<p class="meta">Signed in as ${esc(u.primaryEmail)}${u.isAdmin ? ' · <a href="/admin">Admin</a>' : ''}</p>
 <div class="auth">
   <h2>Profile</h2>
   <label for="fn">First name</label><input id="fn" value="${esc(u.firstName)}">
@@ -674,8 +674,8 @@ const ACCOUNT = (u) => () => `${FORM_CSS}
   <div class="msg" id="m1" role="status"></div>
 
   <h2>E-mail addresses</h2>
-  <p class="note" style="margin-top:0">You can sign in with any of these. The first one is your primary e-mail.</p>
-  <ul class="list" id="emails">${u.emails.map((e) => `<li><span>${esc(e)}${e === u.email ? ' <span class="tag">primary</span>' : ''}</span>${e === u.email ? '' : `<button class="linkbtn" data-rm="${esc(e)}">Remove</button>`}</li>`).join('')}</ul>
+  <p class="note" style="margin-top:0">You can sign in with any of these. Codes and notices go to the primary e-mail. Keep at least one.</p>
+  <ul class="list" id="emails">${u.emails.map((e) => `<li><span>${esc(e)}${e === u.primaryEmail ? ' <span class="tag">primary</span>' : ''}</span><span>${e === u.primaryEmail ? '' : `<button class="linkbtn" data-primary="${esc(e)}">Make primary</button> · `}${u.emails.length > 1 ? `<button class="linkbtn" data-rm="${esc(e)}">Remove</button>` : ''}</span></li>`).join('')}</ul>
   <div id="add1"><label for="ne">Add another e-mail</label><input id="ne" type="email" placeholder="work@example.com"><button class="btn ghost" id="addsend">Send code</button></div>
   <div id="add2" class="hidden"><label for="nc">Code sent to <b id="neshown"></b></label><input id="nc" class="code" inputmode="numeric" maxlength="6" placeholder="123456"><button class="btn" id="addverify">Add e-mail</button></div>
   <div class="msg" id="m2" role="status"></div>
@@ -690,8 +690,12 @@ ${CLIENT}
 (function(){
   const $ = (id) => document.getElementById(id);
   $('save').onclick = async () => { try { await api('/api/account', {action:'profile', firstName:$('fn').value, lastName:$('ln').value, organization:$('org').value}); say('m1','Saved.', true); } catch(e){ say('m1', e.message); } };
-  $('emails').addEventListener('click', async (ev) => { const e = ev.target.getAttribute('data-rm'); if(!e || !confirm('Remove '+e+' from your account?')) return;
-    try { await api('/api/account', {action:'remove-email', email:e}); location.reload(); } catch(err){ say('m2', err.message); } });
+  $('emails').addEventListener('click', async (ev) => {
+    const rm = ev.target.getAttribute('data-rm'), pr = ev.target.getAttribute('data-primary');
+    try {
+      if (rm) { if (!confirm('Remove '+rm+' from your account? You will no longer be able to sign in with it.')) return; await api('/api/account', {action:'remove-email', email:rm}); location.reload(); }
+      if (pr) { await api('/api/account', {action:'make-primary', email:pr}); location.reload(); }
+    } catch(err){ say('m2', err.message); } });
   let ne = '';
   $('addsend').onclick = async () => { ne = $('ne').value.trim(); try { await api('/api/auth/send-code', {email:ne, purpose:'ADD_EMAIL'});
     $('neshown').textContent = ne; $('add1').classList.add('hidden'); $('add2').classList.remove('hidden'); say('m2','Code sent.', true); } catch(e){ say('m2', e.message); } };
@@ -726,6 +730,91 @@ document.getElementById('go').onclick = async () => {
 };
 </script>`;
 
+
+// Admin page: tab 1 users (filter + pages), tab 2 model catalog (add, edit, show or hide on the public site).
+const MODEL_FIELDS = [
+  ['modelId', 'Model id', 'e.g. llama3.1-8b-q4km (letters, digits, . and -)'], ['name', 'Name', 'Llama 3.1 8B Instruct'], ['quant', 'Quantization', 'Q4_K_M'],
+  ['file', 'File name', 'llama3.1-8b-instruct-q4_k_m.gguf'], ['bytes', 'Size in bytes', '4920738944'], ['sha256', 'sha256', '64 hex characters'],
+  ['license', 'License', 'Llama 3.1 Community License'], ['licenseUrl', 'License URL', 'https://…'], ['hf', 'Hugging Face URL', 'https://huggingface.co/…'],
+  ['artifacts', 'Precomputed artifacts', 'e.g. output-layer landscape; precomputed draft head'], ['note', 'Note', 'optional'], ['order', 'Order', '10'],
+];
+const ADMIN = () => () => `${FORM_CSS}
+<style>.doc{max-width:1040px}.admtabs{display:flex;gap:6px;margin:8px 0 18px}.admin-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.admin-tools input{flex:1 1 260px}.pager{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14px}.pager button{padding:6px 12px}
+.mform{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 16px;margin:12px 0}.mform label{font-size:13px;font-weight:600;margin-top:8px}
+.mform input{width:100%;flex:none}.switch{cursor:pointer;border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600;background:var(--card)}
+.switch.on{background:var(--accbg);color:var(--acc);border-color:var(--acc)}td.wrap{max-width:260px;word-break:break-word}</style>
+<h1>Admin</h1>
+<div class="admtabs" role="tablist"><button class="tab" data-t="users" aria-selected="true">Users</button><button class="tab" data-t="models" aria-selected="false">Models</button></div>
+
+<div id="t-users">
+  <div class="admin-tools"><input id="q" type="search" placeholder="Filter by e-mail, name, organization or user id">
+    <label class="sub"><input type="checkbox" id="onlyadmin" style="flex:none;width:auto"> admins only</label>
+    <select id="size"><option>25</option><option>50</option><option>100</option></select></div>
+  <div class="tablewrap"><table><thead><tr><th>User</th><th>E-mails</th><th>Organization</th><th>Created</th><th>Last sign-in</th><th>Downloads</th></tr></thead>
+  <tbody id="ub"><tr><td colspan="6" class="sub">Loading…</td></tr></tbody></table></div>
+  <div class="pager"><button class="btn ghost small" id="prev">Previous</button><span id="pinfo"></span><button class="btn ghost small" id="next">Next</button></div>
+</div>
+
+<div id="t-models" class="hidden">
+  <p class="lead" style="margin-bottom:12px">Models whose files and precomputed artifacts we host. Only <b>visible</b> models are listed on the public site and can be downloaded by regular users.</p>
+  <div class="tablewrap"><table><thead><tr><th>Model</th><th>File</th><th class="num">Size</th><th>Precomputed artifacts</th><th>Downloads</th><th>Visible</th><th></th></tr></thead>
+  <tbody id="mb"><tr><td colspan="7" class="sub">Loading…</td></tr></tbody></table></div>
+  <h2 id="ftitle">Add a model</h2>
+  <p class="note" style="margin-top:0">Upload its files to B2 first: <code>models/&lt;model id&gt;/&lt;file&gt;</code> (and artifacts under <code>models/&lt;model id&gt;/sushila/</code>), e.g. with <code>setup/b2_upload.sh</code>.</p>
+  <div class="mform">${MODEL_FIELDS.map(([k, l, ph]) => `<div><label for="f-${k}">${l}</label><input id="f-${k}" placeholder="${esc(ph)}"></div>`).join('')}
+    <div><label><input type="checkbox" id="f-visible" style="flex:none;width:auto"> Visible to regular users</label></div></div>
+  <button class="btn" id="msave">Save model</button> <button class="btn ghost" id="mclear">Clear</button>
+  <div class="msg" id="mm" role="status"></div>
+</div>
+${CLIENT}
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id), E = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const FIELDS = ${JSON.stringify(MODEL_FIELDS.map((f) => f[0]))};
+  document.querySelectorAll('.tab[data-t]').forEach(t => t.onclick = () => {
+    document.querySelectorAll('.tab[data-t]').forEach(x => x.setAttribute('aria-selected', x === t));
+    $('t-users').classList.toggle('hidden', t.dataset.t !== 'users'); $('t-models').classList.toggle('hidden', t.dataset.t !== 'models');
+    if (t.dataset.t === 'models') loadModels(); });
+  // users
+  let page = 1, timer = null;
+  async function loadUsers(){
+    const qs = new URLSearchParams({q: $('q').value.trim(), page, size: $('size').value, admins: $('onlyadmin').checked ? '1' : ''});
+    const r = await fetch('/api/admin/users?' + qs); const d = await r.json();
+    if (!r.ok) { $('ub').innerHTML = '<tr><td colspan="6">' + E(d.error) + '</td></tr>'; return; }
+    $('ub').innerHTML = d.users.length ? d.users.map(u => '<tr><td><b>' + E((u.firstName + ' ' + (u.lastName === '-' ? '' : u.lastName)).trim()) + '</b>' + (u.isAdmin ? ' <span class="tag">admin</span>' : '') +
+      '<div class="sub">' + E(u.userId) + '</div></td><td class="wrap">' + u.emails.map(e => E(e) + (e === u.primaryEmail ? ' <span class="tag">primary</span>' : '')).join('<br>') +
+      '</td><td>' + E(u.organization === '-' ? '' : u.organization) + '</td><td>' + E((u.createdAt||'').slice(0,10)) + '</td><td>' + E((u.lastLoginAt||'').slice(0,16).replace('T',' ')) +
+      '</td><td class="num">' + (u.downloads || 0) + '</td></tr>').join('') : '<tr><td colspan="6" class="sub">No users match.</td></tr>';
+    $('pinfo').textContent = d.total + ' user' + (d.total === 1 ? '' : 's') + ' · page ' + d.page + ' of ' + d.pages;
+    $('prev').disabled = d.page <= 1; $('next').disabled = d.page >= d.pages; page = d.page;
+  }
+  $('q').oninput = () => { clearTimeout(timer); timer = setTimeout(() => { page = 1; loadUsers(); }, 250); };
+  $('onlyadmin').onchange = $('size').onchange = () => { page = 1; loadUsers(); };
+  $('prev').onclick = () => { page--; loadUsers(); }; $('next').onclick = () => { page++; loadUsers(); };
+  loadUsers();
+  // models
+  let models = [];
+  async function loadModels(){
+    const r = await fetch('/api/admin/models'); const d = await r.json();
+    if (!r.ok) { $('mb').innerHTML = '<tr><td colspan="7">' + E(d.error) + '</td></tr>'; return; }
+    models = d.models;
+    $('mb').innerHTML = models.map((m, i) => '<tr><td><b>' + E(m.name) + '</b> ' + E(m.quant) + '<div class="sub">' + E(m.modelId) + '</div></td><td class="wrap"><code>' + E(m.file) + '</code></td><td class="num">' +
+      (m.bytes / 1e9).toFixed(1) + ' GB</td><td class="wrap">' + (E(m.artifacts) || '<span class="sub">none yet</span>') + '</td><td class="num">' + (m.downloads || 0) + '</td><td><button class="switch' + (m.visible ? ' on' : '') + '" data-vis="' + i + '">' +
+      (m.visible ? 'visible' : 'hidden') + '</button></td><td><button class="linkbtn" data-edit="' + i + '">Edit</button></td></tr>').join('');
+  }
+  $('mb').addEventListener('click', async (ev) => {
+    const v = ev.target.getAttribute('data-vis'), ed = ev.target.getAttribute('data-edit');
+    if (v !== null) { const m = models[v]; try { await api('/api/admin/models', {action:'visible', modelId: m.modelId, visible: !m.visible}); loadModels(); } catch(e){ say('mm', e.message); } }
+    if (ed !== null) { const m = models[ed]; FIELDS.forEach(k => $('f-' + k).value = m[k] == null ? '' : m[k]); $('f-visible').checked = !!m.visible; $('f-modelId').readOnly = true;
+      $('ftitle').textContent = 'Edit ' + m.modelId; $('ftitle').scrollIntoView({behavior:'smooth'}); }
+  });
+  $('mclear').onclick = () => { FIELDS.forEach(k => $('f-' + k).value = ''); $('f-visible').checked = false; $('f-modelId').readOnly = false; $('ftitle').textContent = 'Add a model'; say('mm',''); };
+  $('msave').onclick = async () => { const m = {}; FIELDS.forEach(k => m[k] = $('f-' + k).value.trim()); m.visible = $('f-visible').checked;
+    try { await api('/api/admin/models', {action:'save', model: m, isNew: !$('f-modelId').readOnly}); say('mm','Saved.', true); $('mclear').click(); loadModels(); } catch(e){ say('mm', e.message); } };
+})();
+</script>`;
+
 const SEC = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
@@ -744,12 +833,13 @@ function json(obj, status = 200, extra = {}) {
 //   Sessions  SESSION_SECRET (signs session cookies and hashes sign-in codes)
 // ============================================================
 const TABLES = {
-  users: 'sushilaai-users',         // PK email (the account's primary e-mail)
-  emails: 'sushilaai-emails',       // PK email -> primaryEmail (every verified e-mail of every account)
+  users: 'sushilaai-users',         // PK userId (random, permanent); primaryEmail, emails (set), name, organization, isAdmin
+  emails: 'sushilaai-emails',       // PK email -> userId (every verified e-mail of every account); index userId-index
   otps: 'sushilaai-otps',           // PK email; one pending sign-in code per e-mail; TTL attribute "ttl"
-  downloads: 'sushilaai-downloads', // PK userEmail, SK downloadedAt: one row per download
+  downloads: 'sushilaai-downloads', // PK userId, SK downloadedAt: one row per download; index modelId-downloadedAt-index
+  models: 'sushilaai-models',       // PK modelId: hosted models, their precomputed artifacts and the visible flag
   waitlist: 'sushilaai-waitlist',   // PK email: serverless-API early access
-  audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads
+  audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes
 };
 const OTP_TTL_MS = 5 * 60 * 1000;      // a code is valid for 5 minutes
 const OTP_RESEND_MS = 10 * 1000;       // at most one code every 10 seconds per e-mail
@@ -759,7 +849,7 @@ const MAX_EMAILS = 5;                  // e-mail addresses per account
 const B2_LINK_SECONDS = 24 * 3600;     // a download link works for 24 hours (resumable)
 // B2 layout: models/<model id>/<file> for weights and their Sushila artifacts (landscapes, draft heads, manifests),
 // media/<file> for the site's media.
-const b2ModelKey = (m, file) => `models/${m.id}/${file}`;
+const b2ModelKey = (m, file) => `models/${m.modelId}/${file}`;
 const B2_MEDIA_KEY = `media/${VIDEO.key}`;
 
 const enc = new TextEncoder();
@@ -820,6 +910,14 @@ class DynamoDB {
       ...(values ? { ExpressionAttributeValues: values } : {}), ...(names ? { ExpressionAttributeNames: names } : {}), ReturnValues: 'ALL_NEW' })
       .then((r) => r.Attributes || null);
   }
+  async scanAll(table, opts = {}, cap = 20000) {  // every item (small tables: users, models)
+    const items = []; let start;
+    do {
+      const r = await this.request('Scan', { TableName: table, ...opts, ...(start ? { ExclusiveStartKey: start } : {}) });
+      items.push(...(r.Items || [])); start = r.LastEvaluatedKey;
+    } while (start && items.length < cap);
+    return items;
+  }
   query(table, keyExpr, values, opts = {}) {
     return this.request('Query', { TableName: table, KeyConditionExpression: keyExpr, ExpressionAttributeValues: values, ...opts }).then((r) => r.Items || []);
   }
@@ -827,11 +925,13 @@ class DynamoDB {
 const S = (v) => ({ S: String(v) });
 const N = (v) => ({ N: String(v) });
 const str = (item, k) => (item && item[k] && item[k].S) || '';
+const bool = (item, k) => !!(item && item[k] && (item[k].BOOL === true || item[k].S === 'true'));
+const num = (item, k) => Number((item && item[k] && item[k].N) || 0);
 
-async function audit(db, event, email, request, extra = {}) {
+async function audit(db, event, who, request, extra = {}) {
   try {
     const now = new Date().toISOString();
-    await db.put(TABLES.audit, { day: S(now.slice(0, 10)), at: S(`${now}#${randomId()}`), event: S(event), email: S(email || '-'),
+    await db.put(TABLES.audit, { day: S(now.slice(0, 10)), at: S(`${now}#${randomId()}`), event: S(event), userId: S(who || '-'),
       country: S((request.cf && request.cf.country) || '-'), ...Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, S(v)])) });
   } catch (e) { console.error('audit', e.message); }
 }
@@ -890,18 +990,18 @@ async function sendEmail(env, to, subject, text, html) {
 
 // --- Sessions: signed cookie "sushila_session" = base64(email|expires|hmac) ---
 const COOKIE = 'sushila_session';
-async function createSession(email, secret) {
+async function createSession(userId, secret) {
   const exp = Date.now() + SESSION_DAYS * 86400 * 1000;
-  return btoa(`${email}|${exp}|${await hmacHex(secret, `session|${email}|${exp}`)}`);
+  return btoa(`${userId}|${exp}|${await hmacHex(secret, `session|${userId}|${exp}`)}`);
 }
 async function readSession(request, env) {
   if (!env.SESSION_SECRET) return null;
   const m = (request.headers.get('cookie') || '').match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
   if (!m) return null;
   try {
-    const [email, exp, sig] = atob(m[1]).split('|');
-    if (!email || !exp || Date.now() > Number(exp)) return null;
-    return safeEqual(sig, await hmacHex(env.SESSION_SECRET, `session|${email}|${exp}`)) ? { email } : null;
+    const [userId, exp, sig] = atob(m[1]).split('|');
+    if (!userId || !exp || Date.now() > Number(exp)) return null;
+    return safeEqual(sig, await hmacHex(env.SESSION_SECRET, `session|${userId}|${exp}`)) ? { userId } : null;
   } catch { return null; }
 }
 const sessionCookie = (token) => `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`;
@@ -929,13 +1029,17 @@ async function body(request) {
   return t ? JSON.parse(t) : {};
 }
 
+const newUserId = () => 'u_' + hex(crypto.getRandomValues(new Uint8Array(12)));
+function userFrom(u) {
+  return { userId: str(u, 'userId'), primaryEmail: str(u, 'primaryEmail'), emails: (u.emails && u.emails.SS) || [str(u, 'primaryEmail')],
+    firstName: str(u, 'firstName'), lastName: str(u, 'lastName'), organization: str(u, 'organization'),
+    createdAt: str(u, 'createdAt'), lastLoginAt: str(u, 'lastLoginAt'), isAdmin: bool(u, 'isAdmin') };
+}
 async function loadUser(db, session) {
   if (!session || !db.configured) return null;
   try {
-    const u = await db.get(TABLES.users, { email: S(session.email) });
-    if (!u) return null;
-    return { email: str(u, 'email'), firstName: str(u, 'firstName'), lastName: str(u, 'lastName'), organization: str(u, 'organization'),
-      emails: (u.emails && u.emails.SS) || [str(u, 'email')], createdAt: str(u, 'createdAt') };
+    const u = await db.get(TABLES.users, { userId: S(session.userId) });
+    return u ? userFrom(u) : null;
   } catch (e) { console.error('loadUser', e.message); return null; }
 }
 
@@ -964,7 +1068,7 @@ async function sendCode(request, env, db, session) {
   const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
   const now = Date.now();
   await db.put(TABLES.otps, { email: S(email), codeHash: S(await hmacHex(env.SESSION_SECRET, `otp|${email}|${code}`)), purpose: S(purpose),
-    forEmail: S(purpose === 'ADD_EMAIL' ? session.email : ''), sentAt: N(now), expiresAt: N(now + OTP_TTL_MS), attempts: N(0),
+    forUser: S(purpose === 'ADD_EMAIL' ? session.userId : '-'), sentAt: N(now), expiresAt: N(now + OTP_TTL_MS), attempts: N(0),
     ttl: N(Math.floor((now + OTP_TTL_MS) / 1000) + 3600) });
   const what = purpose === 'SIGN_UP' ? 'create your sushila.ai account' : purpose === 'ADD_EMAIL' ? 'add this e-mail to your sushila.ai account' : 'sign in to sushila.ai';
   await sendEmail(env, email, `Your sushila.ai code: ${code}`,
@@ -991,31 +1095,31 @@ async function verifyCode(request, env, db, session) {
   }
   await db.del(TABLES.otps, { email: S(email) });
   const purpose = str(o, 'purpose'), now = new Date().toISOString();
-  let primary;
+  let userId;
   if (purpose === 'SIGN_UP') {
     const firstName = clean(d.firstName, 60), lastName = clean(d.lastName, 60), organization = clean(d.organization, 120);
     if (!firstName) return json({ error: 'Please enter your name.' }, 400);
-    try { await db.put(TABLES.emails, { email: S(email), primaryEmail: S(email), linkedAt: S(now) }, 'attribute_not_exists(email)'); }
+    userId = newUserId();
+    try { await db.put(TABLES.emails, { email: S(email), userId: S(userId), linkedAt: S(now) }, 'attribute_not_exists(email)'); }
     catch (e) { if (e.type.includes('ConditionalCheckFailed')) return json({ error: 'An account already uses this e-mail. Please sign in.' }, 400); throw e; }
-    await db.put(TABLES.users, { email: S(email), emails: { SS: [email] }, firstName: S(firstName), lastName: S(lastName || '-'),
-      organization: S(organization || '-'), createdAt: S(now), lastLoginAt: S(now) });
-    primary = email;
-    await audit(db, 'sign-up', email, request);
+    await db.put(TABLES.users, { userId: S(userId), primaryEmail: S(email), emails: { SS: [email] }, firstName: S(firstName), lastName: S(lastName || '-'),
+      organization: S(organization || '-'), isAdmin: { BOOL: false }, createdAt: S(now), lastLoginAt: S(now) }, 'attribute_not_exists(userId)');
+    await audit(db, 'sign-up', userId, request, { email });
   } else if (purpose === 'SIGN_IN') {
     const link = await db.get(TABLES.emails, { email: S(email) });
     if (!link) return json({ error: 'No account uses this e-mail.' }, 400);
-    primary = str(link, 'primaryEmail');
-    await db.update(TABLES.users, { email: S(primary) }, 'SET lastLoginAt = :t', { ':t': S(now) });
-    await audit(db, 'sign-in', primary, request, { via: email });
+    userId = str(link, 'userId');
+    await db.update(TABLES.users, { userId: S(userId) }, 'SET lastLoginAt = :t', { ':t': S(now) });
+    await audit(db, 'sign-in', userId, request, { email });
   } else if (purpose === 'ADD_EMAIL') {
-    if (!session || session.email !== str(o, 'forEmail')) return json({ error: 'Please sign in with the account you are adding this e-mail to.' }, 401);
-    try { await db.put(TABLES.emails, { email: S(email), primaryEmail: S(session.email), linkedAt: S(now) }, 'attribute_not_exists(email)'); }
+    if (!session || session.userId !== str(o, 'forUser')) return json({ error: 'Please sign in with the account you are adding this e-mail to.' }, 401);
+    try { await db.put(TABLES.emails, { email: S(email), userId: S(session.userId), linkedAt: S(now) }, 'attribute_not_exists(email)'); }
     catch (e) { if (e.type.includes('ConditionalCheckFailed')) return json({ error: 'This e-mail is already linked to an account.' }, 400); throw e; }
-    await db.update(TABLES.users, { email: S(session.email) }, 'ADD emails :e', { ':e': { SS: [email] } });
-    await audit(db, 'add-email', session.email, request, { added: email });
+    await db.update(TABLES.users, { userId: S(session.userId) }, 'ADD emails :e', { ':e': { SS: [email] } });
+    await audit(db, 'add-email', session.userId, request, { email });
     return json({ ok: true });
   } else return json({ error: 'Bad request.' }, 400);
-  return json({ ok: true }, 200, { 'set-cookie': sessionCookie(await createSession(primary, env.SESSION_SECRET)) });
+  return json({ ok: true }, 200, { 'set-cookie': sessionCookie(await createSession(userId, env.SESSION_SECRET)) });
 }
 
 async function account(request, env, db, session) {
@@ -1023,26 +1127,127 @@ async function account(request, env, db, session) {
   const u = await loadUser(db, session);
   if (!u) return json({ error: 'Please sign in.' }, 401, { 'set-cookie': clearCookie() });
   if (request.method === 'GET') {
-    const rows = await db.query(TABLES.downloads, 'userEmail = :e', { ':e': S(u.email) }, { ScanIndexForward: false, Limit: 50 });
-    return json({ user: u, downloads: rows.map((r) => ({ at: str(r, 'downloadedAt').split('#')[0], model: str(r, 'modelName'), file: str(r, 'file'), bytes: Number((r.bytes || {}).N || 0) })) });
+    const rows = await db.query(TABLES.downloads, 'userId = :u', { ':u': S(u.userId) }, { ScanIndexForward: false, Limit: 50 });
+    return json({ user: u, downloads: rows.map((r) => ({ at: str(r, 'downloadedAt').split('#')[0], model: str(r, 'modelName'), file: str(r, 'file'), bytes: num(r, 'bytes') })) });
   }
   if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
   let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  const key = { userId: S(u.userId) };
   if (d.action === 'profile') {
     const firstName = clean(d.firstName, 60);
     if (!firstName) return json({ error: 'Please enter your name.' }, 400);
-    await db.update(TABLES.users, { email: S(u.email) }, 'SET firstName = :f, lastName = :l, organization = :o',
+    await db.update(TABLES.users, key, 'SET firstName = :f, lastName = :l, organization = :o',
       { ':f': S(firstName), ':l': S(clean(d.lastName, 60) || '-'), ':o': S(clean(d.organization, 120) || '-') });
     return json({ ok: true });
   }
+  const e = normEmail(d.email);
   if (d.action === 'remove-email') {
-    const e = normEmail(d.email);
-    if (e === u.email) return json({ error: 'The primary e-mail cannot be removed.' }, 400);
     if (!u.emails.includes(e)) return json({ error: 'This e-mail is not on your account.' }, 400);
+    if (u.emails.length <= 1) return json({ error: 'Your account needs at least one e-mail address.' }, 400);
     await db.del(TABLES.emails, { email: S(e) });
-    await db.update(TABLES.users, { email: S(u.email) }, 'DELETE emails :e', { ':e': { SS: [e] } });
-    await audit(db, 'remove-email', u.email, request, { removed: e });
+    const rest = u.emails.filter((x) => x !== e);
+    await db.update(TABLES.users, key, e === u.primaryEmail ? 'DELETE emails :e SET primaryEmail = :p' : 'DELETE emails :e',
+      { ':e': { SS: [e] }, ...(e === u.primaryEmail ? { ':p': S(rest[0]) } : {}) });
+    await audit(db, 'remove-email', u.userId, request, { email: e });
     return json({ ok: true });
+  }
+  if (d.action === 'make-primary') {
+    if (!u.emails.includes(e)) return json({ error: 'This e-mail is not on your account.' }, 400);
+    await db.update(TABLES.users, key, 'SET primaryEmail = :p', { ':p': S(e) });
+    await audit(db, 'make-primary', u.userId, request, { email: e });
+    return json({ ok: true });
+  }
+  return json({ error: 'Bad request.' }, 400);
+}
+
+// --- Model catalog: sushilaai-models (managed on the admin page); the built-in HOSTED list until the table has rows ---
+let catalogCache = null;
+function modelFrom(it) {
+  const m = { modelId: str(it, 'modelId'), name: str(it, 'name'), quant: str(it, 'quant'), file: str(it, 'file'), bytes: num(it, 'bytes'),
+    sha256: str(it, 'sha256'), license: str(it, 'license'), licenseUrl: str(it, 'licenseUrl'), hf: str(it, 'hf'), artifacts: str(it, 'artifacts'),
+    note: str(it, 'note'), order: num(it, 'order'), visible: bool(it, 'visible'), updatedAt: str(it, 'updatedAt') };
+  m.id = m.modelId; m.tuned = !!m.artifacts;
+  return m;
+}
+const builtin = () => HOSTED.map((h, i) => ({ ...h, modelId: h.id, artifacts: h.tuned ? 'precomputed artifacts measured in the paper' : '', note: h.note || '', order: (i + 1) * 10, visible: true }));
+function modelItem(m) {
+  return { modelId: S(m.modelId), name: S(m.name), quant: S(m.quant), file: S(m.file), bytes: N(m.bytes), sha256: S(m.sha256), license: S(m.license),
+    licenseUrl: S(m.licenseUrl), hf: S(m.hf || '-'), artifacts: S(m.artifacts || '-'), note: S(m.note || '-'), order: N(m.order || 0),
+    visible: { BOOL: !!m.visible }, updatedAt: S(new Date().toISOString()) };
+}
+async function catalog(db, fresh = false) {
+  if (!db.configured) return builtin();
+  if (!fresh && catalogCache && catalogCache.until > Date.now()) return catalogCache.items;
+  let items;
+  try {
+    const rows = await db.scanAll(TABLES.models);
+    items = rows.length ? rows.map(modelFrom).map((m) => ({ ...m, hf: m.hf === '-' ? '' : m.hf, artifacts: m.artifacts === '-' ? '' : m.artifacts, note: m.note === '-' ? '' : m.note, tuned: !!(m.artifacts && m.artifacts !== '-') })) : builtin();
+  } catch (e) { console.error('catalog', e.message); items = builtin(); }
+  items.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  catalogCache = { items, until: Date.now() + 30000 };
+  return items;
+}
+const visibleModels = async (db) => (await catalog(db)).filter((m) => m.visible);
+
+// --- Admin APIs (isAdmin on the user's row; set it with makeUserAdmin.py) ---
+async function adminApi(request, env, db, user, path) {
+  if (!user || !user.isAdmin) return json({ error: 'Admins only.' }, 403);
+  const url = new URL(request.url);
+  if (path === '/api/admin/users' && request.method === 'GET') {
+    const q = clean(url.searchParams.get('q'), 100).toLowerCase(), admins = url.searchParams.get('admins') === '1';
+    const size = Math.min(Math.max(Number(url.searchParams.get('size')) || 25, 5), 100);
+    let users = (await db.scanAll(TABLES.users)).map(userFrom);
+    if (admins) users = users.filter((u) => u.isAdmin);
+    if (q) users = users.filter((u) => [u.userId, u.firstName, u.lastName, u.organization, ...u.emails].join(' ').toLowerCase().includes(q));
+    users.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const total = users.length, pages = Math.max(1, Math.ceil(total / size));
+    const page = Math.min(Math.max(Number(url.searchParams.get('page')) || 1, 1), pages);
+    const slice = users.slice((page - 1) * size, page * size);
+    await Promise.all(slice.map(async (u) => {
+      u.downloads = (await db.request('Query', { TableName: TABLES.downloads, KeyConditionExpression: 'userId = :u',
+        ExpressionAttributeValues: { ':u': S(u.userId) }, Select: 'COUNT' })).Count || 0;
+    }));
+    return json({ total, page, pages, users: slice });
+  }
+  if (path === '/api/admin/models' && request.method === 'GET') {
+    if (!(await db.scanAll(TABLES.models, { Limit: 1 }, 1)).length) {  // first visit: copy the built-in list into the table
+      for (const m of builtin()) await db.put(TABLES.models, modelItem(m), 'attribute_not_exists(modelId)').catch(() => {});
+    }
+    const models = await catalog(db, true);
+    await Promise.all(models.map(async (m) => {
+      m.downloads = (await db.request('Query', { TableName: TABLES.downloads, IndexName: 'modelId-downloadedAt-index', KeyConditionExpression: 'modelId = :m',
+        ExpressionAttributeValues: { ':m': S(m.modelId) }, Select: 'COUNT' }).catch(() => ({}))).Count || 0;
+    }));
+    return json({ models });
+  }
+  if (path === '/api/admin/models' && request.method === 'POST') {
+    if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+    let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+    const id = clean(d.modelId || (d.model && d.model.modelId), 80);
+    if (!/^[a-z0-9][a-z0-9.\-]*$/.test(id)) return json({ error: 'Model id: lower-case letters, digits, dots and dashes.' }, 400);
+    if (d.action === 'visible') {
+      await db.update(TABLES.models, { modelId: S(id) }, 'SET visible = :v, updatedAt = :t', { ':v': { BOOL: !!d.visible }, ':t': S(new Date().toISOString()) });
+      await audit(db, d.visible ? 'model-show' : 'model-hide', user.userId, request, { modelId: id });
+      catalogCache = null;
+      return json({ ok: true });
+    }
+    if (d.action === 'save') {
+      const m = d.model || {};
+      const model = { modelId: id, name: clean(m.name, 100), quant: clean(m.quant, 30), file: clean(m.file, 200), bytes: Number(m.bytes),
+        sha256: clean(m.sha256, 64).toLowerCase(), license: clean(m.license, 100), licenseUrl: clean(m.licenseUrl, 300), hf: clean(m.hf, 300),
+        artifacts: clean(m.artifacts, 300), note: clean(m.note, 200), order: Number(m.order) || 0, visible: !!m.visible };
+      if (!model.name || !model.quant) return json({ error: 'Name and quantization are required.' }, 400);
+      if (!/^[A-Za-z0-9._\-]+$/.test(model.file)) return json({ error: 'File name: letters, digits, dots, dashes and underscores.' }, 400);
+      if (!(model.bytes > 0)) return json({ error: 'Size in bytes must be a positive number.' }, 400);
+      if (!/^[0-9a-f]{64}$/.test(model.sha256)) return json({ error: 'sha256 must be 64 hex characters.' }, 400);
+      if (!model.license || !/^https:\/\//.test(model.licenseUrl)) return json({ error: 'License and an https license URL are required.' }, 400);
+      if (model.hf && !/^https:\/\//.test(model.hf)) return json({ error: 'Hugging Face URL must start with https://' }, 400);
+      try { await db.put(TABLES.models, modelItem(model), d.isNew ? 'attribute_not_exists(modelId)' : undefined); }
+      catch (e) { if (e.type.includes('ConditionalCheckFailed')) return json({ error: 'A model with this id already exists. Use Edit.' }, 400); throw e; }
+      await audit(db, d.isNew ? 'model-add' : 'model-edit', user.userId, request, { modelId: id });
+      catalogCache = null;
+      return json({ ok: true });
+    }
   }
   return json({ error: 'Bad request.' }, 400);
 }
@@ -1053,15 +1258,17 @@ async function createDownload(request, env, db, b2, session) {
   if (!session) return json({ error: 'Please sign in to download.', signin: true }, 401);
   if (limited(request, 'download', 30)) return json({ error: 'Too many requests. Please wait a minute.' }, 429);
   let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
-  const m = HOSTED.find((x) => x.file === d.file);
+  const user = await loadUser(db, session);
+  if (!user) return json({ error: 'Please sign in to download.', signin: true }, 401);
+  const m = (await catalog(db)).find((x) => x.file === d.file && (x.visible || user.isAdmin));
   if (!m) return json({ error: 'Unknown file.' }, 404);
   if (d.accept !== true) return json({ error: 'Please accept the license first.' }, 400);
   if (!b2.configured) return json({ url: m.hf, external: true });
   const now = new Date().toISOString();
-  await db.put(TABLES.downloads, { userEmail: S(session.email), downloadedAt: S(`${now}#${randomId()}`), modelId: S(m.id), modelName: S(`${m.name} ${m.quant}`),
-    file: S(m.file), b2Key: S(b2ModelKey(m, m.file)), bytes: N(m.bytes), sha256: S(m.sha256), license: S(m.license), licenseAccepted: S(now),
-    country: S((request.cf && request.cf.country) || '-') });
-  await audit(db, 'download', session.email, request, { file: m.file });
+  await db.put(TABLES.downloads, { userId: S(user.userId), downloadedAt: S(`${now}#${randomId()}`), email: S(user.primaryEmail), modelId: S(m.modelId),
+    modelName: S(`${m.name} ${m.quant}`), file: S(m.file), b2Key: S(b2ModelKey(m, m.file)), bytes: N(m.bytes), sha256: S(m.sha256),
+    license: S(m.license), licenseAccepted: S(now), country: S((request.cf && request.cf.country) || '-') });
+  await audit(db, 'download', user.userId, request, { file: m.file });
   return json({ url: await b2.signedUrl(b2ModelKey(m, m.file), B2_LINK_SECONDS, m.file) });
 }
 
@@ -1106,8 +1313,8 @@ async function health(env, db, b2) {
   const out = { session: !!env.SESSION_SECRET, resend: { key: !!env.RESEND_API_KEY, from: env.RESEND_FROM || null },
     dynamodb: { configured: db.configured, region: env.AWS_REGION || null, tables: {} }, b2: { configured: b2.configured, bucket: env.B2_BUCKET_NAME || null } };
   if (db.configured) {
-    const keys = { users: { email: S('-') }, emails: { email: S('-') }, otps: { email: S('-') }, downloads: { userEmail: S('-'), downloadedAt: S('-') },
-      waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') } };
+    const keys = { users: { userId: S('-') }, emails: { email: S('-') }, otps: { email: S('-') }, downloads: { userId: S('-'), downloadedAt: S('-') },
+      models: { modelId: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') } };
     await Promise.all(Object.entries(TABLES).map(async ([k, t]) => {
       try { await db.get(t, keys[k]); out.dynamodb.tables[t] = 'ok'; } catch (e) { out.dynamodb.tables[t] = errorCode(e); }
     }));
@@ -1132,13 +1339,20 @@ export default {
         if (p === '/api/auth/sign-out') return new Response(null, { status: 303, headers: { location: '/', 'set-cookie': clearCookie() } });
         if (p === '/api/account') return await account(request, env, db, session);
         if (p === '/api/download') return await createDownload(request, env, db, b2, session);
+      if (p.startsWith('/api/admin/')) return await adminApi(request, env, db, await loadUser(db, session), p);
         return new Response('Not found', { status: 404, headers: SEC });
       }
       if (method !== 'GET' && method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
       if (p === '/api/account') return await account(request, env, db, session);
       if (p === '/api/health') return await health(env, db, b2);
       const user = session ? await loadUser(db, session) : null;
-      if (p === '/' || p === '/index.html') return html(page(env, user));
+      if (p.startsWith('/api/admin/')) return await adminApi(request, env, db, user, p);
+      if (p === '/admin' || p === '/admin/') {
+        if (!user) return Response.redirect(`${url.origin}/signin?next=/admin`, 302);
+        if (!user.isAdmin) return new Response('Admins only.', { status: 403, headers: SEC });
+        return html(docPage(env, 'Admin', 'sushila.ai administration.', ADMIN(), user));
+      }
+      if (p === '/' || p === '/index.html') return html(page(env, user, await visibleModels(db)));
       if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env), user));
       if (p === '/privacy' || p === '/privacy/') return html(docPage(env, 'Privacy Policy', 'How the Sushila project handles personal data on sushila.ai and the Sushila serverless API.', PRIVACY(env), user));
       if (p === '/signin' || p === '/signin/') return html(docPage(env, 'Sign in', 'Sign in to sushila.ai with a one-time code sent to your e-mail.', SIGNIN(url), user));
@@ -1147,15 +1361,15 @@ export default {
         return html(docPage(env, 'Your account', 'Your sushila.ai account.', ACCOUNT(user), user));
       }
       if (p.startsWith('/download/')) {
-        const m = HOSTED.find((x) => x.file === decodeURIComponent(p.slice('/download/'.length)));
+        const m = (await catalog(db)).find((x) => x.file === decodeURIComponent(p.slice('/download/'.length)) && (x.visible || (user && user.isAdmin)));
         if (!m) return new Response('Not found', { status: 404, headers: SEC });
         if (!user) return Response.redirect(`${url.origin}/signin?next=${encodeURIComponent(p)}`, 302);
         return html(docPage(env, `Download ${m.name} ${m.quant}`, 'Download a model file.', DOWNLOAD(m), user));
       }
       if (p === '/models.json') {
         return json({
-          hosted: HOSTED.map(({ id, name, quant, file, bytes, sha256, license, hf, tuned }) =>
-            ({ id, name, quant, bytes, sha256, license, tuned, url: `${url.origin}/download/${file}`, b2Key: `models/${id}/${file}`, source: hf })),
+          hosted: (await visibleModels(db)).map(({ modelId, name, quant, file, bytes, sha256, license, hf, artifacts }) =>
+            ({ id: modelId, name, quant, bytes, sha256, license, artifacts, url: `${url.origin}/download/${file}`, b2Key: `models/${modelId}/${file}`, source: hf })),
           huggingface: LISTED,
         });
       }
@@ -1164,7 +1378,7 @@ export default {
         const bytes = Uint8Array.from(atob(IMAGES[p]), (c) => c.charCodeAt(0));
         return new Response(bytes, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' } });
       }
-      if (p === '/robots.txt') return new Response('User-agent: *\nAllow: /\nDisallow: /download/\nDisallow: /account\nDisallow: /api/\n', { headers: { 'content-type': 'text/plain' } });
+      if (p === '/robots.txt') return new Response('User-agent: *\nAllow: /\nDisallow: /download/\nDisallow: /account\nDisallow: /admin\nDisallow: /api/\n', { headers: { 'content-type': 'text/plain' } });
       return new Response('Not found', { status: 404, headers: SEC });
     } catch (e) {
       console.error(p, e && e.stack || e);

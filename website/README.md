@@ -36,10 +36,11 @@ it to match (`--dry-run` shows the plan). The worker's key needs only `setup/iam
 
 | Table | Key | Holds |
 |---|---|---|
-| `sushilaai-users` | `email` (primary e-mail) | linked e-mails (set), name, organization, created, last sign-in |
-| `sushilaai-emails` | `email`; index `primaryEmail-index` | every verified e-mail → `primaryEmail` of its account |
+| `sushilaai-users` | `userId` (random, permanent) | primary e-mail, linked e-mails (set), name, organization, `isAdmin`, created, last sign-in |
+| `sushilaai-emails` | `email`; index `userId-index` | every verified e-mail → `userId` of its account |
 | `sushilaai-otps` | `email` | the pending code as a keyed hash, its purpose, expiry and attempts; removed by TTL |
-| `sushilaai-downloads` | `userEmail` + `downloadedAt`; index `modelId-downloadedAt-index` | model, file, B2 key, sha256, license accepted, country |
+| `sushilaai-downloads` | `userId` + `downloadedAt`; index `modelId-downloadedAt-index` | model, file, B2 key, sha256, license accepted, country |
+| `sushilaai-models` | `modelId` | hosted models, their precomputed artifacts, and the `visible` flag |
 | `sushilaai-waitlist` | `email` | serverless-API early access |
 | `sushilaai-audit` | `day` + `at` | sign-ups, sign-ins, e-mail changes, downloads |
 
@@ -55,13 +56,25 @@ it to match (`--dry-run` shows the plan). The worker's key needs only `setup/iam
 - **Codes:** 6 digits, valid for 5 minutes, at most one every 10 seconds per e-mail, and 5 wrong guesses discard the
   code. Codes are stored only as a keyed hash.
 - **Sessions:** a signed, HttpOnly, Secure, SameSite=Lax cookie lasting 30 days.
-- **E-mails:** an account can have up to 5 verified e-mails, and any of them signs in.
+- **E-mails:** an account is identified by a permanent `userId`, not an e-mail. It can have up to 5 verified e-mails;
+  any of them signs in, and any can be made primary or removed (one must remain).
 - **Requests:** state-changing calls must be same-origin JSON, and every route is rate-limited per IP.
+
+## Admins
+
+`setup/makeUserAdmin.py --region <region> <e-mail>` gives an account admin rights (`--revoke` removes them, and `--list`
+lists admins). Admins see an **Admin** menu with two tabs:
+
+- **Users:** every account, with a filter (e-mail, name, organization, user id, admins only) and pages of 25–100.
+- **Models:** the hosted models with their precomputed artifacts and download counts. Admins can add a model, edit it,
+  and toggle **visible**; only visible models are shown to regular users. On the first visit, the built-in list is
+  copied into `sushilaai-models`.
 
 ## Deploy
 
 ```sh
 python3 setup/dynamodb_tables.py --region <region>        # creates or updates tables and indexes
+python3 setup/makeUserAdmin.py --region <region> you@example.com   # first admin
 bash setup/b2_upload.sh media                              # logo animation
 bash setup/b2_upload.sh model llama3.2-1b-q8               # each hosted model (see the list in the script)
 npx wrangler deploy worker.js --name sushila --compatibility-date 2026-10-01
