@@ -9,6 +9,7 @@
  *   POST /api/auth/verify-code  {email, code, firstName?, lastName?, organization?}  sets the session cookie
  *   POST /api/auth/sign-out
  *   GET|POST /api/account       profile, linked e-mails, download history
+ *   GET  /bugs, /bugs/new, /bugs/<id>; GET|POST /api/bugs, /api/bugs/<id>, POST /api/bugs/<id>/comments   bug reports
  *   POST /api/download          {file, accept: true}  records the download, returns a 24-hour B2 link
  *   POST /api/waitlist          serverless-API early access
  *   GET  /models.json, /terms, /privacy, /media/<file> (logo animation from B2, with ranges), images, /robots.txt
@@ -174,7 +175,7 @@ const brand = () => `<a class="brand" href="/"><img src="/logo.png" width="32" h
 
 const footer = (contact) => `<footer><div class="wrap row" style="justify-content:space-between">
   <span>© ${new Date().getUTCFullYear()} Sushila, an open-source research project</span>
-  <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
+  <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="/bugs/new">Report a bug</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
 </div></footer>`;
 
 function docPage(env, title, desc, body, user) {
@@ -665,7 +666,7 @@ ${CLIENT}
 
 const ACCOUNT = (u) => () => `${FORM_CSS}
 <h1>Your account</h1>
-<p class="meta">Signed in as ${esc(u.primaryEmail)}${u.isAdmin ? ' · <a href="/admin">Admin</a>' : ''}</p>
+<p class="meta">Signed in as ${esc(u.primaryEmail)}${u.isAdmin ? ' · <a href="/admin">Admin</a>' : ''} · <a href="/bugs">Bug reports</a></p>
 <div class="auth">
   <h2>Profile</h2>
   <label for="fn">First name</label><input id="fn" value="${esc(u.firstName)}">
@@ -739,6 +740,100 @@ const MODEL_FIELDS = [
   ['license', 'License', 'Llama 3.1 Community License'], ['licenseUrl', 'License URL', 'https://…'], ['hf', 'Hugging Face URL', 'https://huggingface.co/…'],
   ['artifacts', 'Precomputed artifacts', 'e.g. output-layer landscape; precomputed draft head'], ['note', 'Note', 'optional'], ['order', 'Order', '10'],
 ];
+// Bug reports: one table (sushilaai-bugs) holds each report (item "bug") and its comments (item "c#<time>#<id>").
+// Signed-in users report bugs and see and comment on their own; admins see all, comment and set the status.
+const BUG_STATUS = ['open', 'in progress', 'fixed', 'closed', "won't fix"];
+const BUG_CATEGORY = ['Sushila.cpp engine', 'Website', 'Downloads or models', 'Paper or results', 'Serverless API', 'Other'];
+const BUG_SEVERITY = ['low', 'medium', 'high', 'critical'];
+const BUG_CSS = `<style>.doc{max-width:960px}.bugtools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}.bugtools input{flex:1 1 260px}
+.st{display:inline-block;font-size:12px;font-weight:600;padding:1px 9px;border-radius:99px;border:1px solid var(--line)}.st.open{color:#b42318;border-color:#f3b8b2}
+.st.in-progress{color:#b54708;border-color:#f6d6a6}.st.fixed,.st.closed{color:var(--acc);border-color:var(--acc)}.bugtxt{white-space:pre-wrap;word-break:break-word;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.cmt{border-left:3px solid var(--line);padding:4px 0 4px 12px;margin:14px 0}.cmt.adm{border-color:var(--acc)}.cmt .who{font-size:13px;color:var(--mut)}
+textarea{width:100%;min-height:140px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit}
+select{padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font-size:15px}</style>`;
+
+const BUGS = (user) => () => `${FORM_CSS}${BUG_CSS}
+<h1>Bug reports</h1>
+<p class="meta">${user.isAdmin ? 'All reports (you are an admin).' : 'Your reports. Only you and the Sushila team can see them.'} <a class="btn small" href="/bugs/new" style="margin-left:8px">Report a bug</a></p>
+<div class="bugtools"><input id="q" type="search" placeholder="Filter by title, text, id${user.isAdmin ? ' or reporter' : ''}">
+  <select id="status"><option value="">any status</option>${BUG_STATUS.map((s) => `<option>${esc(s)}</option>`).join('')}</select>
+  ${user.isAdmin ? '<label class="sub"><input type="checkbox" id="mine" style="flex:none;width:auto"> only mine</label>' : ''}</div>
+<div class="tablewrap"><table><thead><tr><th>Bug</th><th>Status</th><th>Category</th><th>Severity</th>${user.isAdmin ? '<th>Reporter</th>' : ''}<th>Updated</th><th class="num">Comments</th></tr></thead>
+<tbody id="bb"><tr><td colspan="7" class="sub">Loading…</td></tr></tbody></table></div>
+<div class="pager" style="display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14px"><button class="btn ghost small" id="prev">Previous</button><span id="pinfo"></span><button class="btn ghost small" id="next">Next</button></div>
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id), E = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const ADMIN = ${user.isAdmin ? 'true' : 'false'};
+  let page = 1, t = null;
+  async function load(){
+    const qs = new URLSearchParams({q: $('q').value.trim(), status: $('status').value, page, mine: ADMIN && $('mine').checked ? '1' : ''});
+    const r = await fetch('/api/bugs?' + qs); const d = await r.json();
+    if (!r.ok) { $('bb').innerHTML = '<tr><td colspan="7">' + E(d.error) + '</td></tr>'; return; }
+    $('bb').innerHTML = d.bugs.length ? d.bugs.map(b => '<tr><td><a href="/bugs/' + E(b.bugId) + '"><b>' + E(b.title) + '</b></a><div class="sub">' + E(b.bugId) + '</div></td><td><span class="st ' + E(b.status.replace(/[^a-z]+/g,'-')) + '">' + E(b.status) + '</span></td><td>' + E(b.category) + '</td><td>' + E(b.severity) + '</td>' +
+      (ADMIN ? '<td class="sub">' + E(b.reporterEmail) + '</td>' : '') + '<td>' + E((b.updatedAt||'').slice(0,16).replace('T',' ')) + '</td><td class="num">' + (b.comments||0) + '</td></tr>').join('') : '<tr><td colspan="7" class="sub">No reports match.</td></tr>';
+    $('pinfo').textContent = d.total + ' report' + (d.total === 1 ? '' : 's') + ' · page ' + d.page + ' of ' + d.pages; $('prev').disabled = d.page <= 1; $('next').disabled = d.page >= d.pages; page = d.page;
+  }
+  $('q').oninput = () => { clearTimeout(t); t = setTimeout(() => { page = 1; load(); }, 250); };
+  $('status').onchange = () => { page = 1; load(); }; if (ADMIN) $('mine').onchange = () => { page = 1; load(); };
+  $('prev').onclick = () => { page--; load(); }; $('next').onclick = () => { page++; load(); };
+  load();
+})();
+</script>`;
+
+const BUG_NEW = (url) => () => `${FORM_CSS}${BUG_CSS}
+<h1>Report a bug</h1>
+<p class="meta">Tell us what went wrong. Only you and the Sushila team can see your report, and you can follow and comment on it under <a href="/bugs">Bug reports</a>. For security problems, mark the severity as critical.</p>
+<div class="auth" style="max-width:720px">
+  <label for="title">Title</label><input id="title" maxlength="140" placeholder="Short summary, e.g. llama-server crashes when loading a 70B model">
+  <label for="cat">Category</label><select id="cat">${BUG_CATEGORY.map((c) => `<option>${esc(c)}</option>`).join('')}</select>
+  <label for="sev">Severity</label><select id="sev">${BUG_SEVERITY.map((s) => `<option${s === 'medium' ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>
+  <label for="desc">What happened? Steps to reproduce, what you expected, and versions (OS, GPU, Sushila.cpp commit, model)</label>
+  <textarea id="desc" maxlength="8000" placeholder="1. ...&#10;2. ...&#10;Expected: ...&#10;Actual: ...&#10;Console output: ..."></textarea>
+  <label for="where">Page or command (optional)</label><input id="where" maxlength="300" value="${esc(url.searchParams.get('from') || '')}" placeholder="e.g. https://sushila.ai/download/... or build/bin/llama-cli -m ...">
+  <button class="btn" id="send">Submit report</button>
+  <div class="msg" id="m" role="status"></div>
+</div>
+${CLIENT}
+<script>
+document.getElementById('send').onclick = async () => {
+  const $ = (id) => document.getElementById(id);
+  try { const d = await api('/api/bugs', {title:$('title').value, category:$('cat').value, severity:$('sev').value, description:$('desc').value, where:$('where').value});
+    location.href = '/bugs/' + encodeURIComponent(d.bugId); } catch(e){ say('m', e.message); }
+};
+</script>`;
+
+const BUG_VIEW = (user, bugId) => () => `${FORM_CSS}${BUG_CSS}
+<p class="meta"><a href="/bugs">← Bug reports</a></p>
+<div id="bug"><p class="sub">Loading…</p></div>
+<h2>Comments</h2>
+<div id="cmts"></div>
+<div class="auth" style="max-width:720px">
+  <label for="ct">Add a comment</label><textarea id="ct" maxlength="4000" style="min-height:100px"></textarea>
+  ${user.isAdmin ? `<label for="ns">Set status</label><select id="ns"><option value="">keep</option>${BUG_STATUS.map((s) => `<option>${esc(s)}</option>`).join('')}</select>` : ''}
+  <button class="btn" id="post">Post</button>
+  <div class="msg" id="m" role="status"></div>
+</div>
+${CLIENT}
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id), E = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const ID = ${JSON.stringify(bugId)}, ADMIN = ${user.isAdmin ? 'true' : 'false'};
+  async function load(){
+    const r = await fetch('/api/bugs/' + encodeURIComponent(ID)); const d = await r.json();
+    if (!r.ok) { $('bug').innerHTML = '<p>' + E(d.error) + '</p>'; return; }
+    const b = d.bug;
+    $('bug').innerHTML = '<h1>' + E(b.title) + '</h1><p class="meta">' + E(b.bugId) + ' · <span class="st ' + E(b.status.replace(/[^a-z]+/g,'-')) + '">' + E(b.status) + '</span> · ' + E(b.category) + ' · severity ' + E(b.severity) +
+      ' · reported ' + E(b.createdAt.slice(0,16).replace('T',' ')) + ' UTC' + (ADMIN ? ' by ' + E(b.reporterEmail) : '') + '</p>' + (b.where ? '<p class="sub">Where: ' + E(b.where) + '</p>' : '') + '<div class="bugtxt">' + E(b.description) + '</div>';
+    document.title = b.title + ' — Sushila.cpp';
+    $('cmts').innerHTML = d.comments.length ? d.comments.map(c => '<div class="cmt' + (c.isAdmin ? ' adm' : '') + '"><div class="who">' + E(c.author) + (c.isAdmin ? ' <span class="tag">Sushila team</span>' : '') + ' · ' + E(c.at.slice(0,16).replace('T',' ')) +
+      (c.status ? ' · status → <b>' + E(c.status) + '</b>' : '') + '</div>' + (c.text ? '<div class="bugtxt" style="border:0;padding:6px 0;background:none">' + E(c.text) + '</div>' : '') + '</div>').join('') : '<p class="sub">No comments yet.</p>';
+  }
+  $('post').onclick = async () => { try { await api('/api/bugs/' + encodeURIComponent(ID) + '/comments', {text: $('ct').value, status: ADMIN ? $('ns').value : ''}); $('ct').value = ''; if (ADMIN) $('ns').value = ''; say('m', 'Posted.', true); load(); } catch(e){ say('m', e.message); } };
+  load();
+})();
+</script>`;
+
 const ADMIN = () => () => `${FORM_CSS}
 <style>.doc{max-width:1040px}.admtabs{display:flex;gap:6px;margin:8px 0 18px}.admin-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .admin-tools input{flex:1 1 260px}.pager{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14px}.pager button{padding:6px 12px}
@@ -746,7 +841,7 @@ const ADMIN = () => () => `${FORM_CSS}
 .mform input{width:100%;flex:none}.switch{cursor:pointer;border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600;background:var(--card)}
 .switch.on{background:var(--accbg);color:var(--acc);border-color:var(--acc)}td.wrap{max-width:260px;word-break:break-word}</style>
 <h1>Admin</h1>
-<div class="admtabs" role="tablist"><button class="tab" data-t="users" aria-selected="true">Users</button><button class="tab" data-t="models" aria-selected="false">Models</button></div>
+<div class="admtabs" role="tablist"><button class="tab" data-t="users" aria-selected="true">Users</button><button class="tab" data-t="models" aria-selected="false">Models</button><a class="tab" href="/bugs" style="text-decoration:none">Bugs</a></div>
 
 <div id="t-users">
   <div class="admin-tools"><input id="q" type="search" placeholder="Filter by e-mail, name, organization or user id">
@@ -839,6 +934,7 @@ const TABLES = {
   otps: 'sushilaai-otps',           // PK email; one pending sign-in code per e-mail; TTL attribute "ttl"
   downloads: 'sushilaai-downloads', // PK userId, SK downloadedAt: one row per download; index modelId-downloadedAt-index
   models: 'sushilaai-models',       // PK modelId: hosted models, their precomputed artifacts and the visible flag
+  bugs: 'sushilaai-bugs',           // PK bugId, SK item: the report ("bug") and its comments ("c#<time>#<id>")
   waitlist: 'sushilaai-waitlist',   // PK email: serverless-API early access
   audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes
 };
@@ -1161,6 +1257,93 @@ async function account(request, env, db, session) {
   return json({ error: 'Bad request.' }, 400);
 }
 
+// --- Bug reports (sushilaai-bugs: PK bugId, SK item = "bug" | "c#<time>#<id>"; indexes list-index, reporter-index) ---
+const newBugId = () => 'B-' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + hex(crypto.getRandomValues(new Uint8Array(3)));
+function bugFrom(it) {
+  return { bugId: str(it, 'bugId'), title: str(it, 'title'), description: str(it, 'description'), category: str(it, 'category'), severity: str(it, 'severity'),
+    status: str(it, 'status'), where: str(it, 'where') === '-' ? '' : str(it, 'where'), reporterUserId: str(it, 'reporterUserId'), reporterEmail: str(it, 'reporterEmail'),
+    createdAt: str(it, 'createdAt'), updatedAt: str(it, 'updatedAt'), comments: num(it, 'comments') };
+}
+async function notifyAdmins(env, db, subject, text) {  // best effort: e-mail every admin's primary address
+  try {
+    if (!env.RESEND_API_KEY) return;
+    const admins = (await db.scanAll(TABLES.users, { FilterExpression: 'isAdmin = :t', ExpressionAttributeValues: { ':t': { BOOL: true } } })).map(userFrom);
+    await Promise.all(admins.map((a) => sendEmail(env, a.primaryEmail, subject, text).catch(() => {})));
+  } catch (e) { console.error('notifyAdmins', e.message); }
+}
+async function bugsApi(request, env, db, user, path) {
+  if (!user) return json({ error: 'Please sign in.', signin: true }, 401);
+  const url = new URL(request.url);
+  const m = path.match(/^\/api\/bugs(?:\/([A-Za-z0-9-]{4,40}))?(\/comments)?$/);
+  if (!m) return json({ error: 'Not found.' }, 404);
+  const [, bugId, comments] = m;
+  if (request.method === 'GET' && !bugId) {
+    const q = clean(url.searchParams.get('q'), 100).toLowerCase(), status = clean(url.searchParams.get('status'), 20);
+    const size = 25;
+    let items = user.isAdmin && url.searchParams.get('mine') !== '1'
+      ? await (async () => { const out = []; let start; do { const r = await db.request('Query', { TableName: TABLES.bugs, IndexName: 'list-index', KeyConditionExpression: 'listKey = :k',
+          ExpressionAttributeValues: { ':k': S('bug') }, ScanIndexForward: false, ...(start ? { ExclusiveStartKey: start } : {}) }); out.push(...(r.Items || [])); start = r.LastEvaluatedKey; } while (start && out.length < 20000); return out; })()
+      : await db.query(TABLES.bugs, 'reporterUserId = :u', { ':u': S(user.userId) }, { IndexName: 'reporter-index', ScanIndexForward: false });
+    let bugs = items.map(bugFrom);
+    if (status) bugs = bugs.filter((b) => b.status === status);
+    if (q) bugs = bugs.filter((b) => [b.bugId, b.title, b.description, b.category, user.isAdmin ? b.reporterEmail : ''].join(' ').toLowerCase().includes(q));
+    bugs.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+    const total = bugs.length, pages = Math.max(1, Math.ceil(total / size));
+    const page = Math.min(Math.max(Number(url.searchParams.get('page')) || 1, 1), pages);
+    return json({ total, page, pages, bugs: bugs.slice((page - 1) * size, page * size).map(({ description, ...b }) => (user.isAdmin ? b : { ...b, reporterEmail: '' })) });
+  }
+  if (request.method === 'POST' && !bugId) {
+    if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+    if (limited(request, 'bug-new', 5)) return json({ error: 'Too many reports. Please wait a minute.' }, 429);
+    let d; try { d = await body(request); } catch { return json({ error: 'Report too long.' }, 400); }
+    const title = clean(d.title, 140), description = String(d.description || '').replace(/\u0000/g, '').trim().slice(0, 8000);
+    if (title.length < 5) return json({ error: 'Please give the report a title (at least 5 characters).' }, 400);
+    if (description.length < 10) return json({ error: 'Please describe what happened.' }, 400);
+    const category = BUG_CATEGORY.includes(d.category) ? d.category : 'Other', severity = BUG_SEVERITY.includes(d.severity) ? d.severity : 'medium';
+    const now = new Date().toISOString(), id = newBugId();
+    await db.put(TABLES.bugs, { bugId: S(id), item: S('bug'), listKey: S('bug'), title: S(title), description: S(description), category: S(category), severity: S(severity),
+      status: S('open'), where: S(clean(d.where, 300) || '-'), reporterUserId: S(user.userId), reporterEmail: S(user.primaryEmail),
+      userAgent: S(clean(request.headers.get('user-agent'), 300) || '-'), createdAt: S(now), updatedAt: S(now), comments: N(0) }, 'attribute_not_exists(bugId)');
+    await audit(db, 'bug-new', user.userId, request, { bugId: id });
+    await notifyAdmins(env, db, `[sushila.ai bug ${id}] ${title}`, `${user.primaryEmail} reported a ${severity} bug (${category}):\n\n${title}\n\n${description}\n\nhttps://sushila.ai/bugs/${id}`);
+    return json({ ok: true, bugId: id });
+  }
+  const bugItem = await db.get(TABLES.bugs, { bugId: S(bugId), item: S('bug') });
+  if (!bugItem) return json({ error: 'Report not found.' }, 404);
+  const bug = bugFrom(bugItem);
+  if (!user.isAdmin && bug.reporterUserId !== user.userId) return json({ error: 'Report not found.' }, 404);
+  if (request.method === 'GET' && !comments) {
+    const rows = await db.query(TABLES.bugs, 'bugId = :b AND begins_with(#i, :c)', { ':b': S(bugId), ':c': S('c#') }, { ExpressionAttributeNames: { '#i': 'item' } });
+    const out = rows.map((c) => ({ at: str(c, 'at'), author: user.isAdmin || str(c, 'authorUserId') === user.userId ? str(c, 'authorName') : (bool(c, 'isAdmin') ? 'Sushila team' : str(c, 'authorName')),
+      isAdmin: bool(c, 'isAdmin'), text: str(c, 'text') === '-' ? '' : str(c, 'text'), status: str(c, 'status') === '-' ? '' : str(c, 'status') }));
+    return json({ bug: user.isAdmin ? bug : { ...bug, reporterEmail: '' }, comments: out });
+  }
+  if (request.method === 'POST' && comments) {
+    if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+    if (limited(request, 'bug-comment', 20)) return json({ error: 'Too many comments. Please wait a minute.' }, 429);
+    let d; try { d = await body(request); } catch { return json({ error: 'Comment too long.' }, 400); }
+    const text = String(d.text || '').replace(/\u0000/g, '').trim().slice(0, 4000);
+    const status = user.isAdmin && BUG_STATUS.includes(d.status) && d.status !== bug.status ? d.status : '';
+    if (!text && !status) return json({ error: 'Please write a comment.' }, 400);
+    const now = new Date().toISOString();
+    await db.put(TABLES.bugs, { bugId: S(bugId), item: S(`c#${now}#${randomId()}`), at: S(now), authorUserId: S(user.userId),
+      authorName: S(`${user.firstName} ${user.lastName === '-' ? '' : user.lastName}`.trim() || user.primaryEmail), isAdmin: { BOOL: user.isAdmin },
+      text: S(text || '-'), status: S(status || '-') });
+    await db.update(TABLES.bugs, { bugId: S(bugId), item: S('bug') }, status ? 'SET updatedAt = :t, #s = :s ADD comments :one' : 'SET updatedAt = :t ADD comments :one',
+      { ':t': S(now), ':one': N(1), ...(status ? { ':s': S(status) } : {}) }, status ? { '#s': 'status' } : undefined);
+    await audit(db, 'bug-comment', user.userId, request, { bugId, ...(status ? { status } : {}) });
+    if (user.isAdmin && bug.reporterUserId !== user.userId) {
+      const rep = await db.get(TABLES.users, { userId: S(bug.reporterUserId) });
+      if (rep && env.RESEND_API_KEY) await sendEmail(env, str(rep, 'primaryEmail'), `[sushila.ai bug ${bugId}] ${status ? `status: ${status}` : 'new comment'}`,
+        `${status ? `Your report "${bug.title}" is now: ${status}.\n\n` : ''}${text ? `The Sushila team commented on "${bug.title}":\n\n${text}\n\n` : ''}https://sushila.ai/bugs/${bugId}`).catch(() => {});
+    } else if (!user.isAdmin) {
+      await notifyAdmins(env, db, `[sushila.ai bug ${bugId}] new comment`, `${user.primaryEmail} commented on "${bug.title}":\n\n${text}\n\nhttps://sushila.ai/bugs/${bugId}`);
+    }
+    return json({ ok: true });
+  }
+  return json({ error: 'Bad request.' }, 400);
+}
+
 // --- Model catalog: sushilaai-models (managed on the admin page); the built-in HOSTED list until the table has rows ---
 let catalogCache = null;
 function modelFrom(it) {
@@ -1315,7 +1498,7 @@ async function health(env, db, b2) {
     dynamodb: { configured: db.configured, region: env.AWS_REGION || null, tables: {} }, b2: { configured: b2.configured, bucket: env.B2_BUCKET_NAME || null } };
   if (db.configured) {
     const keys = { users: { userId: S('-') }, emails: { email: S('-') }, otps: { email: S('-') }, downloads: { userId: S('-'), downloadedAt: S('-') },
-      models: { modelId: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') } };
+      models: { modelId: S('-') }, bugs: { bugId: S('-'), item: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') } };
     await Promise.all(Object.entries(TABLES).map(async ([k, t]) => {
       try { await db.get(t, keys[k]); out.dynamodb.tables[t] = 'ok'; } catch (e) { out.dynamodb.tables[t] = errorCode(e); }
     }));
@@ -1341,6 +1524,7 @@ export default {
         if (p === '/api/account') return await account(request, env, db, session);
         if (p === '/api/download') return await createDownload(request, env, db, b2, session);
       if (p.startsWith('/api/admin/')) return await adminApi(request, env, db, await loadUser(db, session), p);
+      if (p.startsWith('/api/bugs')) return await bugsApi(request, env, db, await loadUser(db, session), p);
         return new Response('Not found', { status: 404, headers: SEC });
       }
       if (method !== 'GET' && method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
@@ -1348,6 +1532,15 @@ export default {
       if (p === '/api/health') return await health(env, db, b2);
       const user = session ? await loadUser(db, session) : null;
       if (p.startsWith('/api/admin/')) return await adminApi(request, env, db, user, p);
+      if (p.startsWith('/api/bugs')) return await bugsApi(request, env, db, user, p);
+      if (p === '/bugs' || p === '/bugs/' || p === '/bugs/new' || p.startsWith('/bugs/')) {
+        if (!user) return Response.redirect(`${url.origin}/signin?next=${encodeURIComponent(p + url.search)}`, 302);
+        if (p === '/bugs' || p === '/bugs/') return html(docPage(env, 'Bug reports', 'Your sushila.ai bug reports.', BUGS(user), user));
+        if (p === '/bugs/new') return html(docPage(env, 'Report a bug', 'Report a bug in Sushila.cpp or sushila.ai.', BUG_NEW(url), user));
+        const id = decodeURIComponent(p.slice('/bugs/'.length));
+        if (!/^[A-Za-z0-9-]{4,40}$/.test(id)) return new Response('Not found', { status: 404, headers: SEC });
+        return html(docPage(env, 'Bug report', 'A sushila.ai bug report.', BUG_VIEW(user, id), user));
+      }
       if (p === '/admin' || p === '/admin/') {
         if (!user) return Response.redirect(`${url.origin}/signin?next=/admin`, 302);
         if (!user.isAdmin) return new Response('Admins only.', { status: 403, headers: SEC });
@@ -1379,7 +1572,7 @@ export default {
         const bytes = Uint8Array.from(atob(IMAGES[p]), (c) => c.charCodeAt(0));
         return new Response(bytes, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' } });
       }
-      if (p === '/robots.txt') return new Response('User-agent: *\nAllow: /\nDisallow: /download/\nDisallow: /account\nDisallow: /admin\nDisallow: /api/\n', { headers: { 'content-type': 'text/plain' } });
+      if (p === '/robots.txt') return new Response('User-agent: *\nAllow: /\nDisallow: /download/\nDisallow: /account\nDisallow: /admin\nDisallow: /bugs\nDisallow: /api/\n', { headers: { 'content-type': 'text/plain' } });
       return new Response('Not found', { status: 404, headers: SEC });
     } catch (e) {
       console.error(p, e && e.stack || e);

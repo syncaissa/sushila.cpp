@@ -50,6 +50,12 @@ SCHEMA = {
         'hash': 'modelId',
         'pitr': True, 'protect': True,
     },
+    'sushilaai-bugs': {                  # bug reports: item "bug" = the report, "c#<time>#<id>" = its comments
+        'hash': 'bugId', 'range': 'item',
+        'indexes': {'list-index': {'hash': 'listKey', 'range': 'createdAt', 'projection': 'ALL'},          # every report (admins)
+                    'reporter-index': {'hash': 'reporterUserId', 'range': 'createdAt', 'projection': 'ALL'}},  # a user's reports
+        'pitr': True, 'protect': True,
+    },
     'sushilaai-waitlist': {              # serverless-API early access
         'hash': 'email',
         'pitr': True,
@@ -217,8 +223,13 @@ class Reconciler:
         pitr = self.ddb.describe_continuous_backups(TableName=name)['ContinuousBackupsDescription'] \
             .get('PointInTimeRecoveryDescription', {}).get('PointInTimeRecoveryStatus') == 'ENABLED'
         if pitr != bool(spec.get('pitr')):
-            self.act(f'{"turn on" if spec.get("pitr") else "turn off"} point-in-time recovery', self.ddb.update_continuous_backups,
-                     TableName=name, PointInTimeRecoverySpecification={'PointInTimeRecoveryEnabled': bool(spec.get('pitr'))})
+            try:
+                self.act(f'{"turn on" if spec.get("pitr") else "turn off"} point-in-time recovery', self.ddb.update_continuous_backups,
+                         TableName=name, PointInTimeRecoverySpecification={'PointInTimeRecoveryEnabled': bool(spec.get('pitr'))})
+            except Exception as e:  # noqa: BLE001
+                if 'ContinuousBackupsUnavailable' not in str(e):
+                    raise
+                print('  point-in-time recovery is still being switched on; run again later to confirm')
         else:
             print(f'  point-in-time recovery {"on" if pitr else "off"} ok')
         # deletion protection

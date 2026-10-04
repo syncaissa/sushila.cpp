@@ -41,6 +41,7 @@ it to match (`--dry-run` shows the plan). The worker's key needs only `setup/iam
 | `sushilaai-otps` | `email` | the pending code as a keyed hash, its purpose, expiry and attempts; removed by TTL |
 | `sushilaai-downloads` | `userId` + `downloadedAt`; index `modelId-downloadedAt-index` | model, file, B2 key, sha256, license accepted, country |
 | `sushilaai-models` | `modelId` | hosted models, their precomputed artifacts, and the `visible` flag |
+| `sushilaai-bugs` | `bugId` + `item`; indexes `list-index`, `reporter-index` | bug reports (`item` = `bug`) and their comments (`item` = `c#<time>#<id>`) |
 | `sushilaai-waitlist` | `email` | serverless-API early access |
 | `sushilaai-audit` | `day` + `at` | sign-ups, sign-ins, e-mail changes, downloads |
 
@@ -59,6 +60,16 @@ it to match (`--dry-run` shows the plan). The worker's key needs only `setup/iam
 - **E-mails:** an account is identified by a permanent `userId`, not an e-mail. It can have up to 5 verified e-mails;
   any of them signs in, and any can be made primary or removed (one must remain).
 - **Requests:** state-changing calls must be same-origin JSON, and every route is rate-limited per IP.
+
+## Bug reports
+
+Signed-in users report bugs at `/bugs/new` (title, category, severity, description, page or command), follow them at
+`/bugs`, and comment on them. Every page footer links to "Report a bug".
+
+- **Visibility:** users see only their own reports; admins see all of them, with filters and pages.
+- **Admin actions:** admins comment and set the status (open, in progress, fixed, closed, won't fix).
+- **E-mail:** a new report or a user's comment e-mails every admin. An admin's comment or status change e-mails the
+  reporter. Messages go through Resend.
 
 ## Admins
 
