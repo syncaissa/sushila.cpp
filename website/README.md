@@ -10,7 +10,8 @@
   the download is recorded, and the user gets a personal 24-hour link straight to Backblaze B2.
 - **Logo:** the logo and icons are embedded in the file, made from `assets/logo/SushilaLogoWithBaseG.jpg`. The hero swan
   is two layers (`/logo-swan.png`, `/logo-base.png`). It rocks on its base, like the logo animation, whenever the visitor
-  moves the mouse, touches, scrolls or uses the wheel. The animation itself is served from B2 at `/media/…`.
+  moves the mouse, touches, scrolls or uses the wheel. The animation file stays in B2 at `media/` (route `/media/…`) but
+  is not shown on the page.
 
 ## Services and settings
 
@@ -26,7 +27,9 @@ The worker reads these Cloudflare secrets and variables:
 | `DEEPINFRA_API_KEY`, `DEEPSEEK_PLATFORM_API_KEY` | reserved for the serverless API; not used yet |
 
 **Graceful fallback:** without the AWS, B2 or Resend settings the site still works. Sign-in is unavailable, downloads
-go to Hugging Face, the waitlist falls back to e-mail, and the video is left out.
+go to Hugging Face, and the waitlist falls back to e-mail. Open `/api/health` after deploying: it lists each
+`sushilaai-*` table as `ok` or with an error code (`DB_TABLES_MISSING`, `DB_CREDENTIALS`, `DB_PERMISSIONS`), and
+whether B2 and Resend are configured. Errors shown to users carry the same codes.
 
 **DynamoDB tables** (create them with `setup/aws_tables.sh`; the worker's key needs only `setup/iam_policy.json`):
 

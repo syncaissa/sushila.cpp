@@ -21,7 +21,7 @@
  *   RELEASED ("true" once the repository is public), REPO_URL, CONTACT, GOVERNING_LAW   optional
  *   (DEEPINFRA_API_KEY and DEEPSEEK_PLATFORM_API_KEY are reserved for the serverless API and not used here yet.)
  * Without AWS / B2 / Resend settings the site still works: sign-in is unavailable, downloads go to Hugging Face,
- * the waitlist falls back to e-mail and the video is left out.
+ * and the waitlist falls back to e-mail. GET /api/health shows which services are set up (DynamoDB tables, B2, Resend).
  *
  * Deploy: npx wrangler deploy worker.js --name sushila --compatibility-date 2026-10-01
  */
@@ -378,10 +378,6 @@ function page(env, user) {
     <tr><td><b>${esc(m.name)}</b></td><td>${esc(m.license)}</td>
       <td class="act"><a class="btn small ghost" href="${esc(m.hf)}">Hugging Face ↗</a></td></tr>`).join('');
 
-  const video = (env.B2_KEY_ID && env.B2_APP_KEY && env.B2_BUCKET_NAME) ? `<figure class="intro">
-  <video src="/media/${VIDEO.key}" poster="/logo.png" autoplay muted loop playsinline controls preload="metadata"
-    width="1280" height="720" aria-label="Sushila logo animation"></video>
-</figure>` : '';
 
   const resultRows = RESULTS.map((r) => `
     <tr><td>${r[0]}</td><td>${r[1]}</td><td class="num">${r[2]}</td><td class="num">${r[3]}</td>
@@ -413,7 +409,6 @@ ${STYLE}</style>
   <div class="row">${dl('', 'Get Sushila.cpp')}<a class="btn ghost" href="#models">Download models</a><a class="btn ghost" href="#api">Serverless API</a></div>
 </div><div class="herologo" id="swanlogo" role="img" aria-label="Sushila logo: a swan shaped like the letter S, with an S-marked integrated circuit, on a base"><img class="swan" src="/logo-swan.png" alt=""><img class="base" src="/logo-base.png" alt=""></div></div>
 
-${video}
 <section id="how">
   <h2>What Sushila.cpp does</h2>
   <p class="lead">Decoding is limited by how many bytes of weights the hardware reads per token. Sushila
@@ -605,7 +600,7 @@ const CLIENT = `<script>
 async function api(path, data){
   const r = await fetch(path, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(data||{})});
   let d = {}; try { d = await r.json(); } catch(e) {}
-  if(!r.ok) throw Object.assign(new Error(d.error || 'Something went wrong.'), d);
+  if(!r.ok) throw Object.assign(new Error(d.error || ('Something went wrong (HTTP ' + r.status + '). Please try again later.')), d);
   return d;
 }
 function say(id, text, ok){ const m=document.getElementById(id); m.textContent=text||''; m.className='msg '+(ok?'ok':'err'); }
@@ -1094,6 +1089,34 @@ async function waitlist(request, env, db) {
   return json({ ok: true });
 }
 
+// Short, safe error codes for users and the health check (details go to the worker log).
+function errorCode(e) {
+  const t = String((e && (e.type || e.message)) || '');
+  if (/ResourceNotFound/.test(t)) return 'DB_TABLES_MISSING';
+  if (/UnrecognizedClient|InvalidSignature|MissingAuthenticationToken|SignatureDoesNotMatch/.test(t)) return 'DB_CREDENTIALS';
+  if (/AccessDenied/.test(t)) return 'DB_PERMISSIONS';
+  if (/^Resend/.test(t)) return /\b403\b|domain/i.test(t) ? 'EMAIL_DOMAIN_NOT_VERIFIED' : 'EMAIL_SEND';
+  if (/^B2/.test(t)) return 'STORAGE';
+  if (/^DynamoDB/.test(t)) return 'DB_ERROR';
+  return 'INTERNAL';
+}
+
+// GET /api/health: which services are configured and reachable (no secrets are returned).
+async function health(env, db, b2) {
+  const out = { session: !!env.SESSION_SECRET, resend: { key: !!env.RESEND_API_KEY, from: env.RESEND_FROM || null },
+    dynamodb: { configured: db.configured, region: env.AWS_REGION || null, tables: {} }, b2: { configured: b2.configured, bucket: env.B2_BUCKET_NAME || null } };
+  if (db.configured) {
+    const keys = { users: { email: S('-') }, emails: { email: S('-') }, otps: { email: S('-') }, downloads: { userEmail: S('-'), downloadedAt: S('-') },
+      waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') } };
+    await Promise.all(Object.entries(TABLES).map(async ([k, t]) => {
+      try { await db.get(t, keys[k]); out.dynamodb.tables[t] = 'ok'; } catch (e) { out.dynamodb.tables[t] = errorCode(e); }
+    }));
+  }
+  if (b2.configured) { try { await b2.auth(); out.b2.reachable = true; } catch (e) { out.b2.reachable = false; out.b2.error = errorCode(e); } }
+  const ok = out.session && out.resend.key && db.configured && Object.values(out.dynamodb.tables).every((v) => v === 'ok') && (!b2.configured || out.b2.reachable);
+  return json({ ok, ...out }, ok ? 200 : 503);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -1103,16 +1126,17 @@ export default {
     const html = (b, extra = {}) => new Response(b, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': session ? 'private, no-store' : 'public, max-age=300', ...SEC, ...extra } });
     try {
       if (method === 'POST') {
-        if (p === '/api/waitlist') return waitlist(request, env, db);
-        if (p === '/api/auth/send-code') return sendCode(request, env, db, session);
-        if (p === '/api/auth/verify-code') return verifyCode(request, env, db, session);
+        if (p === '/api/waitlist') return await waitlist(request, env, db);
+        if (p === '/api/auth/send-code') return await sendCode(request, env, db, session);
+        if (p === '/api/auth/verify-code') return await verifyCode(request, env, db, session);
         if (p === '/api/auth/sign-out') return new Response(null, { status: 303, headers: { location: '/', 'set-cookie': clearCookie() } });
-        if (p === '/api/account') return account(request, env, db, session);
-        if (p === '/api/download') return createDownload(request, env, db, b2, session);
+        if (p === '/api/account') return await account(request, env, db, session);
+        if (p === '/api/download') return await createDownload(request, env, db, b2, session);
         return new Response('Not found', { status: 404, headers: SEC });
       }
       if (method !== 'GET' && method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
-      if (p === '/api/account') return account(request, env, db, session);
+      if (p === '/api/account') return await account(request, env, db, session);
+      if (p === '/api/health') return await health(env, db, b2);
       const user = session ? await loadUser(db, session) : null;
       if (p === '/' || p === '/index.html') return html(page(env, user));
       if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env), user));
@@ -1135,7 +1159,7 @@ export default {
           huggingface: LISTED,
         });
       }
-      if (p.startsWith('/media/')) return media(request, env, b2, decodeURIComponent(p.slice('/media/'.length)));
+      if (p.startsWith('/media/')) return await media(request, env, b2, decodeURIComponent(p.slice('/media/'.length)));
       if (IMAGES[p]) {
         const bytes = Uint8Array.from(atob(IMAGES[p]), (c) => c.charCodeAt(0));
         return new Response(bytes, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' } });
@@ -1144,7 +1168,9 @@ export default {
       return new Response('Not found', { status: 404, headers: SEC });
     } catch (e) {
       console.error(p, e && e.stack || e);
-      return p.startsWith('/api/') ? json({ error: 'Something went wrong. Please try again.' }, 500) : new Response('Something went wrong. Please try again.', { status: 500, headers: SEC });
+      const code = errorCode(e);
+      return p.startsWith('/api/') ? json({ error: `Something went wrong (${code}). Please try again later.`, code }, 500)
+        : new Response(`Something went wrong (${code}). Please try again later.`, { status: 500, headers: SEC });
     }
   },
 };
