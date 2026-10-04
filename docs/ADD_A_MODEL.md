@@ -78,7 +78,8 @@ W=/workspace/sushila bash run_models.sh models/mymodel.env          # the real r
 | Model | Status | What it needs |
 |---|---|---|
 | Qwen3-32B, Qwen3-30B-A3B | running (2026-10-04) | config in `models/` |
-| DeepSeek-R1-Distill-Llama-70B | planned; `models/deepseek-r1-distill-llama-70b.env` has the checklist | a 4-bit release; a published EAGLE-3 head, or a "train from scratch" path (not built yet); longer outputs (reasoning) |
+| DeepSeek-R1-Distill-Llama-70B | next for the paper; `models/deepseek-r1-distill-llama-70b.env` has the checklist | a 4-bit release; a published EAGLE-3 head, or a "train from scratch" path (not built yet); longer outputs (reasoning) |
+| Gemma 3 27B (Google) | next for the paper; `models/gemma3-27b.env` has the checklist | a 4-bit release; an EAGLE-3 head or the from-scratch path; a Gemma chat template in SpecForge and `regen.py`; SGLang speculative support for Gemma 3 (sliding-window attention, multimodal) |
 
 ## 4. Publish the artifacts
 
