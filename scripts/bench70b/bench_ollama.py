@@ -5,7 +5,10 @@ Sends each prompt as raw text (the same chat-templated text the other engines ge
 tokens, twice (the first run warms up), and records Ollama's own timings: eval_count / eval_duration (decode only) and
 eval_count / (total_duration - load_duration) (decode + prompt, comparable to the wall time measured for SGLang).
 
-Usage: python3 bench_ollama.py --model llama3.3:70b --prompts prompts.jsonl --out ollama.json [--host http://localhost:11434]
+Usage: python3 bench_ollama.py --model llama3.3:70b --prompts prompts.jsonl --out ollama.json [--threads 16] [--host http://localhost:11434]
+
+In containers whose CPU count shows the host's cores (e.g. 252 on a pod limited to 26), Ollama starts that many threads and
+decodes a fully GPU-offloaded 70B model at less than half speed (10 vs 22 tokens/s on an A100); pass --threads.
 """
 import argparse
 import json
@@ -20,17 +23,23 @@ def main():
     ap.add_argument('--out', default='ollama.json')
     ap.add_argument('--host', default='http://localhost:11434')
     ap.add_argument('--max-tokens', type=int, default=256)
+    ap.add_argument('--temperature', type=float, default=0.0)
+    ap.add_argument('--seed', type=int, default=0)
+    ap.add_argument('--reps', type=int, default=2, help='runs per prompt; the last is kept. With 1, one extra warm-up request is sent first')
+    ap.add_argument('--threads', type=int, help='CPU threads (num_thread); set it in containers that report more cores than they get')
     args = ap.parse_args()
     res = []
     for line in open(args.prompts):
         p = json.loads(line)
         body = {'model': args.model, 'prompt': p['text'], 'raw': True, 'stream': False,
-                'options': {'temperature': 0, 'num_predict': args.max_tokens, 'num_ctx': 4096, 'seed': 0}}
-        for rep in range(2):
+                'options': {'temperature': args.temperature, 'num_predict': args.max_tokens, 'num_ctx': 4096, 'seed': args.seed}}
+        if args.threads:
+            body['options']['num_thread'] = args.threads
+        for rep in range(args.reps + (1 if args.reps == 1 and not res else 0)):  # warm-up on the first prompt
             r = json.loads(urllib.request.urlopen(urllib.request.Request(args.host + '/api/generate', data=json.dumps(body).encode(),
                            headers={'Content-Type': 'application/json'}), timeout=1800).read())
         n = r['eval_count']
-        res.append({'id': p['id'], 'source': p['source'], 'tokens': n,
+        res.append({'id': p['id'], 'source': p['source'], 'ref': p.get('ref'), 'tokens': n,
                     'seconds': (r['total_duration'] - r.get('load_duration', 0)) / 1e9, 'decode_seconds': r['eval_duration'] / 1e9,
                     'decode_tok_s': n / (r['eval_duration'] / 1e9),
                     'wall_tok_s': n / ((r['total_duration'] - r.get('load_duration', 0)) / 1e9),

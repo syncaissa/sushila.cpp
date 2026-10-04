@@ -15,9 +15,9 @@ if [ ! -x /usr/local/cuda/bin/nvcc ]; then
   [ -e /usr/local/cuda ] || ln -s /usr/local/cuda-13.0 /usr/local/cuda
 fi
 export CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH
-python3 -m pip install -q "sglang[all]" > $S/pip_sglang.log 2>&1
+python3 -m pip install -q "sglang[all]==0.5.21" > $S/pip_sglang.log 2>&1
 curl -LsSf https://astral.sh/uv/install.sh | sh > /dev/null 2>&1; export PATH=$HOME/.local/bin:$PATH
-[ -d $SF ] || git clone -q https://github.com/sgl-project/SpecForge.git $SF
+[ -d $SF ] || { git clone -q https://github.com/sgl-project/SpecForge.git $SF && git -C $SF checkout -q 53398a8f01ae47175bee8459c5b5cca3848c8a7e; }  # the commit we used
 [ -x $W/sfenv/bin/python ] || { uv venv -q -p 3.11 $W/sfenv && VIRTUAL_ENV=$W/sfenv uv pip install -q -e $SF > $S/pip_sf.log 2>&1; }
 log "envs: sglang $(python3 -c 'import sglang; print(sglang.__version__)' 2>/dev/null) / specforge venv $($W/sfenv/bin/python -c 'import sglang; print(sglang.__version__)' 2>/dev/null)"
 $W/sfenv/bin/python - <<'PY'
@@ -45,7 +45,7 @@ with open(__import__('os').environ['W'] + '/eval_prompts.txt', 'w') as f:
     for q in [r['instruction'] + (('\n\n' + r['context']) if r.get('context') else '') for r in rows] + ours: f.write(json.dumps(q) + '\n')
 PY
 
-# SpecForge local patches (2026-10-03)
+# SpecForge local patches (2026-10-03); the same change as specforge-53398a8.patch in this folder
 cd $SF && python3 - <<'PY'
 p='specforge/modeling/target/target_head.py'; s=open(p).read()
 if 'local patch' not in s:

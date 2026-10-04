@@ -1,0 +1,27 @@
+diff --git a/specforge/algorithms/model_providers.py b/specforge/algorithms/model_providers.py
+index 3e154e9..8dd711a 100644
+--- a/specforge/algorithms/model_providers.py
++++ b/specforge/algorithms/model_providers.py
+@@ -108,6 +108,9 @@ def build_eagle3_draft(cfg: Config, draft_config: PretrainedConfig):
+             cfg.model.target_model_path,
+             embedding_key=cfg.model.embedding_key,
+         )
++    import os as _os
++    if _os.environ.get('SF_EMBED_FROM'):  # local patch: narrower heads carry their own embeddings, not stored in checkpoints
++        draft_model.load_embedding(_os.environ['SF_EMBED_FROM'], embedding_key='embed_tokens.weight')
+     draft_model.freeze_embedding()
+     return draft_model.to(device=_device(), dtype=_torch_dtype(cfg))
+ 
+diff --git a/specforge/modeling/target/target_head.py b/specforge/modeling/target/target_head.py
+index 69d457d..588062c 100644
+--- a/specforge/modeling/target/target_head.py
++++ b/specforge/modeling/target/target_head.py
+@@ -102,7 +102,7 @@ class TargetHead(nn.Module):
+             param.requires_grad = False
+ 
+     def forward(self, hidden_states):
+-        return self.fc(hidden_states)
++        return self.fc(hidden_states.to(self.fc.weight.dtype))  # local patch: float16 targets vs bfloat16 head
+ 
+     def preprocess(self, input_ids, target, loss_mask):
+         # Shift loss_mask with input_ids and final target states; auxiliary hidden

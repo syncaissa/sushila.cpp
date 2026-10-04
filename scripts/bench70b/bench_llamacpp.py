@@ -22,11 +22,12 @@ def main():
     ap.add_argument('--prompts', default='prompts.jsonl')
     ap.add_argument('--out', required=True)
     ap.add_argument('--max-tokens', type=int, default=256)
+    ap.add_argument('--threads', type=int, default=16)
     args = ap.parse_args()
     res = []
     for line in open(args.prompts):
         p = json.loads(line)
-        common = ['-m', args.model, '-ngl', '99', '-fa', 'on', '-c', '4096', '-n', str(args.max_tokens), '--temp', '0', '-p', p['text']]
+        common = ['-m', args.model, '-ngl', '99', '-fa', 'on', '-c', '4096', '-n', str(args.max_tokens), '--temp', '0', '-t', str(args.threads), '-p', p['text']]
         if args.draft:
             cmd = [f'{args.bin}/llama-speculative-simple', *common, '-md', args.draft, '-ngld', '99', '--spec-type', 'draft-simple',
                    '--spec-draft-n-max', str(args.draft_max), '--spec-draft-n-min', '0']

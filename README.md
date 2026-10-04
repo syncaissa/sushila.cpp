@@ -46,7 +46,7 @@ RunPod; [REPRODUCE.md](REPRODUCE.md) covers each, and how to split a sweep over 
 | `notebooks/` | `colab_sweep.ipynb`: the same experiments on Google Colab |
 | `results/` | One folder per run: environment, raw logs, summary table |
 | `website/` | `worker.js`: the sushila.ai site as one Cloudflare Worker |
-| `docs/` | `REPRODUCE_70B.md`: Llama-3.3-70B against vanilla Ollama, step by step |
+| `docs/` | `REPRODUCE_70B.md`: Llama-3.3-70B against vanilla Ollama; `BENCHMARK_PIPELINE.md`: every program of that benchmark, step by step |
 
 The first commit in this repository is the unmodified upstream source of both
 projects. All Monte Carlo changes come in later commits, so

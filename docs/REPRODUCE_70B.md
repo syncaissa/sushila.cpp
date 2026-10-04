@@ -4,7 +4,9 @@ This guide checks the headline 70B number yourself on one rented GPU. It times s
 SGLang without speculation, SGLang with the published EAGLE-3 head and SGLang with the Sushila
 day-0 head. All four run on the same GPU with the same 26 prompts and the same settings.
 
-Scripts: [`scripts/bench70b/`](../scripts/bench70b/).
+Scripts: [`scripts/bench70b/`](../scripts/bench70b/). Every program is explained step by step in
+[BENCHMARK_PIPELINE.md](BENCHMARK_PIPELINE.md). To run everything unattended:
+`bash scripts/bench70b/create_pod.sh`, then on the pod `W=/workspace/day0 bash scripts/bench70b/run_all.sh`.
 
 ## What is being compared, and what is not
 
@@ -22,11 +24,11 @@ Read the results honestly:
   existing work by Li et al. and LMSYS.
 - **D over A is what an Ollama user gains by switching.** It mixes three things: a faster engine
   (SGLang, CUDA graphs, Marlin 4-bit kernels), a different 4-bit file (AWQ instead of Q4_K_M), and
-  speculation. A and D give good answers of the same quality, but **not word for word the same
-  text**, because the 4-bit files differ. `compare.py` counts how many outputs match.
-- The paper's "3.6×" was 80.4 tok/s (run D) over 22.1 tok/s from stock `llama.cpp` on
-  *Llama-3.1-70B* Q4_K_M. That baseline used another tool and another model version. This guide
-  replaces it with a direct measurement on the same GPU and model version (run A).
+  speculation. A and D do **not** produce word-for-word the same
+  text, because the 4-bit files differ; we did not measure answer quality between them. `compare.py` counts how many outputs match.
+- An earlier draft of the paper quoted "3.6×" against stock `llama.cpp` on *Llama-3.1-70B*, which is
+  another tool and another model version. The paper now uses the direct measurement from this
+  guide: **3.5× over vanilla Ollama** on the same GPU and model version.
 
 ## 1. Get a GPU machine
 
@@ -59,7 +61,7 @@ model's chat template, so every engine sees exactly the same text.
 curl -fsSL https://ollama.com/install.sh | sh
 OLLAMA_MODELS=/workspace/ollama_models ollama serve > ollama.log 2>&1 &
 ollama pull llama3.3:70b                    # 42.5 GB, Q4_K_M
-python3 bench_ollama.py --model llama3.3:70b --prompts prompts.jsonl --out ollama.json
+python3 bench_ollama.py --model llama3.3:70b --prompts prompts.jsonl --out ollama.json --threads 16
 ```
 
 Each prompt runs twice and only the second run is kept, so model loading is excluded. Settings:
@@ -142,18 +144,21 @@ python3 compare.py ollama.json sglang_base.json sglang_pub_tree.json sglang_dz_f
 You can also time any running SGLang server yourself:
 `python3 bench_sglang.py --prompts prompts.jsonl --out mine.json`.
 
-## 5. Expected results (A100 80GB SXM)
+## 5. Expected results (A100 80GB)
 
 | Run | tok/s | Over Ollama | Over SGLang base | Source |
 |-----|------:|-----------:|----------------:|--------|
-| A. Vanilla Ollama, Q4_K_M | *being measured* | 1.00× | | this guide |
-| B. SGLang base, AWQ | 34.3 | | 1.00× | paper, Table 14 |
-| C. + published EAGLE-3 head | 65.3 | | 1.94× | paper |
-| D. + Sushila day-0 head (1,000 answers) | 80.4 | | 2.51× | paper |
-| D. + Sushila day-0 head (6,000 answers) | *being measured* | | | this guide |
+| A. Vanilla Ollama 0.35.1, Q4_K_M, `--threads 16` | 21.6 | 1.00× | | our run, 2026-10-04 |
+| B. SGLang base, AWQ | 33.8 | 1.56× | 1.00× | our run |
+| C. + published EAGLE-3 head | 64.1 | 2.96× | 1.93× | our run |
+| D. + Sushila day-0 head (6,000 answers, 32-token tree) | 70.3 | 3.25× | 2.26× | our run |
+| D. + Sushila day-0 head (6,000 answers, 16-token tree) | **75.5** | **3.49×** | 2.36× | our run |
+| D. + Sushila day-0 head (1,000 answers, 16-token tree) | 80.4 | | 2.51× | paper, first machine (base 34.3) |
 
-The "Over SGLang base" column is the median of per-prompt speedups, as in the paper. The tok/s
-column is total tokens divided by total seconds. Expect a few percent of variation between runs
+All "our run" rows come from one A100 80GB PCIe (RunPod, driver 13.0) and the same 26 prompts.
+
+"Over Ollama" and tok/s use total tokens divided by total seconds, prompt processing included.
+"Over SGLang base" is the median of per-prompt speedups, as in the paper. Expect a few percent of variation between runs
 and between machines with the same GPU model.
 
 ## 6. Known pitfalls
@@ -167,6 +172,7 @@ and between machines with the same GPU model.
 | `Half != BFloat16` in training | AWQ model is float16 | `torch_dtype: float16` and the TargetHead patch |
 | day-0 head *slower* than the published head (~1.1×) | embeddings lost in the checkpoint and export | `SF_EMBED_FROM` patch and re-inserted embeddings (both in the script) |
 | `nproc` shows 200+ cores on a container | host cores, not your quota | set thread counts explicitly |
+| Ollama 70B at ~10 tok/s on an A100 with all 81 layers on the GPU | Ollama starts one thread per *reported* core (252 on a RunPod container limited to 26) | `bench_ollama.py --threads 16` (Ollama option `num_thread`); gives 22 tok/s |
 
 ## 7. Where the raw logs of our runs are
 
