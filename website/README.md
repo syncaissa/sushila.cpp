@@ -3,7 +3,9 @@
 `worker.js` is the entire sushila.ai site as one Cloudflare Worker: the home page (what Sushila.cpp does,
 measured speed, install steps for Linux, macOS and Windows, models, serverless API sign-up, disclaimer),
 `/terms`, `/privacy`, `/models.json`, `/download/<file>`, and the logo and icons (`/logo.png`, `/favicon.png`,
-`/favicon-32.png`, `/favicon.ico`, `/apple-touch-icon.png`), which are embedded in the file (made from
+`/favicon-32.png`, `/favicon.ico`, `/apple-touch-icon.png`, and `/logo-swan.png` + `/logo-base.png`, the two layers
+that let the hero swan rock on its base when the pointer moves over it or it is touched, like the logo animation),
+which are embedded in the file (made from
 `assets/logo/SushilaLogoWithBase.jpg`: background made transparent, cropped, resized to a 256-colour palette).
 The logo animation (`assets/logo/SushilaLogoWithBase.mp4`, 4.5 MB) is too large to embed: upload it to an R2 bucket
 and bind that bucket as `MEDIA` (or reuse `MODELS`); the page shows it under the headline only when it is available:
