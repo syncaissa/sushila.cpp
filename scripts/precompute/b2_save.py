@@ -189,10 +189,13 @@ def save_precomputed(W, model, envfile):
 def _hf_revision(repo):
     if not repo:
         return None
-    try:
+    try:  # the commit the run downloaded (cached), else the repository's current commit
         from huggingface_hub import snapshot_download
-        p = snapshot_download(repo, local_files_only=True)
-        return os.path.basename(p)
+        return os.path.basename(snapshot_download(repo, local_files_only=True))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        return json.loads(urllib.request.urlopen(f'https://huggingface.co/api/models/{repo}', timeout=60).read())['sha']
     except Exception:  # noqa: BLE001
         return None
 
