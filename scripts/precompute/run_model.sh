@@ -48,7 +48,7 @@ fi
 # ---------- 2 models and prompts ----------
 if [ ! -s $D/main.jsonl ] || [ ! -s $D/pub_head_serve/model.safetensors ] || [ ! -s $D/head_has_embed.txt ]; then
   $PY - "$TARGET" "$PUB_HEAD" $D <<'PYX'
-import sys, os, torch
+import sys, os, json, torch
 from huggingface_hub import snapshot_download
 target, head, d = sys.argv[1:4]
 td = snapshot_download(target)
