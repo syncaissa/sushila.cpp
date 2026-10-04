@@ -7,7 +7,7 @@ W=${W:-/workspace/day0}; S=$W; B=$(cd "$(dirname "$0")" && pwd); L=${L:-$(cd "$B
 log() { echo "[$(date +%H:%M:%S)] $*" >> $S/p3.log; }
 until grep -q 'OLLAMA_DONE' $S/p3.log; do sleep 60; done
 T=16   # threads: the pod reports 252 host cores but is limited to 26
-export CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH OLLAMA_MODELS=$W/ollama_models
+export CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}  # libcublas.so.13 at run time OLLAMA_MODELS=$W/ollama_models
 apt-get install -y -qq libcublas-dev-13-0 > $O/cublas.log 2>&1   # llama.cpp's CUDA build needs cuBLAS headers
 # build first, so compiling never overlaps a timing run
 cmake -S $L -B $BC -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=80 -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF \

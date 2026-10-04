@@ -6,7 +6,7 @@ set -u
 W=${W:-/workspace/day0}; S=$W; B=$(cd "$(dirname "$0")" && pwd); L=${L:-$(cd "$B/../../llama.cpp" && pwd)}; BC=$W/build-cuda; O=$S/out/compare; T=16
 log() { echo "[$(date +%H:%M:%S)] $*" >> $S/p3.log; }
 until grep -q 'CKPT_DONE' $S/p3.log; do sleep 60; done
-export CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH
+export CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}  # libcublas.so.13 at run time
 apt-get install -y -qq libcublas-dev-13-0 > $O/cublas.log 2>&1 || { log "cublas install failed"; log COMPARE2_DONE; exit 1; }
 rm -rf $BC
 cmake -S $L -B $BC -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=80 -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF \

@@ -35,6 +35,8 @@ def main():
             cmd = [f'{args.bin}/llama-completion', *common, '-no-cnv']
         r = subprocess.run(cmd, capture_output=True, text=True)
         log = r.stdout + r.stderr
+        if r.returncode != 0:
+            raise SystemExit(f'{cmd[0]} failed (exit {r.returncode}):\n' + log[-2000:])
         if args.draft:
             m = re.search(r'decoded\s+(\d+) tokens in\s+([\d.]+) seconds', log)
             n, s = int(m[1]), float(m[2])
