@@ -80,7 +80,23 @@ W=/workspace/sushila bash run_models.sh models/mymodel.env          # the real r
 | Qwen3-32B, Qwen3-30B-A3B | running (2026-10-04) | config in `models/` |
 | DeepSeek-R1-Distill-Llama-70B | next for the paper; `models/deepseek-r1-distill-llama-70b.env` has the checklist | a 4-bit release; a published EAGLE-3 head, or a "train from scratch" path (not built yet); longer outputs (reasoning) |
 | Gemma 3 27B (Google) | next for the paper; `models/gemma3-27b.env` has the checklist | a 4-bit release; an EAGLE-3 head or the from-scratch path; a Gemma chat template in SpecForge and `regen.py`; SGLang speculative support for Gemma 3 (sliding-window attention, multimodal) |
-| Kimi-Dev-72B (Moonshot AI) | candidate; `models/kimi-dev-72b.env` has the checklist | a 4-bit file (community or our own AWQ); a Qwen2.5-72B EAGLE-3 head to warm-start from (else the from-scratch path); an imported GGUF for Ollama; coding training prompts and benchmarks |
+| Kimi-Dev-72B (Moonshot AI) | candidate; `models/kimi-dev-72b.env` has the findings | no published EAGLE-3 head: warm-start from the closest compatible one (`AQ-MedAI/Qwen2.5-VL-72B-Instruct-eagle3`) and refit; 4-bit GPTQ/AWQ files exist; Ollama via an imported GGUF; coding prompts |
+
+## When a model has no published draft head
+
+A *draft head* is a small one-layer network that reads the model's internal state and guesses its next tokens; the
+model checks the guesses in one pass. Heads are trained per model. When nobody has published one for a model:
+
+1. **Warm start from a compatible head (easy, same cost as a normal run).** A head can be reused when the draft head's
+   shapes match: the model's hidden size and vocabulary. Heads made for the base model of a fine-tune, or for a sibling
+   model, qualify. The pipeline refits the head to the new model's own answers, which is exactly what it does for
+   published heads. Report it as "closest published head", since it was not made for this model.
+2. **Train from scratch (harder).** SpecForge can train a head from random weights. It needs many more of the model's
+   own answers (likely tens of thousands instead of 2,000) and several times the GPU hours. `run_model.sh` does not
+   have this option yet: it needs a "no starting head" setting in the model's config and a larger answer count.
+
+Kimi-Dev-72B (2026-10-04) is case 1: there is no head for it or for Qwen2.5-72B, but an EAGLE-3 head for Qwen2.5-VL-72B
+has the same shapes.
 
 ## 4. Publish the artifacts
 
