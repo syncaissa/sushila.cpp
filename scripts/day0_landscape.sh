@@ -124,3 +124,6 @@ python3 "$SD/day0_manifest.py" write "$OUT/manifest.json" \
     "license_file=LICENSE.txt" "license_file_sha256=sha256:$OUT/LICENSE.txt" \
     "built_utc=\"$(date -u +%Y-%m-%dT%H:%MZ)\""
 log "done: $OUT/manifest.json (mode $mode)"
+# Sushila.cpp finds artifacts in <model file>.sushila/ next to the model (or $SUSHILA_ARTIFACTS); link them there.
+ln -sfn "$OUT" "$model.sushila" 2>/dev/null && log "linked $model.sushila -> $OUT (Sushila.cpp picks it up automatically)" \
+    || log "could not link $model.sushila; run Sushila.cpp with SUSHILA_ARTIFACTS=$OUT"

@@ -137,6 +137,35 @@ build/bin/llama-speculative-simple -m Llama-3.1-70B-Q4_K_M.gguf -md Llama-3.2-1B
 Full results and how to reproduce them: [REPRODUCE.md](REPRODUCE.md) and
 [docs/REPRODUCE_70B.md](docs/REPRODUCE_70B.md).
 
+## 6a. Precomputed artifacts: automatic, with a safe fallback
+
+Sushila.cpp reads ordinary GGUF model files exactly like llama.cpp. A model's *precomputed artifacts* make it faster;
+they include output-layer landscapes and the draft model or draft head chosen for that model. When Sushila.cpp starts,
+it looks for a `manifest.json` in these places, in order:
+
+1. the folder in `$SUSHILA_ARTIFACTS`;
+2. `<model file>.sushila/` (for example `llama3.1-8b-q4km.gguf.sushila/`);
+3. `<model folder>/<model name>.sushila/`.
+
+The manifest binds the artifacts to one model file by sha256. That check runs once and is then cached, keyed by the
+file's size and date.
+
+- **When they match,** Sushila.cpp turns the artifacts on and prints one line, for example:
+  `sushila: using precomputed artifacts for qwen2.5-0.5b-q4km.gguf: output-layer landscape (preview 224, 4096 candidates)`
+- **When there are none, or they do not match,** it prints one line and runs exactly like stock llama.cpp:
+  `sushila: no precomputed artifacts found for model.gguf; using the original workflow`
+
+Nothing here ever stops a run. Settings you give yourself always win: a `-md` draft model, or `GGML_LANDSCAPE`.
+
+| Variable | Effect |
+|---|---|
+| `SUSHILA=0` | turn the lookup off (always use the original workflow) |
+| `SUSHILA_ARTIFACTS=<dir>` | use the artifacts in this folder |
+| `SUSHILA_VERIFY=0` | skip the one-time sha256 check of the model file |
+
+The release-time pipeline (`scripts/day0_landscape.sh`) writes the artifacts and links them as `<model file>.sushila`
+automatically.
+
 ## 7. Update and uninstall
 
 - **Update:** `git pull`, then repeat the `cmake --build …` line.

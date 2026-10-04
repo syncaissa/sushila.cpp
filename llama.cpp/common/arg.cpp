@@ -1,4 +1,5 @@
 #include "arg.h"
+#include "sushila.h"
 
 #include "build-info.h"
 #include "chat.h"
@@ -1304,6 +1305,7 @@ bool common_params_parse(int argc, char ** argv, common_params & params, llama_e
             exit(0);
         }
         params.lr.init();
+        common_sushila_apply(params);  // Sushila: precomputed artifacts for this model, or the original workflow
     } catch (const std::invalid_argument & ex) {
         fprintf(stderr, "%s\n", ex.what());
         ctx_arg.params = params_org;
