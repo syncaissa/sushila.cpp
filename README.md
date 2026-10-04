@@ -48,7 +48,7 @@ RunPod; [REPRODUCE.md](REPRODUCE.md) covers each, and how to split a sweep over 
 | `notebooks/` | `colab_sweep.ipynb`: the same experiments on Google Colab |
 | `results/` | One folder per run: environment, raw logs, summary table |
 | `website/` | `worker.js`: the sushila.ai site as one Cloudflare Worker |
-| `assets/logo/` | the Sushila logo: `SushilaLogoWithBase.jpg` (original), its animation `SushilaLogoWithBase.mp4`, transparent icons (512, 256, 180, 64, 32 px); `*_old.png` = the earlier logo, kept for reference |
+| `assets/logo/` | the Sushila logo: `SushilaLogoWithBaseG.jpg` (original), its animation `SushilaLogoWithBaseG.mp4`, transparent icons (512, 256, 180, 64, 32 px), swan and base layers for the rocking logo; `old/` = earlier versions |
 | `docs/` | `REPRODUCE_70B.md`: Llama-3.3-70B against vanilla Ollama; `BENCHMARK_PIPELINE.md`: every program of that benchmark, step by step |
 
 The first commit in this repository is the unmodified upstream source of both
