@@ -2,7 +2,9 @@
 
 `worker.js` is the entire sushila.ai site as one Cloudflare Worker: the home page (what Sushila.cpp does,
 measured speed, install steps for Linux, macOS and Windows, models, serverless API sign-up, disclaimer),
-`/terms`, `/privacy`, `/models.json` and `/download/<file>`.
+`/terms`, `/privacy`, `/models.json`, `/download/<file>`, and the logo and icons (`/logo.png`, `/favicon.png`,
+`/favicon-32.png`, `/favicon.ico`, `/apple-touch-icon.png`), which are embedded in the file (made from
+`assets/logo/SushilaLogo.png`: background made transparent, cropped, resized to a 256-colour palette).
 
 Deploy:
 

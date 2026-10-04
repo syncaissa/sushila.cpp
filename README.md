@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo/sushila-logo-256.png" width="160" alt="Sushila logo"></p>
+
 # Sushila.cpp
 
 Approximate LLM inference: replace exact weight-matrix multiplication with
@@ -46,6 +48,7 @@ RunPod; [REPRODUCE.md](REPRODUCE.md) covers each, and how to split a sweep over 
 | `notebooks/` | `colab_sweep.ipynb`: the same experiments on Google Colab |
 | `results/` | One folder per run: environment, raw logs, summary table |
 | `website/` | `worker.js`: the sushila.ai site as one Cloudflare Worker |
+| `assets/logo/` | the Sushila logo: original (`SushilaLogo.png`) and transparent icons (512, 256, 180, 64, 32 px) |
 | `docs/` | `REPRODUCE_70B.md`: Llama-3.3-70B against vanilla Ollama; `BENCHMARK_PIPELINE.md`: every program of that benchmark, step by step |
 
 The first commit in this repository is the unmodified upstream source of both
