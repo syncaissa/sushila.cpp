@@ -32,7 +32,8 @@ OLLAMA = [  # (library repo, tag, used for)
     ('llama3.2', '1b', 'the 1B draft model'),
     ('qwen2.5', '7b', 'output-layer landscape (Qwen2.5-7B)'),
     ('qwen2.5', '0.5b', 'CPU landscape kernel (1.13-1.26x); day-0 pipeline demo'),
-    ('qwen3', '30b-a3b', 'MoE expert count; Ollama baseline Qwen3-30B-A3B'),
+    ('qwen3', '30b-a3b', 'MoE expert count (this tag holds Qwen3-30B-A3B-Thinking-2507)'),
+    ('qwen3', '30b-a3b-q4_K_M', 'Ollama baseline for Qwen3-30B-A3B (the original release, same model as the SGLang runs)'),
     ('qwen3', '32b', 'Ollama baseline Qwen3-32B'),
 ]
 DATA = [  # (name, url, used for)

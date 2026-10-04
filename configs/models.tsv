@@ -1,6 +1,7 @@
 # name	ollama_ref	gguf_sha256	bytes	n_layer	license
 # Weights are fetched from the public Ollama registry; the sha256 is the blob's content digest,
-# so every replicator runs on byte-identical files. qwen2.5-0.5b is for smoke tests only.
+# so every replicator runs on byte-identical files. Note: the qwen3:30b-a3b blob below is Qwen3-30B-A3B-Thinking-2507
+# (the tag moved to that release); the original Qwen3-30B-A3B is qwen3:30b-a3b-q4_K_M. qwen2.5-0.5b is for smoke tests only.
 # license: the model's own license (SPDX id where one exists). Llama-3.1-Community = Llama 3.1
 # Community License: ship it, show "Built with Llama", follow Meta's acceptable use policy, and start
 # the name of any model derived from it with "Llama". Weights are not redistributed by this repo.

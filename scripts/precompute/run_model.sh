@@ -260,6 +260,9 @@ done
 if [ ! -s $D/out/ollama_gsm100.json ]; then
   pgrep -x ollama > /dev/null || { nohup ollama serve > $D/ollama_serve.log 2>&1 & sleep 10; }
   ollama pull $OLLAMA_TAG > $D/ollama_pull.log 2>&1 || { log "ollama pull failed"; exit 1; }
+  # tags can move to newer releases: log the GGUF's own model name next to the SGLang model, so a mismatch is visible
+  python3 $P/gguf_name.py "$(ollama show --modelfile $OLLAMA_TAG | sed -n 's/^FROM \(\/.*\)/\1/p' | head -1)" > $D/out/ollama_model_name.txt 2>&1 || true
+  log "Ollama $OLLAMA_TAG is \"$(cat $D/out/ollama_model_name.txt)\"; SGLang serves $TARGET (check they are the same model)"
   ob() { [ -s $D/out/$1.json ] && return 0
     python3 $BENCH/bench_ollama.py --threads $T --reps 1 --model $OLLAMA_TAG --out $D/out/$1.json "${@:2}" > $D/out/$1.log 2>&1 && log "$1: $(tail -1 $D/out/$1.log)" || log "$1 failed"; }
   ob ollama_main --prompts $D/main.jsonl
