@@ -14,7 +14,7 @@
  *   GET  /models.json, /terms, /privacy, /media/<file> (logo animation from B2, with ranges), images, /robots.txt
  *
  * Environment (Cloudflare secrets/variables):
- *   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION   DynamoDB; tables sushilaai-* (website/setup/aws_tables.sh)
+ *   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION   DynamoDB; tables sushilaai-* (website/setup/dynamodb_tables.py)
  *   B2_KEY_ID, B2_APP_KEY, B2_BUCKET_NAME (sushila-ai)     Backblaze B2: models/<model id>/<file>, media/<file>
  *   RESEND_API_KEY, RESEND_FROM                             sign-in e-mails
  *   SESSION_SECRET                                          signs sessions, hashes sign-in codes

@@ -31,14 +31,15 @@ go to Hugging Face, and the waitlist falls back to e-mail. Open `/api/health` af
 `sushilaai-*` table as `ok` or with an error code (`DB_TABLES_MISSING`, `DB_CREDENTIALS`, `DB_PERMISSIONS`), and
 whether B2 and Resend are configured. Errors shown to users carry the same codes.
 
-**DynamoDB tables** (create them with `setup/aws_tables.sh`; the worker's key needs only `setup/iam_policy.json`):
+**DynamoDB tables and indexes** are defined in `setup/dynamodb_tables.py`. It checks what exists and creates or updates
+it to match (`--dry-run` shows the plan). The worker's key needs only `setup/iam_policy.json`.
 
 | Table | Key | Holds |
 |---|---|---|
 | `sushilaai-users` | `email` (primary e-mail) | linked e-mails (set), name, organization, created, last sign-in |
-| `sushilaai-emails` | `email` | every verified e-mail → `primaryEmail` of its account |
+| `sushilaai-emails` | `email`; index `primaryEmail-index` | every verified e-mail → `primaryEmail` of its account |
 | `sushilaai-otps` | `email` | the pending code as a keyed hash, its purpose, expiry and attempts; removed by TTL |
-| `sushilaai-downloads` | `userEmail` + `downloadedAt` | model, file, B2 key, sha256, license accepted, country |
+| `sushilaai-downloads` | `userEmail` + `downloadedAt`; index `modelId-downloadedAt-index` | model, file, B2 key, sha256, license accepted, country |
 | `sushilaai-waitlist` | `email` | serverless-API early access |
 | `sushilaai-audit` | `day` + `at` | sign-ups, sign-ins, e-mail changes, downloads |
 
@@ -60,7 +61,7 @@ whether B2 and Resend are configured. Errors shown to users carry the same codes
 ## Deploy
 
 ```sh
-AWS_REGION=<region> bash setup/aws_tables.sh               # once
+python3 setup/dynamodb_tables.py --region <region>        # creates or updates tables and indexes
 bash setup/b2_upload.sh media                              # logo animation
 bash setup/b2_upload.sh model llama3.2-1b-q8               # each hosted model (see the list in the script)
 npx wrangler deploy worker.js --name sushila --compatibility-date 2026-10-01
