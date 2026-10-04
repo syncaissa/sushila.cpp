@@ -115,7 +115,7 @@ a{color:var(--acc)}
 header{border-bottom:1px solid var(--line)}
 nav{display:flex;align-items:center;gap:20px;height:60px}
 nav .brand{font-weight:700;font-size:18px;color:var(--fg);text-decoration:none;display:flex;gap:8px;align-items:center}
-nav .links{margin-left:auto;display:flex;gap:18px;font-size:15px}
+nav .links{margin-left:auto;display:flex;gap:18px;font-size:15px;white-space:nowrap}
 nav .links a{color:var(--mut);text-decoration:none}
 nav .links a:hover{color:var(--fg)}
 .herologo{position:relative;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -194,7 +194,7 @@ ${STYLE}</style>
 <body>
 <header><div class="wrap"><nav>
   ${brand()}
-  <div class="links"><a href="/">Home</a><a href="/#models" class="hide">Models</a>${accountLink(user)}</div>
+  <div class="links"><a href="/">Home</a><a href="/#models" class="hide">Models</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
 </nav></div></header>
 <main class="wrap"><article class="doc">
 ${body(contact)}
@@ -399,7 +399,7 @@ ${STYLE}</style>
 <body>
 <header><div class="wrap"><nav>
   ${brand()}
-  <div class="links"><a href="#how">How</a><a href="#results" class="hide">Results</a><a href="#download">Download</a><a href="#models">Models</a><a href="#api" class="hide">API</a>${accountLink(user)}</div>
+  <div class="links"><a href="#how">How</a><a href="#results" class="hide">Results</a><a href="#download">Download</a><a href="#models">Models</a><a href="#api" class="hide">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
 </nav></div></header>
 
 <main class="wrap">
