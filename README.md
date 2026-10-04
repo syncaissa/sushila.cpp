@@ -49,7 +49,8 @@ RunPod; [REPRODUCE.md](REPRODUCE.md) covers each, and how to split a sweep over 
 | `results/` | One folder per run: environment, raw logs, summary table |
 | `website/` | `worker.js`: the sushila.ai site as one Cloudflare Worker |
 | `assets/logo/` | the Sushila logo: `SushilaLogoWithBaseG.jpg` (original), its animation `SushilaLogoWithBaseG.mp4`, transparent icons (512, 256, 180, 64, 32 px), swan and base layers for the rocking logo; `old/` = earlier versions |
-| `docs/` | `REPRODUCE_70B.md`: Llama-3.3-70B against vanilla Ollama; `BENCHMARK_PIPELINE.md`: every program of that benchmark, step by step |
+| `docs/` | `REPRODUCE_70B.md`: Llama-3.3-70B against vanilla Ollama; `BENCHMARK_PIPELINE.md`: every program of that benchmark, step by step; `ADD_A_MODEL.md`: the same for any model, one config file each |
+| `scripts/precompute/` | the per-model pipeline: precomputed draft head plus the comparison against vanilla Ollama (`models/*.env`, `run_model.sh`) |
 
 The first commit in this repository is the unmodified upstream source of both
 projects. All Monte Carlo changes come in later commits, so
