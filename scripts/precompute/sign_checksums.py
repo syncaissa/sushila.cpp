@@ -90,6 +90,7 @@ def main():
         sig = base64.b64encode(_private().sign(raw)).decode()
         b2.put(name + '.sig', sig.encode())
         print(f'signed {name} ({len(raw)} bytes) -> {name}.sig')
+        import b2_index; b2_index.main()  # the catalogue shows the new signature
     elif cmd == 'check' and len(sys.argv) > 2:
         prefix = sys.argv[2].strip('/')
         b2 = b2_save.B2()

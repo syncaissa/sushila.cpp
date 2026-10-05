@@ -325,6 +325,7 @@ def main():
         print(f'{len(files)} files in b2://{b2.bucket}/{sys.argv[3].strip("/")}/ (MANIFEST.json)')
     elif cmd == 'weights' and len(sys.argv) >= 4:
         save_weights(sys.argv[2], sys.argv[3])
+        import b2_index; b2_index.main()
     elif cmd == 'verify':
         verify(sys.argv[2])
     elif cmd == 'restore' and len(sys.argv) >= 4:

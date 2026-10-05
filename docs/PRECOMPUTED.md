@@ -1,0 +1,99 @@
+# Precomputed work in B2 (bucket `sushila-ai`)
+
+Generated 2026-10-05T14:47Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+
+| Model | Contents | Size | Signed | Saved |
+|---|---|---:|:---:|---|
+| `deepseek-r1-distill-llama-70b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 88.6 GB | yes | 2026-10-05 |
+| `qwen2.5-0.5b-q4km` | landscape (48), landscapes-earlier (4), calibration (7), weights (1) | 0.8 GB | yes | 2026-10-05 |
+| `qwen3-30b-a3b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (17) | 36.2 GB | yes | 2026-10-04 |
+| `qwen3-32b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (20) | 42.7 GB | yes | 2026-10-04 |
+| `z-image-turbo` | weights (3) | 6.7 GB | yes | 2026-10-05 |
+| `z-image-turbo-q8` | weights (3) | 9.4 GB | yes | 2026-10-05 |
+
+## Each model
+
+### `deepseek-r1-distill-llama-70b`
+
+EAGLE-3 draft head for the reasoning model, refitted from the Llama-3.3-70B head (none published for R1), trained on R1's full reasoning text; 3.64x vs Ollama, 2.30x over SGLang alone.
+
+- **Use:** SGLang as above (--context-length 2048) with weights/sglang/ (casperhansen/deepseek-r1-distill-llama-70b-awq).
+- **Results:** results/deepseek-r1-distill-llama-70b/ and forGithub/results/deepseek-r1-distill-llama-70b_20261005/
+- **Bound to:** `{"sglang_target": {"repo": "casperhansen/deepseek-r1-distill-llama-70b-awq", "revision": "a1ab7653aae77fbabc536cbcbac5bb2e2fb5354f"}, "warm_start_head": {"repo": "lmsys/sglang-EAGLE3-LLaMA3.3-Instruct-70B", "revision": "5279b1b6b12d66c44264cbfd125bc8e43f147787"}, "ollama_gguf": {"tag": "deepseek-r1:70b", "sha256": "4cd576d9aa16961244012223abf01445567b061f1814b57dfef699e4cf8df339"}}`
+- **Folders:**
+  - `checkpoints/` (2 files, 3.15 GB): every other trained head checkpoint (for re-selection or further training)
+  - `draft-head/` (2 files, 3.15 GB): the precomputed draft head chosen on validation prompts (ready to serve)
+  - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
+  - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
+  - `weights/` (23 files, 82.31 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `qwen2.5-0.5b-q4km`
+
+Output-layer landscape for Qwen2.5-0.5B-Instruct Q4_K_M (CPU decoding 1.13-1.26x faster with identical output; the paper's per-model pipeline example). Default model of Sushila Host Station.
+
+- **Use:** Sushila.cpp reads it automatically: put landscape/{manifest.json,landscape.mclp} in <model>.gguf.sushila/ next to weights/gguf/qwen2.5-0.5b-q4km.gguf (or install the Host Station pack qwen2.5-0.5b-q4km).
+- **Results:** paper: output-layer landscape sections; Paper/notes/landscape (B2 results/paper-notes-landscape/)
+- **Bound to:** `null`
+- **Folders:**
+  - `landscape/` (48 files, 0.20 GB): the precomputed output-layer landscape (manifest.json + .mclp) and its held-out validation data
+  - `landscapes-earlier/` (4 files, 0.20 GB): earlier landscape builds used in the paper
+  - `calibration/` (7 files, 0.02 GB): calibration activations and imatrix used to build the landscape
+  - `weights/` (1 files, 0.40 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `qwen3-30b-a3b`
+
+EAGLE-3 draft head refitted to Qwen3-30B-A3B (MoE) (warm start AngelSlim/Qwen3-a3B_eagle3); 1.65x vs Ollama; keeps throughput at 64 users.
+
+- **Use:** SGLang as for qwen3-32b, with weights/sglang/ (Qwen/Qwen3-30B-A3B-GPTQ-Int4).
+- **Results:** results/qwen3-30b-a3b/ and forGithub/results/qwen3_20261004/
+- **Bound to:** `{"sglang_target": {"repo": "Qwen/Qwen3-30B-A3B-GPTQ-Int4", "revision": "9b534e4318b7ebc3c961a839f13eb18b1833f441"}, "warm_start_head": {"repo": "AngelSlim/Qwen3-a3B_eagle3", "revision": "266a50ea8c9dbedb729d7c18a98dd79f5b39b5c2"}, "ollama_gguf": {"tag": "qwen3:30b-a3b-q4_K_M", "sha256": "e9183b5c18a0cf736578c1e3d1cbd4b7e98e3ad3be6176b68c20f156d54a07ac"}}`
+- **Folders:**
+  - `checkpoints/` (2 files, 0.29 GB): every other trained head checkpoint (for re-selection or further training)
+  - `draft-head/` (2 files, 0.29 GB): the precomputed draft head chosen on validation prompts (ready to serve)
+  - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
+  - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
+  - `weights/` (17 files, 35.57 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `qwen3-32b`
+
+EAGLE-3 draft head refitted to Qwen3-32B's own answers (warm start thoughtworks/Qwen3-32B-Eagle3); 3.14x vs Ollama.
+
+- **Use:** SGLang: --speculative-algorithm EAGLE3 --speculative-num-steps 4 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --speculative-draft-model-path draft-head/ with weights/sglang/ (Qwen/Qwen3-32B-AWQ). Host Station pack: GGUF only.
+- **Results:** results/qwen3-32b/ and forGithub/results/qwen3_20261004/
+- **Bound to:** `{"sglang_target": {"repo": "Qwen/Qwen3-32B-AWQ", "revision": "0499c3ac83fdef8810b907a23894ba91e95eddd8"}, "warm_start_head": {"repo": "thoughtworks/Qwen3-32B-Eagle3", "revision": "ba10360e72cc5208048695e713c2d45781921013"}, "ollama_gguf": {"tag": "qwen3:32b", "sha256": "3291abe70f16ee9682de7bfae08db5373ea9d6497e614aaad63340ad421d6312"}}`
+- **Folders:**
+  - `checkpoints/` (2 files, 1.57 GB): every other trained head checkpoint (for re-selection or further training)
+  - `draft-head/` (2 files, 1.57 GB): the precomputed draft head chosen on validation prompts (ready to serve)
+  - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
+  - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
+  - `weights/` (20 files, 39.54 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `z-image-turbo`
+
+Image pack (no Sushila artifacts yet): Z-Image-Turbo Q4_K + Qwen3-4B text encoder + FLUX VAE, mirrored from Hugging Face at pinned revisions.
+
+- **Use:** stable-diffusion.cpp sd-server --diffusion-model z_image_turbo-Q4_K.gguf --llm Qwen3-4B-Instruct-2507-Q4_K_M.gguf --vae ae.safetensors --cfg-scale 1.0 --steps 8 (or Host Station pack z-image-turbo).
+- **Results:** speed work in progress (sub-second plan): scripts/image/
+- **Bound to:** `{"huggingface": [{"repo": "leejet/Z-Image-Turbo-GGUF", "file": "z_image_turbo-Q4_K.gguf", "revision": "c61c0e422dc8b541b7548cf33a4ef8302b0f8085", "sha256": "14b375ab4f226bc5378f68f37e899ef3c2242b8541e61e2bc1aff40976086fbd", "license": "apache-2.0"}, {"repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF", "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "revision": "a06e946bb6b655725eafa393f4a9745d460374c9", `
+- **Folders:**
+  - `weights/` (3 files, 6.70 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `z-image-turbo-q8`
+
+Image pack, 8-bit Z-Image-Turbo (near-original quality); same text encoder and VAE.
+
+- **Use:** as z-image-turbo with z_image_turbo-Q8_0.gguf (Host Station pack z-image-turbo-q8).
+- **Results:** -
+- **Bound to:** `{"huggingface": [{"repo": "leejet/Z-Image-Turbo-GGUF", "file": "z_image_turbo-Q8_0.gguf", "revision": "c61c0e422dc8b541b7548cf33a4ef8302b0f8085", "sha256": "df1c5baa86d1398c979495a6072dbcee79444fdb884a2445582ba0769c44e9a1", "license": "apache-2.0"}, {"repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF", "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "revision": "a06e946bb6b655725eafa393f4a9745d460374c9", `
+- **Folders:**
+  - `weights/` (3 files, 9.41 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+## Restore anything
+
+```sh
+python3 scripts/precompute/b2_save.py verify precomputed/<model>                       # every listed file is in B2
+python3 scripts/precompute/b2_save.py restore precomputed/<model> <dir> --only draft-head/   # checks every sha256
+python3 scripts/precompute/sign_checksums.py check precomputed/<model>                # signature valid
+```
+
+Results of every run (timings, outputs, logs) are under `results/<model>/`; the paper's landscape notes under `results/paper-notes-landscape/`. Adding a model: `docs/ADD_A_MODEL.md`.

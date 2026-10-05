@@ -245,7 +245,7 @@ HB=$(cat $D/chosen.txt)
 save_b2() {  # precomputed artifacts are computed once and must never be lost: save them to B2 right away
   if [ "$SMOKE" = 1 ]; then log "smoke run: B2 save skipped (it would write precomputed/$MODEL/ from a test head)"
   elif [ -s $HOME/.b2_key ] || [ -n "${B2_KEY_ID:-}" ]; then
-    python3 $P/b2_save.py precomputed $W $MODEL $ENV_FILE > $D/b2_save.log 2>&1 && log "saved to B2: $(grep -E '^precomputed|^verified' $D/b2_save.log | tr '\n' ' ')" \
+    python3 $P/b2_save.py precomputed $W $MODEL $ENV_FILE > $D/b2_save.log 2>&1 && { python3 $P/b2_index.py > $D/b2_index.log 2>&1 || true; } && log "saved to B2: $(grep -E '^precomputed|^verified' $D/b2_save.log | tr '\n' ' ')" \
       || log "B2 SAVE FAILED (see b2_save.log): precomputed artifacts are only on this machine"
   else
     log "WARNING: no B2 credentials (~/.b2_key): precomputed artifacts are only on this machine"

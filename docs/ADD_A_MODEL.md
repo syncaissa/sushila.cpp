@@ -161,8 +161,10 @@ item for the new release. The same items are written as comments in each `models
 3. Check the Ollama tag holds the same release (the run logs the GGUF's `general.name`).
 4. Copy the family's config, run the smoke run (`SMOKE=1`, about 30 minutes, about $1), fix what it finds, and add
    the fix as a setting, not an edit to the scripts, then add the finding to this playbook.
-5. Full run; then `mirror_weights.sh` on the pod; `b2_save.py verify precomputed/<model>` from another machine; only
-   then delete the pod. Never delete anything under `precomputed/` in B2.
+5. Full run; then `mirror_weights.sh` on the pod; `b2_save.py verify precomputed/<model>` from another machine;
+   `sign_checksums.py sign precomputed/<model>` on the signing machine (this also refreshes the catalogue
+   `precomputed/INDEX.json`, `README.md` and `docs/PRECOMPUTED.md`); only then delete the pod. Never delete anything under
+   `precomputed/` in B2. Add the model's purpose and usage to `NOTES` in `scripts/precompute/b2_index.py`.
 
 ## When a model has no published draft head
 

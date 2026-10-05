@@ -87,6 +87,7 @@ def main():
     b2.put(f'{pre}/CHECKSUMS.json', json.dumps(checks, indent=1).encode())
     print(f'{len(files)} files -> b2://{b2.bucket}/{pre}/ (CHECKSUMS.json)')
     b2_save.verify(pre)
+    import b2_index; b2_index.main()  # keep precomputed/INDEX.json and README.md current
 
 
 if __name__ == '__main__':
