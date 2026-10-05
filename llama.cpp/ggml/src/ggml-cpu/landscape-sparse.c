@@ -29,10 +29,15 @@ static void sushila_once(sushila_once_t * o, void (*fn)(void)) { pthread_once(o,
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#if !defined(_WIN32)   // the optional disk cache (SP_CACHE_DIR) uses POSIX files and mmap; Windows builds do not cache
+#    include <fcntl.h>
+#    include <sys/mman.h>
+#    include <sys/stat.h>
+#    include <unistd.h>
+#    define SP_HAVE_CACHE 1
+#else
+#    define SP_HAVE_CACHE 0
+#endif
 
 #if defined(__AVX2__)
 #include <immintrin.h>
@@ -234,6 +239,10 @@ static size_t sp_file_bytes(const struct sp_weight * e) { return SP_HDR + sizeof
 
 // Thread 0: map an existing cache file for this weight, or create one to be written by sp_build.
 static void sp_open_cache(struct sp_weight * e, const char * name) {
+#if !SP_HAVE_CACHE
+    (void) e; (void) name;
+    return;
+#else
     if (!sp.cache_dir) {
         return;
     }
@@ -259,6 +268,7 @@ static void sp_open_cache(struct sp_weight * e, const char * name) {
         if (e->fd >= 0) { close(e->fd); unlink(e->path); }
         e->fd = -1;
     }
+#endif
 }
 
 // All threads: build the column-major copy of w, columns split across threads in source-block units.
@@ -298,6 +308,7 @@ static void sp_build(struct ggml_compute_params * params, const struct ggml_tens
     free(tile);
     free(col);
     free(qb);
+#if SP_HAVE_CACHE
     if (e->fd >= 0 && c1 > c0) {   // each thread writes its columns to the cache file
         const size_t nb = sizeof(float) * (size_t) (c1 - c0), db = e->col_bytes * (size_t) (c1 - c0);
         const off_t  on = SP_HDR + sizeof(float) * (size_t) c0, od = SP_HDR + sizeof(float) * (size_t) e->K + e->col_bytes * (size_t) c0;
@@ -305,6 +316,7 @@ static void sp_build(struct ggml_compute_params * params, const struct ggml_tens
             fprintf(stderr, "sparse: write to %s failed\n", e->path);
         }
     }
+#endif
 }
 
 // k-th largest of a[0..n) (partially reorders a).
@@ -551,7 +563,9 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
         ggml_barrier(params->threadpool);
         if (ith == 0) {
             sp.build_us += (double) (ggml_time_us() - t_start);
+#if SP_HAVE_CACHE
             if (e->fd >= 0) { close(e->fd); e->fd = -1; }
+#endif
             e->ready = 1;
         }
         ggml_barrier(params->threadpool);

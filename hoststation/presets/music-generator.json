@@ -1,0 +1,6 @@
+{
+  "product": "Sushila Music Generator",
+  "defaultModel": "ace-step-15",
+  "demoPrompt": "upbeat acoustic folk, warm male vocals, acoustic guitar and fiddle, 110 bpm",
+  "demoLyrics": "[verse]\nTwo bears dancing by the river light\nPaws in the water and the stars so bright\n\n[chorus]\nDance, dance, under the pines\nThe forest is singing and the moon still shines"
+}

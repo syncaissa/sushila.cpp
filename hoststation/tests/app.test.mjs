@@ -73,12 +73,12 @@ ok(/cancelled/.test(msg()) && !fs.existsSync(path.join(DATA, 'packs/qwen3-32b-q4
 // 4. the models list: start server, run inference, stop server
 btn('Home').click(); await sleep(50);
 const row = [...d.querySelectorAll('tr')].find((r) => r.textContent.includes('Qwen2.5 0.5B'));
-ok(row && btn('Start server', row) && btn('Open inference', row), 'Home lists the model with Start server and Open inference');
+ok(row && btn('Start server', row) && btn('Generate right here', row) && btn('Generate in browser', row), 'Home lists the model with Start server, Generate right here and Generate in browser');
 btn('Start server', row).click(); await sleep(400);
 ok(spawned['engine:qwen2.5-0.5b-q4km'] && JSON.parse(fs.readFileSync(path.join(DATA, 'state.json'))).running['qwen2.5-0.5b-q4km'], 'Start server starts it on its own port');
 const row2 = [...d.querySelectorAll('tr')].find((r) => r.textContent.includes('Qwen2.5 0.5B'));
-btn('Open inference', row2).click(); await sleep(200);
-ok(opened.at(-1) && /\?t=[0-9a-f]+&model=qwen2\.5-0\.5b-q4km$/.test(opened.at(-1)), 'Open inference opens the page for that model');
+btn('Generate in browser', row2).click(); await sleep(200);
+ok(opened.at(-1) && /\?t=[0-9a-f]+&model=qwen2\.5-0\.5b-q4km$/.test(opened.at(-1)), 'Generate in browser opens the page for that model');
 btn('Stop server', [...d.querySelectorAll('tr')].find((r) => r.textContent.includes('Qwen2.5 0.5B'))).click(); await sleep(200);
 ok(!spawned['engine:qwen2.5-0.5b-q4km'], 'Stop server stops it');
 // 5. a pack whose file points at another website is refused before any download

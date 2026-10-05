@@ -26,25 +26,25 @@ const w = new JSDOM('<!doctype html><div id="app"></div>', { runScripts: 'outsid
 w.confirm = () => true; w.SUSHILA_PRESET = PRESET;  // what dist/preset.js sets in the Image Generator build
 w.__TAURI__ = { core: { invoke: async (c, a) => { if (!cmds[c]) throw new Error('missing ' + c); return cmds[c](a || {}); } }, event: { listen: async () => {} } };
 w.eval(JS);
-for (let i = 0; i < 100 && !opened.length; i++) await sleep(100);
+w.fetch = async (u, o = {}) => {  // the app window calls its own local server in "Generate right here"
+  if (u.endsWith('/api/state')) return { ok: true, json: async () => ({ running: [{ packId: 'z-image-turbo', name: 'Z-Image-Turbo', kind: 'image', mode: 'regular', turbo: false, ready: true }] }) };
+  w.__req = { u, h: o.headers, b: JSON.parse(o.body) }; return { ok: true, json: async () => ({ data: [{ b64_json: 'iVBORw0KGgo=' }] }) };
+};
+w.performance = { now: () => Date.now() };
+for (let i = 0; i < 100 && !w.__req; i++) await sleep(100);
 const st = JSON.parse(fs.readFileSync(path.join(DATA, 'state.json')));
-ok(w.document.querySelector('.top h1').textContent === 'Sushila Image Generator', 'the window is titled Sushila Image Generator');
+
 ok(st.packs['z-image-turbo'] && !st.packs['qwen2.5-0.5b-q4km'], 'first start installs Z-Image-Turbo (not the text default model)');
 ok(spawned['engine:z-image-turbo'] && spawned['engine:z-image-turbo'].program === '/opt/s/sushila-sd-server', 'it starts the image engine (found next to Sushila.cpp)');
 ok(spawned['engine:z-image-turbo'] && spawned['engine:z-image-turbo'].env && spawned['engine:z-image-turbo'].env.LD_LIBRARY_PATH === '/opt/s', 'Linux: the bundled CUDA runtime is on the library path');
-const url = opened[0] || '';
-ok(/model=z-image-turbo&prompt=Two%20bears%20dancing%20in%20a%20forest%20near%20a%20river&run=1$/.test(url), 'it opens the browser on Z-Image-Turbo with the demo prompt');
+ok(!opened.length && w.document.getElementById('studio') && w.document.querySelector('#studio h1').textContent === 'Sushila Image Generator', 'the first result opens right in the app, titled Sushila Image Generator (no browser needed)');
+ok(w.__req && w.__req.u === 'http://127.0.0.1:8765/v1/images/generations' && w.__req.b.prompt === 'Two bears dancing in a forest near a river' && w.__req.h['x-sushila-token'], 'the app makes "Two bears dancing in a forest near a river" itself, with its session token');
+await sleep(100);
+ok(w.document.querySelector('.gallery img') && w.document.querySelector('.gallery a.dlbtn[download]'), 'the image is shown in the app with a Download button');
 ok(st.presetDone === true, 'the automatic first start happens once');
-// the browser page, opened with that link
-let req = null;
-const pw = new JSDOM('<!doctype html><div id="app"></div>', { url: 'http://127.0.0.1:8765/' + url.replace(/^https?:\/\/[^/]+\//, ''), runScripts: 'outside-only' }).window;
-pw.fetch = async (u, o = {}) => {
-  if (u.endsWith('/api/state')) return { ok: true, json: async () => ({ running: [{ packId: 'z-image-turbo', name: 'Z-Image-Turbo', kind: 'image' }] }) };
-  req = JSON.parse(o.body); return { ok: true, json: async () => ({ data: [{ b64_json: 'iVBORw0KGgo=' }] }) };
-};
-pw.performance = { now: () => Date.now() }; pw.eval(JS); await sleep(300);
-ok(req && req.prompt === 'Two bears dancing in a forest near a river' && req.model === 'z-image-turbo', 'the page submits the demo prompt by itself');
-ok(pw.document.querySelector('.gallery img') && pw.document.querySelector('.gallery a.dlbtn[download]'), 'the image is shown with a Download button');
-ok(pw.location.search === '', 'the address bar is cleaned (no token in it)');
+const turbo = w.document.querySelector('#modesw button[data-mode=turbo]');
+ok(turbo && turbo.disabled && w.document.querySelector('#modesw button[data-mode=regular]').classList.contains('on'), 'no precomputed files for Z-Image: Regular is on, Turbo is greyed out');
+[...w.document.querySelectorAll('button')].find((b) => b.textContent.includes('Host Station')).click(); await sleep(50);
+ok(w.document.querySelector('.tabs') && !w.document.getElementById('studio'), '"◀ Host Station" returns to the app screens');
 fs.rmSync(DATA, { recursive: true, force: true });
 console.log(fails ? `${fails} FAILED` : 'all passed'); process.exit(fails ? 1 : 0);

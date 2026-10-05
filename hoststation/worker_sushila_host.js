@@ -130,8 +130,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       s.public = {
         app: APP, appVersion: HOST.info.app_version,
         engine: s.engine ? { version: s.engine.version, source: s.engine.source } : null,
-        running: Object.entries(s.running).map(([id, r]) => ({ packId: id, name: r.name, kind: r.kind || 'text', startedAt: r.startedAt })),
-        packs: Object.values(s.packs).map((p) => ({ id: p.id, name: p.name, kind: p.kind || 'text' })),
+        running: Object.entries(s.running).map(([id, r]) => ({ packId: id, name: r.name, kind: r.kind || 'text', startedAt: r.startedAt, mode: r.mode || 'regular',
+          turbo: !!(s.packs[id] && canTurbo(s.packs[id])), ready: !!r.ready })),
+        packs: Object.values(s.packs).map((p) => ({ id: p.id, name: p.name, kind: p.kind || 'text', turbo: canTurbo(p) })),
       };
       await invoke('write_text', { path: statePath, content: JSON.stringify(s, null, 1) });
     }
@@ -163,6 +164,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
             if (/sushila/i.test(text) || name === 'sushila-server') {
               const dir = p.replace(/[\\/][^\\/]+$/, ''), sd = join(dir, HOST.info.family === 'windows' ? 'sushila-sd-server.exe' : 'sushila-sd-server');
               const servers = { text: p }; if (await invoke('path_exists', { path: sd })) servers.image = sd;
+              const ace = join(dir, HOST.info.family === 'windows' ? 'sushila-ace-server.exe' : 'sushila-ace-server'); if (await invoke('path_exists', { path: ace })) servers.music = ace;
               s.engine = { version: (text.match(/version:?\s*([\w.\-]+)/i) || [])[1] || 'unknown', server: p, servers, dir, source: 'found on this computer', installedAt: '' };
               await saveState();
               return s.engine;
@@ -200,7 +202,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const server = join(dir, build.server);
       await invoke('set_executable', { path: server });
       const servers = { text: server };
-      if (build.servers && build.servers.image && safeRelPath(build.servers.image)) { servers.image = join(dir, build.servers.image); await invoke('set_executable', { path: servers.image }); }
+      for (const k of ['image', 'music']) if (build.servers && build.servers[k] && safeRelPath(build.servers[k])) { servers[k] = join(dir, build.servers[k]); await invoke('set_executable', { path: servers[k] }); }
       HOST.state.engine = { version: v, server, servers, dir, source: HOST.state.settings.scope === 'all' ? 'installed for all users' : 'installed for this user', installedAt: new Date().toISOString() };
       await invoke('remove_path', { path: staging }).catch(() => {});
       await saveState();
@@ -250,7 +252,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       }
       if (!safeRelPath(pack.serve && pack.serve.model) || !pack.files.some((f) => f.path === pack.serve.model)) throw new Error(`${pack.name}: the model file is not part of the pack.`);
       for (const a of (pack.serve.args || [])) if (!/^[\w.=:-]{1,64}$/.test(a) && !(a.startsWith('{pack}/') && safeRelPath(a.slice(7)) && pack.files.some((f) => f.path === a.slice(7)))) throw new Error(`${pack.name}: unexpected engine option ${a}`);
-      if (pack.serve.engine && !['text', 'image'].includes(pack.serve.engine)) throw new Error(`${pack.name}: unknown engine ${pack.serve.engine}`);
+      if (pack.serve.engine && !['text', 'image', 'music'].includes(pack.serve.engine)) throw new Error(`${pack.name}: unknown engine ${pack.serve.engine}`);
     }
 
     // ---------- model packs: the "Install" flow
@@ -371,30 +373,46 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     }
 
     // ---------- run models (several at once, each on its own port)
+    // Turbo: Sushila.cpp uses the pack's precomputed files (output-layer landscape, draft head). Regular: the plain model,
+    // as Ollama or stock llama.cpp would run it (SUSHILA=0 turns the lookup off). Packs without precomputed files run Regular.
+    function canTurbo(p) { return (p.engine || 'text') === 'text' && (p.artifacts || []).length > 0; }
+    async function setMode(id, mode) {
+      const p = HOST.state.packs[id]; if (!p) return;
+      if (mode === 'turbo' && !canTurbo(p)) throw new Error(`${p.name} has no precomputed files yet: Turbo is not available.`);
+      if (HOST.state.running[id] && HOST.state.running[id].mode === mode) return;
+      if (HOST.state.running[id]) await stopModel(id);
+      await startModel(id, mode);
+    }
     function freePort() {
       const used = new Set(Object.values(HOST.state.running).map((r) => r.port));
       let p = HOST.state.settings.enginePort;
       while (used.has(p) || p === HOST.state.settings.port) p += 1;
       return p;
     }
-    async function startModel(id) {
+    async function startModel(id, mode) {
       const p = HOST.state.packs[id], s = HOST.state.settings;
+      mode = mode || (canTurbo(p) ? 'turbo' : 'regular');
       if (!HOST.state.engine) throw new Error('Install Sushila.cpp first.');
       if (HOST.state.running[id]) return;
       const port = freePort();
       const threads = s.threads || Math.max(1, Math.min(16, HOST.info.cpus - 1));
       const packArgs = (p.args || []).map((a) => (a.startsWith('{pack}/') ? join(p.dir, ...a.slice(7).split('/')) : a));
-      const image = p.engine === 'image';
-      const program = image ? (HOST.state.engine.servers || {}).image : HOST.state.engine.server;
-      if (!program) throw new Error(`${p.name} needs the image engine (stable-diffusion.cpp), which this Sushila.cpp installation does not include. Install or update Sushila.cpp in the Engine tab.`);
-      const args = image
+      const image = p.engine === 'image', music = p.engine === 'music';
+      const program = image ? (HOST.state.engine.servers || {}).image : music ? (HOST.state.engine.servers || {}).music : HOST.state.engine.server;
+      if (!program) throw new Error(`${p.name} needs the ${image ? 'image engine (stable-diffusion.cpp)' : music ? 'music engine (acestep.cpp)' : 'engine'}, which this Sushila.cpp installation does not include. Install or update Sushila.cpp in the Engine tab.`);
+      const args = music
+        ? ['--models', p.dir, '--host', '127.0.0.1', '--port', String(port), '--keep-loaded', ...packArgs]  // acestep.cpp ace-server
+        : image
         ? ['--listen-ip', '127.0.0.1', '--listen-port', String(port), '-t', String(threads), ...packArgs]  // stable-diffusion.cpp sd-server
         : ['-m', join(p.dir, ...p.model.split('/')), '--host', '127.0.0.1', '--port', String(port),
            '-t', String(threads), '-c', String(s.contextSize * Math.max(1, s.parallel)), '-np', String(Math.max(1, s.parallel)), '-ngl', String(s.gpuLayers), ...packArgs];
       log(`starting ${p.name} on port ${port}: ${program} ${args.join(' ')}`);
-      const env = HOST.info.os === 'linux' && HOST.state.engine.dir ? { LD_LIBRARY_PATH: HOST.state.engine.dir } : null;  // bundled CUDA runtime
-      await invoke('spawn_process', { id: 'engine:' + id, program, args, cwd: p.dir, env });
-      HOST.state.running[id] = { port, name: p.name, kind: p.kind || 'text', startedAt: new Date().toISOString(), ready: false };
+      const env = {};
+      if (HOST.info.os === 'linux' && HOST.state.engine.dir) env.LD_LIBRARY_PATH = HOST.state.engine.dir;  // bundled CUDA runtime
+      if (mode === 'regular') env.SUSHILA = '0';  // the plain model: no landscape, no draft head
+      await invoke('spawn_process', { id: 'engine:' + id, program, args, cwd: p.dir, env: Object.keys(env).length ? env : null });
+      HOST.state.running[id] = { port, name: p.name, kind: p.kind || 'text', startedAt: new Date().toISOString(), ready: false, mode };
+      log(`${p.name}: ${mode === 'turbo' ? 'Turbo (precomputed files on)' : 'Regular (plain model)'}`);
       await saveState(); render();
       for (let i = 0; i < 300; i++) {  // the model loads, then /health answers
         try { await invoke('http_text', { url: `http://127.0.0.1:${port}${image ? '/' : '/health'}`, timeoutS: 3 }); HOST.state.running[id].ready = true; log(`${p.name} is ready.`); await saveState(); return; }
@@ -407,9 +425,23 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       delete HOST.state.running[id];
       await saveState();
     }
-    async function runInference(id) {
+    async function runInference(id) {  // "Generate in browser"
       if (!HOST.state.running[id]) await startModel(id);
       await launchPage(id);
+    }
+    // "Generate right here": the same page inside this window; the server and download screens step aside
+    async function generateHere(id, prompt, extra = {}) {
+      if (!HOST.state.running[id]) await startModel(id);
+      HOST.studio = { id, prompt, ...extra };
+      renderStudio();
+    }
+    function renderStudio() {
+      const st = HOST.studio, c = el('div', { id: 'studio' });
+      $('app').replaceChildren(c);
+      inferencePage({ container: c, title: APP, base: `http://127.0.0.1:${HOST.state.settings.port}`, token: HOST.state.token, model: st.id, prompt: st.prompt, lyrics: st.lyrics, run: !!st.prompt,
+        onBack: () => { HOST.studio = null; render(); }, onBrowser: (id) => act(() => runInference(id || st.id)),
+        setMode: async (id, mode) => { HOST.busy = true; try { await setMode(id, mode); } finally { HOST.busy = false; } } });
+      HOST.studio.prompt = '';  // the demo runs once
     }
 
     // ---------- helpers
@@ -530,6 +562,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     // ---------- screens
     let tab = 'home';
     function render() {
+      if (HOST.studio) return;  // in "Generate right here" the page stays; ◀ Host Station comes back
       const app = $('app');
       app.replaceChildren(top(), tabs(), el('main', {}, el('div', { id: 'msg', class: 'msg ' + msg.kind }, msg.text), installedBanner(), screen()), downloadsPanel());
     }
@@ -541,7 +574,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('span', { class: 'pill ' + (n ? 'on' : '') }, n ? `${n} model${n > 1 ? 's' : ''} running` : 'No model running'),
         el('button', { class: 'ghost', onclick: () => { HOST.showDownloads = !HOST.showDownloads; render(); } }, 'Downloads',
           Object.keys(HOST.downloads).length ? el('span', { class: 'badge' }, String(Object.keys(HOST.downloads).length)) : null),
-        el('button', { onclick: () => act(() => launchPage()), disabled: !n }, 'Open Inference Page'));
+        el('button', { onclick: () => act(() => launchPage()), disabled: !n }, 'Generate in browser'));
     }
     function tabs() {
       const t = [['home', 'Home'], ['engine', 'Engine'], ['packs', 'Model Packs'], ['run', 'Run & Logs'], ['settings', 'Settings']];
@@ -567,7 +600,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const p = HOST.lastInstalled && HOST.state.packs[HOST.lastInstalled];
       if (!p) return null;
       return el('div', { class: 'card', style: 'margin-bottom:14px;border-color:var(--acc)' }, el('b', {}, `${p.name} is installed.`),
-        el('div', { class: 'row' }, el('button', { class: 'big', disabled: HOST.busy, onclick: () => act(() => runInference(p.id), `${p.name}: the inference page is open in your browser.`) }, p.kind === 'music' ? 'Open music page' : p.kind === 'image' ? 'Open image page' : 'Open inference'),
+        el('div', { class: 'row' }, el('button', { class: 'big', disabled: HOST.busy, onclick: () => act(() => generateHere(p.id)) }, 'Generate right here'),
+          el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(() => runInference(p.id), `${p.name}: the page is open in your browser.`) }, 'Generate in browser'),
           el('button', { class: 'ghost', onclick: () => { HOST.lastInstalled = null; render(); } }, 'Close')));
     }
     function downloadsPanel() {
@@ -597,7 +631,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
             el('td', {}, el('div', { class: 'row', style: 'margin:0' },
               r ? el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(() => stopModel(p.id), `${p.name} stopped.`) }, 'Stop server')
                 : el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => startModel(p.id), `${p.name} is running.`) }, 'Start server'),
-              el('button', { disabled: HOST.busy || !s.engine, onclick: () => act(() => runInference(p.id), `${p.name}: the inference page is open in your browser.`) }, p.kind === 'music' ? 'Create music' : p.kind === 'image' ? 'Create images' : 'Open inference'))));
+              el('button', { disabled: HOST.busy || !s.engine, onclick: () => act(() => generateHere(p.id)) }, 'Generate right here'),
+              el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => runInference(p.id), `${p.name}: the page is open in your browser.`) }, 'Generate in browser'))));
         })));
     }
     function homeScreen() {
@@ -763,14 +798,22 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
             await installPack(pack, { noAsk: true });
           }
           await startModel(DEFAULT_MODEL);
-          await launchPage(DEFAULT_MODEL, PRESET.demoPrompt || '');
           HOST.state.presetDone = true; await saveState();
+          await generateHere(DEFAULT_MODEL, PRESET.demoPrompt || '', { lyrics: PRESET.demoLyrics || '' });  // the first result, right in the app
         }, `${APP} is ready. Your browser shows the first result.`);
       } else if (HOST.state.engine && !Object.keys(HOST.state.packs).length) {
         // an engine but no model yet (e.g. Sushila.cpp was already on this computer): install the default model now
         act(ensureDefaultModel, 'The default model is installed. Press Run inference to try it.');
       }
       listen('deep-link', () => handleLinks());
+      setInterval(async () => {  // Regular/Turbo switches asked for by the browser page (POST /api/mode)
+        if (HOST.busy) return;
+        const raw = await invoke('read_text', { path: join(HOST.info.data_dir, 'mode-request.json') }).catch(() => null);
+        if (!raw) return;
+        await invoke('remove_path', { path: join(HOST.info.data_dir, 'mode-request.json') }).catch(() => {});
+        let r; try { r = JSON.parse(raw); } catch (_) { return; }
+        act(() => setMode(r.model, r.mode), `${(HOST.state.packs[r.model] || {}).name || r.model}: ${r.mode === 'turbo' ? 'Turbo' : 'Regular'}.`);
+      }, 1500);
       await handleLinks();  // the link that started the app, if any
     })().catch((e) => { $('app').textContent = 'Sushila Host Station could not start: ' + e; });
   }
@@ -779,40 +822,48 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
   // Served by a Host Station at http://127.0.0.1:<port>/ (or a shared Host Station's address). The Server menu
   // switches between this computer and remote Host Stations (their address and an access key); the Model menu lists
   // what runs there. Text models get a chat screen; music packs get a music screen.
-  function inferencePage() {
-    style();
-    document.head.append(el('style', {}, `
+  // opts (inside the Host Station window): { container, base, token, model, prompt, lyrics, run, onBack, onBrowser }
+  function inferencePage(opts = {}) {
+    const embedded = !!opts.container;
+    if (!embedded) style();
+    if (!inferencePage.styled) inferencePage.styled = true, document.head.append(el('style', {}, `
 .bar2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar2 select,.bar2 input{max-width:260px}
 .music{max-width:760px;margin:0 auto;padding:16px}.music label{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}
 .music textarea,.music input,.music select{width:100%}.bar2 label select,.bar2 label input{width:auto}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px}.gallery figure{margin:0}.gallery img{width:100%;border-radius:10px;border:1px solid var(--line)}
+.modesw{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin-left:6px}.modesw button{border:0;border-radius:0;background:transparent;color:var(--mut);padding:5px 12px;font-size:13px}
+.modesw button.on{background:var(--acc);color:#fff}.modesw button:disabled{opacity:.4}
 .dlbtn{display:inline-block;margin-top:6px;padding:6px 14px;border-radius:8px;background:var(--acc);color:#fff;text-decoration:none;font-weight:600}.music audio{width:100%;margin-top:14px}.track{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px;background:var(--card)}`));
-    document.title = 'Sushila Inference';
-    const qs = new URLSearchParams(location.search);
+    if (!embedded) document.title = 'Sushila Inference';
+    const qs = embedded ? new URLSearchParams() : new URLSearchParams(location.search);
     const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
     if (qs.get('t')) { try { sessionStorage.setItem('sushila-token', qs.get('t')); } catch (_) {} }
-    let token = ''; try { token = sessionStorage.getItem('sushila-token') || ''; } catch (_) {}
-    let want = qs.get('model') || '';
-    let autoPrompt = (qs.get('prompt') || '').slice(0, 2000), autoRun = qs.get('run') === '1';  // e.g. the first-start demo
-    if (qs.get('t') || qs.get('model') || qs.get('prompt')) history.replaceState(null, '', '/');
+    let token = opts.token || ''; if (!embedded) try { token = sessionStorage.getItem('sushila-token') || ''; } catch (_) {}
+    let want = opts.model || qs.get('model') || '';
+    let autoPrompt = (opts.prompt || qs.get('prompt') || '').slice(0, 2000), autoRun = !!opts.run || qs.get('run') === '1';  // e.g. the first-start demo
+    let autoLyrics = (opts.lyrics || qs.get('lyrics') || '').slice(0, 4000);
+    if (!embedded && (qs.get('t') || qs.get('model') || qs.get('prompt'))) history.replaceState(null, '', '/');
     let hosts = store.get('sushila-hosts', []);     // remote Host Stations: ["https://ai.example.com", ...]
     let keys = store.get('sushila-keys', {});       // their access keys, kept in this browser only
-    let server = store.get('sushila-server', '');   // '' = this computer
+    let server = embedded ? '' : store.get('sushila-server', '');   // '' = this computer
     if (server && !hosts.includes(server)) server = '';
     let models = [], model = null, ctrl = null;
     const msgs = [];
-    const base = () => server;  // '' = same origin
+    const base = () => server || opts.base || '';  // '' = same origin (the page served by Host Station)
     const auth = () => (!server && token ? { 'x-sushila-token': token } : keys[server] ? { authorization: 'Bearer ' + keys[server] } : {});
-    const app = document.getElementById('app');
+    const app = opts.container || document.getElementById('app');
 
     const serverSel = el('select', { id: 'srv', 'aria-label': 'Server' });
     const modelSel = el('select', { id: 'mdl', 'aria-label': 'Model' });
     const remoteBox = el('div', { class: 'bar2 hidden', id: 'remote' },
       el('input', { id: 'rurl', placeholder: 'https://ai.example.com', type: 'url' }), el('input', { id: 'rkey', placeholder: 'access key', type: 'password' }),
       el('button', { onclick: addRemote }, 'Connect'), el('button', { class: 'ghost', onclick: () => { $('remote').classList.add('hidden'); fillServers(); } }, 'Cancel'));
-    const head = el('div', { class: 'top' }, el('h1', {}, 'Sushila'),
-      el('div', { class: 'bar2' }, el('span', { class: 'sub' }, 'Server'), serverSel, el('span', { class: 'sub' }, 'Model'), modelSel),
-      el('span', { class: 'sp' }), el('span', { class: 'pill', id: 'status' }, '…'));
+    const head = el('div', { class: 'top' }, embedded ? el('button', { class: 'ghost', onclick: opts.onBack }, '◀ Host Station') : null, el('h1', {}, opts.title || 'Sushila'),
+      el('div', { class: 'bar2' }, el('span', { class: 'sub' }, 'Server'), serverSel, el('span', { class: 'sub' }, 'Model'), modelSel,
+        el('div', { class: 'modesw', id: 'modesw', role: 'group', 'aria-label': 'Speed mode' },
+          el('button', { 'data-mode': 'regular', onclick: () => switchMode('regular') }, 'Regular'), el('button', { 'data-mode': 'turbo', onclick: () => switchMode('turbo') }, 'Turbo'))),
+      el('span', { class: 'sp' }), el('span', { class: 'pill', id: 'status' }, '…'),
+      embedded && opts.onBrowser ? el('button', { class: 'ghost', onclick: () => opts.onBrowser(model && model.packId) }, 'Generate in browser') : null);
     const main = el('div', { id: 'main' });
     app.replaceChildren(head, el('div', { style: 'padding:0 22px' }, remoteBox), main);
 
@@ -858,8 +909,37 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       pickModel();
     }
     modelSel.addEventListener('change', pickModel);
+    function showMode() {
+      const sw = $('modesw'); if (!sw) return;
+      const m = model, can = !!(m && m.turbo), local = !server;
+      sw.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('on', !!m && b.dataset.mode === (m.mode || 'regular'));
+        b.disabled = !m || !local || (b.dataset.mode === 'turbo' && !can);
+      });
+      sw.title = !m ? '' : !local ? 'Only the computer running the model can switch modes.' : can ? 'Turbo uses this model\'s precomputed Sushila files (landscape, draft head); Regular runs the plain model.'
+        : 'This model has no precomputed Sushila files yet, so it runs Regular (the plain model).';
+    }
+    async function switchMode(mode) {
+      if (!model || server || (model.mode || 'regular') === mode) return;
+      setStatus(mode === 'turbo' ? 'switching to Turbo…' : 'switching to Regular…');
+      try {
+        if (opts.setMode) await opts.setMode(model.packId, mode);
+        else {
+          const r = await fetch(base() + '/api/mode', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, auth()), body: JSON.stringify({ model: model.packId, mode }) });
+          if (!r.ok) throw new Error(await r.text());
+          for (let i = 0; i < 180; i++) {  // the model restarts in the chosen mode
+            await new Promise((res) => setTimeout(res, 1000));
+            const st = await (await fetch(base() + '/api/state')).json();
+            const m = (st.running || []).find((x) => x.packId === model.packId);
+            if (m && m.mode === mode && m.ready) break;
+          }
+        }
+        want = model.packId; await loadModels();
+      } catch (e) { setStatus('Could not switch: ' + (e.message || e), 'off'); }
+    }
     function pickModel() {
       model = models.find((m) => m.packId === modelSel.value) || null;
+      showMode();
       msgs.length = 0;
       if (!model) { main.replaceChildren(el('div', { class: 'chat' }, el('div', { class: 'sub' }, server ? 'No model is running on that server.' : 'No model is running. In Sushila Host Station, press Start server (or Run inference) next to a model.'))); return; }
       (model.kind === 'music' ? musicScreen : model.kind === 'image' ? imageScreen : chatScreen)();
@@ -921,31 +1001,67 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       }
     }
 
-    // ---------- music (music packs): POST /v1/audio/music {model, prompt, lyrics, duration} -> audio
+    // ---------- music (music packs, acestep.cpp ace-server behind /v1/music/): 1. Lyrics, 2. Style, Generate.
+    // The engine works in two queued jobs: /lm writes the song (structure and audio codes from lyrics + style), /synth sings
+    // it; each returns a job id that is polled at /job?id=N, and the synth result is multipart/mixed with one MP3 part.
     function musicScreen() {
       main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create music'),
-        el('label', { for: 'mstyle' }, 'Style'), el('input', { id: 'mstyle', placeholder: 'e.g. upbeat indie pop, female vocals, acoustic guitar, 110 bpm' }),
-        el('label', { for: 'mlyrics' }, 'Lyrics (optional)'), el('textarea', { id: 'mlyrics', rows: 8, placeholder: '[verse]\n...\n[chorus]\n...' }),
-        el('label', { for: 'mdur' }, 'Length'), el('select', { id: 'mdur' }, [30, 60, 120, 180].map((d) => el('option', { value: d, selected: d === 60 }, d < 60 ? d + ' seconds' : d / 60 + ' minute' + (d > 60 ? 's' : '')))),
-        el('div', { class: 'row' }, el('button', { id: 'mgo', class: 'big', onclick: makeMusic }, 'Submit')),
+        el('label', { for: 'mlyrics' }, '1. Lyrics'), el('textarea', { id: 'mlyrics', rows: 9, placeholder: '[verse]\nWrite your lyrics here…\n\n[chorus]\n…\n\n(leave empty for an instrumental, or let the model write them: type [auto])' }),
+        el('label', { for: 'mstyle' }, '2. Style'), el('input', { id: 'mstyle', placeholder: 'e.g. upbeat acoustic folk, warm male vocals, guitar and fiddle, 110 bpm' }),
+        el('div', { class: 'bar2', style: 'margin-top:10px' }, el('label', {}, 'Length ', el('select', { id: 'mdur' }, [30, 60, 90, 120, 180].map((d) => el('option', { value: d, selected: d === 60 }, d < 60 ? d + ' seconds' : (d / 60) + ' min'))))),
+        el('div', { class: 'row' }, el('button', { id: 'mgo', class: 'big', onclick: makeMusic }, 'Generate')),
         el('div', { class: 'msg', id: 'mmsg' }), keyHint(), el('div', { id: 'tracks' })));
+      if (autoLyrics) { $('mlyrics').value = autoLyrics; autoLyrics = ''; }
+      if (autoPrompt) { $('mstyle').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeMusic(); } }
+    }
+    const musicCall = async (path, opt = {}) => {
+      const r = await fetch(base() + '/v1/music' + path, Object.assign({}, opt, { headers: Object.assign({ 'x-sushila-model': model.packId }, opt.body ? { 'content-type': 'application/json' } : {}, auth()) }));
+      if (!r.ok) throw new Error(explain(r, await r.text()));
+      return r;
+    };
+    async function musicJob(path, body, label) {
+      const { id } = await (await musicCall(path, { method: 'POST', body: JSON.stringify(body) })).json();
+      for (let i = 0; i < 1800; i++) {
+        const st = await (await musicCall('/job?id=' + encodeURIComponent(id))).json();
+        if (st.status === 'done') return musicCall('/job?id=' + encodeURIComponent(id) + '&result=1');
+        if (st.status === 'failed' || st.status === 'cancelled') throw new Error(label + ' ' + st.status + (st.error ? ': ' + st.error : ''));
+        $('mmsg').textContent = `${label}… ${i}s`;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      throw new Error(label + ' took too long.');
+    }
+    function audioFromMultipart(buf, ctype) {  // the first part whose Content-Type is audio/*
+      const m = /boundary="?([^";]+)"?/i.exec(ctype || ''); if (!m) return null;
+      const bytes = new Uint8Array(buf), dec = new TextDecoder('latin1'), text = dec.decode(bytes), sep = '--' + m[1];
+      let at = text.indexOf(sep);
+      while (at >= 0) {
+        const start = at + sep.length; if (text.startsWith('--', start)) break;
+        const next = text.indexOf(sep, start); if (next < 0) break;
+        const headEnd = text.indexOf('\r\n\r\n', start);
+        const head = text.slice(start, headEnd), type = (/content-type:\s*([^\r\n;]+)/i.exec(head) || [])[1] || '';
+        if (/^audio\//i.test(type)) { let end = next; if (text.slice(end - 2, end) === '\r\n') end -= 2; return new Blob([bytes.slice(headEnd + 4, end)], { type: type.trim() }); }
+        at = next;
+      }
+      return null;
     }
     async function makeMusic() {
-      const prompt = $('mstyle').value.trim();
-      if (!prompt || !model) { $('mmsg').textContent = 'Describe the style first.'; return; }
-      $('mgo').disabled = true; $('mmsg').className = 'msg'; $('mmsg').textContent = 'Composing… this can take a minute or more.';
+      const style = $('mstyle').value.trim(); let lyrics = $('mlyrics').value.trim();
+      if (!style || !model) { $('mmsg').className = 'msg err'; $('mmsg').textContent = 'Describe the style first (2. Style).'; return; }
+      if (!lyrics) lyrics = '[Instrumental]'; else if (lyrics === '[auto]') lyrics = '';
+      $('mgo').disabled = true; $('mmsg').className = 'msg';
       const t0 = performance.now();
       try {
-        const r = await fetch(base() + '/v1/audio/music', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth()),
-          body: JSON.stringify({ model: model.packId, prompt, lyrics: $('mlyrics').value, duration: +$('mdur').value }) });
-        if (!r.ok) throw new Error(explain(r, await r.text()));
-        let src;
-        if ((r.headers.get('content-type') || '').startsWith('audio/')) src = URL.createObjectURL(await r.blob());
-        else { const j = await r.json(); src = j.audio_url || (j.audio ? 'data:audio/' + (j.format || 'mpeg') + ';base64,' + j.audio : ''); }
-        if (!src) throw new Error('The server returned no audio.');
-        $('tracks').prepend(el('div', { class: 'track' }, el('b', {}, prompt), el('div', { class: 'meta' }, `made in ${((performance.now() - t0) / 1000).toFixed(1)} s`),
-          el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-music.mp3' }, 'Download')));
-        $('mmsg').textContent = '';
+        const req = { caption: style, lyrics, duration: +$('mdur').value, seed: -1, output_format: 'mp3' };
+        const planned = await (await musicJob('/lm', req, 'Writing the song (step 1 of 2)')).json();
+        const songs = (Array.isArray(planned) ? planned : [planned]).map((x) => Object.assign({}, x, { output_format: 'mp3' }));
+        const r = await musicJob('/synth', songs, 'Singing it (step 2 of 2)');
+        const ct = r.headers.get('content-type') || '';
+        const blob = /^audio\//.test(ct) ? await r.blob() : audioFromMultipart(await r.arrayBuffer(), ct);
+        if (!blob) throw new Error('The server returned no audio.');
+        const src = URL.createObjectURL(blob), secs = ((performance.now() - t0) / 1000).toFixed(0);
+        $('tracks').prepend(el('div', { class: 'track' }, el('b', {}, style), el('div', { class: 'meta' }, `made in ${secs} s` + (lyrics && lyrics !== '[Instrumental]' ? ' · with your lyrics' : '')),
+          el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-song.mp3', class: 'dlbtn' }, '⬇ Download')));
+        $('mmsg').textContent = `Done in ${secs} s.`;
       } catch (e) { $('mmsg').className = 'msg err'; $('mmsg').textContent = String(e.message || e); }
       finally { $('mgo').disabled = false; }
     }

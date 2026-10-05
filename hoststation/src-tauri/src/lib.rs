@@ -507,22 +507,28 @@ async fn srv_js(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers
 
 /// When sharing, pages on other sites (e.g. an inference page on another computer pointed at this server) may call
 /// /api/state and /v1/*: they authenticate with an access key, never with cookies, so any origin is allowed.
-fn with_cors(mut resp: axum::response::Response, st: &Value) -> axum::response::Response {
-    if share(st).is_some() {
+/// The Host Station window itself (tauri://localhost, http(s)://tauri.localhost) may always call it ("Generate here").
+fn with_cors_for(mut resp: axum::response::Response, st: &Value, origin: Option<&str>) -> axum::response::Response {
+    let app_window = matches!(origin, Some("tauri://localhost") | Some("http://tauri.localhost") | Some("https://tauri.localhost"));
+    if share(st).is_some() || app_window {
         let h = resp.headers_mut();
-        h.insert("access-control-allow-origin", axum::http::HeaderValue::from_static("*"));
-        h.insert("access-control-allow-headers", axum::http::HeaderValue::from_static("authorization, content-type, x-sushila-model"));
+        let allow = if app_window { axum::http::HeaderValue::from_str(origin.unwrap()).unwrap_or(axum::http::HeaderValue::from_static("*")) } else { axum::http::HeaderValue::from_static("*") };
+        h.insert("access-control-allow-origin", allow);
+        h.insert("access-control-allow-headers", axum::http::HeaderValue::from_static("authorization, content-type, x-sushila-model, x-sushila-token"));
         h.insert("access-control-allow-methods", axum::http::HeaderValue::from_static("GET, POST, OPTIONS"));
     }
     resp
 }
+
+fn with_cors(resp: axum::response::Response, st: &Value) -> axum::response::Response { with_cors_for(resp, st, None) }
 
 async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
     let st = read_state(&s.data_dir);
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     // only the "public" part of the Host Station state (models and what runs): never the session token or keys
-    with_cors(axum::Json(st.get("public").cloned().unwrap_or(json!({}))).into_response(), &st)
+    let origin = headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
+    with_cors_for(axum::Json(st.get("public").cloned().unwrap_or(json!({}))).into_response(), &st, origin.as_deref())
 }
 
 async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
@@ -532,6 +538,8 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     let path = parts.uri.path().to_string();
     if !(path.starts_with("/v1/") || path == "/health") { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); }
+    let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
+    let with_cors = |r: axum::response::Response, st: &Value| with_cors_for(r, st, origin.as_deref());
     if parts.method == axum::http::Method::OPTIONS { return with_cors(axum::http::StatusCode::NO_CONTENT.into_response(), &st); }
     let deny = |code: axum::http::StatusCode, msg: &'static str| with_cors((code, msg).into_response(), &st);
     if path.starts_with("/v1/") {
@@ -566,7 +574,9 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     let Some(up) = pick.and_then(|r| r.get("port")).and_then(|p| p.as_u64()) else {
         return deny(axum::http::StatusCode::SERVICE_UNAVAILABLE, if running.is_empty() { "no model is running: start one in Sushila Host Station" } else { "name a running model (\"model\" field); GET /v1/models lists them" });
     };
-    let url = format!("http://127.0.0.1:{up}{}", parts.uri.path_and_query().map(|p| p.as_str()).unwrap_or(&path));
+    let pq = parts.uri.path_and_query().map(|p| p.as_str().to_string()).unwrap_or(path.clone());
+    let upstream_path = pq.strip_prefix("/v1/music").map(|r| r.to_string()).unwrap_or(pq);  // music servers have their own paths
+    let url = format!("http://127.0.0.1:{up}{upstream_path}");
     let method = reqwest::Method::from_bytes(parts.method.as_str().as_bytes()).unwrap_or(reqwest::Method::GET);
     let mut r = s.http.request(method, url).body(bytes.to_vec());
     for h in ["content-type", "accept"] {
@@ -582,6 +592,26 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         Err(e) => (axum::http::StatusCode::BAD_GATEWAY, format!("the model server did not answer: {e}")).into_response(),
     };
     with_cors(resp, &st)
+}
+
+/// POST /api/mode {"model": id, "mode": "turbo"|"regular"}: the browser page asks Host Station to restart a model with or
+/// without its precomputed files. Only this computer's own pages (session token) may ask; the window applies it.
+async fn srv_mode(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let (parts, body) = req.into_parts();
+    let st = read_state(&s.data_dir);
+    let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
+    if parts.method == axum::http::Method::OPTIONS { return with_cors_for(axum::http::StatusCode::NO_CONTENT.into_response(), &st, origin.as_deref()); }
+    if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    if caller(&parts.headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "only this computer can switch modes").into_response(); }
+    let Ok(bytes) = axum::body::to_bytes(body, 4096).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let Ok(v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let (Some(model), Some(mode)) = (v.get("model").and_then(|m| m.as_str()), v.get("mode").and_then(|m| m.as_str())) else { return (axum::http::StatusCode::BAD_REQUEST, "model and mode required").into_response() };
+    if !(mode == "turbo" || mode == "regular") || model.len() > 80 || !model.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') {
+        return (axum::http::StatusCode::BAD_REQUEST, "bad model or mode").into_response();
+    }
+    let _ = std::fs::write(s.data_dir.join("mode-request.json"), json!({ "model": model, "mode": mode }).to_string());
+    with_cors_for((axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "ok": true }))).into_response(), &st, origin.as_deref())
 }
 
 /// sushila:// links that arrived before the page asked (e.g. the link that started the app).
@@ -602,6 +632,7 @@ async fn server_start(host: State<'_, Host>, port: u16, bind: Option<String>) ->
         .route("/", axum::routing::get(srv_page))
         .route("/worker_sushila_host.js", axum::routing::get(srv_js))
         .route("/api/state", axum::routing::get(srv_state))
+        .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
         .fallback(srv_proxy)
         .with_state(srv);
     let (tx, rx) = oneshot::channel::<()>();

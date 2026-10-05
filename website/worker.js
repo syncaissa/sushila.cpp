@@ -1743,6 +1743,12 @@ const HOST_PACKS = [
       ['landscape/landscape.mclp', 'qwen2.5-0.5b-q4km.gguf.sushila/landscape.mclp', 'landscape'],
       ['landscape/LICENSE.txt', 'qwen2.5-0.5b-q4km.gguf.sushila/LICENSE.txt', 'license']],
     serve: { model: 'qwen2.5-0.5b-q4km.gguf', args: [] } },
+  { id: 'ace-step-15', category: 'Music', kind: 'music', name: 'ACE-Step 1.5 (songs from lyrics and a style)', model: 'precomputed/ace-step-15', minRamGB: 12,
+    description: 'Full songs with vocals from your lyrics and a style description (stereo 48 kHz MP3), up to several minutes; 8-step turbo model with the 4B song-writing model. Runs on GPUs with 8 GB+, slower on CPU.',
+    license: 'MIT', licenseUrl: 'https://huggingface.co/ACE-Step/Ace-Step1.5', artifacts: [],
+    files: [['weights/acestep-v15-turbo-Q8_0.gguf', 'acestep-v15-turbo-Q8_0.gguf', 'weights'], ['weights/acestep-5Hz-lm-4B-Q8_0.gguf', 'acestep-5Hz-lm-4B-Q8_0.gguf', 'lm'],
+      ['weights/Qwen3-Embedding-0.6B-Q8_0.gguf', 'Qwen3-Embedding-0.6B-Q8_0.gguf', 'text-encoder'], ['weights/vae-BF16.gguf', 'vae-BF16.gguf', 'vae']],
+    serve: { engine: 'music', model: 'acestep-v15-turbo-Q8_0.gguf', args: [] } },
   { id: 'z-image-turbo', category: 'Images', kind: 'image', name: 'Z-Image-Turbo (image generation, 4-bit)', model: 'precomputed/z-image-turbo', minRamGB: 12,
     description: 'Photorealistic images from a text prompt in 8 steps (#1 open-weight image model on Artificial Analysis at release); English and Chinese text in images. Runs on most GPUs with 6 GB+, slower on CPU.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: [],
@@ -1849,7 +1855,7 @@ const HOSTSTATION = (env, app, packs = []) => () => {
   const table = (product) => (app && app.files || []).filter((f) => (f.product || 'host-station') === product).map((f) => `
     <tr><td><b>${esc(f.label || f.platform)}</b></td><td class="num">${gb(f.bytes || 0)}</td>
       <td class="act"><a class="btn small" href="/hoststation/download/${product === 'host-station' ? '' : product + '/'}${esc(f.platform)}">Download</a> <button class="copy" data-copy="${esc(f.sha256)}" title="Copy sha256">sha256</button></td></tr>`).join('');
-  const rows = table('host-station'), irows = table('image-generator');
+  const rows = table('host-station'), irows = table('image-generator'), mrows = table('music-generator');
   return `
 <h1>Sushila Host Station</h1>
 <p class="lead">A free desktop app for Windows, macOS and Linux. It installs Sushila.cpp and model packs with a few clicks, runs models on your own computer, and opens a chat page in your browser. No command prompt needed.</p>
@@ -1865,6 +1871,11 @@ ${rows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num
 <p>The same app, set up for one job: after you install it, it installs Sushila.cpp and the Z-Image-Turbo image pack by itself, starts it, and opens your browser with a first image already being made ("Two bears dancing in a forest near a river"), with a Download button. Everything runs on your computer.</p>
 ${irows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${irows}</tbody></table></div>`
   : '<p class="note">The Image Generator installers are being built and signed. Check back soon.</p>'}
+
+<h2 id="music-generator">Sushila Music Generator</h2>
+<p>The same app, set up for songs: after you install it, it installs Sushila.cpp and the ACE-Step 1.5 music pack by itself, starts it, and makes a first song from sample lyrics and a style. Then type <b>1. Lyrics</b> and <b>2. Style</b> and press <b>Generate</b>: a full song with vocals, made on your computer, with a Download button.</p>
+${mrows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${mrows}</tbody></table></div>`
+  : '<p class="note">The Music Generator installers are being built and signed. Check back soon.</p>'}
 
 <h2>Install, then four clicks</h2>
 <ol>

@@ -45,6 +45,13 @@ jobs:
           arch=""; [ -n "${{ matrix.cuda_arch }}" ] && arch="-DCMAKE_CUDA_ARCHITECTURES=${{ matrix.cuda_arch }}"
           cmake -S sdcpp -B sdbuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSD_BUILD_EXAMPLES=ON -DSD_SERVER_BUILD_FRONTEND=OFF $metal $extra ${arch:+"$arch"}
           cmake --build sdbuild --config Release --target sd-server -j 4
+      - name: Build the music engine (acestep.cpp ace-server, pinned)
+        shell: bash
+        run: |
+          git clone --recursive https://github.com/ServeurpersoCom/acestep.cpp acecpp && git -C acecpp checkout 694ef0f2f7cbf1b8a45b061a1ff0a817f451420c && git -C acecpp submodule update --init --recursive
+          arch=""; [ -n "${{ matrix.cuda_arch }}" ] && arch="-DCMAKE_CUDA_ARCHITECTURES=${{ matrix.cuda_arch }}"
+          cmake -S acecpp -B acebuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF ${{ matrix.cmake }} ${arch:+"$arch"}
+          cmake --build acebuild --config Release --target ace-server -j 4
       - name: Package
         shell: bash
         run: |
@@ -53,6 +60,8 @@ jobs:
           cp "$f" "pkg/sushila-server${{ matrix.exe }}"
           g=$(find sdbuild -name "sd-server${{ matrix.exe }}" -type f | head -1); cp "$g" "pkg/sushila-sd-server${{ matrix.exe }}"
           cp sdcpp/LICENSE pkg/LICENSE-stable-diffusion.cpp
+          a=$(find acebuild -name "ace-server${{ matrix.exe }}" -type f | head -1); cp "$a" "pkg/sushila-ace-server${{ matrix.exe }}"
+          cp acecpp/LICENSE pkg/LICENSE-acestep.cpp 2>/dev/null || true
           if [ "${{ matrix.cuda }}" = true ]; then  # CUDA runtime next to the programs (redistributable under the CUDA EULA)
             if [ "${{ matrix.exe }}" = .exe ]; then for l in cudart64_12 cublas64_12 cublasLt64_12; do cp "$CUDA_PATH/bin/$l.dll" pkg/; done
             else for l in libcudart.so.12 libcublas.so.12 libcublasLt.so.12; do cp -L $(find /usr/local/cuda* /usr/lib/x86_64-linux-gnu -name "$l" 2>/dev/null | head -1) pkg/; done; fi
@@ -84,7 +93,8 @@ jobs:
               b2.put_file(p, f'hoststation/engine/{v}/{f}')
               builds[key] = {'file': f, 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest(), 'bytes': os.path.getsize(p),
                              'archive': 'zip' if f.endswith('.zip') else 'tar.gz', 'server': 'sushila-server.exe' if key.startswith('windows') else 'sushila-server',
-                             'servers': {'image': 'sushila-sd-server.exe' if key.startswith('windows') else 'sushila-sd-server'}}
+                             'servers': {'image': 'sushila-sd-server.exe' if key.startswith('windows') else 'sushila-sd-server',
+                                         'music': 'sushila-ace-server.exe' if key.startswith('windows') else 'sushila-ace-server'}}
           latest = {'version': v, 'built_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()), 'commit': os.environ.get('GITHUB_SHA', ''), 'builds': builds}
           b2.put('hoststation/engine/LATEST.json', json.dumps(latest, indent=1).encode())
           print(json.dumps(latest, indent=1))
