@@ -1,9 +1,10 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-05T14:47Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-05T15:05Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
+| `ace-step-15` | weights (4) | 8.1 GB | yes | 2026-10-05 |
 | `deepseek-r1-distill-llama-70b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 88.6 GB | yes | 2026-10-05 |
 | `qwen2.5-0.5b-q4km` | landscape (48), landscapes-earlier (4), calibration (7), weights (1) | 0.8 GB | yes | 2026-10-05 |
 | `qwen3-30b-a3b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (17) | 36.2 GB | yes | 2026-10-04 |
@@ -12,6 +13,16 @@ Generated 2026-10-05T14:47Z by `scripts/precompute/b2_index.py`. Everything here
 | `z-image-turbo-q8` | weights (3) | 9.4 GB | yes | 2026-10-05 |
 
 ## Each model
+
+### `ace-step-15`
+
+
+
+- **Use:** 
+- **Results:** -
+- **Bound to:** `{"huggingface": [{"repo": "Serveurperso/ACE-Step-1.5-GGUF", "file": "acestep-v15-turbo-Q8_0.gguf", "revision": "666ac70204440867d8c01ba4b119cc79c95b370a", "sha256": "288f708a61cfc241013a98a62f98ba331f83fe34d0d3559acdd9b0f6a2f7cd6b", "license": "mit"}, {"repo": "Serveurperso/ACE-Step-1.5-GGUF", "file": "acestep-5Hz-lm-4B-Q8_0.gguf", "revision": "666ac70204440867d8c01ba4b119cc79c95b370a", "sha256": `
+- **Folders:**
+  - `weights/` (4 files, 8.13 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
 ### `deepseek-r1-distill-llama-70b`
 

@@ -150,6 +150,9 @@ item for the new release. The same items are written as comments in each `models
   each GPU.
 - SGLang 0.5.21 hung capturing the prefill CUDA graph with the head at `TP=2`: `SGLANG_EXTRA="--cuda-graph-backend-prefill disabled"`.
 - PCIe pods without NVLink print "custom allreduce failed": harmless, but slower than NVLink.
+- **GPTQ-Int4 MoE files can give garbage on SGLang 0.5.21** (Qwen3-235B-A22B: repeated tokens, 0% GSM8K) while Ollama
+  answers correctly. Always read a few SGLang answers in the smoke run (the summary's GSM8K accuracy shows it). The AWQ
+  file of the same release worked.
 - Ollama's `qwen3:235b` tag holds Thinking-2507; the original release is `qwen3:235b-a22b-q4_K_M`.
 
 **Any family: when a new release appears**
