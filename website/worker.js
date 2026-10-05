@@ -1845,6 +1845,10 @@ const HS_WIZARD = (app, packs = []) => {
 #hswiz .os button[aria-pressed=true]{border-color:var(--acc);background:var(--accbg);color:var(--acc);font-weight:600}
 #hswiz .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--acc);margin-right:6px}#hswiz kbd{border:1px solid var(--line);border-radius:5px;padding:0 5px;font:inherit;font-size:13px}
 #hswiz .pk{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:10px;padding:10px 12px;margin:8px 0;cursor:pointer;font:inherit}
+.hsdl-fab{position:fixed;right:16px;bottom:16px;z-index:50;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.hsdl-panel{position:fixed;right:16px;bottom:64px;width:min(420px,calc(100vw - 32px));max-height:60vh;overflow:auto;z-index:50;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.hsdl-item{border-top:1px solid var(--line);padding:8px 0}.hsdl-bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0}.hsdl-bar i{display:block;height:100%;background:var(--acc)}
+.hsdl-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.hsdl-row .sub{flex:1}
 #hswiz .pk:hover,#hswiz .pk[aria-pressed=true]{border-color:var(--acc);background:var(--accbg)}#hswiz .pk b{display:block}#hswiz .cat{margin:14px 0 2px;font-weight:700;font-size:14px;color:var(--mut)}
 </style>
 <dialog id="hswiz" aria-labelledby="hswiz-t"><div class="in" id="hswiz-body"></div></dialog>
@@ -1886,10 +1890,14 @@ const HS_WIZARD = (app, packs = []) => {
     const f = fileFor(sys);
     body.innerHTML = '<h2 id="hswiz-t">Step 1 of 3 · Download Sushila Host Station</h2><p>Your system:</p><div class="os">' +
       Object.entries(SYSTEMS).map(([k, v]) => '<button data-sys="' + k + '" aria-pressed="' + (k === sys) + '">' + E(v) + '</button>').join('') + '</div>' +
-      (f ? '<p><a class="btn big" href="' + E(f.url) + '" data-a="got">Download for ' + E(SYSTEMS[sys]) + '</a> <span class="sub">' + gb(f.bytes || 0) + ' · version ' + E(APP.version) + '</span></p>' +
-           '<p class="sub">sha256 ' + E(f.sha256) + '</p>'
-         : '<p class="note">The installer for ' + E(SYSTEMS[sys]) + ' is being built and signed. Please check back soon; this page will offer it here.</p>') +
-      '<div class="bar"><button class="btn ghost" data-a="ask">Back</button><button class="btn" data-a="install"' + (f ? '' : ' disabled') + '>I downloaded it: next</button></div>';
+      (f ? '<p><button class="btn big" data-a="fetch">Download for ' + E(SYSTEMS[sys]) + '</button> <span class="sub">' + gb(f.bytes || 0) + ' · version ' + E(APP.version) + '</span></p>' +
+           '<div id="hswiz-dl"></div><p class="sub">sha256 ' + E(f.sha256) + ' · <a href="/hoststation/download/' + E(sys) + '">download directly instead</a></p>' +
+           '<div class="bar"><button class="btn ghost" data-a="ask">Back</button><button class="btn" data-a="install">I downloaded it: next</button></div>'
+         : '<div class="note" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0"><b>Not published yet.</b> The Host Station installer for ' + E(SYSTEMS[sys]) +
+           ' is still being built and code-signed, so there is nothing to download today. Leave your e-mail and we will tell you the day it is ready, or use the manual install meanwhile.</div>' +
+           '<div class="bar" style="justify-content:flex-start"><input type="email" id="hswiz-email" placeholder="you@example.com" style="flex:1;min-width:200px"><button class="btn" data-a="notify">Email me when it is ready</button></div>' +
+           '<div class="sub" id="hswiz-nmsg"></div>' +
+           '<div class="bar"><button class="btn ghost" data-a="ask">Back</button><a class="btn ghost" href="/manual">Use the manual install</a><button class="btn ghost" data-a="close">Close</button></div>');
   }
   function install() {
     body.innerHTML = '<h2 id="hswiz-t">Step 2 of 3 · Install it</h2><ol class="steps">' + STEPS[sys].map(s => '<li>' + s + '</li>').join('') + '</ol>' +
@@ -1926,11 +1934,78 @@ const HS_WIZARD = (app, packs = []) => {
     if (t.dataset.pick) { const p = APP.packs.find(x => x.id === t.dataset.pick); pack = { id: p.id, name: p.name }; store.set('hs-has-app', '1'); done(); return; }
     const a = t.dataset.a;
     if (a === 'close') { if (t.textContent.startsWith('Yes')) store.set('hs-has-app', '1'); dlg.close(); return; }
-    if (a === 'got') { setTimeout(install, 400); return; }  // let the download start, then show how to install
+    if (a === 'fetch') { const f = fileFor(sys); DL.start({ id: sys, name: f.file, url: '/hoststation/download/' + sys, bytes: f.bytes, label: 'Sushila Host Station for ' + SYSTEMS[sys], onDone: () => { if (dlg.open) install(); } }); return; }
+    if (a === 'notify') {
+      const email = (document.getElementById('hswiz-email').value || '').trim(), m = document.getElementById('hswiz-nmsg');
+      fetch('/api/waitlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, model: 'hoststation-installer:' + sys }) })
+        .then(r => r.json()).then(j => { if (j.mailto) location.href = j.mailto; m.textContent = j.ok ? 'Thanks. We will e-mail you when the installer is ready.' : (j.error || 'Something went wrong.'); })
+        .catch(() => { m.textContent = 'Network error. Please try again.'; });
+      return;
+    }
     if (a === 'sent') { store.set('hs-has-app', '1'); setTimeout(() => dlg.close(), 600); return; }
     if (a === 'done') store.set('hs-has-app', '1');
     e.preventDefault(); (views[a] || ask)();
   });
+  // ---------- downloads on this page: progress, pause / resume (HTTP Range), cancel; saved when complete
+  const DL = (function () {
+    const items = {};
+    const fab = document.createElement('button'); fab.className = 'btn hsdl-fab'; fab.hidden = true;
+    const panel = document.createElement('div'); panel.className = 'hsdl-panel'; panel.hidden = true;
+    document.body.append(fab, panel);
+    fab.addEventListener('click', () => { panel.hidden = !panel.hidden; draw(); });
+    const fmt = (d) => {
+      const pct = d.total ? (100 * d.done / d.total).toFixed(0) + '%' : '';
+      const left = d.state === 'running' && d.rate > 0 && d.total ? (d.total - d.done) / d.rate : 0;
+      return [pct, gb(d.done) + (d.total ? ' of ' + gb(d.total) : ''), d.state === 'running' ? (d.rate ? (d.rate / 1e6).toFixed(1) + ' MB/s' : 'starting…') : d.state,
+        left ? (left > 60 ? Math.round(left / 60) + ' min left' : Math.round(left) + ' s left') : ''].filter(Boolean).join(' · ');
+    };
+    function row(d) {
+      return '<div class="hsdl-item" data-id="' + E(d.id) + '"><b>' + E(d.label) + '</b><div class="hsdl-bar"><i style="width:' + (d.total ? (100 * d.done / d.total).toFixed(1) : 0) + '%"></i></div>' +
+        '<div class="hsdl-row"><span class="sub">' + E(fmt(d)) + '</span>' +
+        (d.state === 'running' ? '<button class="btn small ghost" data-dl="pause">Pause</button>' : d.state === 'paused' || d.state === 'failed' ? '<button class="btn small" data-dl="resume">Resume</button>' : '') +
+        (d.state !== 'done' ? '<button class="btn small ghost" data-dl="cancel">Cancel</button>' : '<button class="btn small" data-dl="save">Save again</button>') + '</div></div>';
+    }
+    function draw() {
+      const list = Object.values(items), active = list.filter(d => d.state !== 'done').length;
+      fab.hidden = !list.length; fab.textContent = 'Downloads' + (active ? ' (' + active + ')' : '');
+      panel.innerHTML = '<div class="hsdl-row" style="margin-bottom:6px"><b style="flex:1">Downloads</b><button class="btn small ghost" data-dl="close">Close</button></div>' +
+        (list.length ? list.map(row).join('') : '<p class="sub">Nothing is downloading.</p>');
+      const w = document.getElementById('hswiz-dl'); if (w) w.innerHTML = list.filter(d => d.state !== 'done').map(row).join('');
+    }
+    async function run(d) {
+      d.state = 'running'; d.ctrl = new AbortController(); d.t = Date.now(); d.at = d.done; draw();
+      try {
+        const r = await fetch(d.url, { signal: d.ctrl.signal, headers: d.done ? { range: 'bytes=' + d.done + '-' } : {} });
+        if (!r.ok) throw new Error(r.status === 404 ? 'not published yet' : 'HTTP ' + r.status);
+        if (d.done && r.status !== 206) { d.chunks = []; d.done = 0; }  // the server ignored the range: start over
+        const rd = r.body.getReader();
+        for (;;) {
+          const { done, value } = await rd.read(); if (done) break;
+          d.chunks.push(value); d.done += value.length;
+          const now = Date.now(); if (now - d.t > 800) { d.rate = (d.done - d.at) / ((now - d.t) / 1000); d.t = now; d.at = d.done; draw(); }
+        }
+        d.state = 'done'; d.blob = new Blob(d.chunks, { type: 'application/octet-stream' }); d.chunks = []; save(d); draw();
+        if (d.onDone) d.onDone();
+      } catch (e) {
+        if (e.name === 'AbortError') { if (d.state === 'cancelled') { delete items[d.id]; } draw(); return; }
+        d.state = 'failed'; d.error = String(e.message || e); draw();
+      }
+    }
+    function save(d) { const a = document.createElement('a'); a.href = URL.createObjectURL(d.blob); a.download = d.name; document.body.append(a); a.click(); a.remove(); }
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-dl]'); if (!b) return;
+      const act = b.dataset.dl; if (act === 'close') { panel.hidden = true; return; }
+      const d = items[b.closest('.hsdl-item').dataset.id]; if (!d) return;
+      if (act === 'pause' && d.state === 'running') { d.state = 'paused'; d.ctrl.abort(); }
+      else if (act === 'resume') run(d);
+      else if (act === 'cancel' && confirm('Cancel this download?')) { if (d.state === 'running') { d.state = 'cancelled'; d.ctrl.abort(); } else { delete items[d.id]; } }
+      else if (act === 'save') save(d);
+      draw();
+    });
+    return { start(o) { if (items[o.id] && items[o.id].state !== 'cancelled') { panel.hidden = false; draw(); return; } items[o.id] = Object.assign({ done: 0, total: o.bytes || 0, chunks: [], rate: 0 }, o); run(items[o.id]); }, items };
+  })();
+  window.hsDownloads = DL;
+
   window.hsWizard = (p, start) => { pack = p; (views[start] || ask)(); if (!dlg.open) dlg.showModal(); };
   // "Install in Host Station": try the app; when nothing takes the link, open the wizard
   document.querySelectorAll('.hsinstall').forEach(a => a.addEventListener('click', () => {
@@ -2123,6 +2198,18 @@ export default {
         let packs = [], app = null;
         try { if (b2.configured) [packs, app] = await Promise.all([hostCatalog(env, b2).then((c) => c.packs), hostApp(env, b2)]); } catch (e) { console.error('packs', e.message); }
         return html(page(env, user, await visibleModels(db), packs, app));
+      }
+      if (p.startsWith('/hoststation/download/')) {
+        const platform = p.slice('/hoststation/download/'.length);
+        const app = b2.configured ? await hostApp(env, b2).catch(() => null) : null;
+        const f = app && app.files.find((x) => x.platform === platform);
+        if (!f) return new Response('No installer is published for this system yet.', { status: 404, headers: SEC });
+        const h = {}; if (request.headers.get('range')) h.range = request.headers.get('range');
+        const r = await fetch(f.url, { headers: h });
+        const out = new Headers({ 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="${f.file.replace(/"/g, '')}"`,
+          'accept-ranges': 'bytes', 'cache-control': 'no-store', 'x-sha256': f.sha256, ...SEC });
+        for (const k of ['content-length', 'content-range']) if (r.headers.get(k)) out.set(k, r.headers.get(k));
+        return new Response(r.body, { status: r.status, headers: out });
       }
       if (p === '/manual' || p === '/manual/') return html(page(env, user, await visibleModels(db), [], null, 'manual'));
       if (p === '/hoststation' || p === '/hoststation/') {

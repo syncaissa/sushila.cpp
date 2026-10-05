@@ -27,12 +27,27 @@ w.document.getElementById('sh-kname').value = 'colleague'; click('Create access 
 st = JSON.parse(fs.readFileSync(path.join(DATA, 'state.json')));
 ok(shown.startsWith('sk-sushila-') && !JSON.stringify(st).includes(shown) && st.share.keys[0].sha256.length === 64, 'key shown once, stored only as sha256');
 ok(!/sha256|token|share/.test(JSON.stringify(st.public)), 'public state has no keys, token or share settings');
-const pw = new JSDOM('<!doctype html><div id="app"></div>', { url: 'https://ai.example.com/', runScripts: 'outside-only' }).window;
-pw.localStorage.setItem('sushila-key', shown); let hdr = null;
-pw.fetch = async (u, o = {}) => { if (u === '/api/state') return { json: async () => ({ running: { name: 'X' } }) }; hdr = o.headers; return { ok: false, status: 401, text: async () => '' }; };
-pw.performance = { now: () => Date.now() }; pw.TextDecoder = TextDecoder; pw.eval(JS); await sleep(100);
-pw.document.getElementById('q').value = 'hi'; pw.document.getElementById('send').click(); await sleep(200);
-ok(hdr && hdr.authorization === 'Bearer ' + shown && !hdr['x-sushila-token'], 'remote page sends Authorization: Bearer <key>');
-ok(pw.document.querySelector('.bubble.bot .msg.err')?.textContent.includes('access key'), 'a 401 tells the visitor to enter a key');
+// the browser page: this computer's models, then a remote Host Station with an access key
+const pw = new JSDOM('<!doctype html><div id="app"></div>', { url: 'http://127.0.0.1:8765/?t=tok123&model=m2', runScripts: 'outside-only' }).window;
+const calls = [];
+pw.fetch = async (u, o = {}) => {
+  calls.push({ u, h: o.headers || {}, b: o.body });
+  if (u.endsWith('/api/state')) return { ok: true, json: async () => ({ running: u.startsWith('https://ai.example.com') ? [{ packId: 'r1', name: 'Remote model', kind: 'text' }] : [{ packId: 'm1', name: 'Model one', kind: 'text' }, { packId: 'm2', name: 'Music pack', kind: 'music' }] }) };
+  return { ok: false, status: 401, text: async () => '' };
+};
+pw.performance = { now: () => Date.now() }; pw.TextDecoder = TextDecoder; pw.eval(JS); await sleep(150);
+const pd = pw.document;
+ok(pd.getElementById('mdl').options.length === 2 && pd.getElementById('mdl').value === 'm2' && pd.querySelector('.music'), 'Run inference link selects the model; a music pack shows the music screen');
+pd.getElementById('mdl').value = 'm1'; pd.getElementById('mdl').dispatchEvent(new pw.Event('change')); await sleep(50);
+ok(pd.getElementById('q') && pd.getElementById('send').textContent === 'Submit', 'a text model shows the chat screen with Submit');
+pd.getElementById('srv').value = '__add'; pd.getElementById('srv').dispatchEvent(new pw.Event('change'));
+pd.getElementById('rurl').value = 'https://ai.example.com/'; pd.getElementById('rkey').value = shown;
+[...pd.querySelectorAll('#remote button')].find((b) => b.textContent === 'Connect').click(); await sleep(150);
+ok(pd.getElementById('srv').value === 'https://ai.example.com' && pd.getElementById('mdl').options[0].textContent === 'Remote model', 'a typed remote server is added and its models listed');
+pd.getElementById('q').value = 'hi'; pd.getElementById('send').click(); await sleep(150);
+const chat = calls.find((c) => c.u === 'https://ai.example.com/v1/chat/completions');
+ok(chat && chat.h.authorization === 'Bearer ' + shown && !chat.h['x-sushila-token'] && JSON.parse(chat.b).model === 'r1', 'chat goes to the remote server with its key and model');
+ok(pd.querySelector('.bubble.bot .msg.err')?.textContent.includes('access key'), 'a 401 tells the visitor about the access key');
+ok(JSON.parse(pw.localStorage.getItem('sushila-hosts'))[0] === 'https://ai.example.com', 'the remote server is remembered in this browser');
 fs.rmSync(DATA, { recursive: true, force: true });
 console.log(fails ? `${fails} FAILED` : 'all passed'); process.exit(fails ? 1 : 0);

@@ -27,12 +27,45 @@ struct Host {
     procs: Mutex<HashMap<String, oneshot::Sender<()>>>,
     server: Mutex<Option<(String, oneshot::Sender<()>)>>,  // (address, stop signal) of the running web server
     links: std::sync::Mutex<Vec<String>>,  // sushila:// links received before the page was ready
+    downloads: std::sync::Mutex<HashMap<String, Arc<std::sync::atomic::AtomicU8>>>,  // 0 run, 1 pause, 2 cancel
 }
 
 fn err<E: std::fmt::Display>(e: E) -> String { e.to_string() }
 
+/// Where Host Station may download from, checked here (not in the page) for the first request and every redirect:
+///   https://sushila.ai                         the catalog
+///   https://f<NNN>.backblazeb2.com/file/sushila-ai/...   our own B2 bucket, and only that bucket
+///   https://huggingface.co, *.huggingface.co, *.hf.co    Hugging Face and its file CDNs
+///   https://registry.ollama.ai, ollama.com, and Ollama's registry storage (one Cloudflare R2 bucket, /ollama/)
+///   http://127.0.0.1, localhost                this computer's own model servers (http_text only)
+/// Everything installed must also match a Sushila-signed index (sha256), wherever it comes from.
+const OLLAMA_STORAGE: &str = "dd20bb891979d25aebc8bec07b2b3bbc.r2.cloudflarestorage.com";
+fn allowed_url(u: &reqwest::Url, local_ok: bool) -> bool {
+    let host = u.host_str().unwrap_or("").to_ascii_lowercase();
+    if local_ok && u.scheme() == "http" && (host == "127.0.0.1" || host == "localhost") { return true; }
+    if u.scheme() != "https" { return false; }
+    let under = |d: &str| host == d || host.ends_with(&format!(".{d}"));
+    host == "sushila.ai" || host == "www.sushila.ai"
+        || (host.ends_with(".backblazeb2.com") && u.path().starts_with("/file/sushila-ai/"))
+        || under("huggingface.co") || under("hf.co")
+        || host == "registry.ollama.ai" || host == "ollama.com" || host == "registry.ollama.com"
+        || (host == OLLAMA_STORAGE && u.path().starts_with("/ollama/"))
+}
+fn check_url(url: &str, local_ok: bool) -> Result<reqwest::Url, String> {
+    let u = reqwest::Url::parse(url).map_err(|_| format!("not a valid address: {url}"))?;
+    if allowed_url(&u, local_ok) { Ok(u) } else {
+        Err(format!("Host Station only downloads from sushila.ai, the Sushila B2 bucket, Hugging Face and Ollama; refusing {}", u.host_str().unwrap_or("?")))
+    }
+}
+
 fn client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder().user_agent(UA).connect_timeout(Duration::from_secs(20)).build().map_err(err)
+    reqwest::Client::builder().user_agent(UA).connect_timeout(Duration::from_secs(20))
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() > 5 { attempt.error("too many redirects") }
+            else if allowed_url(attempt.url(), false) { attempt.follow() }
+            else { attempt.error(format!("redirect to a source that is not allowed: {}", attempt.url().host_str().unwrap_or("?"))) }
+        }))
+        .build().map_err(err)
 }
 
 // ---------- system ----------
@@ -188,11 +221,45 @@ fn inside_data_dir(host: &Host, dest: &Path) -> Result<(), String> {
 // ---------- network ----------
 #[tauri::command]
 async fn http_text(url: String, timeout_s: Option<u64>) -> Result<String, String> {
-    let r = client()?.get(&url).timeout(Duration::from_secs(timeout_s.unwrap_or(30))).send().await.map_err(err)?;
+    let url = check_url(&url, true)?;
+    let r = client()?.get(url).timeout(Duration::from_secs(timeout_s.unwrap_or(30))).send().await.map_err(err)?;
     let status = r.status();
     let body = r.text().await.map_err(err)?;
     if !status.is_success() { return Err(format!("HTTP {status}: {}", body.chars().take(200).collect::<String>())); }
     Ok(body)
+}
+
+async fn download_body(app: &AppHandle, id: &str, resp: reqwest::Response, part: &Path, start: u64, total: u64, mut hasher: Sha256,
+                       flag: &std::sync::atomic::AtomicU8) -> Result<(String, u64), String> {
+    let mut file = tokio::fs::OpenOptions::new().create(true).write(true).append(start > 0).truncate(start == 0).open(part).await.map_err(err)?;
+    let mut done = start;
+    let mut last = std::time::Instant::now();
+    let mut stream = resp.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(err)?;
+        file.write_all(&chunk).await.map_err(err)?;
+        hasher.update(&chunk);
+        done += chunk.len() as u64;
+        match flag.load(std::sync::atomic::Ordering::Relaxed) {
+            1 => { file.flush().await.map_err(err)?; return Err("paused".into()); }
+            2 => return Err("cancelled".into()),
+            _ => {}
+        }
+        if last.elapsed() > Duration::from_millis(250) {
+            let _ = app.emit("download-progress", json!({ "id": id, "done": done, "total": total }));
+            last = std::time::Instant::now();
+        }
+    }
+    file.flush().await.map_err(err)?;
+    Ok((hex::encode(hasher.finalize()), done))
+}
+
+/// Pauses ("pause": the partial file stays and the next download call resumes it) or cancels ("cancel": the partial
+/// file is deleted) a running download.
+#[tauri::command]
+fn download_control(host: State<'_, Host>, id: String, action: String) -> bool {
+    let code = match action.as_str() { "pause" => 1, "cancel" => 2, _ => return false };
+    match host.downloads.lock().unwrap().get(&id) { Some(f) => { f.store(code, std::sync::atomic::Ordering::Relaxed); true } None => false }
 }
 
 /// Downloads url to dest, resuming a partial download, emitting "download-progress" {id, done, total}, and checking
@@ -200,7 +267,7 @@ async fn http_text(url: String, timeout_s: Option<u64>) -> Result<String, String
 #[tauri::command]
 async fn download(app: AppHandle, host: State<'_, Host>, id: String, url: String, dest: String, sha256: Option<String>, bytes: Option<u64>) -> Result<String, String> {
     let dest_p = PathBuf::from(&dest);
-    if !url.starts_with("https://") { return Err("downloads must use https".into()); }
+    let url = check_url(&url, false)?.to_string();
     inside_data_dir(&host, &dest_p)?;
     if let Some(d) = dest_p.parent() { tokio::fs::create_dir_all(d).await.map_err(err)?; }
     let part = PathBuf::from(format!("{dest}.part"));
@@ -224,23 +291,15 @@ async fn download(app: AppHandle, host: State<'_, Host>, id: String, url: String
         hasher = Sha256::new();
     }
     let total = bytes.or_else(|| resp.content_length().map(|n| n + start)).unwrap_or(0);
-    let mut file = tokio::fs::OpenOptions::new().create(true).write(true).append(start > 0).truncate(start == 0).open(&part).await.map_err(err)?;
-    let mut done = start;
-    let mut last = std::time::Instant::now();
-    let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(err)?;
-        file.write_all(&chunk).await.map_err(err)?;
-        hasher.update(&chunk);
-        done += chunk.len() as u64;
-        if last.elapsed() > Duration::from_millis(250) {
-            let _ = app.emit("download-progress", json!({ "id": id, "done": done, "total": total }));
-            last = std::time::Instant::now();
-        }
-    }
-    file.flush().await.map_err(err)?;
-    drop(file);
-    let got = hex::encode(hasher.finalize());
+    let flag = Arc::new(std::sync::atomic::AtomicU8::new(0));
+    host.downloads.lock().unwrap().insert(id.clone(), flag.clone());
+    let result = download_body(&app, &id, resp, &part, start, total, hasher, &flag).await;
+    host.downloads.lock().unwrap().remove(&id);
+    let (got, done) = match result {
+        Ok(v) => v,
+        Err(e) if e == "cancelled" => { let _ = tokio::fs::remove_file(&part).await; return Err(e); }
+        Err(e) => return Err(e),  // "paused" keeps the .part file: the next call resumes from it
+    };
     if let Some(want) = sha256.filter(|s| !s.is_empty()) {
         if !got.eq_ignore_ascii_case(&want) {
             let _ = tokio::fs::remove_file(&part).await;
@@ -398,12 +457,24 @@ async fn srv_js(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers
     ([("content-type", "text/javascript; charset=utf-8"), ("cache-control", "no-store")], APP_JS).into_response()
 }
 
+/// When sharing, pages on other sites (e.g. an inference page on another computer pointed at this server) may call
+/// /api/state and /v1/*: they authenticate with an access key, never with cookies, so any origin is allowed.
+fn with_cors(mut resp: axum::response::Response, st: &Value) -> axum::response::Response {
+    if share(st).is_some() {
+        let h = resp.headers_mut();
+        h.insert("access-control-allow-origin", axum::http::HeaderValue::from_static("*"));
+        h.insert("access-control-allow-headers", axum::http::HeaderValue::from_static("authorization, content-type, x-sushila-model"));
+        h.insert("access-control-allow-methods", axum::http::HeaderValue::from_static("GET, POST, OPTIONS"));
+    }
+    resp
+}
+
 async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
     let st = read_state(&s.data_dir);
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    // only the "public" part of the Host Station state: never the session token or keys
-    axum::Json(st.get("public").cloned().unwrap_or(json!({}))).into_response()
+    // only the "public" part of the Host Station state (models and what runs): never the session token or keys
+    with_cors(axum::Json(st.get("public").cloned().unwrap_or(json!({}))).into_response(), &st)
 }
 
 async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
@@ -411,11 +482,13 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     let (parts, body) = req.into_parts();
     let st = read_state(&s.data_dir);
     if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    let path = parts.uri.path();
+    let path = parts.uri.path().to_string();
     if !(path.starts_with("/v1/") || path == "/health") { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); }
+    if parts.method == axum::http::Method::OPTIONS { return with_cors(axum::http::StatusCode::NO_CONTENT.into_response(), &st); }
+    let deny = |code: axum::http::StatusCode, msg: &'static str| with_cors((code, msg).into_response(), &st);
     if path.starts_with("/v1/") {
         let Some(who) = caller(&parts.headers, &st) else {
-            return (axum::http::StatusCode::UNAUTHORIZED, "an access key is required (Authorization: Bearer <key>), or open this page from Sushila Host Station").into_response();
+            return deny(axum::http::StatusCode::UNAUTHORIZED, "an access key is required (Authorization: Bearer <key>), or open this page from Sushila Host Station");
         };
         if who != "local" {
             let per_min = share(&st).and_then(|sh| sh.get("perMinute")).and_then(|v| v.as_u64()).unwrap_or(30).max(1) as u32;
@@ -423,20 +496,35 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
             let e = hits.entry(who).or_insert((0, std::time::Instant::now()));
             if e.1.elapsed() > Duration::from_secs(60) { *e = (0, std::time::Instant::now()); }
             e.0 += 1;
-            if e.0 > per_min { return (axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests for this key; try again in a minute").into_response(); }
+            if e.0 > per_min { drop(hits); return deny(axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests for this key; try again in a minute"); }
         }
     }
-    let Some(up) = st.pointer("/running/port").and_then(|p| p.as_u64()) else {
-        return (axum::http::StatusCode::SERVICE_UNAVAILABLE, "no model is running: start one in Sushila Host Station").into_response();
+    // several models can run at once (state.running = {pack id: {port, ...}}); a request names its model like any
+    // OpenAI client ("model" in the JSON body) or with the x-sushila-model header; with one model running, it is used
+    let empty = serde_json::Map::new();
+    let running = st.get("running").and_then(|r| r.as_object()).unwrap_or(&empty);
+    if path == "/v1/models" {
+        let data: Vec<Value> = running.iter().map(|(id, r)| json!({ "id": id, "object": "model", "owned_by": "sushila", "name": r.get("name") })).collect();
+        return with_cors(axum::Json(json!({ "object": "list", "data": data })).into_response(), &st);
+    }
+    let bytes = match axum::body::to_bytes(body, 64 << 20).await { Ok(b) => b, Err(_) => return deny(axum::http::StatusCode::PAYLOAD_TOO_LARGE, "request too large") };
+    let wanted = parts.headers.get("x-sushila-model").and_then(|h| h.to_str().ok()).map(String::from)
+        .or_else(|| serde_json::from_slice::<Value>(&bytes).ok().and_then(|v| v.get("model").and_then(|m| m.as_str()).map(String::from)));
+    let pick = match wanted.as_deref() {
+        Some(m) if running.contains_key(m) => running.get(m),
+        _ if running.len() == 1 => running.values().next(),
+        _ => None,
     };
-    let bytes = match axum::body::to_bytes(body, 64 << 20).await { Ok(b) => b, Err(_) => return (axum::http::StatusCode::PAYLOAD_TOO_LARGE, "request too large").into_response() };
-    let url = format!("http://127.0.0.1:{up}{}", parts.uri.path_and_query().map(|p| p.as_str()).unwrap_or(path));
+    let Some(up) = pick.and_then(|r| r.get("port")).and_then(|p| p.as_u64()) else {
+        return deny(axum::http::StatusCode::SERVICE_UNAVAILABLE, if running.is_empty() { "no model is running: start one in Sushila Host Station" } else { "name a running model (\"model\" field); GET /v1/models lists them" });
+    };
+    let url = format!("http://127.0.0.1:{up}{}", parts.uri.path_and_query().map(|p| p.as_str()).unwrap_or(&path));
     let method = reqwest::Method::from_bytes(parts.method.as_str().as_bytes()).unwrap_or(reqwest::Method::GET);
     let mut r = s.http.request(method, url).body(bytes.to_vec());
     for h in ["content-type", "accept"] {
         if let Some(v) = parts.headers.get(h).and_then(|v| v.to_str().ok()) { r = r.header(h, v); }
     }
-    match r.send().await {
+    let resp = match r.send().await {
         Ok(resp) => {
             let status = axum::http::StatusCode::from_u16(resp.status().as_u16()).unwrap_or(axum::http::StatusCode::BAD_GATEWAY);
             let ctype = resp.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("application/json").to_string();
@@ -444,7 +532,8 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
             (status, [("content-type", ctype), ("cache-control", "no-store".to_string())], axum::body::Body::from_stream(stream)).into_response()
         }
         Err(e) => (axum::http::StatusCode::BAD_GATEWAY, format!("the model server did not answer: {e}")).into_response(),
-    }
+    };
+    with_cors(resp, &st)
 }
 
 /// sushila:// links that arrived before the page asked (e.g. the link that started the app).
@@ -505,7 +594,7 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            app.manage(Host { data_dir, procs: Mutex::new(HashMap::new()), server: Mutex::new(None), links: std::sync::Mutex::new(vec![]) });
+            app.manage(Host { data_dir, procs: Mutex::new(HashMap::new()), server: Mutex::new(None), links: std::sync::Mutex::new(vec![]), downloads: std::sync::Mutex::new(HashMap::new()) });
             // sushila:// links (the "Install in Host Station" buttons on sushila.ai). The page decides what to do and
             // always asks the user first; here they are only queued and passed on.
             use tauri_plugin_deep_link::DeepLinkExt;
@@ -523,7 +612,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            host_info, open_url, verify_signature, read_text, write_text, list_dir, path_exists, make_dirs, remove_path, set_executable,
+            host_info, open_url, verify_signature, download_control, read_text, write_text, list_dir, path_exists, make_dirs, remove_path, set_executable,
             file_sha256, extract_archive, http_text, download, run_capture, spawn_process, kill_process,
             running_processes, run_elevated, server_start, server_stop, local_addresses, take_links
         ])

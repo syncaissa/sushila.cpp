@@ -180,3 +180,19 @@ answers stream:
 
 The app (and with it the server) runs while its window is open. On a server, sign in a service account, add Sushila
 Host Station to *Startup*, and leave it running. A headless Windows-service mode is a planned addition.
+
+## Where Host Station downloads from
+
+Only these sources, enforced in the Rust layer (`allowed_url` in `src-tauri/src/lib.rs`) for the first request *and
+every redirect*, and checked again in `worker_sushila_host.js` for clear messages:
+
+| Source | Why |
+|---|---|
+| `https://sushila.ai` | the signed catalog |
+| `https://f<NNN>.backblazeb2.com/file/sushila-ai/...` | our own B2 bucket (packs, engine builds); no other B2 bucket |
+| `https://huggingface.co`, `*.huggingface.co`, `*.hf.co` | Hugging Face files and their CDNs |
+| `https://registry.ollama.ai`, `ollama.com`, and Ollama's registry storage (one Cloudflare R2 bucket, path `/ollama/`) | Ollama model files |
+| `http://127.0.0.1`, `localhost` | only to check this computer's own model servers |
+
+Anything else is refused, even if a catalog or a link names it. Wherever a file comes from, it is installed only if it
+matches the Sushila-signed index.

@@ -22,6 +22,9 @@
 
   const APP = 'Sushila Host Station';
   const CATALOG_URL = 'https://sushila.ai/hoststation/catalog.json';
+  // Installed right after Sushila.cpp, so there is always a model to try: small (0.5 GB), fast on any computer, and it
+  // carries a precomputed landscape. Any pack id from the catalog works here.
+  const DEFAULT_MODEL = 'qwen2.5-0.5b-q4km';
   const DEFAULTS = { catalogUrl: CATALOG_URL, port: 8765, enginePort: 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user', parallel: 1 };
   const SHARE_DEFAULTS = { enabled: false, bind: '0.0.0.0', hosts: [], keys: [], perMinute: 30 };
   // Sushila signing keys (Ed25519, base64). Every pack and engine build must come with an index signed by one of these;
@@ -30,6 +33,15 @@
   const SIGNING_KEYS = ['Z1PIla052/oI3aZmZvsgB/V3lZUrqnjEoJEeYv4OwTs='];
   // A pack may contain only data. Nothing in a pack is ever run, marked executable, or loaded as code.
   const PACK_FILE_OK = /\.(gguf|safetensors|json|mclp|mclk|txt|md)$/i;
+  // The only places Host Station downloads from (the native layer enforces the same list, redirects included):
+  // sushila.ai, the Sushila B2 bucket, Hugging Face and Ollama.
+  const ALLOWED_SOURCE = (url) => {
+    let u; try { u = new URL(url); } catch (_) { return false; }
+    const h = u.hostname.toLowerCase(), under = (d) => h === d || h.endsWith('.' + d);
+    return u.protocol === 'https:' && (h === 'sushila.ai' || h === 'www.sushila.ai'
+      || (h.endsWith('.backblazeb2.com') && u.pathname.startsWith('/file/sushila-ai/'))
+      || under('huggingface.co') || under('hf.co') || h === 'registry.ollama.ai' || h === 'ollama.com' || h === 'registry.ollama.com');
+  };
   const SYSTEM_DIRS = { windows: 'C:\\Program Files\\Sushila', macos: '/Library/Application Support/Sushila', linux: '/opt/sushila' };
   const T = window.__TAURI__;
   const IN_HOST = !!(T && T.core && T.core.invoke);
@@ -53,6 +65,8 @@ main{padding:18px 22px 40px;max-width:1100px}.grid{display:grid;grid-template-co
 .sub{color:var(--mut);font-size:13px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
 .big{font-size:17px;padding:12px 20px}.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:8px}.bar>i{display:block;height:100%;background:var(--acc);width:0}
 .msg{margin-top:10px;font-size:14px}.msg.err{color:var(--err)}.msg.ok{color:var(--ok)}
+.dlpanel{position:fixed;right:16px;top:64px;width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 90px);overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:5}
+.dl{margin-top:10px}.badge{display:inline-block;min-width:18px;margin-left:6px;padding:0 6px;border-radius:99px;background:var(--acc);color:#fff;font-size:12px;line-height:18px}
 .log{background:var(--code);border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word}
 table{width:100%;border-collapse:collapse}td,th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
 label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{display:none!important}
@@ -84,7 +98,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
   function hostStation() {
     const invoke = (cmd, args) => T.core.invoke(cmd, args || {});
     const listen = (ev, fn) => T.event.listen(ev, (e) => fn(e.payload));
-    const HOST = (window.HOST = { info: {}, state: null, catalog: null, logs: [], progress: {}, busy: false });
+    const HOST = (window.HOST = { info: {}, state: null, catalog: null, logs: [], downloads: {}, showDownloads: false, busy: false });
     let statePath = '';
 
     const platformKey = () => {
@@ -103,18 +117,17 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       s.packs = s.packs || {};
       s.share = Object.assign({}, SHARE_DEFAULTS, s.share || {});
       s.token = s.token || randomToken();
-      s.running = null;  // nothing runs at start: models are started from this window
+      s.running = {};  // nothing runs at start: models are started from this window ({pack id: {port, ...}})
       HOST.state = s;
       await saveState();
     }
     async function saveState() {
       const s = HOST.state;
-      const pack = s.running && s.packs[s.running.packId];
       s.public = {
         app: APP, appVersion: HOST.info.app_version,
         engine: s.engine ? { version: s.engine.version, source: s.engine.source } : null,
-        running: s.running ? { packId: s.running.packId, name: pack ? pack.name : s.running.packId, startedAt: s.running.startedAt } : null,
-        packs: Object.values(s.packs).map((p) => ({ id: p.id, name: p.name })),
+        running: Object.entries(s.running).map(([id, r]) => ({ packId: id, name: r.name, kind: r.kind || 'text', startedAt: r.startedAt })),
+        packs: Object.values(s.packs).map((p) => ({ id: p.id, name: p.name, kind: p.kind || 'text' })),
       };
       await invoke('write_text', { path: statePath, content: JSON.stringify(s, null, 1) });
     }
@@ -161,7 +174,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const index = await signedIndex(HOST.catalog.engine.index, 'Sushila.cpp ' + HOST.catalog.engine.version);
       const v = index.version, ref = index.builds && index.builds[platformKey()];
       if (!ref || ref.sha256 !== build.sha256 || !build.sha256) throw new Error('This build does not match the signed list of Sushila.cpp builds; refusing to install it.');
-      if (!safeRelPath(build.server) || !/^https:\/\//.test(build.url)) throw new Error('The build entry is not valid.');
+      if (!safeRelPath(build.server) || !ALLOWED_SOURCE(build.url)) throw new Error('The build entry is not valid or not from an allowed source.');
       const staging = join(userRoot(), 'downloads', `sushila-cpp-${v}-${platformKey()}.${build.archive || 'zip'}`);
       await download('engine', build.url, staging, build.sha256, build.bytes, `Sushila.cpp ${v}`);
       const userDir = join(userRoot(), 'engine', v);
@@ -173,6 +186,17 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       HOST.state.engine = { version: v, server, dir, source: HOST.state.settings.scope === 'all' ? 'installed for all users' : 'installed for this user', installedAt: new Date().toISOString() };
       await invoke('remove_path', { path: staging }).catch(() => {});
       await saveState();
+      await ensureDefaultModel();
+    }
+
+    // There is always a model to try: the default pack follows the engine (same signature and checksum checks).
+    async function ensureDefaultModel() {
+      if (Object.keys(HOST.state.packs).length || !HOST.state.engine) return;
+      if (!HOST.catalog || !(HOST.catalog.packs || []).length) await loadCatalog();
+      const pack = (HOST.catalog.packs || []).find((p) => p.id === DEFAULT_MODEL);
+      if (!pack) { log(`the default model ${DEFAULT_MODEL} is not in the catalog`); return; }
+      log(`installing the default model: ${pack.name}`);
+      await installPack(pack);
     }
 
     // Everything is downloaded and verified in the user's folder first; an all-users install then copies it with
@@ -204,7 +228,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         if (!PACK_FILE_OK.test(f.path)) throw new Error(`${pack.name}: ${f.path} is not a data file; packs may only contain model data.`);
         const ref = listed[f.src];
         if (!ref || ref.sha256 !== f.sha256 || ref.bytes !== f.bytes) throw new Error(`${pack.name}: ${f.path} does not match the signed index.`);
-        if (!/^https:\/\//.test(f.url)) throw new Error(`${pack.name}: ${f.path} is not offered over https.`);
+        if (!ALLOWED_SOURCE(f.url)) throw new Error(`${pack.name}: ${f.path} comes from a source Host Station does not download from (only sushila.ai, the Sushila B2 bucket, Hugging Face and Ollama).`);
       }
       if (!safeRelPath(pack.serve && pack.serve.model) || !pack.files.some((f) => f.path === pack.serve.model)) throw new Error(`${pack.name}: the model file is not part of the pack.`);
       for (const a of (pack.serve.args || [])) if (!/^[\w.=:-]{1,64}$/.test(a)) throw new Error(`${pack.name}: unexpected engine option ${a}`);
@@ -220,11 +244,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         i += 1;
         const dest = join(userDir, ...f.path.split('/'));
         if ((await invoke('path_exists', { path: dest })) && (await invoke('file_sha256', { path: dest })) === f.sha256) continue;
-        await download('pack:' + pack.id, f.url, dest, f.sha256, f.bytes, `${pack.name}: file ${i} of ${pack.files.length}`);
+        await download(`pack:${pack.id}:${i}`, f.url, dest, f.sha256, f.bytes, `${pack.name}: file ${i} of ${pack.files.length} (${f.path.split('/').pop()})`);
       }
       let dir = userDir;
       if (HOST.state.settings.scope === 'all') dir = await copyForAllUsers(userDir, join(root(), 'packs', pack.id));
-      HOST.state.packs[pack.id] = { id: pack.id, name: pack.name, dir, model: pack.serve.model, args: pack.serve.args || [], files: pack.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })),
+      HOST.state.packs[pack.id] = { id: pack.id, name: pack.name, kind: pack.kind || 'text', bytes: pack.files.reduce((a, f) => a + (f.bytes || 0), 0), dir, model: pack.serve.model, args: pack.serve.args || [], files: pack.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })),
         license: pack.license, scope: HOST.state.settings.scope, installedAt: new Date().toISOString(), artifacts: pack.artifacts || [] };
       await saveState();
     }
@@ -242,7 +266,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 
     async function removePack(id) {
       const p = HOST.state.packs[id];
-      if (HOST.state.running && HOST.state.running.packId === id) await stopModel();
+      if (HOST.state.running[id]) await stopModel(id);
       if (p.scope === 'all') {
         const os = platformKey().split('-')[0];
         const code = os === 'windows'
@@ -254,36 +278,85 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       await saveState();
     }
 
-    // ---------- run a model
+    // ---------- run models (several at once, each on its own port)
+    function freePort() {
+      const used = new Set(Object.values(HOST.state.running).map((r) => r.port));
+      let p = HOST.state.settings.enginePort;
+      while (used.has(p) || p === HOST.state.settings.port) p += 1;
+      return p;
+    }
     async function startModel(id) {
       const p = HOST.state.packs[id], s = HOST.state.settings;
       if (!HOST.state.engine) throw new Error('Install Sushila.cpp first.');
-      if (HOST.state.running) await stopModel();
+      if (HOST.state.running[id]) return;
+      const port = freePort();
       const threads = s.threads || Math.max(1, Math.min(16, HOST.info.cpus - 1));
-      const args = ['-m', join(p.dir, ...p.model.split('/')), '--host', '127.0.0.1', '--port', String(s.enginePort),
+      const args = ['-m', join(p.dir, ...p.model.split('/')), '--host', '127.0.0.1', '--port', String(port),
         '-t', String(threads), '-c', String(s.contextSize * Math.max(1, s.parallel)), '-np', String(Math.max(1, s.parallel)), '-ngl', String(s.gpuLayers), ...p.args];
-      log(`starting ${p.name}: ${HOST.state.engine.server} ${args.join(' ')}`);
-      await invoke('spawn_process', { id: 'engine', program: HOST.state.engine.server, args, cwd: p.dir, env: null });
-      HOST.state.running = { packId: id, port: s.enginePort, startedAt: new Date().toISOString() };
-      await saveState();
+      log(`starting ${p.name} on port ${port}: ${HOST.state.engine.server} ${args.join(' ')}`);
+      await invoke('spawn_process', { id: 'engine:' + id, program: HOST.state.engine.server, args, cwd: p.dir, env: null });
+      HOST.state.running[id] = { port, name: p.name, kind: p.kind || 'text', startedAt: new Date().toISOString(), ready: false };
+      await saveState(); render();
       for (let i = 0; i < 300; i++) {  // the model loads, then /health answers
-        try { await invoke('http_text', { url: `http://127.0.0.1:${s.enginePort}/health`, timeoutS: 3 }); log(`${p.name} is ready.`); return; }
-        catch (_) { await new Promise((r) => setTimeout(r, 1000)); if (!HOST.state.running) throw new Error('The engine stopped while loading; see the log.'); }
+        try { await invoke('http_text', { url: `http://127.0.0.1:${port}/health`, timeoutS: 3 }); HOST.state.running[id].ready = true; log(`${p.name} is ready.`); await saveState(); return; }
+        catch (_) { await new Promise((r) => setTimeout(r, 1000)); if (!HOST.state.running[id]) throw new Error(`${p.name} stopped while loading; see Run & Logs.`); }
       }
-      throw new Error('The model did not become ready within 5 minutes; see the log.');
+      throw new Error(`${p.name} did not become ready within 5 minutes; see Run & Logs.`);
     }
-    async function stopModel() {
-      await invoke('kill_process', { id: 'engine' });
-      HOST.state.running = null;
+    async function stopModel(id) {
+      await invoke('kill_process', { id: 'engine:' + id });
+      delete HOST.state.running[id];
       await saveState();
+    }
+    async function runInference(id) {
+      if (!HOST.state.running[id]) await startModel(id);
+      await launchPage(id);
     }
 
     // ---------- helpers
+    // Downloads can be paused (the partial file stays), resumed (continues where it stopped; the sha256 is still
+    // checked over the whole file) and cancelled (the partial file is deleted). Links expire after 24 hours: a resume
+    // that meets an expired link gets a fresh one from the catalog (same file, same sha256).
     async function download(id, url, dest, sha256, bytes, label) {
-      HOST.progress[id] = { done: 0, total: bytes || 0, label };
-      render();
-      try { await invoke('download', { id, url, dest, sha256, bytes: bytes || null }); }
-      finally { delete HOST.progress[id]; render(); }
+      const d = HOST.downloads[id] = { id, label, dest, sha256, done: 0, total: bytes || 0, state: 'running', rate: 0, t: Date.now(), at: 0 };
+      HOST.showDownloads = true; render();
+      try {
+        for (let refreshed = false; ;) {
+          try { await invoke('download', { id, url, dest, sha256, bytes: bytes || null }); return; }
+          catch (e) {
+            const m = String(e && e.message || e);
+            if (d.cancel || m === 'cancelled') throw new Error(`${label}: download cancelled.`);
+            if (m === 'paused') {
+              d.state = 'paused'; render();
+              await new Promise((r) => { d.wake = r; });
+              if (d.cancel) { await invoke('remove_path', { path: dest + '.part' }).catch(() => {}); throw new Error(`${label}: download cancelled.`); }
+              d.state = 'running'; d.t = Date.now(); d.at = d.done; render();
+              continue;
+            }
+            if (/HTTP (401|403)/.test(m) && !refreshed) {
+              refreshed = true; await loadCatalog();
+              const fresh = freshUrl(sha256); if (fresh) { url = fresh; continue; }
+            }
+            throw e;
+          }
+        }
+      } finally { delete HOST.downloads[id]; render(); }
+    }
+    function freshUrl(sha) {
+      const c = HOST.catalog || {};
+      for (const p of c.packs || []) for (const f of p.files) if (f.sha256 === sha) return f.url;
+      for (const b of Object.values((c.engine && c.engine.builds) || {})) if (b.sha256 === sha) return b.url;
+      return null;
+    }
+    async function controlDownload(id, action) {
+      const d = HOST.downloads[id]; if (!d) return;
+      if (action === 'resume') { if (d.wake) { const w = d.wake; d.wake = null; w(); } return; }
+      if (action === 'cancel') {
+        if (!confirm(`Cancel ${d.label}? The part downloaded so far is deleted.`)) return;
+        d.cancel = true;
+        if (d.state === 'paused' && d.wake) { const w = d.wake; d.wake = null; w(); return; }
+      }
+      await invoke('download_control', { id, action: action === 'cancel' ? 'cancel' : 'pause' });
     }
     function log(line) { HOST.logs.push(`[${new Date().toLocaleTimeString()}] ${line}`); if (HOST.logs.length > 2000) HOST.logs.splice(0, 500); const l = $('log'); if (l) { l.textContent = HOST.logs.join('\n'); l.scrollTop = l.scrollHeight; } }
     async function act(fn, okText) {
@@ -349,8 +422,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (code !== 0) throw new Error('The firewall rule was not added (exit code ' + code + ').');
     }
 
-    async function launchPage() {
-      const url = `http://127.0.0.1:${HOST.state.settings.port}/?t=${HOST.state.token}`;
+    async function launchPage(id) {
+      const url = `http://127.0.0.1:${HOST.state.settings.port}/?t=${HOST.state.token}` + (id ? '&model=' + encodeURIComponent(id) : '');
       await invoke('open_url', { url });
     }
 
@@ -358,24 +431,44 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     let tab = 'home';
     function render() {
       const app = $('app');
-      app.replaceChildren(top(), tabs(), el('main', {}, el('div', { id: 'msg', class: 'msg ' + msg.kind }, msg.text), screen()));
+      app.replaceChildren(top(), tabs(), el('main', {}, el('div', { id: 'msg', class: 'msg ' + msg.kind }, msg.text), screen()), downloadsPanel());
     }
     function top() {
-      const r = HOST.state.running, p = r && HOST.state.packs[r.packId];
+      const n = Object.keys(HOST.state.running).length;
       return el('div', { class: 'top' }, el('h1', {}, APP), el('span', { class: 'pill' }, 'v' + HOST.info.app_version),
         el('span', { class: 'sp' }),
         el('span', { class: 'pill ' + (HOST.state.engine ? 'on' : 'off') }, HOST.state.engine ? 'Sushila.cpp ' + HOST.state.engine.version : 'Sushila.cpp not installed'),
-        el('span', { class: 'pill ' + (p ? 'on' : '') }, p ? 'Running: ' + p.name : 'No model running'),
-        el('button', { onclick: () => act(launchPage), disabled: !p }, 'Launch Inference Page'));
+        el('span', { class: 'pill ' + (n ? 'on' : '') }, n ? `${n} model${n > 1 ? 's' : ''} running` : 'No model running'),
+        el('button', { class: 'ghost', onclick: () => { HOST.showDownloads = !HOST.showDownloads; render(); } }, 'Downloads',
+          Object.keys(HOST.downloads).length ? el('span', { class: 'badge' }, String(Object.keys(HOST.downloads).length)) : null),
+        el('button', { onclick: () => act(() => launchPage()), disabled: !n }, 'Open Inference Page'));
     }
     function tabs() {
       const t = [['home', 'Home'], ['engine', 'Engine'], ['packs', 'Model Packs'], ['run', 'Run & Logs'], ['settings', 'Settings']];
       return el('div', { class: 'tabs', role: 'tablist' }, t.map(([k, label]) => el('button', { class: 'tab', role: 'tab', 'aria-selected': String(tab === k), onclick: () => { tab = k; render(); } }, label)));
     }
-    function progressBars() {
-      return Object.entries(HOST.progress).map(([id, p]) => el('div', { class: 'card', id: 'prog-' + id },
-        el('div', { class: 'sub' }, p.label + ' ', el('span', { id: 'progt-' + id }, p.total ? `${gb(p.done)} of ${gb(p.total)}` : '')),
-        el('div', { class: 'bar' }, el('i', { id: 'progb-' + id, style: `width:${p.total ? (100 * p.done / p.total).toFixed(1) : 0}%` }))));
+    const dlText = (d) => {
+      const pct = d.total ? (100 * d.done / d.total).toFixed(1) + '%' : '';
+      const left = d.state === 'running' && d.rate > 0 && d.total ? Math.max(0, (d.total - d.done) / d.rate) : 0;
+      const eta = left ? (left > 3600 ? (left / 3600).toFixed(1) + ' h' : left > 60 ? Math.round(left / 60) + ' min' : Math.round(left) + ' s') + ' left' : '';
+      return [pct, d.total ? `${gb(d.done)} of ${gb(d.total)}` : gb(d.done), d.state === 'paused' ? 'paused' : d.rate ? (d.rate / 1e6).toFixed(1) + ' MB/s' : 'starting…', eta].filter(Boolean).join(' · ');
+    };
+    function downloadItem(d) {
+      const safe = d.id.replace(/[^\w-]/g, '_');
+      return el('div', { class: 'card dl', id: 'dl-' + safe },
+        el('div', {}, el('b', {}, d.label)),
+        el('div', { class: 'bar' }, el('i', { id: 'dlb-' + safe, style: `width:${d.total ? (100 * d.done / d.total).toFixed(1) : 0}%` })),
+        el('div', { class: 'row', style: 'margin-top:6px' }, el('span', { class: 'sub', id: 'dlt-' + safe, style: 'flex:1' }, dlText(d)),
+          d.state === 'paused' ? el('button', { onclick: () => controlDownload(d.id, 'resume') }, 'Resume') : el('button', { class: 'ghost', onclick: () => controlDownload(d.id, 'pause') }, 'Pause'),
+          el('button', { class: 'danger', onclick: () => controlDownload(d.id, 'cancel') }, 'Cancel')));
+    }
+    function progressBars() { return Object.values(HOST.downloads).map(downloadItem); }
+    function downloadsPanel() {
+      const list = Object.values(HOST.downloads);
+      return el('div', { class: 'dlpanel' + (HOST.showDownloads ? '' : ' hidden') }, el('div', { class: 'row', style: 'margin:0 0 8px' }, el('h2', { style: 'flex:1;margin:0' }, 'Downloads'),
+        el('button', { class: 'ghost', onclick: () => { HOST.showDownloads = false; render(); } }, 'Close')),
+        list.length ? list.map(downloadItem) : el('div', { class: 'sub' }, 'Nothing is downloading.'),
+        el('div', { class: 'sub', style: 'margin-top:8px' }, 'Paused downloads keep what they have; Resume continues from there. Every file is checked by sha256 when it finishes.'));
     }
     function screen() {
       if (tab === 'home') return homeScreen();
@@ -384,20 +477,33 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (tab === 'run') return runScreen();
       return settingsScreen();
     }
+    function modelsTable() {
+      const s = HOST.state, installed = Object.values(s.packs);
+      if (!installed.length) return el('div', { class: 'sub' }, s.engine ? 'No model installed yet. The default model installs with Sushila.cpp; add more in Model Packs.' : 'Install Sushila.cpp first; a small default model comes with it.');
+      return el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Model'), el('th', {}, 'Size'), el('th', {}, 'Server'), el('th', {}, ''))),
+        el('tbody', {}, installed.map((p) => {
+          const r = s.running[p.id];
+          return el('tr', {},
+            el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, (p.kind === 'music' ? 'Music' : 'Text (LLM)') + (p.id === DEFAULT_MODEL ? ' · default model' : '') + ((p.artifacts || []).length ? ' · precomputed: ' + p.artifacts.join(', ') : ''))),
+            el('td', {}, p.bytes ? gb(p.bytes) : ''),
+            el('td', {}, r ? el('span', { class: 'pill on' }, (r.ready ? 'running' : 'starting') + ' · port ' + r.port) : el('span', { class: 'pill' }, 'stopped')),
+            el('td', {}, el('div', { class: 'row', style: 'margin:0' },
+              r ? el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(() => stopModel(p.id), `${p.name} stopped.`) }, 'Stop server')
+                : el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => startModel(p.id), `${p.name} is running.`) }, 'Start server'),
+              el('button', { disabled: HOST.busy || !s.engine, onclick: () => act(() => runInference(p.id), `${p.name}: the inference page is open in your browser.`) }, p.kind === 'music' ? 'Create music' : 'Run inference'))));
+        })));
+    }
     function homeScreen() {
-      const s = HOST.state, installed = Object.values(s.packs), r = s.running;
-      const step = (n, title, done, body) => el('div', { class: 'card' }, el('h2', {}, `${done ? '✓' : n + '.'} ${title}`), body);
-      return el('div', {}, el('div', { class: 'grid' },
-        step(1, 'Install Sushila.cpp', !!s.engine, el('div', {}, el('div', { class: 'sub' }, s.engine ? `Version ${s.engine.version} (${s.engine.source}).` : 'The engine runs the models on this computer.'),
-          el('div', { class: 'row' }, el('button', { onclick: () => { tab = 'engine'; render(); } }, s.engine ? 'Manage' : 'Install')))),
-        step(2, 'Add a model pack', installed.length > 0, el('div', {}, el('div', { class: 'sub' }, installed.length ? installed.map((p) => p.name).join(', ') : 'A pack holds a model and its precomputed landscape and draft-head files.'),
-          el('div', { class: 'row' }, el('button', { onclick: () => { tab = 'packs'; render(); } }, installed.length ? 'More packs' : 'Choose a pack')))),
-        step(3, 'Start a model', !!r, el('div', {}, el('div', { class: 'sub' }, r ? `${s.packs[r.packId].name} is running.` : 'Pick an installed pack and start it.'),
-          el('div', { class: 'row' }, installed.length ? el('select', { id: 'quick' }, installed.map((p) => el('option', { value: p.id }, p.name))) : null,
-            el('button', { disabled: !installed.length || !s.engine || HOST.busy, onclick: () => act(() => startModel($('quick').value), 'The model is ready. Press Launch Inference Page.') }, 'Start'),
-            r ? el('button', { class: 'ghost', onclick: () => act(stopModel, 'Stopped.') }, 'Stop') : null))),
-        step(4, 'Chat in your browser', false, el('div', {}, el('div', { class: 'sub' }, `Opens http://127.0.0.1:${s.settings.port}/ in your default browser. It runs entirely on this computer.`),
-          el('div', { class: 'row' }, el('button', { class: 'big', disabled: !r, onclick: () => act(launchPage) }, 'Launch Inference Page'))))),
+      const s = HOST.state;
+      return el('div', {},
+        s.engine ? null : el('div', { class: 'card', style: 'margin-bottom:14px' }, el('h2', {}, '1. Install Sushila.cpp'),
+          el('div', { class: 'sub' }, 'The engine that runs models on this computer. A small default model is installed with it, so you can try it right away.'),
+          el('div', { class: 'row' }, el('button', { class: 'big', disabled: HOST.busy, onclick: () => act(installEngine, 'Sushila.cpp and the default model are installed. Press Run inference.') }, 'Install Sushila.cpp'),
+            el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(async () => { if (!(await detectEngine())) throw new Error('No Sushila.cpp found on this computer.'); await ensureDefaultModel(); }, 'Found Sushila.cpp.') }, 'Find an existing installation'))),
+        el('div', { class: 'card' }, el('h2', {}, 'Your models'),
+          el('div', { class: 'sub' }, 'Start a model\'s server, then Run inference: a chat page (or a music page) opens in your browser, served by this computer.'),
+          modelsTable(),
+          el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: () => { tab = 'packs'; render(); } }, 'Add model packs'))),
         progressBars());
     }
     function engineScreen() {
@@ -409,7 +515,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           el('div', { class: 'sub', style: 'margin-top:8px' }, build ? `Available: version ${c.engine.version} for ${platformKey()} (${gb(build.bytes || 0)}).` : (HOST.catalogError || `No build for ${platformKey()} is published yet.`)),
           el('div', { class: 'row' },
             el('button', { disabled: !build || HOST.busy, onclick: () => act(installEngine, 'Sushila.cpp is installed.') }, s.engine ? 'Install or update' : 'Install Sushila.cpp'),
-            el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(async () => { const e = await detectEngine(); if (!e) throw new Error('No Sushila.cpp found on this computer.'); }, 'Found Sushila.cpp.') }, 'Find an existing installation'))),
+            el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(async () => { const e = await detectEngine(); if (!e) throw new Error('No Sushila.cpp found on this computer.'); await ensureDefaultModel(); }, 'Found Sushila.cpp.') }, 'Find an existing installation'))),
         el('div', { class: 'card' }, el('h2', {}, 'Where it installs'),
           el('div', {}, s.settings.scope === 'all' ? `For all users, in ${root()}. Your computer asks for an administrator password once per install.` : `For you only, in ${userRoot()}. No administrator password needed.`),
           el('div', { class: 'sub' }, 'Change this in Settings.')),
@@ -451,15 +557,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         progressBars());
     }
     function runScreen() {
-      const s = HOST.state, installed = Object.values(s.packs), r = s.running;
+      const s = HOST.state;
       return el('div', {},
-        el('div', { class: 'card' }, el('h2', {}, 'Run a model'),
-          installed.length ? el('div', { class: 'row' }, el('select', { id: 'runsel' }, installed.map((p) => el('option', { value: p.id, selected: r && r.packId === p.id }, p.name))),
-            el('button', { disabled: HOST.busy || !s.engine, onclick: () => act(() => startModel($('runsel').value), 'The model is ready.') }, r ? 'Restart with this pack' : 'Start'),
-            el('button', { class: 'ghost', disabled: !r || HOST.busy, onclick: () => act(stopModel, 'Stopped.') }, 'Stop'),
-            el('button', { disabled: !r, onclick: () => act(launchPage) }, 'Launch Inference Page'))
-            : el('div', { class: 'sub' }, 'No pack installed yet.'),
-          el('div', { class: 'sub', style: 'margin-top:8px' }, `Engine port ${s.settings.enginePort}; inference page http://127.0.0.1:${s.settings.port}/`)),
+        el('div', { class: 'card' }, el('h2', {}, 'Servers'), modelsTable(),
+          el('div', { class: 'sub', style: 'margin-top:8px' }, `Inference page: http://127.0.0.1:${s.settings.port}/ · models get ports from ${s.settings.enginePort} upward`)),
         el('div', { class: 'card', style: 'margin-top:14px' }, el('h2', {}, 'Log'), el('div', { class: 'log', id: 'log' }, HOST.logs.join('\n'))));
     }
     function settingsScreen() {
@@ -473,7 +574,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         field('threads', 'CPU threads (0 = automatic)', 'number'), field('contextSize', 'Context length (tokens)', 'number'),
         field('gpuLayers', 'Layers on the GPU (0 = CPU only)', 'number'),
         el('div', { class: 'row' }, el('button', { onclick: () => act(async () => {
-          for (const k of ['catalogUrl']) s[k] = $('set-' + k).value.trim();
+          const cu = $('set-catalogUrl').value.trim();
+          if (!ALLOWED_SOURCE(cu)) throw new Error('The catalog must come from sushila.ai (or another allowed source).');
+          s.catalogUrl = cu;
           for (const k of ['port', 'enginePort', 'threads', 'contextSize', 'gpuLayers']) s[k] = Math.max(0, parseInt($('set-' + k).value, 10) || 0);
           s.scope = $('set-scope').value;
           await saveState(); await loadCatalog();
@@ -521,61 +624,134 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       statePath = join(HOST.info.data_dir, 'state.json');
       await loadState();
       listen('download-progress', (p) => {
-        const x = HOST.progress[p.id]; if (!x) return;
-        x.done = p.done; x.total = p.total || x.total;
-        const b = $('progb-' + p.id), t = $('progt-' + p.id);
-        if (b) b.style.width = (x.total ? 100 * x.done / x.total : 0).toFixed(1) + '%';
-        if (t) t.textContent = x.total ? `${gb(x.done)} of ${gb(x.total)}` : gb(x.done);
+        const d = HOST.downloads[p.id]; if (!d) return;
+        const now = Date.now();
+        if (now - d.t > 1000) { d.rate = (p.done - d.at) / ((now - d.t) / 1000); d.t = now; d.at = p.done; }
+        d.done = p.done; d.total = p.total || d.total;
+        const safe = d.id.replace(/[^\w-]/g, '_');
+        document.querySelectorAll('#dlb-' + safe).forEach((b) => { b.style.width = (d.total ? 100 * d.done / d.total : 0).toFixed(1) + '%'; });
+        document.querySelectorAll('#dlt-' + safe).forEach((t) => { t.textContent = dlText(d); });
       });
       listen('proc-log', (p) => log(p.line));
       listen('proc-exit', async (p) => {
-        if (p.id !== 'engine') return;
-        log(`the engine stopped (exit code ${p.code == null ? 'none' : p.code})`);
-        if (HOST.state.running) { HOST.state.running = null; await saveState(); render(); }
+        if (!String(p.id).startsWith('engine:')) return;
+        const id = p.id.slice(7);
+        log(`${(HOST.state.packs[id] || {}).name || id}: the server stopped (exit code ${p.code == null ? 'none' : p.code})`);
+        if (HOST.state.running[id]) { delete HOST.state.running[id]; await saveState(); render(); }
       });
       try { await startServer(); HOST.addresses = await invoke('local_addresses').catch(() => []); }
       catch (e) { say('The local web server could not start: ' + e + '. Choose another port in Settings.', 'err'); }
       await Promise.all([loadCatalog(), detectEngine()]);
       render();
+      // an engine but no model yet (e.g. Sushila.cpp was already on this computer): install the default model now
+      if (HOST.state.engine && !Object.keys(HOST.state.packs).length) act(ensureDefaultModel, 'The default model is installed. Press Run inference to try it.');
       listen('deep-link', () => handleLinks());
       await handleLinks();  // the link that started the app, if any
     })().catch((e) => { $('app').textContent = 'Sushila Host Station could not start: ' + e; });
   }
 
   // ================================================================== 2. the inference page (any browser)
+  // Served by a Host Station at http://127.0.0.1:<port>/ (or a shared Host Station's address). The Server menu
+  // switches between this computer and remote Host Stations (their address and an access key); the Model menu lists
+  // what runs there. Text models get a chat screen; music packs get a music screen.
   function inferencePage() {
     style();
+    document.head.append(el('style', {}, `
+.bar2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar2 select,.bar2 input{max-width:260px}
+.music{max-width:760px;margin:0 auto;padding:16px}.music label{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}
+.music textarea,.music input,.music select{width:100%}.music audio{width:100%;margin-top:14px}.track{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px;background:var(--card)}`));
     document.title = 'Sushila Inference';
     const qs = new URLSearchParams(location.search);
-    if (qs.get('t')) { try { sessionStorage.setItem('sushila-token', qs.get('t')); } catch (_) {} history.replaceState(null, '', '/'); }
+    const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
+    if (qs.get('t')) { try { sessionStorage.setItem('sushila-token', qs.get('t')); } catch (_) {} }
     let token = ''; try { token = sessionStorage.getItem('sushila-token') || ''; } catch (_) {}
-    let key = ''; try { key = localStorage.getItem('sushila-key') || ''; } catch (_) {}
-    const auth = () => (token ? { 'x-sushila-token': token } : key ? { authorization: 'Bearer ' + key } : {});
+    let want = qs.get('model') || '';
+    if (qs.get('t') || qs.get('model')) history.replaceState(null, '', '/');
+    let hosts = store.get('sushila-hosts', []);     // remote Host Stations: ["https://ai.example.com", ...]
+    let keys = store.get('sushila-keys', {});       // their access keys, kept in this browser only
+    let server = store.get('sushila-server', '');   // '' = this computer
+    if (server && !hosts.includes(server)) server = '';
+    let models = [], model = null, ctrl = null;
     const msgs = [];
-    let ctrl = null;
+    const base = () => server;  // '' = same origin
+    const auth = () => (!server && token ? { 'x-sushila-token': token } : keys[server] ? { authorization: 'Bearer ' + keys[server] } : {});
     const app = document.getElementById('app');
-    const head = el('div', { class: 'top' }, el('h1', {}, 'Sushila'), el('span', { class: 'pill', id: 'model' }, 'checking…'), el('span', { class: 'sp' }),
-      el('label', { class: 'sub' }, 'Max tokens ', el('select', { id: 'maxt' }, [256, 512, 1024, 2048].map((n) => el('option', { selected: n === 512 }, String(n))))),
-      el('label', { class: 'sub' }, ' Temperature ', el('select', { id: 'temp' }, ['0', '0.3', '0.7', '1.0'].map((t) => el('option', { selected: t === '0.7' }, t)))),
-      el('button', { class: 'ghost', onclick: () => { msgs.length = 0; $('log').replaceChildren(); } }, 'New chat'));
-    const box = el('div', { class: 'chat' }, el('div', { id: 'log' }),
-      el('div', { class: 'composer' }, el('textarea', { id: 'q', placeholder: 'Ask anything. Runs entirely on this computer.' }),
-        el('button', { id: 'send', onclick: send }, 'Send'), el('button', { id: 'stop', class: 'ghost hidden', onclick: () => ctrl && ctrl.abort() }, 'Stop')),
-      el('div', { class: 'row', id: 'keyrow' }, token ? null : [
-        el('input', { id: 'key', type: 'password', placeholder: 'Access key (from the person who runs this server)', value: key, style: 'flex:1' }),
-        el('button', { class: 'ghost', onclick: () => { key = $('key').value.trim(); try { localStorage.setItem('sushila-key', key); } catch (_) {} $('note').textContent = key ? 'Key saved in this browser.' : ''; } }, 'Use key')]),
-      el('div', { class: 'sub', id: 'note' }, ''));
-    app.replaceChildren(head, box);
-    $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
 
-    fetch('/api/state').then((r) => r.json()).then((s) => {
-      $('model').textContent = s.running ? s.running.name : 'No model running: start one in Sushila Host Station';
-      $('model').className = 'pill ' + (s.running ? 'on' : 'off');
-    }).catch(() => { $('model').textContent = 'Host Station not reachable'; });
+    const serverSel = el('select', { id: 'srv', 'aria-label': 'Server' });
+    const modelSel = el('select', { id: 'mdl', 'aria-label': 'Model' });
+    const remoteBox = el('div', { class: 'bar2 hidden', id: 'remote' },
+      el('input', { id: 'rurl', placeholder: 'https://ai.example.com', type: 'url' }), el('input', { id: 'rkey', placeholder: 'access key', type: 'password' }),
+      el('button', { onclick: addRemote }, 'Connect'), el('button', { class: 'ghost', onclick: () => { $('remote').classList.add('hidden'); fillServers(); } }, 'Cancel'));
+    const head = el('div', { class: 'top' }, el('h1', {}, 'Sushila'),
+      el('div', { class: 'bar2' }, el('span', { class: 'sub' }, 'Server'), serverSel, el('span', { class: 'sub' }, 'Model'), modelSel),
+      el('span', { class: 'sp' }), el('span', { class: 'pill', id: 'status' }, '…'));
+    const main = el('div', { id: 'main' });
+    app.replaceChildren(head, el('div', { style: 'padding:0 22px' }, remoteBox), main);
 
+    function fillServers() {
+      serverSel.replaceChildren(el('option', { value: '' }, 'This computer'), ...hosts.map((h) => el('option', { value: h }, h.replace(/^https?:\/\//, ''))),
+        el('option', { value: '__add' }, 'Add a remote server…'), ...(server ? [el('option', { value: '__del' }, 'Remove ' + server.replace(/^https?:\/\//, ''))] : []));
+      serverSel.value = server;
+    }
+    serverSel.addEventListener('change', () => {
+      const v = serverSel.value;
+      if (v === '__add') { $('remote').classList.remove('hidden'); $('rurl').focus(); return; }
+      if (v === '__del') { hosts = hosts.filter((h) => h !== server); delete keys[server]; store.set('sushila-hosts', hosts); store.set('sushila-keys', keys); server = ''; }
+      else server = v;
+      store.set('sushila-server', server); fillServers(); loadModels();
+    });
+    function addRemote() {
+      let u = $('rurl').value.trim().replace(/\/+$/, '');
+      if (!/^https?:\/\/[^\s/]+(:\d+)?$/.test(u)) { setStatus('Type the server address, e.g. https://ai.example.com', 'off'); return; }
+      if (location.protocol === 'https:' && u.startsWith('http:')) { setStatus('This page is https: the remote server must use https too.', 'off'); return; }
+      if (!hosts.includes(u)) hosts.push(u);
+      if ($('rkey').value.trim()) keys[u] = $('rkey').value.trim();
+      store.set('sushila-hosts', hosts); store.set('sushila-keys', keys);
+      server = u; store.set('sushila-server', server);
+      $('remote').classList.add('hidden'); fillServers(); loadModels();
+    }
+    function setStatus(text, kind) { const st = $('status'); st.textContent = text; st.className = 'pill ' + (kind || ''); }
+
+    async function loadModels() {
+      setStatus('connecting…');
+      try {
+        const r = await fetch(base() + '/api/state');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const s = await r.json();
+        models = s.running || [];
+        modelSel.replaceChildren(...(models.length ? models.map((m) => el('option', { value: m.packId }, m.name + (m.kind === 'music' ? ' (music)' : ''))) : [el('option', { value: '' }, 'No model running')]));
+        if (want && models.find((m) => m.packId === want)) modelSel.value = want;
+        want = '';
+        setStatus(server ? 'Remote: ' + server.replace(/^https?:\/\//, '') : 'This computer', models.length ? 'on' : 'off');
+      } catch (e) {
+        models = []; modelSel.replaceChildren(el('option', { value: '' }, '—'));
+        setStatus(server ? 'Cannot reach ' + server + ' (is sharing on, and this address allowed there?)' : 'Sushila Host Station is not running', 'off');
+      }
+      pickModel();
+    }
+    modelSel.addEventListener('change', pickModel);
+    function pickModel() {
+      model = models.find((m) => m.packId === modelSel.value) || null;
+      msgs.length = 0;
+      if (!model) { main.replaceChildren(el('div', { class: 'chat' }, el('div', { class: 'sub' }, server ? 'No model is running on that server.' : 'No model is running. In Sushila Host Station, press Start server (or Run inference) next to a model.'))); return; }
+      (model.kind === 'music' ? musicScreen : chatScreen)();
+    }
+    const keyHint = () => (server && !keys[server] ? el('div', { class: 'sub' }, 'This server needs an access key: choose "Add a remote server…" again with the key.') : null);
+    const explain = (r, body) => r.status === 401 ? 'This server needs an access key (Server → Add a remote server…).' : r.status === 429 ? 'Too many requests for this key; wait a minute.' : (body || 'HTTP ' + r.status);
+
+    // ---------- chat (text models)
+    function chatScreen() {
+      main.replaceChildren(el('div', { class: 'chat' }, el('div', { id: 'log' }),
+        el('div', { class: 'composer' }, el('textarea', { id: 'q', placeholder: 'Ask anything. ' + (server ? 'Runs on ' + server.replace(/^https?:\/\//, '') + '.' : 'Runs entirely on this computer.') }),
+          el('div', {}, el('button', { id: 'send', onclick: send }, 'Submit'), el('button', { id: 'stop', class: 'ghost hidden', onclick: () => ctrl && ctrl.abort() }, 'Stop'))),
+        el('div', { class: 'bar2 sub' }, 'Max tokens', el('select', { id: 'maxt' }, [256, 512, 1024, 2048].map((n) => el('option', { selected: n === 512 }, String(n)))),
+          'Temperature', el('select', { id: 'temp' }, ['0', '0.3', '0.7', '1.0'].map((t) => el('option', { selected: t === '0.7' }, t))),
+          el('button', { class: 'ghost', onclick: () => { msgs.length = 0; $('log').replaceChildren(); } }, 'New chat')), keyHint()));
+      $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+    }
     async function send() {
       const q = $('q').value.trim();
-      if (!q || ctrl) return;
+      if (!q || ctrl || !model) return;
       $('q').value = '';
       msgs.push({ role: 'user', content: q });
       $('log').append(el('div', { class: 'bubble user' }, q));
@@ -586,10 +762,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       ctrl = new AbortController(); $('send').classList.add('hidden'); $('stop').classList.remove('hidden');
       const t0 = performance.now(); let first = 0, n = 0, text = '', timings = null;
       try {
-        const r = await fetch('/v1/chat/completions', { method: 'POST', signal: ctrl.signal,
-          headers: Object.assign({ 'content-type': 'application/json' }, auth()),
-          body: JSON.stringify({ messages: msgs, stream: true, max_tokens: +$('maxt').value, temperature: +$('temp').value }) });
-        if (!r.ok) throw new Error(r.status === 401 ? 'This server needs an access key: enter it below.' : r.status === 429 ? 'Too many requests for this key; wait a minute.' : await r.text());
+        const r = await fetch(base() + '/v1/chat/completions', { method: 'POST', signal: ctrl.signal,
+          headers: Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth()),
+          body: JSON.stringify({ model: model.packId, messages: msgs, stream: true, max_tokens: +$('maxt').value, temperature: +$('temp').value }) });
+        if (!r.ok) throw new Error(explain(r, await r.text()));
         const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '';
         for (;;) {
           const { done, value } = await rd.read(); if (done) break;
@@ -615,5 +791,37 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         ctrl = null; $('send').classList.remove('hidden'); $('stop').classList.add('hidden');
       }
     }
+
+    // ---------- music (music packs): POST /v1/audio/music {model, prompt, lyrics, duration} -> audio
+    function musicScreen() {
+      main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create music'),
+        el('label', { for: 'mstyle' }, 'Style'), el('input', { id: 'mstyle', placeholder: 'e.g. upbeat indie pop, female vocals, acoustic guitar, 110 bpm' }),
+        el('label', { for: 'mlyrics' }, 'Lyrics (optional)'), el('textarea', { id: 'mlyrics', rows: 8, placeholder: '[verse]\n...\n[chorus]\n...' }),
+        el('label', { for: 'mdur' }, 'Length'), el('select', { id: 'mdur' }, [30, 60, 120, 180].map((d) => el('option', { value: d, selected: d === 60 }, d < 60 ? d + ' seconds' : d / 60 + ' minute' + (d > 60 ? 's' : '')))),
+        el('div', { class: 'row' }, el('button', { id: 'mgo', class: 'big', onclick: makeMusic }, 'Submit')),
+        el('div', { class: 'msg', id: 'mmsg' }), keyHint(), el('div', { id: 'tracks' })));
+    }
+    async function makeMusic() {
+      const prompt = $('mstyle').value.trim();
+      if (!prompt || !model) { $('mmsg').textContent = 'Describe the style first.'; return; }
+      $('mgo').disabled = true; $('mmsg').className = 'msg'; $('mmsg').textContent = 'Composing… this can take a minute or more.';
+      const t0 = performance.now();
+      try {
+        const r = await fetch(base() + '/v1/audio/music', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth()),
+          body: JSON.stringify({ model: model.packId, prompt, lyrics: $('mlyrics').value, duration: +$('mdur').value }) });
+        if (!r.ok) throw new Error(explain(r, await r.text()));
+        let src;
+        if ((r.headers.get('content-type') || '').startsWith('audio/')) src = URL.createObjectURL(await r.blob());
+        else { const j = await r.json(); src = j.audio_url || (j.audio ? 'data:audio/' + (j.format || 'mpeg') + ';base64,' + j.audio : ''); }
+        if (!src) throw new Error('The server returned no audio.');
+        $('tracks').prepend(el('div', { class: 'track' }, el('b', {}, prompt), el('div', { class: 'meta' }, `made in ${((performance.now() - t0) / 1000).toFixed(1)} s`),
+          el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-music.mp3' }, 'Download')));
+        $('mmsg').textContent = '';
+      } catch (e) { $('mmsg').className = 'msg err'; $('mmsg').textContent = String(e.message || e); }
+      finally { $('mgo').disabled = false; }
+    }
+
+    fillServers();
+    loadModels();
   }
 })();
