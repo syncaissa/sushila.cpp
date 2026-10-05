@@ -72,6 +72,7 @@ One per system; the apps pick the right one for your graphics card by themselves
 | Mac, Apple M1-M4 (Metal) | [sushila.cpp-0.1.0-macos-aarch64.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-macos-aarch64.tar.gz) | 27 MB | `f473730312a5a0147febbd8c7fb582c3b55166adef785f02fef1856ca10c089b` |
 | Mac (Intel) | [sushila.cpp-0.1.0-macos-x86_64.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-macos-x86_64.tar.gz) | 27 MB | `ef93cec1767574f5454339847679df7e338ba0f0a8bd964300392a3421f62420` |
 | Windows (CPU) | [sushila.cpp-0.1.0-windows-x86_64.zip](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-windows-x86_64.zip) | 23 MB | `70b0640a52bd0fb31dde338456cd63602d9c9e6e1f7220240a85685a53ce81b6` |
+| Windows, NVIDIA GPU (CUDA) | [sushila.cpp-0.1.0-windows-x86_64-cuda.zip](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-windows-x86_64-cuda.zip) | 1270 MB | `885fc473cb9c94bf110a98de5c3ba6fd6b00e4f4494ca73b01f7676a0c282882` |
 | Windows, AMD / Intel GPU (Vulkan) | [sushila.cpp-0.1.0-windows-x86_64-vulkan.zip](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-windows-x86_64-vulkan.zip) | 62 MB | `8b908d9f52b24e64e593c00ca0549fb7e4c664286808e7d5e3ba874adf77076e` |
 
 **Safety.** Every model pack and engine build is listed with its sha256 in an index signed by Sushila (Ed25519); the
