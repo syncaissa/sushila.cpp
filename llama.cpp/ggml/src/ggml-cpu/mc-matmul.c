@@ -3,6 +3,9 @@
 #include "mc-matmul.h"
 
 #include <math.h>
+#ifndef M_PI   // MSVC defines it only with _USE_MATH_DEFINES
+#    define M_PI 3.14159265358979323846
+#endif
 #if defined(_WIN32)   // portable "run once" (MSVC has no pthreads)
 #    ifndef WIN32_LEAN_AND_MEAN
 #        define WIN32_LEAN_AND_MEAN
