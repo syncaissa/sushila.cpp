@@ -89,6 +89,9 @@ jobs:
             if [ "${{ matrix.exe }}" = .exe ]; then for l in cudart64_12 cublas64_12 cublasLt64_12; do cp "$CUDA_PATH/bin/$l.dll" pkg/; done
             else for l in libcudart.so.12 libcublas.so.12 libcublasLt.so.12; do cp -L $(find /usr/local/cuda* /usr/lib/x86_64-linux-gnu -name "$l" 2>/dev/null | head -1) pkg/; done; fi
           fi
+          if [ "${{ matrix.exe }}" = .exe ]; then  # the Microsoft C++ runtime next to the programs (app-local, as Microsoft allows), for PCs without the VC++ redistributable
+            for l in msvcp140.dll msvcp140_1.dll msvcp140_2.dll msvcp140_codecvt_ids.dll vcruntime140.dll vcruntime140_1.dll; do cp "$SYSTEMROOT/System32/$l" pkg/; done
+          fi
           cp LICENSE pkg/ 2>/dev/null || true; cp llama.cpp/LICENSE pkg/LICENSE-llama.cpp
           name="sushila-cpp-${{ inputs.version }}-${{ matrix.key }}.${{ matrix.archive }}"
           if [ "${{ matrix.archive }}" = zip ]; then (cd pkg && 7z a "../$name" . >/dev/null); else tar -czf "$name" -C pkg .; fi
