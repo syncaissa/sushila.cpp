@@ -1,0 +1,37 @@
+[21:20:35] setup done: sglang 0.5.21, ollama Warning: client version is 0.35.1
+[21:21:05] serving with SGLang 0.5.14
+Fetching 18 files:   0%|          | 0/18 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 18 files:   6%|▌         | 1/18 [00:00<00:02,  7.76it/s]Fetching 18 files:  44%|████▍     | 8/18 [00:00<00:00, 34.05it/s]Fetching 18 files:  67%|██████▋   | 12/18 [00:00<00:00, 33.24it/s]Fetching 18 files:  89%|████████▉ | 16/18 [00:16<00:03,  1.50s/it]Fetching 18 files:  94%|█████████▍| 17/18 [00:16<00:01,  1.37s/it]Fetching 18 files: 100%|██████████| 18/18 [00:16<00:00,  1.07it/s]
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files:  25%|██▌       | 1/4 [00:00<00:00,  4.09it/s]Fetching 4 files:  75%|███████▌  | 3/4 [00:00<00:00,  7.07it/s]Fetching 4 files: 100%|██████████| 4/4 [00:02<00:00,  1.14it/s]Fetching 4 files: 100%|██████████| 4/4 [00:02<00:00,  1.47it/s]
+head tensors: ['d2t', 'fc.weight', 'lm_head.weight', 'midlayer.hidden_norm.weight', 'midlayer.input_layernorm.weight', 'midlayer.mlp.down_proj.weight', 'midlayer.mlp.gate_proj.weight', 'midlayer.mlp.up_proj.weight', 'midlayer.post_attention_layernorm.weight', 'midlayer.self_attn.k_proj.weight', 'midlayer.self_attn.o_proj.weight', 'midlayer.self_attn.q_proj.weight']
+[21:21:44] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. Generating test split:   0%|          | 0/164 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 164/164 [00:00<00:00, 20399.34 examples/s] Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 358344.49 examples/s] Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 235016.44 examples/s] main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+Fetching 18 files:   0%|          | 0/18 [00:00<?, ?it/s]Fetching 18 files: 100%|██████████| 18/18 [00:00<00:00, 1385.43it/s]
+[21:29:43] base_main: 5206 tokens in 116.7 s = 44.6 tok/s (median per prompt 44.8)
+[21:42:22] base_ood: 33068 tokens in 745.7 s = 44.3 tok/s (median per prompt 44.4)
+[21:45:45] base_mt_t07: 8379 tokens in 190.1 s = 44.1 tok/s (median per prompt 44.2)
+[21:56:22] base_gsm100: 27777 tokens in 623.5 s = 44.6 tok/s (median per prompt 44.5)
+[22:00:03] pub_main: 5211 tokens in 112.7 s = 46.2 tok/s (median per prompt 45.7)
+[22:06:35] serving with SGLang 0.5.14
+Fetching 18 files:   0%|          | 0/18 [00:00<?, ?it/s]Fetching 18 files: 100%|██████████| 18/18 [00:00<00:00, 1153.73it/s]
+run_model.sh: line 115:  5182 Killed                  $SGPY -m sglang.launch_server --model-path $TARGET --port 30000 --mem-fraction-static 0.85 --context-length ${CTX:-4096} --cuda-graph-max-bs-decode 4 --max-running-requests 4 --tp-size ${TP:-1} ${SGLANG_EXTRA:-} "$@" > $D/server_$label.log 2>&1
+[22:07:06] pub: server died (see server_pub.log)
+[22:07:06] stopped at line 136
+[22:08:09] serving with SGLang 0.5.14
+Fetching 18 files:   0%|          | 0/18 [00:00<?, ?it/s]Fetching 18 files: 100%|██████████| 18/18 [00:00<00:00, 1264.11it/s]
+[22:20:02] pub_ood: 33036 tokens in 637.8 s = 51.8 tok/s (median per prompt 51.6)
+[22:24:29] pub_mt_t07: 8267 tokens in 176.3 s = 46.9 tok/s (median per prompt 45.2)
+[22:39:13] answers: 2000 conversations from 2300 prompts -> /workspace/sushila/gemma3-27b/regen.jsonl
+2000
+[22:58:55] chunk_00: capture 632 s, train 550 s, 'acc_0': 0.1666666716337204
+[23:13:20] chunk_01: capture 338 s, train 527 s, 'acc_0': 0.27586206793785095
+[23:16:29] val_ckpt_chunk_00: 4122 tokens in 84.7 s = 48.6 tok/s (median per prompt 48.1)
+[23:19:53] val_ckpt_chunk_01: 4128 tokens in 82.3 s = 50.2 tok/s (median per prompt 49.6)
+[23:20:10] chosen on validation: head_ckpt_chunk_01 (50.15745218919276 tok/s)
+[23:21:00] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/gemma3-27b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/gemma3-27b/CHECKSUMS.json are in B2 
+[23:23:55] ours_main: 5197 tokens in 101.8 s = 51.0 tok/s (median per prompt 51.1)
+[23:33:49] ours_ood: 32994 tokens in 582.8 s = 56.6 tok/s (median per prompt 56.4)
+[23:36:48] ours_mt_t07: 8376 tokens in 165.9 s = 50.5 tok/s (median per prompt 50.3)
+[23:43:47] ours_gsm100: 26348 tokens in 409.7 s = 64.3 tok/s (median per prompt 64.6)
+[23:44:03] summary: /workspace/sushila/gemma3-27b/summary.md
+[23:44:18] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/gemma3-27b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/gemma3-27b/CHECKSUMS.json are in B2 
+[23:44:18] DONE

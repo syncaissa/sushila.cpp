@@ -1,12 +1,12 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-05T23:23Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-05T23:52Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
 | `ace-step-15` | weights (4) | 8.1 GB | yes | 2026-10-05 |
 | `deepseek-r1-distill-llama-70b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 88.6 GB | yes | 2026-10-05 |
-| `gemma3-27b` | checkpoints (2), draft-head (2), training-data (2), config.env (1) | 2.9 GB | **no** | 2026-10-05 |
+| `gemma3-27b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 38.8 GB | yes | 2026-10-05 |
 | `qwen2.5-0.5b-q4km` | landscape (48), landscapes-earlier (4), calibration (7), weights (1) | 0.8 GB | yes | 2026-10-05 |
 | `qwen2.5-coder-7b` | weights (1) | 4.7 GB | yes | 2026-10-05 |
 | `qwen3-235b-a22b` | draft-head (2), checkpoints (2), training-data (2), config.env (1), weights (43) | 271.4 GB | yes | 2026-10-05 |
@@ -57,6 +57,7 @@ EAGLE-3 draft head for the reasoning model, refitted from the Llama-3.3-70B head
   - `draft-head/` (2 files, 1.43 GB): the precomputed draft head chosen on validation prompts (ready to serve)
   - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
   - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
+  - `weights/` (23 files, 35.90 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
 ### `qwen2.5-0.5b-q4km`
 

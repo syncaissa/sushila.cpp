@@ -151,6 +151,8 @@ item for the new release. The same items are written as comments in each `models
   position handling, aux layer ids +-1. When a new Gemma or a new SGLang appears, first check the accept length of a
   published head on 5 prompts (`gemma_probe3.sh`-style) before any full run.
 - Other new pipeline knob: `SGLANG_VERSION` (any model) pins the SGLang used for serving.
+- Signing refuses scripts in an index: Gemma's AWQ repository ships `convert_flax.py`. Such files stay in B2 but move
+  from `files` to `kept_not_installable` in CHECKSUMS.json (with their sha256) before signing (2026-10-05).
 
 **Very large MoE models** (`qwen3-235b-a22b`)
 - Two 80 GB GPUs: `TP=2` (and `GPUS=2 DISK_GB=500` for the pod); `CAPTURE_MEM=0.88`, because the weights take 75% of
