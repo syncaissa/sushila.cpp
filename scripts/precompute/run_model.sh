@@ -269,7 +269,9 @@ save_b2
 sglang_suite ours $S16 --speculative-draft-model-path $HB
 
 # ---------- 8b throughput under load: many simultaneous users (SGLang alone, published head, ours) ----------
+# LOAD=0 skips it (about an hour on a 27B model; the summary then has no load table)
 for cfg in base pub ours; do
+  [ "${LOAD:-1}" = 0 ] && break
   [ -s $D/out/load_$cfg.json ] && continue
   case $cfg in base) a="";; pub) a="$S16 --speculative-draft-model-path $D/pub_head_serve";; ours) a="$S16 --speculative-draft-model-path $HB";; esac
   # 70B models with a 16-token tree at 64 users need 532 MB of FlashInfer workspace (SGLang's default: 384 MB)
