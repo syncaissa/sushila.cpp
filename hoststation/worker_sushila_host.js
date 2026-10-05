@@ -180,7 +180,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 
     async function engineKey() {  // e.g. windows-x86_64-cuda on a PC with an NVIDIA GPU, else windows-x86_64
       const builds = (HOST.catalog && HOST.catalog.engine && HOST.catalog.engine.builds) || {};
-      if ((await nvidiaGpu()) && builds[platformKey() + '-cuda']) return platformKey() + '-cuda';
+      const nv = await nvidiaGpu();
+      if (nv && builds[platformKey() + '-cuda']) return platformKey() + '-cuda';
+      if (nv && builds[platformKey() + '-vulkan']) return platformKey() + '-vulkan';  // NVIDIA cards run Vulkan too: far faster than CPU
       if (HOST.otherGpu === undefined) {  // AMD Radeon, Intel Arc/Iris: the Vulkan build
         let names = '';
         if (HOST.info.os === 'windows') {
