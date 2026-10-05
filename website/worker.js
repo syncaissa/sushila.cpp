@@ -136,6 +136,8 @@ nav .links a:hover{color:var(--fg)}
 .btn:hover{background:var(--acc2)}
 .btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--line)}
 .btn.small{padding:6px 12px;font-size:14px}
+.herocta{display:block;font-size:20px;line-height:1.3;padding:16px 22px;margin:18px 0 6px;border-radius:12px;text-align:left;box-shadow:0 6px 18px rgba(15,118,110,.25)}
+.herocta span{display:block;font-size:14px;font-weight:500;opacity:.9;margin-top:4px}@media (max-width:640px){.herocta{font-size:17px}}
 .btn.off{background:var(--code);color:var(--mut);cursor:default}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 section{padding:44px 0;border-top:1px solid var(--line)}
@@ -196,7 +198,7 @@ ${STYLE}</style>
 <body>
 <header><div class="wrap"><nav>
   ${brand()}
-  <div class="links"><a href="/">Home</a><a href="/#models" class="hide">Models</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
+  <div class="links"><a href="/">Home</a><a href="/manual" class="hide">Manual install</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
 </nav></div></header>
 <main class="wrap"><article class="doc">
 ${body(contact)}
@@ -360,7 +362,7 @@ material changes.</p>
 <p>The Sushila project, <a href="mailto:${esc(contact)}">${esc(contact)}</a>.</p>
 `;
 
-function page(env, user, models, packs = [], app = null) {
+function page(env, user, models, packs = [], app = null, mode = 'home') {
   const REPO = String(env.REPO_URL || REPO_DEFAULT).replace(/\/+$/, '');
   const released = String(env.RELEASED || '').toLowerCase() === 'true';
   const contact = env.CONTACT || DEFAULT_CONTACT;
@@ -393,64 +395,11 @@ function page(env, user, models, packs = [], app = null) {
       <td class="act"><a class="btn small ghost" href="${esc(m.hf)}">Hugging Face ↗</a></td></tr>`).join('');
 
 
-  const resultRows = RESULTS.map((r) => `
-    <tr><td>${r[0]}</td><td>${r[1]}</td><td class="num">${r[2]}</td><td class="num">${r[3]}</td>
-      <td class="num"><b>${r[4]}</b></td><td class="sub">${r[5]}</td></tr>`).join('');
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sushila.cpp — faster LLM inference, same model files</title>
-<meta name="description" content="Sushila.cpp: a llama.cpp-based engine that precomputes per-model artifacts once, right after each model's release, so every token costs less. Same GGUF files, same output.">
-${ICON_LINKS}
-<style>
-${STYLE}</style>
-</head>
-<body>
-<header><div class="wrap"><nav>
-  ${brand()}
-  <div class="links"><a href="#how">How</a><a href="#results">Results</a><a href="#download">Download</a><a href="#packs">Packs</a><a href="#models">Models</a><a href="#api">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
-</nav></div></header>
-
-<main class="wrap">
-<div class="hero"><div class="herotext">
-  <h1>Faster LLM inference.<br>Same model files, same answers.</h1>
-  <p>Sushila.cpp is a llama.cpp-based engine that does the expensive work once per model, right after the model is released,
-  so every token you generate afterwards costs less. Llama-3.3-70B runs 3.6× faster than vanilla Ollama on the same GPU;
-  on the very same model file, Llama-3.1-70B runs 2.0× faster than stock llama.cpp on a GPU and 2.3× on a CPU, with exactly its output.</p>
-  <div class="row">${dl('', 'Get Sushila.cpp')}<a class="btn ghost" href="#models">Download models</a><a class="btn ghost" href="#api">Serverless API</a></div>
-</div><div class="herologo" id="swanlogo" role="img" aria-label="Sushila logo: a swan shaped like the letter S, with an S-marked integrated circuit, on a base"><img class="swan" src="/logo-swan.png" alt=""><img class="base" src="/logo-base.png" alt=""></div></div>
-
-<section id="how">
-  <h2>What Sushila.cpp does</h2>
-  <p class="lead">Decoding is limited by how many bytes of weights the hardware reads per token. Sushila
-  (<b>S</b>calable <b>U</b>pstream <b>S</b>ynthesis for <b>H</b>ybrid <b>I</b>nference in <b>L</b>arge-model <b>A</b>cceleration)
-  computes small artifacts once per model so each token reads fewer bytes or the model runs fewer passes.</p>
-  <div class="grid">
-    <div class="card"><h3>Landscapes</h3><p>A precomputed map of each model's output layer: a cheap preview picks a short list of candidate tokens,
-      which are then scored exactly. About 13–15% of the layer is read, with the same top token.</p></div>
-    <div class="card"><h3>Precomputed draft heads</h3><p>A small head fitted on the model's own answers proposes several tokens; the full model checks them all
-      in one pass. Accepted tokens are exactly what the model would have produced.</p></div>
-    <div class="card"><h3>Landscape hunt</h3><p>Each model gets the stack that suits it. New models first try the existing landscapes,
-      and a new one is searched for only if none fits.</p></div>
-    <div class="card"><h3>Kernels</h3><p>Tree verification in llama.cpp and a tuned GPU kernel switch make checking 5–8 drafted tokens 18–38% cheaper.</p></div>
-  </div>
-  <p class="note">Sushila.cpp also uses established methods, including EAGLE-3 draft heads, small draft models and fast 4-bit kernels,
-  and combines them with its own. The paper credits each method and reports how much it adds.</p>
-</section>
-
-<section id="results">
-  <h2>Measured speed</h2>
-  <p class="lead">Tokens per second, greedy decoding, compared with the stock engine on the same hardware and model file.</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Model</th><th>Hardware, engine</th><th class="num">Stock</th><th class="num">Sushila</th><th class="num">Speedup</th><th>How</th></tr></thead>
-    <tbody>${resultRows}</tbody>
-  </table></div>
-  <p class="note">Same model file and exactly the stock output in every row except the Ollama comparison, where Ollama reads a different 4-bit file of the same model (Q4_K_M against AWQ; same GSM8K accuracy). The full method, scripts and raw logs are in the repository.</p>
-</section>
-
+  if (mode === 'manual') {
+    return docPage(env, 'Manual install', 'Install Sushila.cpp and download model files by hand: for developers and servers.', () => `
+<style>.doc{max-width:1040px}</style>
+<h1>Manual install</h1>
+<p class="lead">The easy way is <a href="/hoststation">Sushila Host Station</a>: a few clicks install Sushila.cpp and model packs, with no command prompt. This page is the old-fashioned way, for developers, servers and scripts: build or download Sushila.cpp yourself and download model files directly.</p>
 <section id="download">
   <h2>Download Sushila.cpp</h2>
   <p class="lead">Free and open source under the MIT License, like llama.cpp and Ollama. It reads the same GGUF files, including the
@@ -495,18 +444,7 @@ cmake --build build --config Release -j --target llama-cli llama-server llama-sp
 # 4. run
 build/bin/llama-server -m model.gguf -ngl 99 --port 8080</code></pre></div>
   <p class="note">Already use Ollama? Reuse its files: <code>ollama show --modelfile llama3.1:8b | grep '^FROM /'</code> prints the model's path.
-  Full guide: <a href="${REPO}/blob/main/INSTALL.md">INSTALL.md</a>. Provided as is, without warranty (<a href="#disclaimer">disclaimer</a>).</p>
-</section>
-
-<section id="packs">
-  <h2>Model packs</h2>
-  <p class="lead">One click installs a model and its precomputed files (landscape, draft head) into <a href="/hoststation">Sushila Host Station</a>, the free desktop app for Windows, macOS and Linux. It then runs the model on your own computer and opens a chat page in your browser. Every pack is signed by Sushila and contains only data files; the app checks each file before using it.</p>
-  ${packs.length ? `<div class="tablewrap"><table>
-    <thead><tr><th>Pack</th><th>Kind</th><th class="num">Size</th><th>License</th><th></th></tr></thead>
-    <tbody>${packRows}</tbody>
-  </table></div>` : '<p class="note">The pack list is unavailable right now. Please try again shortly.</p>'}
-  <p class="row"><a class="btn ghost hsget" href="/hoststation">Get Sushila Host Station (free)</a> <span class="sub">New here? The button walks you through installing the app first, with a few clicks.</span></p>
-  ${HS_WIZARD(app)}
+  Full guide: <a href="${REPO}/blob/main/INSTALL.md">INSTALL.md</a>. Provided as is, without warranty (<a href="/#disclaimer">disclaimer</a>).</p>
 </section>
 
 <section id="models">
@@ -517,7 +455,7 @@ build/bin/llama-server -m model.gguf -ngl 99 --port 8080</code></pre></div>
     <thead><tr><th>Model</th><th>Quant</th><th class="num">Size</th><th>License</th><th></th></tr></thead>
     <tbody>${hostedRows}</tbody>
   </table></div>
-  <p class="note">Downloads are provided as is, with no warranty; you assume all risks of use (see the <a href="#disclaimer">disclaimer</a>).</p>
+  <p class="note">Downloads are provided as is, with no warranty; you assume all risks of use (see the <a href="/#disclaimer">disclaimer</a>).</p>
   <p class="note">Built with Llama. The Llama models are distributed under their community licenses and Meta's acceptable use policy.</p>
 
   <h3 style="margin:32px 0 6px">More models: download from Hugging Face</h3>
@@ -527,6 +465,94 @@ build/bin/llama-server -m model.gguf -ngl 99 --port 8080</code></pre></div>
     <tbody>${listedRows}</tbody>
   </table></div>
 </section>
+
+<script>
+(function () {
+  const tabs = document.querySelectorAll('.tab'), panels = document.querySelectorAll('.ospanel');
+  const show = (os) => { tabs.forEach(t => t.setAttribute('aria-selected', t.dataset.os === os)); panels.forEach(p => p.hidden = p.dataset.os !== os); };
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.os)));
+  const ua = navigator.userAgent;
+  show(/Windows/.test(ua) ? 'win' : /Mac OS X|Macintosh/.test(ua) ? 'mac' : 'linux');
+})();
+document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; }
+  catch (e) { prompt('sha256', b.dataset.copy); }
+  setTimeout(() => b.textContent = 'sha256', 1500);
+}));
+</script>`, user);
+  }
+
+  const resultRows = RESULTS.map((r) => `
+    <tr><td>${r[0]}</td><td>${r[1]}</td><td class="num">${r[2]}</td><td class="num">${r[3]}</td>
+      <td class="num"><b>${r[4]}</b></td><td class="sub">${r[5]}</td></tr>`).join('');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sushila.cpp — faster LLM inference, same model files</title>
+<meta name="description" content="Sushila.cpp: a llama.cpp-based engine that precomputes per-model artifacts once, right after each model's release, so every token costs less. Same GGUF files, same output.">
+${ICON_LINKS}
+<style>
+${STYLE}</style>
+</head>
+<body>
+<header><div class="wrap"><nav>
+  ${brand()}
+  <div class="links"><a href="#how">How</a><a href="#results">Results</a><a href="#packs">Packs</a><a href="/manual">Manual install</a><a href="#api">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
+</nav></div></header>
+
+<main class="wrap">
+<div class="hero"><div class="herotext">
+  <h1>Faster LLM inference.<br>Same model files, same answers.</h1>
+  <p>Sushila.cpp is a llama.cpp-based engine that does the expensive work once per model, right after the model is released,
+  so every token you generate afterwards costs less. Llama-3.3-70B runs 3.6× faster than vanilla Ollama on the same GPU;
+  on the very same model file, Llama-3.1-70B runs 2.0× faster than stock llama.cpp on a GPU and 2.3× on a CPU, with exactly its output.</p>
+  <a class="btn hsget herocta" href="/hoststation" data-start="welcome">Can't wait? Install it on your computer: run LLMs, create music and more, free<span>A few clicks, no command prompt · Windows, Mac, Linux · music packs coming soon</span></a>
+  <div class="row"><a class="btn ghost" href="#packs">Model packs</a><a class="btn ghost" href="/manual">Manual install</a><a class="btn ghost" href="#api">Serverless API</a></div>
+</div><div class="herologo" id="swanlogo" role="img" aria-label="Sushila logo: a swan shaped like the letter S, with an S-marked integrated circuit, on a base"><img class="swan" src="/logo-swan.png" alt=""><img class="base" src="/logo-base.png" alt=""></div></div>
+
+<section id="how">
+  <h2>What Sushila.cpp does</h2>
+  <p class="lead">Decoding is limited by how many bytes of weights the hardware reads per token. Sushila
+  (<b>S</b>calable <b>U</b>pstream <b>S</b>ynthesis for <b>H</b>ybrid <b>I</b>nference in <b>L</b>arge-model <b>A</b>cceleration)
+  computes small artifacts once per model so each token reads fewer bytes or the model runs fewer passes.</p>
+  <div class="grid">
+    <div class="card"><h3>Landscapes</h3><p>A precomputed map of each model's output layer: a cheap preview picks a short list of candidate tokens,
+      which are then scored exactly. About 13–15% of the layer is read, with the same top token.</p></div>
+    <div class="card"><h3>Precomputed draft heads</h3><p>A small head fitted on the model's own answers proposes several tokens; the full model checks them all
+      in one pass. Accepted tokens are exactly what the model would have produced.</p></div>
+    <div class="card"><h3>Landscape hunt</h3><p>Each model gets the stack that suits it. New models first try the existing landscapes,
+      and a new one is searched for only if none fits.</p></div>
+    <div class="card"><h3>Kernels</h3><p>Tree verification in llama.cpp and a tuned GPU kernel switch make checking 5–8 drafted tokens 18–38% cheaper.</p></div>
+  </div>
+  <p class="note">Sushila.cpp also uses established methods, including EAGLE-3 draft heads, small draft models and fast 4-bit kernels,
+  and combines them with its own. The paper credits each method and reports how much it adds.</p>
+</section>
+
+<section id="results">
+  <h2>Measured speed</h2>
+  <p class="lead">Tokens per second, greedy decoding, compared with the stock engine on the same hardware and model file.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Model</th><th>Hardware, engine</th><th class="num">Stock</th><th class="num">Sushila</th><th class="num">Speedup</th><th>How</th></tr></thead>
+    <tbody>${resultRows}</tbody>
+  </table></div>
+  <p class="note">Same model file and exactly the stock output in every row except the Ollama comparison, where Ollama reads a different 4-bit file of the same model (Q4_K_M against AWQ; same GSM8K accuracy). The full method, scripts and raw logs are in the repository.</p>
+</section>
+
+
+<section id="packs">
+  <h2>Model packs</h2>
+  <p class="lead">One click installs a model and its precomputed files (landscape, draft head) into <a href="/hoststation">Sushila Host Station</a>, the free desktop app for Windows, macOS and Linux. It then runs the model on your own computer and opens a chat page in your browser. Every pack is signed by Sushila and contains only data files; the app checks each file before using it.</p>
+  ${packs.length ? `<div class="tablewrap"><table>
+    <thead><tr><th>Pack</th><th>Kind</th><th class="num">Size</th><th>License</th><th></th></tr></thead>
+    <tbody>${packRows}</tbody>
+  </table></div>` : '<p class="note">The pack list is unavailable right now. Please try again shortly.</p>'}
+  <p class="row"><a class="btn ghost hsget" href="/hoststation">Get Sushila Host Station (free)</a> <span class="sub">New here? The button walks you through installing the app first, with a few clicks.</span></p>
+  ${HS_WIZARD(app, packs)}
+</section>
+
 
 <section id="api">
   <h2>Serverless API</h2>
@@ -577,6 +603,7 @@ ${footer(contact)}
   const ua = navigator.userAgent;
   show(/Windows/.test(ua) ? 'win' : /Mac OS X|Macintosh/.test(ua) ? 'mac' : 'linux');
 })();
+if (location.hash === '#download' || location.hash === '#models') location.replace('/manual' + location.hash);  // moved to Manual install
 (function () {  // the swan rocks on its base, like the logo animation, whenever the visitor moves, touches or scrolls
   const el = document.getElementById('swanlogo');
   if (!el) return;
@@ -1759,7 +1786,7 @@ async function hostApp(env, b2) {
   return latest;
 }
 
-const HOSTSTATION = (env, app) => () => {
+const HOSTSTATION = (env, app, packs = []) => () => {
   const REPO = String(env.REPO_URL || REPO_DEFAULT).replace(/\/+$/, '');
   const rows = app && app.files && app.files.length ? app.files.map((f) => `
     <tr><td><b>${esc(f.label || f.platform)}</b></td><td class="num">${gb(f.bytes || 0)}</td>
@@ -1768,8 +1795,8 @@ const HOSTSTATION = (env, app) => () => {
 <h1>Sushila Host Station</h1>
 <p class="lead">A free desktop app for Windows, macOS and Linux. It installs Sushila.cpp and model packs with a few clicks, runs models on your own computer, and opens a chat page in your browser. No command prompt needed.</p>
 
-<p><a class="btn hsget" href="#">Install step by step</a></p>
-${HS_WIZARD(app)}
+<p><a class="btn hsget" href="#" data-start="welcome">Install step by step</a></p>
+${HS_WIZARD(app, packs)}
 <h2>Download${app ? ` (version ${esc(app.version)})` : ''}</h2>
 ${rows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
 <p class="note">Check the sha256 of your download against the one listed here. Installers are code-signed by the Sushila project.</p>`
@@ -1802,9 +1829,11 @@ document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', asyn
 // and /hoststation. A web page cannot see whether an app is installed: when a sushila:// link does not open anything,
 // the wizard asks, then guides the visitor through download and install for their system, and finally sends them back
 // to the pack they chose. `app` is hostApp() (installers in B2) or null while none are published.
-const HS_WIZARD = (app) => {
+const HS_WIZARD = (app, packs = []) => {
   const files = (app && app.files || []).map(({ platform, label, file, sha256, bytes, url }) => ({ platform, label, file, sha256, bytes, url }));
-  const data = JSON.stringify({ version: app ? app.version : null, files }).replace(/</g, '\\u003c');
+  const plist = packs.map((p) => ({ id: p.id, name: p.name, category: p.category || 'Other', description: p.description || '', license: p.license,
+    bytes: (p.files || []).reduce((a, f) => a + (f.bytes || 0), 0), minRamGB: p.minRamGB || 0 }));
+  const data = JSON.stringify({ version: app ? app.version : null, files, packs: plist }).replace(/</g, '\\u003c');
   return `
 <style>
 #hswiz{border:1px solid var(--line);border-radius:14px;padding:0;max-width:620px;width:calc(100% - 32px);background:var(--card);color:var(--fg)}
@@ -1815,6 +1844,8 @@ const HS_WIZARD = (app) => {
 #hswiz .os{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}#hswiz .os button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:14px}
 #hswiz .os button[aria-pressed=true]{border-color:var(--acc);background:var(--accbg);color:var(--acc);font-weight:600}
 #hswiz .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--acc);margin-right:6px}#hswiz kbd{border:1px solid var(--line);border-radius:5px;padding:0 5px;font:inherit;font-size:13px}
+#hswiz .pk{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:10px;padding:10px 12px;margin:8px 0;cursor:pointer;font:inherit}
+#hswiz .pk:hover,#hswiz .pk[aria-pressed=true]{border-color:var(--acc);background:var(--accbg)}#hswiz .pk b{display:block}#hswiz .cat{margin:14px 0 2px;font-weight:700;font-size:14px;color:var(--mut)}
 </style>
 <dialog id="hswiz" aria-labelledby="hswiz-t"><div class="in" id="hswiz-body"></div></dialog>
 <script>
@@ -1863,18 +1894,36 @@ const HS_WIZARD = (app) => {
   function install() {
     body.innerHTML = '<h2 id="hswiz-t">Step 2 of 3 · Install it</h2><ol class="steps">' + STEPS[sys].map(s => '<li>' + s + '</li>').join('') + '</ol>' +
       '<p class="sub">Everything Host Station installs is signed by Sushila and checked before use. Model packs contain only data, never programs.</p>' +
-      '<div class="bar"><button class="btn ghost" data-a="download">Back</button><button class="btn big" data-a="done">Host Station is open: next</button></div>';
+      '<div class="bar"><button class="btn ghost" data-a="download">Back</button><button class="btn big" data-a="' + (pack ? 'done' : 'choose') + '">Host Station is open: next</button></div>';
+  }
+  function welcome() {
+    body.innerHTML = '<h2 id="hswiz-t">Run AI models on your own computer, free</h2>' +
+      '<p>Three steps, mostly clicks:</p><ol class="steps"><li><b>Download</b> Sushila Host Station, the free app for Windows, Mac and Linux.</li>' +
+      '<li><b>Install</b> it: open the download and click through.</li><li><b>Choose a model pack</b>: Host Station installs it and opens a chat page in your browser.</li></ol>' +
+      '<p class="sub">Text models (LLMs) are ready now; music packs are coming soon. Everything runs on your computer: free, private, and offline once installed.</p>' +
+      '<div class="bar"><button class="btn ghost" data-a="close">Not now</button><button class="btn ghost" data-a="choose">I already have Host Station</button><button class="btn big" data-a="download">Start</button></div>';
+  }
+  function choose() {
+    const cats = [...new Set(APP.packs.map(p => p.category))];
+    body.innerHTML = '<h2 id="hswiz-t">Step 3 of 3 · Which model pack do you want?</h2>' +
+      (APP.packs.length ? cats.map(c => '<div class="cat">' + E(c) + '</div>' + APP.packs.filter(p => p.category === c).map(p =>
+        '<button class="pk" data-pick="' + E(p.id) + '" aria-pressed="' + (pack && pack.id === p.id) + '"><b>' + E(p.name) + '</b><span class="sub">' + E(p.description) + '</span><br><span class="sub">' +
+        gb(p.bytes) + (p.minRamGB ? ' · needs ' + p.minRamGB + ' GB memory' : '') + ' · ' + E(p.license) + '</span></button>').join('')).join('') +
+        '<div class="cat">Music</div><p class="sub">Music packs are coming soon.</p>'
+        : '<p class="note">The pack list is unavailable right now; Host Station shows every pack in its Model Packs tab.</p>') +
+      '<div class="bar"><button class="btn ghost" data-a="install">Back</button>' + (APP.packs.length ? '' : '<a class="btn" href="sushila://open" data-a="sent">Open Host Station</a>') + '</div>';
   }
   function done() {
-    body.innerHTML = '<h2 id="hswiz-t">Step 3 of 3 · ' + (pack ? 'Install ' + E(pack.name) : 'Ready') + '</h2>' +
+    body.innerHTML = '<h2 id="hswiz-t">' + (pack ? 'Install ' + E(pack.name) : 'Ready') + '</h2>' +
       (pack ? '<p>Click the button. Host Station shows the pack, its size and license, and asks you to confirm. It installs the Sushila.cpp engine first if needed, then the pack.</p>'
             : '<p>In Host Station, follow the four steps on its Home screen: install Sushila.cpp, add a model pack, start it, and open the chat page.</p>') +
-      '<div class="bar"><button class="btn ghost" data-a="close">Close</button><a class="btn big" href="' + E(link()) + '" data-a="sent">' + (pack ? 'Install ' + E(pack.name) + ' in Host Station' : 'Open Host Station') + '</a></div>';
+      '<div class="bar"><button class="btn ghost" data-a="' + (APP.packs.length ? 'choose' : 'close') + '">' + (APP.packs.length ? 'Pick another pack' : 'Close') + '</button><a class="btn big" href="' + E(link()) + '" data-a="sent">' + (pack ? 'Install ' + E(pack.name) + ' in Host Station' : 'Open Host Station') + '</a></div>';
   }
-  const views = { ask, download, install, done };
+  const views = { ask, welcome, download, install, choose, done };
   body.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-a],[data-sys]'); if (!t) return;
+    const t = e.target.closest('[data-a],[data-sys],[data-pick]'); if (!t) return;
     if (t.dataset.sys) { sys = t.dataset.sys; download(); return; }
+    if (t.dataset.pick) { const p = APP.packs.find(x => x.id === t.dataset.pick); pack = { id: p.id, name: p.name }; store.set('hs-has-app', '1'); done(); return; }
     const a = t.dataset.a;
     if (a === 'close') { if (t.textContent.startsWith('Yes')) store.set('hs-has-app', '1'); dlg.close(); return; }
     if (a === 'got') { setTimeout(install, 400); return; }  // let the download start, then show how to install
@@ -1890,7 +1939,7 @@ const HS_WIZARD = (app) => {
     window.addEventListener('blur', away, { once: true }); document.addEventListener('visibilitychange', away, { once: true });
     setTimeout(() => { if (!left) window.hsWizard(p, 'ask'); }, 1800);
   }));
-  document.querySelectorAll('.hsget').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); window.hsWizard(null, 'download'); }));
+  document.querySelectorAll('.hsget').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); window.hsWizard(null, b.dataset.start || 'download'); }));
 })();
 </script>`;
 };
@@ -2075,10 +2124,13 @@ export default {
         try { if (b2.configured) [packs, app] = await Promise.all([hostCatalog(env, b2).then((c) => c.packs), hostApp(env, b2)]); } catch (e) { console.error('packs', e.message); }
         return html(page(env, user, await visibleModels(db), packs, app));
       }
+      if (p === '/manual' || p === '/manual/') return html(page(env, user, await visibleModels(db), [], null, 'manual'));
       if (p === '/hoststation' || p === '/hoststation/') {
         let app = null;
         try { if (b2.configured) app = await hostApp(env, b2); } catch (e) { console.error('hostApp', e.message); }
-        return html(docPage(env, 'Sushila Host Station', 'Install Sushila.cpp and model packs with a few clicks, and run models on your own computer.', HOSTSTATION(env, app), user));
+        let hpacks = [];
+        try { if (b2.configured) hpacks = (await hostCatalog(env, b2)).packs; } catch (e) { console.error('packs', e.message); }
+        return html(docPage(env, 'Sushila Host Station', 'Install Sushila.cpp and model packs with a few clicks, and run models on your own computer.', HOSTSTATION(env, app, hpacks), user));
       }
       if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env), user));
       if (p === '/privacy' || p === '/privacy/') return html(docPage(env, 'Privacy Policy', 'How the Sushila project handles personal data on sushila.ai and the Sushila serverless API.', PRIVACY(env), user));
