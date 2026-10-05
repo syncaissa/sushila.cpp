@@ -55,7 +55,7 @@ const HOSTED = [
   { id: 'qwen2.5-7b-q4km', name: 'Qwen2.5 7B Instruct', quant: 'Q4_K_M', file: 'qwen2.5-7b-instruct-q4_k_m.gguf', bytes: 4683073952,
     sha256: '2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730', license: 'Apache-2.0',
     licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0', hf: 'https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF', tuned: true },
-  { id: 'qwen3-30b-a3b-q4km', name: 'Qwen3 30B-A3B (MoE)', quant: 'Q4_K_M', file: 'qwen3-30b-a3b-q4_k_m.gguf', bytes: 18556685856,
+  { id: 'qwen3-30b-a3b-q4km', category: 'Text (LLM)', name: 'Qwen3 30B-A3B (MoE)', quant: 'Q4_K_M', file: 'qwen3-30b-a3b-q4_k_m.gguf', bytes: 18556685856,
     sha256: '58574f2e94b99fb9e4391408b57e5aeaaaec10f6384e9a699fc2cb43a5c8eabf', license: 'Apache-2.0',
     licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0', hf: 'https://huggingface.co/Qwen/Qwen3-30B-A3B-GGUF', tuned: true },
 ];
@@ -1646,6 +1646,83 @@ async function reapComparePods(env) {
   }
 }
 
+// --- Sushila Host Station catalog (/hoststation/catalog.json) ------------------------------------------------------
+// The desktop app (SushilaHostStation/) installs Sushila.cpp and model packs from this list. Each pack maps files in
+// B2 precomputed/<model>/ to the folder layout Sushila.cpp reads (<model>.gguf + <model>.gguf.sushila/manifest.json);
+// sizes and sha256 come from that model's CHECKSUMS.json, and links are B2 download links valid for 24 hours. Engine
+// builds are listed in B2 hoststation/engine/LATEST.json ({version, builds: {<os>-<arch>: {file, sha256, bytes,
+// archive, server}}}) once they are published.
+const HOST_PACKS = [
+  { id: 'qwen2.5-0.5b-q4km', category: 'Text (LLM)', name: 'Qwen2.5 0.5B Instruct (4-bit)', model: 'precomputed/qwen2.5-0.5b-q4km', minRamGB: 2,
+    description: 'Small and fast; runs on any computer. With the precomputed output-layer landscape: CPU decoding 1.13-1.26x faster with identical output.',
+    license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/blob/main/LICENSE', artifacts: ['output-layer landscape'],
+    files: [['weights/gguf/qwen2.5-0.5b-q4km.gguf', 'qwen2.5-0.5b-q4km.gguf', 'weights'],
+      ['landscape/manifest.json', 'qwen2.5-0.5b-q4km.gguf.sushila/manifest.json', 'manifest'],
+      ['landscape/landscape.mclp', 'qwen2.5-0.5b-q4km.gguf.sushila/landscape.mclp', 'landscape'],
+      ['landscape/LICENSE.txt', 'qwen2.5-0.5b-q4km.gguf.sushila/LICENSE.txt', 'license']],
+    serve: { model: 'qwen2.5-0.5b-q4km.gguf', args: [] } },
+  { id: 'qwen3-30b-a3b-q4km', category: 'Text (LLM)', name: 'Qwen3 30B-A3B (mixture of experts, 4-bit)', model: 'precomputed/qwen3-30b-a3b', minRamGB: 24, ollamaGguf: 'qwen3-30b-a3b-q4km.gguf',
+    description: 'Fast for its size: only 3B parameters are active per token. The exact file measured in the paper.', license: 'Apache-2.0',
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen3-30B-A3B/blob/main/LICENSE', artifacts: [], serve: { model: 'qwen3-30b-a3b-q4km.gguf', args: [] } },
+  { id: 'qwen3-32b-q4km', category: 'Text (LLM)', name: 'Qwen3 32B (4-bit)', model: 'precomputed/qwen3-32b', minRamGB: 24, ollamaGguf: 'qwen3-32b-q4km.gguf',
+    description: 'A strong dense 32B model; best with a 24 GB+ GPU.', license: 'Apache-2.0',
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen3-32B/blob/main/LICENSE', artifacts: [], serve: { model: 'qwen3-32b-q4km.gguf', args: [] } },
+  { id: 'deepseek-r1-distill-llama-70b-q4km', category: 'Text (LLM)', name: 'DeepSeek-R1-Distill-Llama-70B (reasoning, 4-bit)', model: 'precomputed/deepseek-r1-distill-llama-70b', minRamGB: 48,
+    ollamaGguf: 'deepseek-r1-distill-llama-70b-q4km.gguf', description: 'Reasons step by step before answering; needs 48 GB+ of GPU or unified memory.',
+    license: 'MIT and the Llama 3.3 Community License', licenseUrl: 'https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B', artifacts: [],
+    serve: { model: 'deepseek-r1-distill-llama-70b-q4km.gguf', args: [] } },
+];
+let hostCatalogCache = null;  // per isolate, 10 minutes (links stay valid for 24 hours)
+async function hostCatalog(env, b2) {
+  if (hostCatalogCache && hostCatalogCache.until > Date.now()) return hostCatalogCache.body;
+  const a = await b2.auth();
+  const grant = async (prefix) => {
+    const r = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
+      body: JSON.stringify({ bucketId: a.bucketId, fileNamePrefix: prefix, validDurationInSeconds: 24 * 3600 }) });
+    if (!r.ok) throw new Error('B2 download authorization: ' + r.status);
+    return (await r.json()).authorizationToken;
+  };
+  const getText = async (key) => { const r = await fetch(b2.fileUrl(a.downloadUrl, key), { headers: { authorization: a.token } }); return r.ok ? r.text() : null; };
+  const getJson = async (key) => { const t = await getText(key); return t ? JSON.parse(t) : null; };
+  const packs = [];
+  for (const p of HOST_PACKS) {
+    try {
+      // the signed index travels with the pack: the app checks the signature, then every file against the index
+      const text = await getText(`${p.model}/CHECKSUMS.json`), signature = await getText(`${p.model}/CHECKSUMS.json.sig`);
+      if (!text || !signature) continue;  // unsigned packs are never offered
+      const c = JSON.parse(text);
+      const tok = await grant(p.model + '/');
+      const byPath = Object.fromEntries((c.files || []).map((f) => [f.path, f]));
+      let map = p.files || [];
+      if (p.ollamaGguf) {  // the Ollama file measured in the paper, mirrored in B2 (weights/ollama/blobs/)
+        const sha = c.bound_to && c.bound_to.ollama_gguf && c.bound_to.ollama_gguf.sha256;
+        if (!sha) continue;
+        map = [[`weights/ollama/blobs/sha256-${sha.replace(/^sha256[-:]/, '')}`, p.ollamaGguf, 'weights']];
+      }
+      const files = map.map(([src, path, role]) => {
+        const f = byPath[src];
+        return f && { path, src, role, bytes: f.bytes, sha256: f.sha256, url: `${b2.fileUrl(a.downloadUrl, `${p.model}/${src}`)}?Authorization=${encodeURIComponent(tok)}` };
+      });
+      if (files.some((f) => !f)) continue;  // a file is not in B2 (yet): do not offer a broken pack
+      const { model, files: _f, ollamaGguf, ...pub } = p;
+      packs.push({ ...pub, files, index: { text, signature: signature.trim() } });
+    } catch (e) { console.error('hoststation pack', p.id, e.message); }
+  }
+  let engine = null;
+  try {
+    const ltext = await getText('hoststation/engine/LATEST.json'), lsig = await getText('hoststation/engine/LATEST.json.sig');
+    const latest = ltext && lsig ? JSON.parse(ltext) : null;
+    if (latest && latest.version && latest.builds) {
+      const tok = await grant(`hoststation/engine/${latest.version}/`);
+      engine = { version: latest.version, index: { text: ltext, signature: lsig.trim() }, builds: Object.fromEntries(Object.entries(latest.builds).map(([k, b]) => [k, { ...b,
+        url: `${b2.fileUrl(a.downloadUrl, `hoststation/engine/${latest.version}/${b.file}`)}?Authorization=${encodeURIComponent(tok)}` }])) };
+    }
+  } catch (e) { console.error('hoststation engine', e.message); }
+  const body = { version: 1, generated: new Date().toISOString(), linksValidHours: 24, engine, packs };
+  hostCatalogCache = { body, until: Date.now() + 10 * 60 * 1000 };
+  return body;
+}
+
 // --- Admin APIs (isAdmin on the user's row; set it with makeUserAdmin.py) ---
 async function adminApi(request, env, db, user, path) {
   if (!user || !user.isAdmin) return json({ error: 'Admins only.' }, 403);
@@ -1834,6 +1911,10 @@ export default {
         if (!m) return new Response('Not found', { status: 404, headers: SEC });
         if (!user) return Response.redirect(`${url.origin}/signin?next=${encodeURIComponent(p)}`, 302);
         return html(docPage(env, `Download ${m.name} ${m.quant}`, 'Download a model file.', DOWNLOAD(m), user));
+      }
+      if (p === '/hoststation/catalog.json') {
+        if (!b2.configured) return json({ version: 1, engine: null, packs: [], error: 'catalog unavailable' }, 503);
+        return json(await hostCatalog(env, b2), 200, { 'access-control-allow-origin': '*' });
       }
       if (p === '/models.json') {
         return json({

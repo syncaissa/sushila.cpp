@@ -1,0 +1,49 @@
+# Builds the Sushila Host Station installers for Windows, macOS (Apple silicon and Intel) and Linux.
+# Copy to .github/workflows/ in the repository that contains hoststation/ (this folder). Run it from the Actions tab.
+# Code signing happens when these repository secrets exist (see README.md, "Making browsers and operating systems
+# trust the installer"):
+#   macOS:   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
+#   Windows: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID (Microsoft Trusted Signing, used by signCommand)
+name: Sushila Host Station installers
+on: workflow_dispatch
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, args: "" }
+          - { os: macos-14, args: "--target aarch64-apple-darwin" }
+          - { os: macos-13, args: "--target x86_64-apple-darwin" }
+          - { os: ubuntu-22.04, args: "" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Linux packages
+        if: startsWith(matrix.os, 'ubuntu')
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        with:
+          projectPath: hoststation
+          args: ${{ matrix.args }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hoststation-${{ matrix.os }}
+          path: |
+            hoststation/src-tauri/target/**/release/bundle/**/*.msi
+            hoststation/src-tauri/target/**/release/bundle/**/*.exe
+            hoststation/src-tauri/target/**/release/bundle/**/*.dmg
+            hoststation/src-tauri/target/**/release/bundle/**/*.deb
+            hoststation/src-tauri/target/**/release/bundle/**/*.rpm
+            hoststation/src-tauri/target/**/release/bundle/**/*.AppImage

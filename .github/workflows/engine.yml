@@ -1,0 +1,66 @@
+# Builds the Sushila.cpp server (llama.cpp with our changes, from llama.cpp/ in this repository) for each platform the
+# Host Station supports, and publishes the archives to B2 hoststation/engine/<version>/ with LATEST.json.
+# LATEST.json is NOT signed here: the signing key never leaves the signing machine. After reviewing the build, run
+#   python3 scripts/precompute/sign_checksums.py sign hoststation/engine
+# Until then the catalog does not offer the new build (and a stale signature makes the app refuse it).
+# Secrets: B2_KEY_ID, B2_APP_KEY. Optional code signing as in hoststation.yml.
+name: Sushila.cpp engine builds
+on:
+  workflow_dispatch:
+    inputs:
+      version: { description: "engine version, e.g. 0.1.0", required: true }
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, key: windows-x86_64, archive: zip, exe: .exe, cmake: "" }
+          - { os: macos-14, key: macos-aarch64, archive: tar.gz, exe: "", cmake: "-DGGML_METAL_EMBED_LIBRARY=ON" }
+          - { os: macos-13, key: macos-x86_64, archive: tar.gz, exe: "", cmake: "-DGGML_METAL=OFF" }
+          - { os: ubuntu-22.04, key: linux-x86_64, archive: tar.gz, exe: "", cmake: "" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        shell: bash
+        run: |
+          cmake -S llama.cpp -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF ${{ matrix.cmake }}
+          cmake --build build --config Release --target llama-server -j 4
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p pkg
+          f=$(find build -name "llama-server${{ matrix.exe }}" -type f | head -1)
+          cp "$f" "pkg/sushila-server${{ matrix.exe }}"
+          cp LICENSE pkg/ 2>/dev/null || true; cp llama.cpp/LICENSE pkg/LICENSE-llama.cpp
+          name="sushila-cpp-${{ inputs.version }}-${{ matrix.key }}.${{ matrix.archive }}"
+          if [ "${{ matrix.archive }}" = zip ]; then (cd pkg && 7z a "../$name" . >/dev/null); else tar -czf "$name" -C pkg .; fi
+          echo "NAME=$name" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with: { name: "${{ matrix.key }}", path: "${{ env.NAME }}" }
+  publish:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: Upload to B2 and write LATEST.json (unsigned)
+        env: { B2_KEY_ID: "${{ secrets.B2_KEY_ID }}", B2_APP_KEY: "${{ secrets.B2_APP_KEY }}", VERSION: "${{ inputs.version }}" }
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, sys, time
+          sys.path.insert(0, 'scripts/precompute'); import b2_save
+          b2, v = b2_save.B2(), os.environ['VERSION']
+          builds = {}
+          for f in sorted(os.listdir('dist')):
+              key = f.split(f'sushila-cpp-{v}-')[1].rsplit('.zip', 1)[0].rsplit('.tar.gz', 1)[0]
+              p = os.path.join('dist', f)
+              b2.put_file(p, f'hoststation/engine/{v}/{f}')
+              builds[key] = {'file': f, 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest(), 'bytes': os.path.getsize(p),
+                             'archive': 'zip' if f.endswith('.zip') else 'tar.gz', 'server': 'sushila-server.exe' if key.startswith('windows') else 'sushila-server'}
+          latest = {'version': v, 'built_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()), 'commit': os.environ.get('GITHUB_SHA', ''), 'builds': builds}
+          b2.put('hoststation/engine/LATEST.json', json.dumps(latest, indent=1).encode())
+          print(json.dumps(latest, indent=1))
+          PY
