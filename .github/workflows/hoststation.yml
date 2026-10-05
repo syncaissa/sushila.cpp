@@ -9,35 +9,27 @@ on:
   workflow_dispatch:
     inputs:
       publish: { description: "upload the installers to B2 (sushila.ai offers them in the install wizard)", type: boolean, default: false }
+      mac: { description: "also build the macOS installers (macOS minutes cost 10x: build them for releases only)", type: boolean, default: false }
 jobs:
+  plan:
+    # the build list: Windows and Linux always, macOS only when asked (macOS runner minutes cost 10x)
+    runs-on: ubuntu-22.04
+    outputs: { matrix: "${{ steps.m.outputs.matrix }}" }
+    steps:
+      - id: m
+        shell: python
+        env: { MAC: "${{ inputs.mac }}" }
+        run: |
+          import json, os
+          rows = [{"os": "windows-latest", "args": "", "target": "", "flavor": "host", "preset": ""}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "host", "preset": ""}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "host", "preset": ""}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "host", "preset": ""}, {"os": "windows-latest", "args": "", "target": "", "flavor": "imagegen", "preset": "presets/imagegen.json"}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "imagegen", "preset": "presets/imagegen.json"}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "imagegen", "preset": "presets/imagegen.json"}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "imagegen", "preset": "presets/imagegen.json"}, {"os": "windows-latest", "args": "", "target": "", "flavor": "musicgen", "preset": "presets/musicgen.json"}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "musicgen", "preset": "presets/musicgen.json"}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "musicgen", "preset": "presets/musicgen.json"}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "musicgen", "preset": "presets/musicgen.json"}, {"os": "windows-latest", "args": "", "target": "", "flavor": "chatgen", "preset": "presets/chatgen.json"}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "chatgen", "preset": "presets/chatgen.json"}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "chatgen", "preset": "presets/chatgen.json"}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "chatgen", "preset": "presets/chatgen.json"}, {"os": "windows-latest", "args": "", "target": "", "flavor": "codegen", "preset": "presets/codegen.json"}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "codegen", "preset": "presets/codegen.json"}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "codegen", "preset": "presets/codegen.json"}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "codegen", "preset": "presets/codegen.json"}]
+          if os.environ.get('MAC') != 'true':
+              rows = [r for r in rows if not r['os'].startswith('macos')]
+          open(os.environ['GITHUB_OUTPUT'], 'a').write('matrix=' + json.dumps({'include': rows}) + '\n')
   build:
+    needs: plan
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # flavor host = Sushila Host Station; imagegen / musicgen / chatgen / codegen = the same app (same id and data
-          # folder: one engine, one model store) with presets/<flavor>.json naming its first start (its model, its screen).
-          # Every build carries all presets. Intel Macs are cross-compiled (Intel runners are retired).
-          - { os: windows-latest, args: "", target: "", flavor: host, preset: "" }
-          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: host, preset: "" }
-          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: host, preset: "" }
-          - { os: ubuntu-22.04, args: "", target: "", flavor: host, preset: "" }
-          - { os: windows-latest, args: "", target: "", flavor: imagegen, preset: "presets/imagegen.json" }
-          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: imagegen, preset: "presets/imagegen.json" }
-          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: imagegen, preset: "presets/imagegen.json" }
-          - { os: ubuntu-22.04, args: "", target: "", flavor: imagegen, preset: "presets/imagegen.json" }
-          - { os: windows-latest, args: "", target: "", flavor: musicgen, preset: "presets/musicgen.json" }
-          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: musicgen, preset: "presets/musicgen.json" }
-          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: musicgen, preset: "presets/musicgen.json" }
-          - { os: ubuntu-22.04, args: "", target: "", flavor: musicgen, preset: "presets/musicgen.json" }
-          - { os: windows-latest, args: "", target: "", flavor: chatgen, preset: "presets/chatgen.json" }
-          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: chatgen, preset: "presets/chatgen.json" }
-          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: chatgen, preset: "presets/chatgen.json" }
-          - { os: ubuntu-22.04, args: "", target: "", flavor: chatgen, preset: "presets/chatgen.json" }
-          - { os: windows-latest, args: "", target: "", flavor: codegen, preset: "presets/codegen.json" }
-          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: codegen, preset: "presets/codegen.json" }
-          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: codegen, preset: "presets/codegen.json" }
-          - { os: ubuntu-22.04, args: "", target: "", flavor: codegen, preset: "presets/codegen.json" }
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
