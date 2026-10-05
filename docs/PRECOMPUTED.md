@@ -1,6 +1,6 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-05T18:30Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-05T18:42Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
