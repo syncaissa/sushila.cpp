@@ -299,6 +299,10 @@ Sushila serverless API, why, and your choices. We collect as little as we can.</
 account and last signed in, and records of sign-ins and e-mail changes. Sign-in codes are stored only as a keyed hash and expire after
 5 minutes.</li>
 <li><b>Downloads:</b> for each download, which file, when, that you accepted its license, and the country of your connection.</li>
+<li><b>Download counts:</b> for every download of Sushila Host Station, Sushila.cpp, a model pack or a model file (from this website or
+from Host Station), the file, the time, your IP address and country, your browser or app user agent and operating system, and the kind
+of file. We use this to count downloads, plan capacity and prevent abuse, and delete each record after 12 months; only the totals per
+file are kept.</li>
 <li><b>Early-access sign-up:</b> the e-mail address and the optional list of models you enter, the time of sign-up and the country
 of your connection (derived by our hosting provider from your IP address). If you choose to e-mail us instead, we receive what you
 send.</li>
@@ -1073,6 +1077,7 @@ const TABLES = {
   models: 'sushilaai-models',       // PK modelId: hosted models, their precomputed artifacts and the visible flag
   bugs: 'sushilaai-bugs',           // PK bugId, SK item: the report ("bug") and its comments ("c#<time>#<id>")
   waitlist: 'sushilaai-waitlist',   // PK email: serverless-API early access
+  download: 'sushilaai-download',   // PK file, SK at: one row per download (time, IP, country, system, kind; TTL 12 months) + '#count'
   compare: 'sushilaai-compare',     // PK runId: admin "Compare Speeds" pods (pod id, model, results); pods are deleted, rows kept
   audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes
 };
@@ -1694,6 +1699,34 @@ async function reapComparePods(env) {
   }
 }
 
+// --- Download log (sushilaai-download) ---------------------------------------------------------------------------------
+// Every download of a Host Station installer, a Sushila.cpp build, a pack file or a hosted model file: which file, when,
+// the IP address and country, the system (windows / mac / linux ...), and what kind of file. A resumed download (an HTTP
+// Range that does not start at 0) is not counted again. Rows expire after 12 months; the '#count' row keeps the total.
+function systemOf(request, hint) {
+  if (hint) return hint;
+  const ua = request.headers.get('user-agent') || '';
+  const m = ua.match(/SushilaHostStation\/[\w.]+ \((\w+); (\w+)\)/);  // the desktop app names its system
+  if (m) return `${m[1]}-${m[2]}`;
+  return /Windows/.test(ua) ? 'windows' : /iPhone|iPad/.test(ua) ? 'ios' : /Android/.test(ua) ? 'android' : /Mac OS X|Macintosh/.test(ua) ? 'mac' : /Linux|X11/.test(ua) ? 'linux' : 'other';
+}
+function firstRequest(request) {
+  const r = request.headers.get('range');
+  return !r || /^bytes=0-/.test(r);
+}
+async function logDownload(db, request, { file, kind, system, bytes, packId, userId }) {
+  if (!db.configured || !firstRequest(request)) return;
+  try {
+    const now = new Date(), at = now.toISOString();
+    await db.put(TABLES.download, { file: S(file), at: S(`${at}#${randomId()}`), day: S(at.slice(0, 10)), kind: S(kind), system: S(systemOf(request, system)),
+      ip: S(request.headers.get('cf-connecting-ip') || '-'), country: S((request.cf && request.cf.country) || '-'),
+      userAgent: S((request.headers.get('user-agent') || '-').slice(0, 200)), ...(bytes ? { bytes: N(bytes) } : {}),
+      ...(packId ? { packId: S(packId) } : {}), ...(userId ? { userId: S(userId) } : {}), ttl: N(Math.floor(now.getTime() / 1000) + 365 * 86400) });
+    await db.update(TABLES.download, { file: S(file), at: S('#count') }, 'ADD #n :one SET #l = :t, #k = :k', { ':one': N(1), ':t': S(at), ':k': S(kind) },
+      { '#n': 'downloads', '#l': 'lastAt', '#k': 'kind' });
+  } catch (e) { console.error('download log', e.message); }
+}
+
 // --- Sushila Host Station catalog (/hoststation/catalog.json) ------------------------------------------------------
 // The desktop app (SushilaHostStation/) installs Sushila.cpp and model packs from this list. Each pack maps files in
 // B2 precomputed/<model>/ to the folder layout Sushila.cpp reads (<model>.gguf + <model>.gguf.sushila/manifest.json);
@@ -1721,8 +1754,9 @@ const HOST_PACKS = [
     serve: { model: 'deepseek-r1-distill-llama-70b-q4km.gguf', args: [] } },
 ];
 let hostCatalogCache = null;  // per isolate, 10 minutes (links stay valid for 24 hours)
-async function hostCatalog(env, b2) {
-  if (hostCatalogCache && hostCatalogCache.until > Date.now()) return hostCatalogCache.body;
+async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
+  if (hostCatalogCache && hostCatalogCache.until > Date.now() && hostCatalogCache.origin === origin) return hostCatalogCache.body;
+  const direct = {};  // "<pack id>/<file index>" or "engine/<system>" -> B2 link (24 h)
   const a = await b2.auth();
   const grant = async (prefix) => {
     const r = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
@@ -1747,9 +1781,11 @@ async function hostCatalog(env, b2) {
         if (!sha) continue;
         map = [[`weights/ollama/blobs/sha256-${sha.replace(/^sha256[-:]/, '')}`, p.ollamaGguf, 'weights']];
       }
-      const files = map.map(([src, path, role]) => {
+      const files = map.map(([src, path, role], i) => {
         const f = byPath[src];
-        return f && { path, src, role, bytes: f.bytes, sha256: f.sha256, url: `${b2.fileUrl(a.downloadUrl, `${p.model}/${src}`)}?Authorization=${encodeURIComponent(tok)}` };
+        if (!f) return null;
+        direct[`${p.id}/${i}`] = { url: `${b2.fileUrl(a.downloadUrl, `${p.model}/${src}`)}?Authorization=${encodeURIComponent(tok)}`, file: path.split('/').pop(), bytes: f.bytes };
+        return { path, src, role, bytes: f.bytes, sha256: f.sha256, url: `${origin}/hoststation/get/${p.id}/${i}` };
       });
       if (files.some((f) => !f)) continue;  // a file is not in B2 (yet): do not offer a broken pack
       const { model, files: _f, ollamaGguf, ...pub } = p;
@@ -1762,12 +1798,14 @@ async function hostCatalog(env, b2) {
     const latest = ltext && lsig ? JSON.parse(ltext) : null;
     if (latest && latest.version && latest.builds) {
       const tok = await grant(`hoststation/engine/${latest.version}/`);
-      engine = { version: latest.version, index: { text: ltext, signature: lsig.trim() }, builds: Object.fromEntries(Object.entries(latest.builds).map(([k, b]) => [k, { ...b,
-        url: `${b2.fileUrl(a.downloadUrl, `hoststation/engine/${latest.version}/${b.file}`)}?Authorization=${encodeURIComponent(tok)}` }])) };
+      engine = { version: latest.version, index: { text: ltext, signature: lsig.trim() }, builds: Object.fromEntries(Object.entries(latest.builds).map(([k, b]) => {
+        direct[`engine/${k}`] = { url: `${b2.fileUrl(a.downloadUrl, `hoststation/engine/${latest.version}/${b.file}`)}?Authorization=${encodeURIComponent(tok)}`, file: b.file, bytes: b.bytes };
+        return [k, { ...b, url: `${origin}/hoststation/get/engine/${k}` }];
+      })) };
     }
   } catch (e) { console.error('hoststation engine', e.message); }
   const body = { version: 1, generated: new Date().toISOString(), linksValidHours: 24, engine, packs };
-  hostCatalogCache = { body, until: Date.now() + 10 * 60 * 1000 };
+  hostCatalogCache = { body, direct, origin, until: Date.now() + 10 * 60 * 1000 };
   return body;
 }
 
@@ -2100,6 +2138,7 @@ async function createDownload(request, env, db, b2, session) {
     modelName: S(`${m.name} ${m.quant}`), file: S(m.file), b2Key: S(b2ModelKey(m, m.file)), bytes: N(m.bytes), sha256: S(m.sha256),
     license: S(m.license), licenseAccepted: S(now), country: S((request.cf && request.cf.country) || '-') });
   await audit(db, 'download', user.userId, request, { file: m.file });
+  await logDownload(db, request, { file: m.file, kind: 'model', bytes: m.bytes, userId: user.userId });
   return json({ url: await b2.signedUrl(b2ModelKey(m, m.file), B2_LINK_SECONDS, m.file) });
 }
 
@@ -2157,7 +2196,7 @@ async function health(env, db, b2) {
 
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(reapComparePods(env).catch((e) => console.error('compare reaper', e.message))); },
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const p = url.pathname, method = request.method;
     const db = new DynamoDB(env), b2 = new B2(env);
@@ -2196,14 +2235,25 @@ export default {
       }
       if (p === '/' || p === '/index.html') {
         let packs = [], app = null;
-        try { if (b2.configured) [packs, app] = await Promise.all([hostCatalog(env, b2).then((c) => c.packs), hostApp(env, b2)]); } catch (e) { console.error('packs', e.message); }
+        try { if (b2.configured) [packs, app] = await Promise.all([hostCatalog(env, b2, url.origin).then((c) => c.packs), hostApp(env, b2)]); } catch (e) { console.error('packs', e.message); }
         return html(page(env, user, await visibleModels(db), packs, app));
+      }
+      if (p.startsWith('/hoststation/get/')) {  // a pack file or engine build: count it, then hand over to B2
+        if (!b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
+        await hostCatalog(env, b2, url.origin);
+        const key = decodeURIComponent(p.slice('/hoststation/get/'.length));
+        const d = hostCatalogCache && hostCatalogCache.direct[key];
+        if (!d) return new Response('Not found', { status: 404, headers: SEC });
+        const [first] = key.split('/');
+        ctx.waitUntil(logDownload(db, request, { file: d.file, kind: first === 'engine' ? 'engine' : 'pack', packId: first === 'engine' ? '' : first, bytes: d.bytes }));
+        return new Response(null, { status: 302, headers: { location: d.url, 'cache-control': 'no-store', ...SEC } });
       }
       if (p.startsWith('/hoststation/download/')) {
         const platform = p.slice('/hoststation/download/'.length);
         const app = b2.configured ? await hostApp(env, b2).catch(() => null) : null;
         const f = app && app.files.find((x) => x.platform === platform);
         if (!f) return new Response('No installer is published for this system yet.', { status: 404, headers: SEC });
+        ctx.waitUntil(logDownload(db, request, { file: f.file, kind: 'installer', system: platform, bytes: f.bytes }));
         const h = {}; if (request.headers.get('range')) h.range = request.headers.get('range');
         const r = await fetch(f.url, { headers: h });
         const out = new Headers({ 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="${f.file.replace(/"/g, '')}"`,
@@ -2216,7 +2266,7 @@ export default {
         let app = null;
         try { if (b2.configured) app = await hostApp(env, b2); } catch (e) { console.error('hostApp', e.message); }
         let hpacks = [];
-        try { if (b2.configured) hpacks = (await hostCatalog(env, b2)).packs; } catch (e) { console.error('packs', e.message); }
+        try { if (b2.configured) hpacks = (await hostCatalog(env, b2, url.origin)).packs; } catch (e) { console.error('packs', e.message); }
         return html(docPage(env, 'Sushila Host Station', 'Install Sushila.cpp and model packs with a few clicks, and run models on your own computer.', HOSTSTATION(env, app, hpacks), user));
       }
       if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env), user));
@@ -2234,7 +2284,7 @@ export default {
       }
       if (p === '/hoststation/catalog.json') {
         if (!b2.configured) return json({ version: 1, engine: null, packs: [], error: 'catalog unavailable' }, 503);
-        return json(await hostCatalog(env, b2), 200, { 'access-control-allow-origin': '*' });
+        return json(await hostCatalog(env, b2, url.origin), 200, { 'access-control-allow-origin': '*' });
       }
       if (p === '/models.json') {
         return json({

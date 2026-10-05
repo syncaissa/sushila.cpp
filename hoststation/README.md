@@ -196,3 +196,17 @@ every redirect*, and checked again in `worker_sushila_host.js` for clear message
 
 Anything else is refused, even if a catalog or a link names it. Wherever a file comes from, it is installed only if it
 matches the Sushila-signed index.
+
+## Download counts
+
+Every download is counted in DynamoDB `sushilaai-download` (one row per download: file, time, IP address, country,
+system such as `windows-x86_64` or `mac`, and kind: installer, engine, pack or model; rows expire after 12 months; a
+`#count` row per file keeps the total).
+- **Installers** stream through `https://sushila.ai/hoststation/download/<system>`.
+- **Packs and engine builds** use catalog links `https://sushila.ai/hoststation/get/<pack>/<n>`, which log the download
+  and redirect to the 24-hour B2 link. Resumed downloads (an HTTP Range not starting at 0) are not counted again.
+- **The app's user agent** names its system: `SushilaHostStation/0.1.0 (windows; x86_64)`.
+
+**Later:** once the repository is public, ship the engine and the signed installers as GitHub Release assets, for
+credibility and public download counts. Keep the Sushila-signed index as the trust anchor, and add GitHub's download
+hosts to the allowlist.

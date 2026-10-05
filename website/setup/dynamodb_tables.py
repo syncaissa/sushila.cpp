@@ -46,6 +46,11 @@ SCHEMA = {
         'indexes': {'modelId-downloadedAt-index': {'hash': 'modelId', 'range': 'downloadedAt', 'projection': 'ALL'}},
         'pitr': True, 'protect': True,
     },
+    'sushilaai-download': {              # every download of an installer, engine, pack or model file: one row per download
+        'hash': 'file', 'range': 'at',   # (file, ip, country, system, kind, time; TTL 12 months) + a '#count' row per file
+        'indexes': {'day-index': {'hash': 'day', 'range': 'at', 'projection': 'ALL'}},
+        'ttl': 'ttl', 'pitr': True,
+    },
     'sushilaai-models': {                # hosted models, their precomputed artifacts, visible flag (admin page)
         'hash': 'modelId',
         'pitr': True, 'protect': True,

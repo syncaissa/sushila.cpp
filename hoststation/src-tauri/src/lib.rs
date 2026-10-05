@@ -18,7 +18,8 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::{io::{AsyncBufReadExt, AsyncWriteExt, BufReader}, sync::{oneshot, Mutex}};
 
-const UA: &str = concat!("SushilaHostStation/", env!("CARGO_PKG_VERSION"));
+/// "SushilaHostStation/0.1.0 (windows; x86_64)": sushila.ai counts downloads per system from it (no other data is sent).
+fn ua() -> String { format!("SushilaHostStation/{} ({}; {})", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH) }
 const APP_JS: &str = include_str!("../../worker_sushila_host.js");
 const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sushila Inference</title></head><body><div id="app"></div><script src="/worker_sushila_host.js"></script></body></html>"#;
 
@@ -59,7 +60,7 @@ fn check_url(url: &str, local_ok: bool) -> Result<reqwest::Url, String> {
 }
 
 fn client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder().user_agent(UA).connect_timeout(Duration::from_secs(20))
+    reqwest::Client::builder().user_agent(ua()).connect_timeout(Duration::from_secs(20))
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if attempt.previous().len() > 5 { attempt.error("too many redirects") }
             else if allowed_url(attempt.url(), false) { attempt.follow() }
