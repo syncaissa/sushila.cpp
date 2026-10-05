@@ -5,12 +5,12 @@
 
 Takes the build artifacts of ci/engine.yml (Sushila.cpp engine per system) and/or ci/hoststation.yml (installers of
 Sushila Host Station, Image Generator, Music Generator) and
-  1. uploads each file to the public repository syncaissa/sushila-releases, release v<version>, under a product name:
+  1. uploads each file to a GitHub release v<version> of syncaissa/sushila.cpp (the main repository), under a product name:
        sushila.cpp-<v>-<system>.zip|tar.gz, sushilaHostStation.cpp-<v>-<system>..., sushilaImageGenerator.cpp-...,
        sushilaMusicGenerator.cpp-...   (GitHub counts every download)
   2. keeps the same file permanently in B2: hoststation/engine/<v>/ and hoststation/app/<v>/ (never deleted)
   3. updates hoststation/engine/LATEST.json and hoststation/app/LATEST.json (each entry: B2 file, sha256, GitHub URL)
-  4. rewrites the release notes and the repository README with the download table and sha256 sums
+  4. writes the release notes: the download table with sha256 sums
 The engine list must be signed afterwards (the signing key never leaves the signing machine):
   python3 scripts/precompute/sign_checksums.py sign hoststation/engine
 Needs ~/.github_token and ~/.b2_key.
@@ -35,8 +35,9 @@ sys.path.insert(0, HERE)
 import b2_save  # noqa: E402
 from publish_engine import artifact_zip  # noqa: E402
 
-SRC = 'syncaissa/sushila.cpp'            # private: builds run here
-PUB = 'syncaissa/sushila-releases'       # public: binaries only
+SRC = 'syncaissa/sushila.cpp'            # builds run here
+PUB = SRC                                # releases live in the main repository too, so every download counts in one place
+# (while it is private, sushila.ai fetches release files with a read-only token: GITHUB_RELEASE_TOKEN in Cloudflare)
 TOK = open(os.path.expanduser('~/.github_token')).read().strip()
 PRODUCTS = {'host-station': ('sushilaHostStation.cpp', 'Sushila Host Station'), 'image-generator': ('sushilaImageGenerator.cpp', 'Sushila Image Generator'),
             'music-generator': ('sushilaMusicGenerator.cpp', 'Sushila Music Generator')}
@@ -70,8 +71,6 @@ def b2_json(b2, name):
 
 
 def release(tag, v):
-    if not gh('GET', f'https://api.github.com/repos/{PUB}/readme', ok404=True):  # an empty repository needs a first commit
-        gh('PUT', f'https://api.github.com/repos/{PUB}/contents/README.md', {'message': 'README', 'content': base64.b64encode(b'# Sushila releases\n').decode()})
     r = gh('GET', f'https://api.github.com/repos/{PUB}/releases/tags/{tag}', ok404=True)
     return r or gh('POST', f'https://api.github.com/repos/{PUB}/releases', {'tag_name': tag, 'name': f'Sushila {v}', 'body': '(notes follow)', 'make_latest': 'true'})
 
@@ -81,8 +80,8 @@ def upload(rel, name, path):
         if a['name'] == name:
             gh('DELETE', f'https://api.github.com/repos/{PUB}/releases/assets/{a["id"]}')
     up = rel['upload_url'].split('{')[0] + '?name=' + urllib.parse.quote(name)
-    gh('POST', up, raw=open(path, 'rb').read(), ctype='application/octet-stream')
-    return f'https://github.com/{PUB}/releases/download/{rel["tag_name"]}/{urllib.parse.quote(name)}'
+    a = gh('POST', up, raw=open(path, 'rb').read(), ctype='application/octet-stream')
+    return a['browser_download_url'], a['url']  # public link; API link (works with a token while the repository is private)
 
 
 def sha(path):
@@ -123,9 +122,9 @@ def main():
             p = z.extract(name, d)
             ext = 'zip' if name.endswith('.zip') else 'tar.gz'
             b2.put_file(p, f'hoststation/engine/{v}/{name}')
-            url = upload(rel, f'sushila.cpp-{v}-{key}.{ext}', p)
+            url, api = upload(rel, f'sushila.cpp-{v}-{key}.{ext}', p)
             win = key.startswith('windows')
-            eng['builds'][key] = {'file': name, 'sha256': sha(p), 'bytes': os.path.getsize(p), 'archive': ext, 'github': url,
+            eng['builds'][key] = {'file': name, 'sha256': sha(p), 'bytes': os.path.getsize(p), 'archive': ext, 'github': url, 'githubAsset': api,
                                   'server': 'sushila-server.exe' if win else 'sushila-server',
                                   'servers': {'image': 'sushila-sd-server.exe' if win else 'sushila-sd-server', 'music': 'sushila-ace-server.exe' if win else 'sushila-ace-server'}}
             os.remove(p)
@@ -143,10 +142,10 @@ def main():
                 with z.open(n) as src, open(p, 'wb') as o:
                     o.write(src.read())
                 b2.put_file(p, f'hoststation/app/{v}/{pub}')
-                url = upload(rel, pub, p)
+                url, api = upload(rel, pub, p)
                 app['files'] = [f for f in app['files'] if not (f['product'] == product and f['platform'] == kind[1])]
                 app['files'].append({'product': product, 'platform': kind[1], 'label': ('' if product == 'host-station' else PRODUCTS[product][1] + ' for ') + kind[2],
-                                     'file': pub, 'bytes': os.path.getsize(p), 'sha256': sha(p), 'github': url})
+                                     'file': pub, 'bytes': os.path.getsize(p), 'sha256': sha(p), 'github': url, 'githubAsset': api})
                 os.remove(p)
                 print(f'installer {pub}: {url}', flush=True)
     now = time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime())
@@ -157,10 +156,7 @@ def main():
         app.update({'built_utc': now, 'run': int(a.app_run)})
         b2.put('hoststation/app/LATEST.json', json.dumps(app, indent=1).encode())
     notes = readme(v, tag, eng, app)
-    gh('PATCH', f'https://api.github.com/repos/{PUB}/releases/{rel["id"]}', {'body': notes.split('<!-- release -->')[1]})
-    cur = gh('GET', f'https://api.github.com/repos/{PUB}/contents/README.md', ok404=True)
-    gh('PUT', f'https://api.github.com/repos/{PUB}/contents/README.md', {'message': f'Sushila {v} downloads', 'content': base64.b64encode(notes.encode()).decode(),
-                                                                         **({'sha': cur['sha']} if cur else {})})
+    gh('PATCH', f'https://api.github.com/repos/{PUB}/releases/{rel["id"]}', {'body': notes.split('<!-- release -->')[1]})  # the main README is not touched
     print(f'https://github.com/{PUB}/releases/tag/{tag}')
     if a.engine_run:
         print('next: python3 scripts/precompute/sign_checksums.py sign hoststation/engine')
@@ -179,7 +175,6 @@ computer, faster: work that every user's computer would repeat (an output-layer 
 model) is computed once, ahead of time, and shipped with the model. Measured speedups: up to **3.64x** over Ollama for
 DeepSeek-R1-Distill-Llama-70B; a 768x768 image in **0.8 s** on an RTX 4090 (measured). Website: **https://sushila.ai**
 
-This repository holds the **installers and engine builds** (source code follows with the paper).
 No command prompt needed: download, install, click.
 <!-- release -->
 ## Downloads (version {v})

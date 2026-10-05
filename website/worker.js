@@ -1868,7 +1868,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
     if (latest && latest.version && latest.builds) {
       const tok = await grant(`hoststation/engine/${latest.version}/`);
       engine = { version: latest.version, index: { text: ltext, signature: lsig.trim() }, builds: Object.fromEntries(Object.entries(latest.builds).map(([k, b]) => {
-        direct[`engine/${k}`] = { url: `${b2.fileUrl(a.downloadUrl, `hoststation/engine/${latest.version}/${b.file}`)}?Authorization=${encodeURIComponent(tok)}`, file: b.file, bytes: b.bytes, github: b.github };
+        direct[`engine/${k}`] = { url: `${b2.fileUrl(a.downloadUrl, `hoststation/engine/${latest.version}/${b.file}`)}?Authorization=${encodeURIComponent(tok)}`, file: b.file, bytes: b.bytes, github: b.github, githubAsset: b.githubAsset };
         return [k, { ...b, url: `${origin}/hoststation/get/engine/${k}` }];
       })) };
     }
@@ -1899,14 +1899,27 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
 
 // Host Station installers: B2 hoststation/app/LATEST.json = {version, files: [{platform, label, file, sha256, bytes}]}
 // (written when installers are published); each file gets a 24-hour download link.
-// Streams a file of the public release repository through sushila.ai (same origin for the install wizard's pause/resume,
-// and the only site the apps download programs from). Every fetch counts as a download on GitHub. null: use B2 instead.
-const RELEASES = 'https://github.com/syncaissa/sushila-releases/releases/download/';
-async function fromGithub(link, request, file, sha256) {
-  if (!String(link).startsWith(RELEASES)) return null;
+// Streams a released file (GitHub Releases of the main repository) through sushila.ai: same origin for the install
+// wizard's pause/resume, and the only site the apps download programs from. Every fetch counts as a download on GitHub.
+// While the repository is private, the asset is fetched through the API with GITHUB_RELEASE_TOKEN (a fine-grained,
+// read-only token for syncaissa/sushila.cpp); once it is public, the plain release link works. null: use the B2 copy.
+const RELEASES = 'https://github.com/syncaissa/sushila.cpp/releases/download/';
+const RELEASE_API = 'https://api.github.com/repos/syncaissa/sushila.cpp/releases/assets/';
+async function fromGithub(env, entry, request, file, sha256) {
+  const link = String(entry.github || ''), api = String(entry.githubAsset || '');
+  if (!link.startsWith(RELEASES)) return null;
   try {
-    const h = { 'user-agent': 'sushila.ai' }; if (request.headers.get('range')) h.range = request.headers.get('range');
-    const r = await fetch(link, { headers: h, redirect: 'follow' });
+    const range = request.headers.get('range');
+    let r;
+    if (env.GITHUB_RELEASE_TOKEN && api.startsWith(RELEASE_API)) {
+      // the API answers with a redirect to short-lived storage, which must be fetched without the token
+      const a = await fetch(api, { headers: { authorization: `Bearer ${env.GITHUB_RELEASE_TOKEN}`, accept: 'application/octet-stream', 'user-agent': 'sushila.ai' }, redirect: 'manual' });
+      const loc = a.headers.get('location');
+      if (!loc) return null;
+      r = await fetch(loc, { headers: range ? { range } : {} });
+    } else {
+      r = await fetch(link, { headers: { 'user-agent': 'sushila.ai', ...(range ? { range } : {}) }, redirect: 'follow' });
+    }
     if (!(r.status === 200 || r.status === 206)) return null;
     const out = new Headers({ 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="${String(file).replace(/"/g, '')}"`,
       'accept-ranges': 'bytes', 'cache-control': 'no-store', 'x-source': 'github-releases', ...(sha256 ? { 'x-sha256': sha256 } : {}), ...SEC });
@@ -1941,7 +1954,6 @@ const HOSTSTATION = (env, app, packs = []) => () => {
 <p><a class="btn hsget" href="#" data-start="welcome">Install step by step</a></p>
 ${HS_WIZARD(app, packs)}
 <h2>Download${app ? ` (version ${esc(app.version)})` : ''}</h2>
-<p class="muted">Also on GitHub: <a href="https://github.com/syncaissa/sushila-releases/releases/latest">github.com/syncaissa/sushila-releases</a> (the same files, same sha256).</p>
 ${rows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
 <p class="note">Check the sha256 of your download against the one listed here. Installers are code-signed by the Sushila project.</p>`
     : '<p class="note">The first installers are being built and signed. Check back soon.</p>'}
@@ -2446,7 +2458,7 @@ export default {
         const [first] = key.split('/');
         ctx.waitUntil(logDownload(db, request, { file: d.file, kind: first === 'engine' || first === 'runtime' ? first : 'pack', packId: first === 'engine' || first === 'runtime' ? '' : first, bytes: d.bytes }));
         if (d.github && url.searchParams.get('from') !== 'b2') {  // released files: served from GitHub Releases (counted there), B2 if GitHub fails
-          const r = await fromGithub(d.github, request, d.file);
+          const r = await fromGithub(env, d, request, d.file);
           if (r) return r;
         }
         return new Response(null, { status: 302, headers: { location: d.url, 'cache-control': 'no-store', ...SEC } });
@@ -2459,7 +2471,7 @@ export default {
         if (!f) return new Response('No installer is published for this system yet.', { status: 404, headers: SEC });
         ctx.waitUntil(logDownload(db, request, { file: f.file, kind: 'installer', system: platform, bytes: f.bytes }));
         if (f.github && url.searchParams.get('from') !== 'b2') {  // the GitHub release copy (counted there); the B2 copy if GitHub fails
-          const g = await fromGithub(f.github, request, f.file, f.sha256);
+          const g = await fromGithub(env, f, request, f.file, f.sha256);
           if (g) return g;
         }
         const h = {}; if (request.headers.get('range')) h.range = request.headers.get('range');
