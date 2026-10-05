@@ -17,6 +17,8 @@
  * Environment (Cloudflare secrets/variables):
  *   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION   DynamoDB; tables sushilaai-* (website/setup/dynamodb_tables.py)
  *   B2_KEY_ID, B2_APP_KEY, B2_BUCKET_NAME (sushila-ai)     Backblaze B2: models/<model id>/<file>, media/<file>
+ *   RUNPOD_API_KEY (secret)                               admin "Compare Speeds": creates and deletes GPU pods on RunPod
+ *   Cron trigger, every 5 minutes                         deletes comparison pods that are idle, failed or too old
  *   RESEND_API_KEY, RESEND_FROM                             sign-in e-mails
  *   SESSION_SECRET                                          signs sessions, hashes sign-in codes
  *   RELEASED ("true" once the repository is public), REPO_URL, CONTACT, GOVERNING_LAW   optional
@@ -839,9 +841,13 @@ const ADMIN = () => () => `${FORM_CSS}
 .admin-tools input{flex:1 1 260px}.pager{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14px}.pager button{padding:6px 12px}
 .mform{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 16px;margin:12px 0}.mform label{font-size:13px;font-weight:600;margin-top:8px}
 .mform input{width:100%;flex:none}.switch{cursor:pointer;border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600;background:var(--card)}
-.switch.on{background:var(--accbg);color:var(--acc);border-color:var(--acc)}td.wrap{max-width:260px;word-break:break-word}</style>
+.switch.on{background:var(--accbg);color:var(--acc);border-color:var(--acc)}td.wrap{max-width:260px;word-break:break-word}
+.cbox{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--card)}.cstage{margin:8px 0 4px;font-size:15px}.cstages{margin:4px 0 8px 18px;padding:0}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px}.ccard{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--card);min-width:0}
+.ccard.sus{border-color:var(--acc)}.cnum{margin:8px 0;font-size:14px}.ctext{max-height:360px;overflow:auto;white-space:pre-wrap;font-size:13px}
+.cspeed{margin-top:16px;font-size:28px;color:var(--acc)}#cres .ok,.ok{color:var(--acc)}textarea{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;box-sizing:border-box}</style>
 <h1>Admin</h1>
-<div class="admtabs" role="tablist"><button class="tab" data-t="users" aria-selected="true">Users</button><button class="tab" data-t="models" aria-selected="false">Models</button><a class="tab" href="/bugs" style="text-decoration:none">Bugs</a></div>
+<div class="admtabs" role="tablist"><button class="tab" data-t="users" aria-selected="true">Users</button><button class="tab" data-t="models" aria-selected="false">Models</button><button class="tab" data-t="compare" aria-selected="false">Compare Speeds</button><a class="tab" href="/bugs" style="text-decoration:none">Bugs</a></div>
 
 <div id="t-users">
   <div class="admin-tools"><input id="q" type="search" placeholder="Filter by e-mail, name, organization or user id">
@@ -863,6 +869,29 @@ const ADMIN = () => () => `${FORM_CSS}
   <button class="btn" id="msave">Save model</button> <button class="btn ghost" id="mclear">Clear</button>
   <div class="msg" id="mm" role="status"></div>
 </div>
+<div id="t-compare" class="hidden">
+  <p class="lead" style="margin-bottom:8px">Time the same prompt on <b>Sushila</b> (SGLang 0.5.21, the model's 4-bit file and our precomputed draft head) and on <b>vanilla Ollama 0.35.1</b> (Q4_K_M), on one fresh RunPod GPU pod. The pod installs both engines, downloads the model and the precomputed files from B2 (checked by sha256), answers, and is then deleted.</p>
+  <p class="note" style="margin-top:0">Setup takes about 10-20 minutes (image, downloads, loading). 70B models use 2 GPUs so both engines stay loaded. Pods are deleted after the comparison unless you keep them; the cron job also deletes pods idle for 15 minutes, failed, or older than 3 hours.</p>
+  <div class="admin-tools"><select id="cm" style="flex:1 1 260px"><option>Loading models…</option></select>
+    <label class="sub"><input type="checkbox" id="ckeep" style="flex:none;width:auto"> keep the pod for more prompts (deleted after 15 min idle)</label>
+    <button class="btn" id="cstart">Start comparison pod</button></div>
+  <div class="msg" id="cmsg" role="status"></div>
+  <div id="crun" class="hidden">
+    <div class="cbox"><div><b id="cmodel"></b> <span class="sub" id="cpod"></span></div>
+      <div id="cstage" class="cstage"></div><ol id="cstages" class="sub cstages"></ol><div id="cchecks" class="sub"></div>
+      <div class="sub" id="ccost"></div>
+      <button class="btn ghost small" id="cstop">Delete pod now</button></div>
+    <label for="cp" style="font-weight:600;font-size:14px;display:block;margin-top:14px">Prompt</label>
+    <textarea id="cp" rows="4" style="width:100%" placeholder="e.g. Explain why the sky is blue in three sentences."></textarea>
+    <div class="admin-tools" style="margin-top:8px"><label class="sub">Max tokens <select id="cn"><option>128</option><option selected>256</option><option>512</option><option>1024</option></select></label>
+      <button class="btn" id="cgo" disabled>Compare</button></div>
+    <div class="msg" id="cgm" role="status"></div>
+    <div id="cres"></div>
+  </div>
+  <h2>Recent comparisons</h2>
+  <div class="tablewrap"><table><thead><tr><th>When (UTC)</th><th>Model</th><th>GPU</th><th>Status</th><th class="num">Prompts</th><th class="num">Last speedup</th><th class="num">Cost</th><th></th></tr></thead>
+  <tbody id="crb"><tr><td colspan="8" class="sub">Loading…</td></tr></tbody></table></div>
+</div>
 ${CLIENT}
 <script>
 (function(){
@@ -870,8 +899,8 @@ ${CLIENT}
   const FIELDS = ${JSON.stringify(MODEL_FIELDS.map((f) => f[0]))};
   document.querySelectorAll('.tab[data-t]').forEach(t => t.onclick = () => {
     document.querySelectorAll('.tab[data-t]').forEach(x => x.setAttribute('aria-selected', x === t));
-    $('t-users').classList.toggle('hidden', t.dataset.t !== 'users'); $('t-models').classList.toggle('hidden', t.dataset.t !== 'models');
-    if (t.dataset.t === 'models') loadModels(); });
+    ['users', 'models', 'compare'].forEach(k => $('t-' + k).classList.toggle('hidden', t.dataset.t !== k));
+    if (t.dataset.t === 'models') loadModels(); if (t.dataset.t === 'compare') loadCompare(); });
   // users
   let page = 1, timer = null;
   async function loadUsers(){
@@ -905,6 +934,66 @@ ${CLIENT}
     if (ed !== null) { const m = models[ed]; FIELDS.forEach(k => $('f-' + k).value = m[k] == null ? '' : m[k]); $('f-visible').checked = !!m.visible; $('f-modelId').readOnly = true;
       $('ftitle').textContent = 'Edit ' + m.modelId; $('ftitle').scrollIntoView({behavior:'smooth'}); }
   });
+  // compare speeds
+  let cmodels = [], cur = null, poll = null;
+  const cost = (r) => '$' + (r.cost || 0).toFixed(2) + ' so far (' + (r.hours * 60).toFixed(0) + ' min at $' + (r.costPerHr || 0).toFixed(2) + '/h)';
+  async function loadCompare(){
+    const r = await fetch('/api/admin/compare/models'); const d = await r.json();
+    if (!r.ok) { $('cm').innerHTML = '<option>' + E(d.error) + '</option>'; return; }
+    cmodels = d.models;
+    $('cm').innerHTML = cmodels.length ? cmodels.map((m, i) => '<option value="' + i + '">' + E(m.model) + ' — SGLang ' + E(m.sglang) + ' vs Ollama ' + E(m.ollama) + ' (' + m.ngpu + ' GPU' + (m.ngpu > 1 ? 's' : '') + ')</option>').join('')
+      : '<option value="">No model in B2 has a precomputed draft head yet</option>';
+    $('cstart').disabled = !cmodels.length || !d.runpod;
+    if (!d.runpod) say('cmsg', 'RUNPOD_API_KEY is not set on the worker: add it as a secret in Cloudflare.');
+    loadRuns();
+  }
+  async function loadRuns(){
+    const r = await fetch('/api/admin/compare/runs'); const d = await r.json();
+    if (!r.ok) { $('crb').innerHTML = '<tr><td colspan="8">' + E(d.error) + '</td></tr>'; return; }
+    $('crb').innerHTML = d.runs.length ? d.runs.map(x => { const last = x.results[x.results.length - 1];
+      return '<tr><td>' + E(x.createdAt.slice(0,16).replace('T',' ')) + '</td><td>' + E(x.model) + '</td><td>' + E(x.gpu || '') + (x.ngpu > 1 ? ' ×' + x.ngpu : '') + '</td><td>' + E(x.status) +
+        (x.deleteReason ? '<div class="sub">' + E(x.deleteReason) + '</div>' : '') + '</td><td class="num">' + x.results.length + '</td><td class="num">' + (last && last.speedup ? '<b>' + last.speedup.toFixed(2) + '×</b>' : '') +
+        '</td><td class="num">$' + (x.cost || 0).toFixed(2) + '</td><td>' + (x.status !== 'deleted' ? '<button class="linkbtn" data-open="' + E(x.runId) + '">Open</button>' : '') + '</td></tr>'; }).join('')
+      : '<tr><td colspan="8" class="sub">No comparisons yet.</td></tr>';
+  }
+  $('crb').addEventListener('click', (ev) => { const id = ev.target.getAttribute('data-open'); if (id) openRun(id); });
+  function openRun(id){ cur = id; $('crun').classList.remove('hidden'); $('cres').innerHTML = ''; clearInterval(poll); status(); poll = setInterval(status, 10000); }
+  async function status(){
+    if (!cur) return;
+    const r = await fetch('/api/admin/compare/status?runId=' + encodeURIComponent(cur)); const d = await r.json();
+    if (!r.ok) { say('cmsg', d.error); return; }
+    const x = d.run, s = d.server || {};
+    $('cmodel').textContent = x.model; $('cpod').textContent = 'pod ' + x.podId + (d.pod && d.pod.gpu ? ' · ' + d.pod.gpu : '') + (x.ngpu > 1 ? ' ×' + x.ngpu : '');
+    $('cstage').innerHTML = x.status === 'deleted' ? 'Pod deleted (' + E(x.deleteReason) + ').' : s.error ? '<span class="err">Setup failed: ' + E(s.error) + '</span>'
+      : s.ready ? '<b class="ok">Ready.</b> Type a prompt.' : 'Setting up: ' + E(s.stage || 'creating the pod') + '…';
+    $('cstages').innerHTML = (s.stages || []).map(g => '<li>' + Math.round(g.t / 60) + ' min: ' + E(g.stage) + '</li>').join('');
+    $('cchecks').innerHTML = Object.entries(s.checks || {}).map(([k, v]) => '✓ ' + E(k.replace(/_/g, ' ')) + ': ' + E(v)).join('<br>') + (s.versions ? '<br>' + Object.entries(s.versions).map(([k, v]) => E(k) + ' ' + E(v)).join(' · ') : '');
+    $('ccost').textContent = cost(x);
+    $('cgo').disabled = !s.ready || x.status === 'deleted'; $('cstop').disabled = x.status === 'deleted';
+    if (x.status === 'deleted' || s.error) clearInterval(poll);
+  }
+  $('cstart').onclick = async () => {
+    const m = cmodels[$('cm').value]; if (!m) return;
+    $('cstart').disabled = true; say('cmsg', 'Creating the pod…', true);
+    try { const d = await api('/api/admin/compare/start', {model: m.model, keep: $('ckeep').checked}); say('cmsg', 'Pod ' + d.run.podId + ' created at $' + d.run.costPerHr.toFixed(2) + '/h.', true); openRun(d.run.runId); loadRuns(); }
+    catch(e){ say('cmsg', e.message); }
+    $('cstart').disabled = false;
+  };
+  $('cstop').onclick = async () => { try { await api('/api/admin/compare/stop', {runId: cur}); say('cmsg', 'Pod deleted.', true); status(); loadRuns(); } catch(e){ say('cmsg', e.message); } };
+  const card = (title, sub, x, cls) => '<div class="ccard ' + cls + '"><div class="ch"><b>' + title + '</b><div class="sub">' + sub + '</div></div><div class="cnum"><b>' + Math.round(x.ms).toLocaleString() + ' ms</b> · ' +
+    x.tokens + ' tokens · <b>' + x.tok_s + ' tok/s</b>' + (x.accept_length ? ' · ' + x.accept_length + ' tokens per step' : '') + '</div><div class="bugtxt ctext">' + E(x.text) + '</div></div>';
+  $('cgo').onclick = async () => {
+    const prompt = $('cp').value.trim(); if (!prompt) { say('cgm', 'Type a prompt.'); return; }
+    $('cgo').disabled = true; say('cgm', 'Running on both engines…', true);
+    try {
+      const d = await api('/api/admin/compare/prompt', {runId: cur, prompt, maxTokens: Number($('cn').value)}); const r = d.result;
+      $('cres').innerHTML = '<div class="cspeed">' + (r.speedup ? '<b>' + r.speedup.toFixed(2) + '× faster</b> with Sushila' : 'No speedup computed') + '</div>' +
+        '<div class="cgrid">' + card('Sushila', 'SGLang + 4-bit + precomputed draft head', r.sushila, 'sus') + card('Ollama', 'vanilla, Q4_K_M', r.ollama, 'oll') + '</div>' +
+        '<p class="note">' + E(r.note) + (r.same_text ? ' The two replies are word for word identical.' : ' The replies come from two different 4-bit files of the same model, so they can differ in wording.') + '</p>';
+      say('cgm', d.deleted ? 'Done. The pod has been deleted.' : 'Done.', true);
+    } catch(e){ say('cgm', e.message); }
+    status(); loadRuns();
+  };
   $('mclear').onclick = () => { FIELDS.forEach(k => $('f-' + k).value = ''); $('f-visible').checked = false; $('f-modelId').readOnly = false; $('ftitle').textContent = 'Add a model'; say('mm',''); };
   $('msave').onclick = async () => { const m = {}; FIELDS.forEach(k => m[k] = $('f-' + k).value.trim()); m.visible = $('f-visible').checked;
     try { await api('/api/admin/models', {action:'save', model: m, isNew: !$('f-modelId').readOnly}); say('mm','Saved.', true); $('mclear').click(); loadModels(); } catch(e){ say('mm', e.message); } };
@@ -936,6 +1025,7 @@ const TABLES = {
   models: 'sushilaai-models',       // PK modelId: hosted models, their precomputed artifacts and the visible flag
   bugs: 'sushilaai-bugs',           // PK bugId, SK item: the report ("bug") and its comments ("c#<time>#<id>")
   waitlist: 'sushilaai-waitlist',   // PK email: serverless-API early access
+  compare: 'sushilaai-compare',     // PK runId: admin "Compare Speeds" pods (pod id, model, results); pods are deleted, rows kept
   audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes
 };
 const OTP_TTL_MS = 5 * 60 * 1000;      // a code is valid for 5 minutes
@@ -1373,10 +1463,194 @@ async function catalog(db, fresh = false) {
 }
 const visibleModels = async (db) => (await catalog(db)).filter((m) => m.visible);
 
+// --- Admin "Compare Speeds": Sushila vs Ollama on a fresh RunPod GPU pod --------------------------------------------
+// The worker creates one pod per comparison from the stock SGLang 0.5.21 image. The pod installs Ollama 0.35.1, downloads
+// the model (SGLang and Ollama files) and our precomputed draft head from B2 (a read-only token limited to that model's
+// folder; every file is checked against CHECKSUMS.json), then times each prompt on both engines
+// (scripts/compare/compare_pod.py, copied to B2 at tools/compare/). Pods are deleted after the comparison, on request,
+// or by the cron job (scheduled() below): idle 15 min, setup over 60 min, failed, or older than 3 h. Needs RUNPOD_API_KEY.
+const COMPARE = {
+  image: 'lmsysorg/sglang:v0.5.21-cu130',                 // the SGLang version measured in the paper
+  script: 'tools/compare/compare_pod.py',
+  gpuTypes: ['NVIDIA A100 80GB PCIe', 'NVIDIA A100-SXM4-80GB', 'NVIDIA H100 80GB HBM3', 'NVIDIA H100 PCIe'],  // first available wins
+  podPrefix: 'sushila-cmp-',
+  maxActive: 2,                                            // spend guard: at most two comparison pods at once
+  idleMinutes: 15, setupMinutes: 60, maxHours: 3, failedMinutes: 10,
+};
+const rpBase = 'https://rest.runpod.io/v1';
+async function runpod(env, method, path, bodyObj) {
+  if (!env.RUNPOD_API_KEY) throw new Error('RUNPOD_API_KEY is not set on the worker');
+  const r = await fetch(rpBase + path, { method, headers: { authorization: `Bearer ${env.RUNPOD_API_KEY}`, 'content-type': 'application/json', 'user-agent': 'sushila.ai-worker/1.0' },  // RunPod answers 403 without a user agent
+    ...(bodyObj ? { body: JSON.stringify(bodyObj) } : {}) });
+  const t = await r.text(); let d; try { d = t ? JSON.parse(t) : {}; } catch { d = { raw: t }; }
+  if (!r.ok) { const e = new Error(`RunPod ${method} ${path}: ${r.status} ${(d && (d.error || d.message)) || t.slice(0, 200)}`); e.status = r.status; throw e; }
+  return d;
+}
+const twoGpus = (model) => /(^|[^0-9])(65|70|72)b/i.test(model);  // a 70B model does not fit twice on one 80 GB GPU
+const podUrl = (podId, path) => `https://${podId}-8000.proxy.runpod.net${path}`;
+async function podCall(run, path, bodyObj, ms = 15000) {
+  const r = await fetch(podUrl(run.podId, path), { method: bodyObj ? 'POST' : 'GET', signal: AbortSignal.timeout(ms),
+    headers: { 'x-sushila-token': run.token, 'content-type': 'application/json' }, ...(bodyObj ? { body: JSON.stringify(bodyObj) } : {}) });
+  const t = await r.text(); let d; try { d = JSON.parse(t); } catch { d = { error: `pod answered ${r.status}` }; }
+  if (!r.ok) throw new Error(d.error || `pod answered ${r.status}`);
+  return d;
+}
+const runFrom = (it) => it && ({ runId: str(it, 'runId'), podId: str(it, 'podId'), model: str(it, 'model'), ngpu: num(it, 'ngpu'), gpu: str(it, 'gpu'),
+  costPerHr: num(it, 'costPerHr'), createdAt: str(it, 'createdAt'), createdBy: str(it, 'createdBy'), keep: bool(it, 'keep'), status: str(it, 'status'),
+  deletedAt: str(it, 'deletedAt'), deleteReason: str(it, 'deleteReason'), token: str(it, 'token'),
+  results: (() => { try { return JSON.parse(str(it, 'results') || '[]'); } catch { return []; } })() });
+const publicRun = (r) => { const { token, ...rest } = r; return { ...rest, hours: hoursOf(r), cost: Math.round(hoursOf(r) * r.costPerHr * 100) / 100 }; };
+const hoursOf = (r) => ((r.deletedAt ? Date.parse(r.deletedAt) : Date.now()) - Date.parse(r.createdAt)) / 3600e3;
+
+async function compareModels(b2) {  // every model in B2 with a precomputed draft head
+  const a = await b2.auth();
+  const r = await fetch(`${a.apiUrl}/b2api/v3/b2_list_file_names`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
+    body: JSON.stringify({ bucketId: a.bucketId, prefix: 'precomputed/', delimiter: '/', maxFileCount: 1000 }) });
+  if (!r.ok) throw new Error('B2 list: ' + r.status);
+  const dirs = ((await r.json()).files || []).map((f) => f.fileName).filter((n) => n.endsWith('/')).map((n) => n.slice('precomputed/'.length, -1));
+  const out = [];
+  await Promise.all(dirs.map(async (m) => {
+    try {
+      const f = await fetch(b2.fileUrl(a.downloadUrl, `precomputed/${m}/CHECKSUMS.json`), { headers: { authorization: a.token } });
+      if (!f.ok) return;
+      const c = await f.json();
+      const head = (c.files || []).filter((x) => x.path.startsWith('draft-head/'));
+      if (!c.draft_head || !head.length) return;
+      out.push({ model: m, sglang: c.bound_to?.sglang_target?.repo, ollama: c.bound_to?.ollama_gguf?.tag, savedUtc: c.saved_utc,
+        headBytes: head.reduce((s, x) => s + (x.bytes || 0), 0), ngpu: twoGpus(m) ? 2 : 1 });
+    } catch { /* unreadable index: not offered */ }
+  }));
+  return out.sort((x, y) => x.model.localeCompare(y.model));
+}
+
+async function deletePod(env, db, run, reason) {
+  try { await runpod(env, 'DELETE', `/pods/${run.podId}`); }
+  catch (e) { if (e.status !== 404) throw e; }  // already gone
+  await db.update(TABLES.compare, { runId: S(run.runId) }, 'SET #s = :s, deletedAt = :t, deleteReason = :r',
+    { ':s': S('deleted'), ':t': S(new Date().toISOString()), ':r': S(reason) }, { '#s': 'status' });
+}
+
+async function compareApi(request, env, db, b2, user, path) {
+  const url = new URL(request.url);
+  if (path === '/api/admin/compare/models' && request.method === 'GET') {
+    return json({ models: await compareModels(b2), runpod: !!env.RUNPOD_API_KEY });
+  }
+  if (path === '/api/admin/compare/runs' && request.method === 'GET') {
+    const runs = (await db.scanAll(TABLES.compare, {}, 500)).map(runFrom).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 25);
+    return json({ runs: runs.map(publicRun) });
+  }
+  if (path === '/api/admin/compare/status' && request.method === 'GET') {
+    const run = runFrom(await db.get(TABLES.compare, { runId: S(clean(url.searchParams.get('runId'), 40)) }));
+    if (!run) return json({ error: 'No such comparison.' }, 404);
+    let pod = null, server = null;
+    if (run.status !== 'deleted') {
+      try { pod = await runpod(env, 'GET', `/pods/${run.podId}`); } catch (e) { pod = { error: e.message }; }
+      try { server = await podCall(run, '/status', null, 8000); } catch (e) { server = { stage: 'pod starting (image download, about 3-5 minutes)', unreachable: true }; }
+      if (server && server.ready && run.status !== 'ready') await db.update(TABLES.compare, { runId: S(run.runId) }, 'SET #s = :s', { ':s': S('ready') }, { '#s': 'status' });
+      if (server && server.error && run.status !== 'failed') await db.update(TABLES.compare, { runId: S(run.runId) }, 'SET #s = :s', { ':s': S('failed') }, { '#s': 'status' });
+    }
+    return json({ run: publicRun(run), pod: pod && { desiredStatus: pod.desiredStatus, gpu: pod.machine?.gpuTypeId || run.gpu, error: pod.error }, server });
+  }
+  if (request.method !== 'POST') return json({ error: 'Not found.' }, 404);
+  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+
+  if (path === '/api/admin/compare/start') {
+    const model = clean(d.model, 80);
+    const m = (await compareModels(b2)).find((x) => x.model === model);
+    if (!m) return json({ error: 'That model has no precomputed draft head in B2.' }, 400);
+    const active = (await db.scanAll(TABLES.compare, {}, 500)).map(runFrom).filter((r) => r.status !== 'deleted');
+    if (active.length >= COMPARE.maxActive) return json({ error: `Already ${active.length} comparison pods running; delete one first (spend guard).` }, 409);
+    const a = await b2.auth();
+    const grant = async (prefix) => {
+      const r = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
+        body: JSON.stringify({ bucketId: a.bucketId, fileNamePrefix: prefix, validDurationInSeconds: COMPARE.maxHours * 3600 }) });
+      if (!r.ok) throw new Error('B2 download authorization: ' + r.status);
+      return (await r.json()).authorizationToken;
+    };
+    const runId = 'cmp-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '') + '-' + randomId().slice(0, 6).toLowerCase();
+    const token = randomId() + randomId();
+    const base = `${a.downloadUrl}/file/${env.B2_BUCKET_NAME}`;
+    const start = `set -e; mkdir -p /workspace; curl -fsSL -H "Authorization: $B2_TOOLS_AUTH" "$B2_FILE_BASE/${COMPARE.script}" -o /compare_pod.py; `
+      + `python3 /compare_pod.py 2>&1 | tee /workspace/compare.log`;
+    const pod = await runpod(env, 'POST', '/pods', {
+      name: COMPARE.podPrefix + runId.slice(4), imageName: COMPARE.image, gpuTypeIds: COMPARE.gpuTypes, gpuCount: m.ngpu, cloudType: 'SECURE',
+      containerDiskInGb: m.ngpu > 1 ? 250 : 150, volumeInGb: 0, minVCPUPerGPU: m.ngpu > 1 ? 8 : 16, minRAMPerGPU: 60, allowedCudaVersions: ['13.0'],
+      ports: ['8000/http'], dockerEntrypoint: ['bash', '-c'], dockerStartCmd: [start],
+      env: { SUSHILA_MODEL: model, SUSHILA_TOKEN: token, NGPU: String(m.ngpu), B2_FILE_BASE: base,
+        B2_AUTH: await grant(`precomputed/${model}/`), B2_TOOLS_AUTH: await grant('tools/compare/') },
+    });
+    const run = { runId: S(runId), podId: S(pod.id), model: S(model), ngpu: N(m.ngpu), gpu: S(pod.machine?.gpuTypeId || (pod.gpu && pod.gpu.id) || ''),
+      costPerHr: N(pod.costPerHr || pod.adjustedCostPerHr || 0), createdAt: S(new Date().toISOString()), createdBy: S(user.userId),
+      keep: { BOOL: !!d.keep }, status: S('starting'), token: S(token), results: S('[]') };
+    await db.put(TABLES.compare, run);
+    await audit(db, 'compare-start', user.userId, request, { model, podId: pod.id });
+    return json({ run: publicRun(runFrom(run)) });
+  }
+  const run = runFrom(await db.get(TABLES.compare, { runId: S(clean(d.runId, 40)) }));
+  if (!run) return json({ error: 'No such comparison.' }, 404);
+  if (path === '/api/admin/compare/prompt') {
+    if (run.status === 'deleted') return json({ error: 'This comparison pod has been deleted. Start a new one.' }, 409);
+    const prompt = String(d.prompt || '').trim().slice(0, 8000);
+    if (!prompt) return json({ error: 'Type a prompt.' }, 400);
+    const maxTokens = Math.min(Math.max(Number(d.maxTokens) || 256, 16), 1024);
+    let res;
+    try { res = await podCall(run, '/compare', { prompt, max_tokens: maxTokens }, 95000); }
+    catch (e) { return json({ error: 'The pod could not run the comparison: ' + e.message }, 502); }
+    const results = [...run.results, { at: new Date().toISOString(), prompt: prompt.slice(0, 2000), ...res }].slice(-20);
+    let saved = JSON.stringify(results);
+    while (saved.length > 300000 && results.length > 1) { results.shift(); saved = JSON.stringify(results); }  // DynamoDB items stay under 400 KB
+    await db.update(TABLES.compare, { runId: S(run.runId) }, 'SET results = :r, lastActivity = :t', { ':r': S(saved), ':t': S(new Date().toISOString()) });
+    let deleted = false;
+    if (!run.keep && !d.keepThisTime) { await deletePod(env, db, run, 'after the comparison'); deleted = true; }
+    return json({ result: res, deleted });
+  }
+  if (path === '/api/admin/compare/keep') {
+    await db.update(TABLES.compare, { runId: S(run.runId) }, 'SET keep = :k', { ':k': { BOOL: !!d.keep } });
+    return json({ ok: true });
+  }
+  if (path === '/api/admin/compare/stop') {
+    if (run.status !== 'deleted') await deletePod(env, db, run, 'deleted by ' + (user.primaryEmail || user.userId));
+    await audit(db, 'compare-stop', user.userId, request, { runId: run.runId });
+    return json({ ok: true });
+  }
+  return json({ error: 'Not found.' }, 404);
+}
+
+// Cron (every 5 minutes; add the trigger in Cloudflare): delete comparison pods nobody needs, so none runs up a bill.
+async function reapComparePods(env) {
+  if (!env.RUNPOD_API_KEY) return;
+  const db = new DynamoDB(env);
+  const pods = (await runpod(env, 'GET', '/pods')) || [];
+  const runs = new Map((await db.scanAll(TABLES.compare, {}, 1000)).map(runFrom).map((r) => [r.podId, r]));
+  for (const p of (Array.isArray(pods) ? pods : pods.pods || [])) {
+    if (!String(p.name || '').startsWith(COMPARE.podPrefix)) continue;  // only comparison pods, never anything else
+    const run = runs.get(p.id);
+    let why = null;
+    if (!run) why = 'no comparison record';
+    else {
+      const ageMin = (Date.now() - Date.parse(run.createdAt)) / 60e3;
+      let server = null; try { server = await podCall(run, '/status', null, 8000); } catch { /* not reachable yet */ }
+      if (run.status === 'deleted') why = 'already marked deleted';
+      else if (ageMin > COMPARE.maxHours * 60) why = `older than ${COMPARE.maxHours} h`;
+      else if (server && server.error && ageMin > COMPARE.failedMinutes) why = 'setup failed: ' + String(server.error).slice(0, 120);
+      else if (!(server && server.ready) && ageMin > COMPARE.setupMinutes) why = `not ready after ${COMPARE.setupMinutes} min`;
+      else if (server && server.ready && server.idle_s > COMPARE.idleMinutes * 60) why = `idle ${COMPARE.idleMinutes} min`;
+    }
+    if (!why) continue;
+    try {
+      if (run) await deletePod(env, db, run, 'cron: ' + why);
+      else await runpod(env, 'DELETE', `/pods/${p.id}`);
+      console.log('compare reaper deleted', p.id, p.name, why);
+    } catch (e) { console.error('compare reaper', p.id, e.message); }
+  }
+}
+
 // --- Admin APIs (isAdmin on the user's row; set it with makeUserAdmin.py) ---
 async function adminApi(request, env, db, user, path) {
   if (!user || !user.isAdmin) return json({ error: 'Admins only.' }, 403);
   const url = new URL(request.url);
+  if (path.startsWith('/api/admin/compare/')) return await compareApi(request, env, db, new B2(env), user, path);
   if (path === '/api/admin/users' && request.method === 'GET') {
     const q = clean(url.searchParams.get('q'), 100).toLowerCase(), admins = url.searchParams.get('admins') === '1';
     const size = Math.min(Math.max(Number(url.searchParams.get('size')) || 25, 5), 100);
@@ -1509,6 +1783,7 @@ async function health(env, db, b2) {
 }
 
 export default {
+  async scheduled(event, env, ctx) { ctx.waitUntil(reapComparePods(env).catch((e) => console.error('compare reaper', e.message))); },
   async fetch(request, env) {
     const url = new URL(request.url);
     const p = url.pathname, method = request.method;

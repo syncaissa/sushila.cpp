@@ -8,11 +8,15 @@ B2 layout (bucket sushila-ai):
   precomputed/<model>/checkpoints/<ck>/  every other trained checkpoint, exported the same way
   precomputed/<model>/training-data/     the model's own answers the heads were fitted on (reusable)
   precomputed/<model>/config.env         the pipeline config that produced them
+  precomputed/<model>/weights/sglang/    the model file SGLang serves (exact Hugging Face revision)
+  precomputed/<model>/weights/ollama/    the Ollama manifest and blobs (the GGUF Ollama serves), as an Ollama models folder
   results/<model>/                       timings, outputs, logs and summary of the run
 
 Commands:
   b2_save.py precomputed W MODEL ENVFILE   save $W/MODEL's precomputed artifacts and results (run_model.sh does this)
   b2_save.py tree LOCAL PREFIX [--exclude X ...]   upload any folder (skips identical files; writes PREFIX/MANIFEST.json)
+  b2_save.py weights MODEL OLLAMA_MODELS_DIR mirror the model's SGLang files (HF revision in CHECKSUMS.json) and its Ollama
+                                         manifest + blobs to precomputed/MODEL/weights/ (listed in the same CHECKSUMS.json)
   b2_save.py verify PREFIX                 check every file listed in PREFIX/CHECKSUMS.json (or MANIFEST.json) exists in B2
   b2_save.py restore PREFIX LOCAL [--only draft-head/]   download the listed files (or one subfolder) and check sha256
 
@@ -106,16 +110,19 @@ class B2:
         if size <= PART:
             return self.put(name, open(path, 'rb').read(), sha1)
         fid = self.call('b2_start_large_file', {'bucketId': self.bid, 'fileName': name, 'contentType': 'b2/x-auto', 'fileInfo': {'large_file_sha1': sha1}})['fileId']
-        shas, n = [], 0
-        with open(path, 'rb') as f:
-            while True:
+        nparts = (size + PART - 1) // PART
+
+        def part(n):  # parts go up 8 at a time (model weights are tens of GB)
+            with open(path, 'rb') as f:
+                f.seek((n - 1) * PART)
                 chunk = f.read(PART)
-                if not chunk:
-                    break
-                n += 1
-                s1 = hashlib.sha1(chunk).hexdigest(); shas.append(s1)
-                u = self.call('b2_get_upload_part_url', {'fileId': fid})
-                self._req(u['uploadUrl'], u['authorizationToken'], raw=chunk, headers={'X-Bz-Part-Number': str(n), 'X-Bz-Content-Sha1': s1, 'Content-Length': str(len(chunk))})
+            s1 = hashlib.sha1(chunk).hexdigest()
+            u = self.call('b2_get_upload_part_url', {'fileId': fid})
+            self._req(u['uploadUrl'], u['authorizationToken'], raw=chunk, headers={'X-Bz-Part-Number': str(n), 'X-Bz-Content-Sha1': s1, 'Content-Length': str(len(chunk))})
+            return s1
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(8) as ex:
+            shas = list(ex.map(part, range(1, nparts + 1)))
         return self.call('b2_finish_large_file', {'fileId': fid, 'partSha1Array': shas})
 
     def tree(self, local, prefix, exclude=(), have=None):
@@ -179,12 +186,67 @@ def save_precomputed(W, model, envfile):
                         '--speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --speculative-draft-model-path draft-head/',
         'files': files,
     }
+    old = _read_checks(b2, pre)  # the model's weights (b2_save.py weights) stay listed when the head is saved again
+    if old.get('weights'):
+        checks['weights'] = old['weights']
+        checks['files'] += [f for f in old.get('files', []) if f['path'].startswith('weights/')]
     b2.put(f'{pre}/CHECKSUMS.json', json.dumps(checks, indent=1).encode())
     print(f'precomputed: {len(files)} files -> b2://{b2.bucket}/{pre}/ (CHECKSUMS.json)')
     res = b2.tree(D, f'results/{model}', exclude=('hs/', 'cache_', 'ckpt_chunk_', 'head_ckpt_', 'pub_head', 'regen.jsonl', 'train.jsonl', 'chunk_'))
     b2.put(f'results/{model}/MANIFEST.json', json.dumps({'files': res}, indent=1).encode())
     print(f'results: {len(res)} files -> b2://{b2.bucket}/results/{model}/')
     return verify(f'{pre}')
+
+
+def _read_checks(b2, pre):
+    try:
+        return json.loads(urllib.request.urlopen(urllib.request.Request(
+            f"{_download_url(b2)}/file/{b2.bucket}/{urllib.parse.quote(pre + '/CHECKSUMS.json')}", headers={'Authorization': b2.tok}), timeout=120).read())
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def save_weights(model, ollama_dir):
+    """Mirror the model's own files to B2 next to its precomputed artifacts, so serving never needs Hugging Face or
+    the Ollama registry: weights/sglang/ = the SGLang model at the revision in CHECKSUMS.json; weights/ollama/ = the
+    Ollama manifest and blobs (GGUF, template, parameters, license), laid out like an Ollama models folder."""
+    from huggingface_hub import snapshot_download
+    b2 = B2()
+    pre = f'precomputed/{model}'
+    checks = _read_checks(b2, pre)
+    if not checks:
+        sys.exit(f'no {pre}/CHECKSUMS.json: save the precomputed artifacts first')
+    have = b2.existing(f'{pre}/weights/')
+    files = []
+    t = checks['bound_to']['sglang_target']
+    local = snapshot_download(t['repo'], revision=t.get('revision') or None)
+    files += [{**f, 'path': f'weights/sglang/{f["path"]}'} for f in b2.tree(local, f'{pre}/weights/sglang', exclude=('.cache/',), have=have)]
+    tag = checks['bound_to']['ollama_gguf']['tag']
+    name, _, version = tag.partition(':')
+    rel = f'manifests/registry.ollama.ai/library/{name}/{version or "latest"}'
+    man = json.load(open(os.path.join(ollama_dir, rel)))
+    want = checks['bound_to']['ollama_gguf'].get('sha256')
+    gguf = [l['digest'] for l in man['layers'] if l.get('mediaType', '').endswith('.model')]
+    if want and gguf and gguf[0].split(':')[-1] != want.replace('sha256-', ''):
+        sys.exit(f'the Ollama file for {tag} ({gguf[0]}) is not the one measured ({want}): refusing to mirror a different file')
+    for d in [man['config']['digest']] + [l['digest'] for l in man['layers']]:
+        blob = 'blobs/' + d.replace(':', '-')
+        p = os.path.join(ollama_dir, blob)
+        files.append({'path': f'weights/ollama/{blob}', 'bytes': os.path.getsize(p), 'sha256': digest(p, 'sha256')})
+        if digest(p, 'sha1') not in have.get(f'{pre}/weights/ollama/{blob}', set()):
+            b2.put_file(p, f'{pre}/weights/ollama/{blob}')
+            print(f'uploaded weights/ollama/{blob} ({files[-1]["bytes"] / 1e9:.1f} GB)', flush=True)
+    p = os.path.join(ollama_dir, rel)
+    b2.put_file(p, f'{pre}/weights/ollama/{rel}')
+    files.append({'path': f'weights/ollama/{rel}', 'bytes': os.path.getsize(p), 'sha256': digest(p, 'sha256')})
+    checks['files'] = [f for f in checks['files'] if not f['path'].startswith('weights/')] + files
+    checks['weights'] = {'sglang': f'weights/sglang/ = {t["repo"]} at revision {t.get("revision")}',
+                         'ollama': f'weights/ollama/ = Ollama models folder for {tag} (copy into OLLAMA_MODELS)',
+                         'saved_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()),
+                         'bytes': sum(f['bytes'] for f in files)}
+    b2.put(f'{pre}/CHECKSUMS.json', json.dumps(checks, indent=1).encode())
+    print(f'weights: {len(files)} files, {checks["weights"]["bytes"] / 1e9:.1f} GB -> b2://{b2.bucket}/{pre}/weights/')
+    return verify(pre)
 
 
 def _hf_revision(repo):
@@ -261,6 +323,8 @@ def main():
         files = b2.tree(sys.argv[2], sys.argv[3], exclude=ex)
         b2.put(f"{sys.argv[3].strip('/')}/MANIFEST.json", json.dumps({'saved_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()), 'files': files}, indent=1).encode())
         print(f'{len(files)} files in b2://{b2.bucket}/{sys.argv[3].strip("/")}/ (MANIFEST.json)')
+    elif cmd == 'weights' and len(sys.argv) >= 4:
+        save_weights(sys.argv[2], sys.argv[3])
     elif cmd == 'verify':
         verify(sys.argv[2])
     elif cmd == 'restore' and len(sys.argv) >= 4:

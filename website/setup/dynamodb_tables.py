@@ -60,6 +60,10 @@ SCHEMA = {
         'hash': 'email',
         'pitr': True,
     },
+    'sushilaai-compare': {               # admin "Compare Speeds": one row per comparison pod (pod id, model, prompts, results)
+        'hash': 'runId',
+        'pitr': True,
+    },
     'sushilaai-audit': {                 # sign-ups, sign-ins, e-mail changes, downloads, admin changes
         'hash': 'day', 'range': 'at',
     },
