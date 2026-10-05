@@ -89,9 +89,9 @@ It packages each build as an archive with `sushila-server` at the top level. It 
 repository secrets `B2_KEY_ID` and `B2_APP_KEY`. Until a build is published, the Engine tab offers **Find an existing
 installation**.
 
-## Fast images on NVIDIA GPUs (Turbo: under a second)
+## Fast images on NVIDIA GPUs (Accelerated: under a second)
 
-On a PC with an NVIDIA RTX GPU, the image packs come in a Turbo variant that runs Z-Image-Turbo on Nunchaku's
+On a PC with an NVIDIA RTX GPU, the image packs come in a Accelerated variant that runs Z-Image-Turbo on Nunchaku's
 4-bit kernels (SVDQuant) instead of stable-diffusion.cpp:
 
 | RTX 4090, Z-Image-Turbo (measured 2026-10-05) | 1024², 8 steps | 768², 8 steps | 768², 6 steps |
@@ -104,8 +104,8 @@ On a PC with an NVIDIA RTX GPU, the image packs come in a Turbo variant that run
   The app reads the GPU's compute capability with `nvidia-smi` and installs the variant that fits (`bestVariant`), so
   there is still one installer and one image product per machine; computers without a matching NVIDIA GPU get the
   stable-diffusion.cpp pack.
-- **Modes.** Turbo (default): 768×768, 6 steps. Regular: the model's published 1024×1024, 8 steps. A request's own size
-  wins; the page preselects 768 in Turbo.
+- **Modes.** Accelerated (default): 768×768, 6 steps. Standard: the model's published 1024×1024, 8 steps. A request's own size
+  wins; the page preselects 768 in Accelerated.
 - **Runtime.** The packs need Python + PyTorch (CUDA 12.8) + Nunchaku, installed once by the app (about 4 GB) with no
   command prompt: CPython 3.11 (python-build-standalone), the exact wheels resolved by
   `scripts/runtime/build_image_runtime.py` (torch 2.8.0+cu128, diffusers 0.36.0, transformers 4.55.2, accelerate 1.9.0,

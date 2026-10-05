@@ -62,7 +62,7 @@ To add more packs later, open **Model Packs**. Installed packs keep working with
 
 ### Images on an NVIDIA graphics card (gaming PCs)
 
-If your PC has an NVIDIA RTX graphics card (20, 30, 40 or 50 series), the app picks the **Turbo** image pack for it
+If your PC has an NVIDIA RTX graphics card (20, 30, 40 or 50 series), the app picks the **Accelerated** image pack for it
 automatically. That pack draws a 768×768 image in under a second on an RTX 4090.
 
 - The first install also downloads the **NVIDIA image runtime** once (about 4 GB: Python, PyTorch, Nunchaku). Every file
@@ -70,7 +70,7 @@ automatically. That pack draws a 768×768 image in under a second on an RTX 4090
   type anything.
 - You need an up-to-date NVIDIA driver (version 570 or newer). If the driver is older, the app says so: update it from
   nvidia.com or the GeForce app, then click **Install** again.
-- The **Regular / Turbo** switch on the image page chooses between Turbo (768×768, 6 steps, fastest) and Regular (the
+- The **Standard / Accelerated** switch on the image page chooses between Accelerated (768×768, 6 steps, fastest) and Standard (the
   model's own 1024×1024, 8 steps).
 - Computers without an NVIDIA RTX card get the standard image pack, which works on any computer but is slower.
 

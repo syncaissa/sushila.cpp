@@ -1774,9 +1774,9 @@ const HOST_PACKS = [
     serve: { engine: 'image', model: 'z_image_turbo-Q4_K.gguf',
       args: ['--diffusion-model', '{pack}/z_image_turbo-Q4_K.gguf', '--llm', '{pack}/Qwen3-4B-Instruct-2507-Q4_K_M.gguf', '--vae', '{pack}/ae.safetensors',
         '--cfg-scale', '1.0', '--steps', '8', '--diffusion-fa', '--offload-to-cpu'] } },
-  { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs (Turbo: under 1 second)', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
+  { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs (Accelerated: under 1 second)', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
     variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 7.5, maxCompute: 11.9 },
-    description: 'Z-Image-Turbo with Nunchaku 4-bit kernels for NVIDIA RTX 20/30/40-series: a 768x768 image in about 0.8 s on an RTX 4090 (Turbo: 6 steps), or the published 1024x1024 / 8 steps (Regular). Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
+    description: 'Z-Image-Turbo with Nunchaku 4-bit kernels for NVIDIA RTX 20/30/40-series: a 768x768 image in about 0.8 s on an RTX 4090 (Accelerated: 6 steps), or the published 1024x1024 / 8 steps (Standard). Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant int4 transformer'],
     files: [['weights/model_index.json', 'model_index.json', 'config'],
       ['weights/scheduler/scheduler_config.json', 'scheduler/scheduler_config.json', 'config'],
@@ -1795,9 +1795,9 @@ const HOST_PACKS = [
       ['weights/vae/diffusion_pytorch_model.safetensors', 'vae/diffusion_pytorch_model.safetensors', 'weights'],
       ['weights/transformer/svdq-int4_r128-z-image-turbo.safetensors', 'transformer/svdq-int4_r128-z-image-turbo.safetensors', 'weights']],
     serve: { engine: 'image-nunchaku', model: 'model_index.json', args: ['--model-dir', '{pack}/model_index.json', '--transformer', '{pack}/transformer/svdq-int4_r128-z-image-turbo.safetensors'] } },
-  { id: 'z-image-turbo-nvidia-fp4', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA RTX 50-series (Turbo: under 1 second)', model: 'precomputed/z-image-turbo-nvidia-fp4', minRamGB: 16,
+  { id: 'z-image-turbo-nvidia-fp4', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA RTX 50-series (Accelerated: under 1 second)', model: 'precomputed/z-image-turbo-nvidia-fp4', minRamGB: 16,
     variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 12.0 },
-    description: 'Z-Image-Turbo with Nunchaku FP4 kernels for NVIDIA RTX 50-series (Blackwell). Turbo: 768x768 in 6 steps; Regular: the published 1024x1024 / 8 steps. Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
+    description: 'Z-Image-Turbo with Nunchaku FP4 kernels for NVIDIA RTX 50-series (Blackwell). Accelerated: 768x768 in 6 steps; Standard: the published 1024x1024 / 8 steps. Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant fp4 transformer'],
     files: [['weights/model_index.json', 'model_index.json', 'config'],
       ['weights/scheduler/scheduler_config.json', 'scheduler/scheduler_config.json', 'config'],
@@ -1980,7 +1980,7 @@ ${rows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num
 
 ${product('chatgen', 'sushilaChatGen.cpp', 'Sushila ChatGen', 'A private assistant: after you install it, it installs Sushila.cpp and a chat model that fits your computer (Qwen3 30B-A3B with 24 GB+ of memory, Qwen3 4B otherwise), starts it, and opens a chat. Nothing you type leaves your computer. <b>Maximize</b> shows only the conversation.')}
 ${product('codegen', 'sushilaCodeGen.cpp', 'Sushila CodeGen', 'Write programs in many languages, locally: Qwen3-Coder 30B-A3B with 24 GB+ of memory (Qwen2.5-Coder 7B otherwise). Answers show code blocks with a Copy button.')}
-${product('imagegen', 'sushilaImageGen.cpp', 'Sushila ImageGen', 'Pictures from a sentence: it installs Sushila.cpp and Z-Image-Turbo (the fast Turbo pack on NVIDIA RTX cards: a 768x768 image in under a second on an RTX 4090), starts it, and makes a first image ("Two bears dancing in a forest near a river") with a Download button.')}
+${product('imagegen', 'sushilaImageGen.cpp', 'Sushila ImageGen', 'Pictures from a sentence: it installs Sushila.cpp and Z-Image-Turbo (the fast Accelerated pack on NVIDIA RTX cards: a 768x768 image in under a second on an RTX 4090), starts it, and makes a first image ("Two bears dancing in a forest near a river") with a Download button.')}
 ${product('musicgen', 'sushilaMusicGen.cpp', 'Sushila MusicGen', 'Songs from lyrics and a style: it installs Sushila.cpp and ACE-Step 1.5, starts it, and makes a first song. Then type <b>1. Lyrics</b> and <b>2. Style</b> and press <b>Generate</b>: a full song with vocals, with a Download button.')}
 
 <h2>Install, then four clicks</h2>

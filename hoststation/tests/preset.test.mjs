@@ -68,6 +68,8 @@ ok(downloads.filter((x) => /sushila-cpp/.test(x)).length === engineDownloads, 'n
 ok(spawned['engine:qwen3-30b-a3b-q4km'] && spawned['engine:qwen3-30b-a3b-q4km'].program === '/opt/s/sushila-server', 'the chat model runs on the same Sushila.cpp');
 ok(d.querySelector('#studio h1').textContent === 'Sushila ChatGen' && d.querySelector('.chat'), 'a chat screen titled Sushila ChatGen opens in the app');
 ok(st.presetsDone.chatgen === true, 'ChatGen is set up once');
+const sw = d.getElementById('modesw');
+ok(sw && [...sw.querySelectorAll('button')].map((b) => b.textContent).join('|') === 'Standard|Accelerated', 'the speed switch reads Standard | Accelerated');
 
 // 3. code blocks and Maximize
 await sleep(300);

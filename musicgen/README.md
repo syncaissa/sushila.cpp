@@ -11,8 +11,8 @@ One download, a few clicks, and your computer writes and sings songs, offline af
 
 Then type **1. Lyrics** and **2. Style** and press **Generate**: a full song with vocals (stereo 48 kHz MP3) with a
 **Download** button. **Generate right here** keeps you in the app; **Generate in browser** opens the same page in your
-browser. The **Regular / Turbo** switch: Turbo uses Sushila's precomputed files for a model; ACE-Step has none yet, so it
-runs Regular (the plain model).
+browser. The **Standard / Accelerated** switch: Accelerated uses Sushila's precomputed files for a model; ACE-Step has none yet, so it
+runs Standard (the plain model).
 
 **How it is built:** Sushila Host Station (`../hoststation/`) with `presets/musicgen.json`; installers from
 `.github/workflows/hoststation.yml` (flavor `music`); engines from `.github/workflows/engine.yml`.

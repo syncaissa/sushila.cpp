@@ -5,7 +5,7 @@ Speaks the same OpenAI-style API as the stable-diffusion.cpp server Host Station
 works with either:  POST /v1/images/generations {prompt, size "WxH", n, seed?, steps?}  ->  {data: [{b64_json}]}
 Seed and steps may also ride inside the prompt as <sd_cpp_extra_args>{"seed": 1, "sample_steps": 6}</sd_cpp_extra_args>.
 
-Turbo (default): 768x768, 6 steps (under a second on an RTX 4090). Regular (environment SUSHILA=0): the model's
+Accelerated (default): 768x768, 6 steps (under a second on an RTX 4090). Standard (environment SUSHILA=0): the model's
 published 1024x1024, 8 steps. A request's own size or steps always win.
 
 Started by Sushila Host Station from its own Python runtime (all packages pinned and checked against a signed index):
@@ -48,7 +48,7 @@ class Engine:
         if not torch.cuda.is_available():
             sys.exit('No NVIDIA GPU is available to PyTorch (driver too old?). Use the regular Z-Image-Turbo pack instead.')
         props = torch.cuda.get_device_properties(0)
-        log(f'GPU {props.name}, {props.total_memory / 2**30:.1f} GiB, compute {props.major}.{props.minor}; mode {"Turbo" if TURBO else "Regular"} '
+        log(f'GPU {props.name}, {props.total_memory / 2**30:.1f} GiB, compute {props.major}.{props.minor}; mode {"Accelerated" if TURBO else "Standard"} '
             f'(default {DEFAULT_SIZE}x{DEFAULT_SIZE}, {DEFAULT_STEPS} steps)')
         t = time.time()
         tr = NunchakuZImageTransformer2DModel.from_pretrained(transformer)

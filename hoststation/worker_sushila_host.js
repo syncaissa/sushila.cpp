@@ -214,7 +214,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (HOST.gpu) log(`NVIDIA GPU found: ${HOST.gpu.name}${HOST.gpu.compute ? ` (compute ${HOST.gpu.compute}, ${HOST.gpu.memoryGB} GB)` : ''}`);
       return HOST.gpu;
     }
-    // Packs made for one kind of GPU (e.g. the NVIDIA Turbo image packs) say so in `requires`.
+    // Packs made for one kind of GPU (e.g. the NVIDIA Accelerated image packs) say so in `requires`.
     async function packFits(p) {
       const r = p && p.requires;
       if (!r) return true;
@@ -406,7 +406,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         if (!ALLOWED_SOURCE(f.url)) throw new Error(`${pack.name}: ${f.path} comes from a source Host Station does not download from (only sushila.ai, the Sushila B2 bucket, Hugging Face and Ollama).`);
       }
       if (!safeRelPath(pack.serve && pack.serve.model) || !pack.files.some((f) => f.path === pack.serve.model)) throw new Error(`${pack.name}: the model file is not part of the pack.`);
-      for (const a of (pack.serve.args || [])) if (!/^[\w.=:-]{1,64}$/.test(a) && !(a.startsWith('{pack}/') && safeRelPath(a.slice(7)) && pack.files.some((f) => f.path === a.slice(7)))) throw new Error(`${pack.name}: unexpected engine option ${a}`);
+      for (const a of [...(pack.serve.args || []), ...(pack.serve.turboArgs || [])]) if (!/^[\w.=:-]{1,64}$/.test(a) && !(a.startsWith('{pack}/') && safeRelPath(a.slice(7)) && pack.files.some((f) => f.path === a.slice(7)))) throw new Error(`${pack.name}: unexpected engine option ${a}`);
       if (pack.serve.engine && !['text', 'image', 'image-nunchaku', 'music'].includes(pack.serve.engine)) throw new Error(`${pack.name}: unknown engine ${pack.serve.engine}`);
     }
 
@@ -470,7 +470,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         let final = dir;
         if (HOST.state.settings.scope === 'all') final = await copyForAllUsers(dir, join(root(), 'packs', meta.id));
         HOST.state.packs[meta.id] = { id: meta.id, name: meta.name, kind: meta.kind || 'text', engine: meta.serve.engine || 'text', bytes: meta.files.reduce((a, f) => a + f.bytes, 0), dir: final, model: meta.serve.model,
-          args: meta.serve.args || [], files: meta.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })), license: meta.license,
+          args: meta.serve.args || [], turboArgs: meta.serve.turboArgs || [], files: meta.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })), license: meta.license,
           scope: HOST.state.settings.scope, installedAt: new Date().toISOString(), artifacts: meta.artifacts || [], source: path };
         HOST.lastInstalled = meta.id;
         await saveState();
@@ -499,7 +499,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       }
       let dir = userDir;
       if (HOST.state.settings.scope === 'all') dir = await copyForAllUsers(userDir, join(root(), 'packs', pack.id));
-      HOST.state.packs[pack.id] = { id: pack.id, name: pack.name, kind: pack.kind || 'text', engine: pack.serve.engine || 'text', bytes: pack.files.reduce((a, f) => a + (f.bytes || 0), 0), dir, model: pack.serve.model, args: pack.serve.args || [], files: pack.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })),
+      HOST.state.packs[pack.id] = { id: pack.id, name: pack.name, kind: pack.kind || 'text', engine: pack.serve.engine || 'text', bytes: pack.files.reduce((a, f) => a + (f.bytes || 0), 0), dir, model: pack.serve.model, args: pack.serve.args || [], turboArgs: pack.serve.turboArgs || [], files: pack.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })),
         license: pack.license, scope: HOST.state.settings.scope, installedAt: new Date().toISOString(), artifacts: pack.artifacts || [] };
       await saveState();
     }
@@ -530,13 +530,15 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     }
 
     // ---------- run models (several at once, each on its own port)
-    // Turbo: Sushila.cpp uses the pack's precomputed files (output-layer landscape, draft head). Regular: the plain model,
-    // as Ollama or stock llama.cpp would run it (SUSHILA=0 turns the lookup off). Packs without precomputed files run Regular.
-    // NVIDIA image packs: Turbo is 768x768 in 6 steps (under a second on an RTX 4090); Regular the published 1024x1024, 8 steps.
-    function canTurbo(p) { return p.engine === 'image-nunchaku' || ((p.engine || 'text') === 'text' && (p.artifacts || []).length > 0); }
+    // Accelerated: Sushila.cpp uses the pack's precomputed files (output-layer landscape, draft model). Standard: the plain model,
+    // as Ollama or stock llama.cpp would run it (SUSHILA=0 turns the lookup off). Packs without precomputed files run Standard.
+    // NVIDIA image packs: Accelerated is 768x768 in 6 steps (under a second on an RTX 4090); Standard the published 1024x1024, 8 steps.
+    // Text packs: Accelerated = the output-layer landscape and/or a precomputed draft model (turboArgs, e.g. -md {pack}/draft.gguf),
+    // offered only where it was measured faster than Standard.
+    function canTurbo(p) { return p.engine === 'image-nunchaku' || ((p.engine || 'text') === 'text' && ((p.artifacts || []).length > 0 || (p.turboArgs || []).length > 0)); }
     async function setMode(id, mode) {
       const p = HOST.state.packs[id]; if (!p) return;
-      if (mode === 'turbo' && !canTurbo(p)) throw new Error(`${p.name} has no precomputed files yet: Turbo is not available.`);
+      if (mode === 'turbo' && !canTurbo(p)) throw new Error(`${p.name} has no precomputed files yet: Accelerated is not available.`);
       if (HOST.state.running[id] && HOST.state.running[id].mode === mode) return;
       if (HOST.state.running[id]) await stopModel(id);
       await startModel(id, mode);
@@ -554,7 +556,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (HOST.state.running[id]) return;
       const port = freePort();
       const threads = s.threads || Math.max(1, Math.min(16, HOST.info.cpus - 1));
-      const packArgs = (p.args || []).map((a) => (a.startsWith('{pack}/') ? join(p.dir, ...a.slice(7).split('/')) : a));
+      const packArgs = [...(p.args || []), ...(mode === 'turbo' ? p.turboArgs || [] : [])].map((a) => (a.startsWith('{pack}/') ? join(p.dir, ...a.slice(7).split('/')) : a));
       const nunchaku = p.engine === 'image-nunchaku', rt = nunchaku && HOST.state.runtimes && HOST.state.runtimes['image-nunchaku'];
       if (nunchaku && !rt) throw new Error(`${p.name} needs the NVIDIA image runtime: install the pack again to set it up.`);
       const image = p.engine === 'image', music = p.engine === 'music';
@@ -575,7 +577,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (nunchaku) Object.assign(env, { PYTHONNOUSERSITE: '1', PYTHONUNBUFFERED: '1', HF_HUB_OFFLINE: '1' });
       await invoke('spawn_process', { id: 'engine:' + id, program, args, cwd: p.dir, env: Object.keys(env).length ? env : null });
       HOST.state.running[id] = { port, name: p.name, kind: p.kind || 'text', startedAt: new Date().toISOString(), ready: false, mode };
-      log(`${p.name}: ${mode === 'turbo' ? 'Turbo (precomputed files on)' : 'Regular (plain model)'}`);
+      log(`${p.name}: ${mode === 'turbo' ? 'Accelerated (precomputed files on)' : 'Standard (the plain model, as Ollama runs it)'}`);
       await saveState(); render();
       for (let i = 0; i < 300; i++) {  // the model loads, then /health answers
         try { await invoke('http_text', { url: `http://127.0.0.1:${port}${image ? '/' : '/health'}`, timeoutS: 3 }); HOST.state.running[id].ready = true; log(`${p.name} is ready.`); await saveState(); return; }
@@ -973,13 +975,13 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         const p = Object.values(PRESETS).find((x) => (x.binary && exe.includes(x.binary.toLowerCase())) || (x.product && exe.includes(x.product.toLowerCase())));
         if (p && (!PRESET || p.key !== PRESET.key || !(HOST.state.presetsDone || {})[p.key])) runPreset(p);
       });
-      setInterval(async () => {  // Regular/Turbo switches asked for by the browser page (POST /api/mode)
+      setInterval(async () => {  // Standard/Accelerated switches asked for by the browser page (POST /api/mode)
         if (HOST.busy) return;
         const raw = await invoke('read_text', { path: join(HOST.info.data_dir, 'mode-request.json') }).catch(() => null);
         if (!raw) return;
         await invoke('remove_path', { path: join(HOST.info.data_dir, 'mode-request.json') }).catch(() => {});
         let r; try { r = JSON.parse(raw); } catch (_) { return; }
-        act(() => setMode(r.model, r.mode), `${(HOST.state.packs[r.model] || {}).name || r.model}: ${r.mode === 'turbo' ? 'Turbo' : 'Regular'}.`);
+        act(() => setMode(r.model, r.mode), `${(HOST.state.packs[r.model] || {}).name || r.model}: ${r.mode === 'turbo' ? 'Accelerated' : 'Standard'}.`);
       }, 1500);
       await handleLinks();  // the link that started the app, if any
     })().catch((e) => { $('app').textContent = 'Sushila Host Station could not start: ' + e; });
@@ -998,8 +1000,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .music{max-width:760px;margin:0 auto;padding:16px}.music label{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}
 .music textarea,.music input,.music select{width:100%}.bar2 label select,.bar2 label input{width:auto}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px}.gallery figure{margin:0}.gallery img{width:100%;border-radius:10px;border:1px solid var(--line)}
-.modesw{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin-left:6px}.modesw button{border:0;border-radius:0;background:transparent;color:var(--mut);padding:5px 12px;font-size:13px}
-.modesw button.on{background:var(--acc);color:#fff}.modesw button:disabled{opacity:.4}
+.modesw{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:99px;margin-left:6px;background:var(--bg);padding:2px}
+.modesw::before{content:'';position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:99px;background:var(--acc);transition:transform .2s ease}
+.modesw.turbo::before{transform:translateX(100%)}.modesw.none::before{opacity:0}
+.modesw button{position:relative;z-index:1;border:0;border-radius:99px;background:transparent;color:var(--mut);padding:5px 14px;font-size:13px;font-weight:600}
+.modesw button.on{color:#fff;background:transparent}.modesw button:disabled{opacity:.4}
 .maxed .top,.maxed #remote,.maxed .chat>.bar2{display:none}.maxed .chat{max-width:none;margin:0;padding:12px 18px}.maxed #log{min-height:calc(100vh - 170px)}
 .restorebtn{position:fixed;top:10px;right:14px;z-index:9;display:none}.maxed .restorebtn{display:inline-block}
 .bubble pre{position:relative;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow:auto;white-space:pre;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;margin:8px 0}
@@ -1032,7 +1037,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const head = el('div', { class: 'top' }, embedded ? el('button', { class: 'ghost', onclick: opts.onBack }, '◀ Host Station') : null, el('h1', {}, opts.title || 'Sushila'),
       el('div', { class: 'bar2' }, el('span', { class: 'sub' }, 'Server'), serverSel, el('span', { class: 'sub' }, 'Model'), modelSel,
         el('div', { class: 'modesw', id: 'modesw', role: 'group', 'aria-label': 'Speed mode' },
-          el('button', { 'data-mode': 'regular', onclick: () => switchMode('regular') }, 'Regular'), el('button', { 'data-mode': 'turbo', onclick: () => switchMode('turbo') }, 'Turbo'))),
+          el('button', { 'data-mode': 'regular', onclick: () => switchMode('regular') }, 'Standard'), el('button', { 'data-mode': 'turbo', onclick: () => switchMode('turbo') }, 'Accelerated'))),
       el('span', { class: 'sp' }), el('span', { class: 'pill', id: 'status' }, '…'),
       el('button', { class: 'ghost', id: 'maxbtn', title: 'Only the conversation, as large as the window', onclick: () => setMax(true) }, '⛶ Maximize'),
       embedded && opts.onBrowser ? el('button', { class: 'ghost', onclick: () => opts.onBrowser(model && model.packId) }, 'Open in browser') : null);
@@ -1100,14 +1105,15 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const m = model, can = !!(m && m.turbo), local = !server;
       sw.querySelectorAll('button').forEach((b) => {
         b.classList.toggle('on', !!m && b.dataset.mode === (m.mode || 'regular'));
+        sw.classList.toggle('turbo', !!m && m.mode === 'turbo'); sw.classList.toggle('none', !m);
         b.disabled = !m || !local || (b.dataset.mode === 'turbo' && !can);
       });
-      sw.title = !m ? '' : !local ? 'Only the computer running the model can switch modes.' : can && m.kind === 'image' ? 'Turbo: 768x768 in 6 steps on Nunchaku 4-bit kernels (under a second on an RTX 4090); Regular: the published 1024x1024, 8 steps.' : can ? 'Turbo uses this model\'s precomputed Sushila files (landscape, draft head); Regular runs the plain model.'
-        : 'This model has no precomputed Sushila files yet, so it runs Regular (the plain model).';
+      sw.title = !m ? '' : !local ? 'Only the computer running the model can switch modes.' : can && m.kind === 'image' ? 'Accelerated: 768x768 in 6 steps on Nunchaku 4-bit kernels (under a second on an RTX 4090); Standard: the published 1024x1024, 8 steps.' : can ? 'Accelerated uses this model\'s precomputed Sushila files (landscape, draft model); Standard runs the plain model, as Ollama does.'
+        : 'This model has no precomputed Sushila files yet, so it runs Standard (the plain model, as Ollama runs it).';
     }
     async function switchMode(mode) {
       if (!model || server || (model.mode || 'regular') === mode) return;
-      setStatus(mode === 'turbo' ? 'switching to Turbo…' : 'switching to Regular…');
+      setStatus(mode === 'turbo' ? 'switching to Accelerated…' : 'switching to Standard…');
       try {
         if (opts.setMode) await opts.setMode(model.packId, mode);
         else {
