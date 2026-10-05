@@ -1,11 +1,12 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-05T22:46Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-05T23:23Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
 | `ace-step-15` | weights (4) | 8.1 GB | yes | 2026-10-05 |
 | `deepseek-r1-distill-llama-70b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 88.6 GB | yes | 2026-10-05 |
+| `gemma3-27b` | checkpoints (2), draft-head (2), training-data (2), config.env (1) | 2.9 GB | **no** | 2026-10-05 |
 | `qwen2.5-0.5b-q4km` | landscape (48), landscapes-earlier (4), calibration (7), weights (1) | 0.8 GB | yes | 2026-10-05 |
 | `qwen2.5-coder-7b` | weights (1) | 4.7 GB | yes | 2026-10-05 |
 | `qwen3-235b-a22b` | draft-head (2), checkpoints (2), training-data (2), config.env (1), weights (43) | 271.4 GB | yes | 2026-10-05 |
@@ -43,6 +44,19 @@ EAGLE-3 draft head for the reasoning model, refitted from the Llama-3.3-70B head
   - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
   - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
   - `weights/` (23 files, 82.31 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `gemma3-27b`
+
+
+
+- **Use:** python3 -m sglang.launch_server --model-path <sglang_target> --speculative-algorithm EAGLE3 --speculative-num-steps 4 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --speculative-draft-model-path draft-head/
+- **Results:** -
+- **Bound to:** `{"sglang_target": {"repo": "gaunernst/gemma-3-27b-it-int4-awq", "revision": "7cf8bdc81343c635390dd1e1bf590ab22dd6f366"}, "warm_start_head": {"repo": "witcheer/gemma-3-27b-eagle3-drafter", "revision": "66d6a10655c1729fe26df5cd15545f02041a0161"}, "ollama_gguf": {"tag": "gemma3:27b", "sha256": "e796792eba26c4d3b04b0ac5adb01a453dd9ec2dfd83b6c59cbf6fe5f30b0f68"}}`
+- **Folders:**
+  - `checkpoints/` (2 files, 1.43 GB): every other trained head checkpoint (for re-selection or further training)
+  - `draft-head/` (2 files, 1.43 GB): the precomputed draft head chosen on validation prompts (ready to serve)
+  - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
+  - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
 
 ### `qwen2.5-0.5b-q4km`
 

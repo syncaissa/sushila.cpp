@@ -1,0 +1,6 @@
+[22:09:37] Ollama gemma3:27b is ""; ollama version is 0.35.1; NVIDIA A100-SXM4-80GB
+[22:12:36] ollama_main: 5044 tokens: 47.5 tok/s with prompt processing (106.2 s), 49.7 tok/s decode only
+[22:24:41] ollama_ood: 33054 tokens: 46.5 tok/s with prompt processing (711.1 s), 49.5 tok/s decode only
+[22:27:49] ollama_mt_t07: 8223 tokens: 47.1 tok/s with prompt processing (174.7 s), 49.7 tok/s decode only
+[22:38:22] ollama_gsm100: 29148 tokens: 47.4 tok/s with prompt processing (614.4 s), 49.6 tok/s decode only
+[22:39:29] OLLAMA_SIDE_DONE
