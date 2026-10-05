@@ -29,7 +29,14 @@ jobs:
       - name: CUDA toolkit
         if: ${{ matrix.cuda }}
         uses: Jimver/cuda-toolkit@v0.2.24
-        with: { cuda: "12.8.1", method: network, sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''["nvcc","cudart","cublas","cublas_dev","thrust","visual_studio_integration"]'' || ''["nvcc","cudart","cublas","cublas-dev","thrust"]'' }}', non-cuda-sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''[]'' || ''["libcublas","libcublas-dev"]'' }}' }
+        with: { cuda: "12.8.1", method: network, sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''["nvcc","cudart","cublas","cublas_dev","thrust","visual_studio_integration"]'' || ''["nvcc","cudart","thrust"]'' }}', non-cuda-sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''[]'' || ''["libcublas","libcublas-dev"]'' }}' }
+      - name: Visual Studio environment and Ninja (Windows CUDA builds bypass the VS CUDA integration)
+        if: ${{ matrix.cuda && startsWith(matrix.os, 'windows') }}
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Use Ninja for Windows CUDA
+        if: ${{ matrix.cuda && startsWith(matrix.os, 'windows') }}
+        shell: bash
+        run: echo "CMAKE_GENERATOR=Ninja" >> "$GITHUB_ENV"
       - name: Build
         shell: bash
         run: |

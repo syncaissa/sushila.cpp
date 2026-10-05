@@ -466,9 +466,17 @@ static void sp_accumulate(const struct sp_weight * e, const int32_t * kept, cons
 }
 
 // Per-thread scratch, grown on demand (no allocation per call).
-static __thread int32_t * tl_kept;
-static __thread float   * tl_xk, * tl_samp, * tl_tmp, * tl_msum;
-static __thread int64_t   tl_cap_k, tl_cap_n;
+#if defined(_MSC_VER)   // thread-local storage and popcount: MSVC spellings
+#    define SP_TLS __declspec(thread)
+#    include <intrin.h>
+#    define SP_POPCOUNT(x) ((int) __popcnt(x))
+#else
+#    define SP_TLS __thread
+#    define SP_POPCOUNT(x) __builtin_popcount(x)
+#endif
+static SP_TLS int32_t * tl_kept;
+static SP_TLS float   * tl_xk, * tl_samp, * tl_tmp, * tl_msum;
+static SP_TLS int64_t   tl_cap_k, tl_cap_n;
 
 static void sp_scratch(int64_t K, int64_t N) {
     if (K > tl_cap_k) {
@@ -507,7 +515,7 @@ static int sp_count(const float * x, const float * norms, int64_t K, float tau) 
         const __m256 vx = _mm256_loadu_ps(x + i);
         const __m256 sc = _mm256_mul_ps(_mm256_andnot_ps(sign, vx), _mm256_loadu_ps(norms + i));
         const __m256 m  = _mm256_and_ps(_mm256_cmp_ps(sc, vt, _CMP_GE_OQ), _mm256_cmp_ps(vx, zero, _CMP_NEQ_OQ));
-        n += __builtin_popcount((unsigned) _mm256_movemask_ps(m));
+        n += SP_POPCOUNT((unsigned) _mm256_movemask_ps(m));
     }
 #endif
     for (; i < K; i++) { n += fabsf(x[i]) * norms[i] >= tau && x[i] != 0.0f; }
