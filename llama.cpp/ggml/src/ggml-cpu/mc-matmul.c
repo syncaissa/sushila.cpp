@@ -3,7 +3,24 @@
 #include "mc-matmul.h"
 
 #include <math.h>
-#include <pthread.h>
+#if defined(_WIN32)   // portable "run once" (MSVC has no pthreads)
+#    ifndef WIN32_LEAN_AND_MEAN
+#        define WIN32_LEAN_AND_MEAN
+#    endif
+#    ifndef NOMINMAX
+#        define NOMINMAX
+#    endif
+#    include <windows.h>
+typedef INIT_ONCE sushila_once_t;
+#    define SUSHILA_ONCE_INIT INIT_ONCE_STATIC_INIT
+static BOOL CALLBACK sushila_once_cb(PINIT_ONCE o, PVOID fn, PVOID * ctx) { (void) o; (void) ctx; ((void (*)(void)) fn)(); return TRUE; }
+static void sushila_once(sushila_once_t * o, void (*fn)(void)) { InitOnceExecuteOnce(o, sushila_once_cb, (PVOID) fn, NULL); }
+#else
+#    include <pthread.h>
+typedef pthread_once_t sushila_once_t;
+#    define SUSHILA_ONCE_INIT PTHREAD_ONCE_INIT
+static void sushila_once(sushila_once_t * o, void (*fn)(void)) { pthread_once(o, fn); }
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,7 +64,7 @@ static double mc_sum(const double * v) {
     return s;
 }
 
-static pthread_once_t cfg_once = PTHREAD_ONCE_INIT;
+static sushila_once_t cfg_once = SUSHILA_ONCE_INIT;
 
 static void mc_print_summary(void) {
     fprintf(stderr, "mc: summary (mode=%s)\n", mc_mode_names[cfg.mode]);
@@ -443,7 +460,7 @@ static void mc_matmul(struct ggml_compute_params * params, const struct ggml_ten
 }
 
 bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * dst, ggml_mc_legacy_fn legacy) {
-    pthread_once(&cfg_once, mc_init_config);
+    sushila_once(&cfg_once, mc_init_config);
     if (cfg.dump_dir && params->ith == 0 && dst->op == GGML_OP_MUL_MAT &&
         (strcmp(dst->src[0]->name, "output.weight") == 0 || strcmp(dst->src[0]->name, "token_embd.weight") == 0)) {
         // analysis aid: the lm_head input (final hidden states), dumped in any mode, computed exactly
@@ -602,7 +619,7 @@ bool ggml_mc_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * d
 }
 
 void ggml_mc_dump_mul_mat_id(const struct ggml_compute_params * params, const struct ggml_tensor * dst) {
-    pthread_once(&cfg_once, mc_init_config);
+    sushila_once(&cfg_once, mc_init_config);
     if (!cfg.dump_dir || params->ith != 0 || dst->op != GGML_OP_MUL_MAT_ID) {
         return;
     }
@@ -710,7 +727,7 @@ static float mc_kth_largest(float * a, int64_t n, int64_t k) {
 }
 
 void ggml_mc_mul_mat_id_oracle(const struct ggml_compute_params * params, const struct ggml_tensor * dst) {
-    pthread_once(&cfg_once, mc_init_config);
+    sushila_once(&cfg_once, mc_init_config);
     if (cfg.mode != MC_TOPK || dst->op != GGML_OP_MUL_MAT_ID) {
         return;
     }

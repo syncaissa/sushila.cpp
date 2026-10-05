@@ -5,7 +5,29 @@
 #include "simd-mappings.h"
 
 #include <math.h>
-#include <pthread.h>
+#if defined(_WIN32)   // portable "run once" (MSVC has no pthreads)
+#    ifndef WIN32_LEAN_AND_MEAN
+#        define WIN32_LEAN_AND_MEAN
+#    endif
+#    ifndef NOMINMAX
+#        define NOMINMAX
+#    endif
+#    include <windows.h>
+typedef INIT_ONCE sushila_once_t;
+#    define SUSHILA_ONCE_INIT INIT_ONCE_STATIC_INIT
+static BOOL CALLBACK sushila_once_cb(PINIT_ONCE o, PVOID fn, PVOID * ctx) { (void) o; (void) ctx; ((void (*)(void)) fn)(); return TRUE; }
+static void sushila_once(sushila_once_t * o, void (*fn)(void)) { InitOnceExecuteOnce(o, sushila_once_cb, (PVOID) fn, NULL); }
+#else
+#    include <pthread.h>
+typedef pthread_once_t sushila_once_t;
+#    define SUSHILA_ONCE_INIT PTHREAD_ONCE_INIT
+static void sushila_once(sushila_once_t * o, void (*fn)(void)) { pthread_once(o, fn); }
+#endif
+#if defined(_WIN32)
+#    include <malloc.h>   // alloca
+#else
+#    include <alloca.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,7 +91,7 @@ static struct {
     double        bytes_w[LS_MAX_THREADS], bytes_l[LS_MAX_THREADS];
 } ls;
 
-static pthread_once_t ls_once = PTHREAD_ONCE_INIT;
+static sushila_once_t ls_once = SUSHILA_ONCE_INIT;
 
 static void ls_summary(void) {
     double bw = 0, bl = 0;
@@ -337,7 +359,7 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
     // 3. threshold: every thread computes the same value from the shared sample (rank ~1.5 N among
     //    all previews, so about 1.5 N candidates pass); no serial step
     const int ns = (V + LS_SAMPLE - 1) / LS_SAMPLE;
-    float samp[ns];   // this thread's scratch copy (on its stack)
+    float * samp = (float *) alloca(sizeof(float) * ns);   // this thread's scratch copy (on its stack; alloca: MSVC has no VLAs)
     memcpy(samp, ls.sel, sizeof(float) * ns);
     const int ks = (3 * ls.N + 2 * LS_SAMPLE - 1) / (2 * LS_SAMPLE);
     const float tau = ks < ns ? ls_kth_largest(samp, ns, ks) : -INFINITY;
@@ -386,7 +408,7 @@ static bool ls_preview(struct ggml_compute_params * params, struct ggml_tensor *
 }
 
 bool ggml_landscape_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * dst) {
-    pthread_once(&ls_once, ls_init);
+    sushila_once(&ls_once, ls_init);
     if (!ls.on || !ls_applies(dst)) {
         return false;
     }

@@ -64,7 +64,7 @@ fn client() -> Result<reqwest::Client, String> {
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if attempt.previous().len() > 5 { attempt.error("too many redirects") }
             else if allowed_url(attempt.url(), false) { attempt.follow() }
-            else { attempt.error(format!("redirect to a source that is not allowed: {}", attempt.url().host_str().unwrap_or("?"))) }
+            else { let host = attempt.url().host_str().unwrap_or("?").to_string(); attempt.error(format!("redirect to a source that is not allowed: {host}")) }
         }))
         .build().map_err(err)
 }
