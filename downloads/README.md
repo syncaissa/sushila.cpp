@@ -5,30 +5,33 @@ computer, faster: work that every user's computer would repeat (an output-layer 
 model) is computed once, ahead of time, and shipped with the model. Measured speedups: up to **3.64x** over Ollama for
 DeepSeek-R1-Distill-Llama-70B; a 768x768 image in **0.8 s** on an RTX 4090 (measured). Website: **https://sushila.ai**
 
-No command prompt needed: download, install, click.
+No command prompt needed: download, install, click. All products are one app: install a second one and it only adds
+its model (one engine, one model store per computer). When apps are installed locally, you are the King (or Queen!)
 <!-- release -->
 ## Downloads (version 0.1.0)
 
-### sushilaImageGenerator.cpp: pictures from a sentence
+### sushilaChatGen.cpp: a private assistant that runs on your computer
+Installs everything (engine, a chat model that fits your computer, app) and opens a chat; nothing you type leaves your computer.
+| System | File | Size | sha256 |
+|---|---|---:|---|
+
+
+### sushilaCodeGen.cpp: write programs in many languages, locally
+A coding model (Qwen3-Coder on computers with 24 GB+ of memory) with code blocks you can copy.
+| System | File | Size | sha256 |
+|---|---|---:|---|
+
+
+### sushilaImageGen.cpp: pictures from a sentence
 Installs everything (engine, image model, app), then draws *"Two bears dancing in a forest near a river"*.
 | System | File | Size | sha256 |
 |---|---|---:|---|
-| Sushila Image Generator for Other Linux | [sushilaImageGenerator.cpp-0.1.0-linux-x86_64.AppImage](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaImageGenerator.cpp-0.1.0-linux-x86_64.AppImage) | 82 MB | `76fca1978b3f9dd4017e9a5956eaae68988f5af7a0fde15ab252b22be5b1b41b` |
-| Sushila Image Generator for Ubuntu / Debian | [sushilaImageGenerator.cpp-0.1.0-linux-amd64.deb](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaImageGenerator.cpp-0.1.0-linux-amd64.deb) | 4 MB | `a2aa58724dda8f8db07fa863ce3a05ad209d86825feb56023a7f379f4c980276` |
-| Sushila Image Generator for Fedora | [sushilaImageGenerator.cpp-0.1.0-linux-x86_64.rpm](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaImageGenerator.cpp-0.1.0-linux-x86_64.rpm) | 4 MB | `e4e8c078dd829f780a77145bfbf8bd15f23760e1841d79d8f4b6418731d5ce12` |
-| Sushila Image Generator for Mac (Apple M1-M4) | [sushilaImageGenerator.cpp-0.1.0-macos-arm64.dmg](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaImageGenerator.cpp-0.1.0-macos-arm64.dmg) | 6 MB | `3710edaf60fbbbf70d59cde9ae74af71158957d5fd40dd44cb468002b671ec2a` |
-| Sushila Image Generator for Mac (Intel) | [sushilaImageGenerator.cpp-0.1.0-macos-x64.dmg](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaImageGenerator.cpp-0.1.0-macos-x64.dmg) | 6 MB | `8fd91ec505425feebb8e5bdf744e04478960b1ed81c99a5fbc4e5e5b3e6811bf` |
-| Sushila Image Generator for Windows | [sushilaImageGenerator.cpp-0.1.0-windows-x64-setup.exe](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaImageGenerator.cpp-0.1.0-windows-x64-setup.exe) | 3 MB | `5bc3727257cd2f31eb827c90d1bca11c0fdf43c8bea806a301f7ab8beb86f2a3` |
 
-### sushilaMusicGenerator.cpp: songs from lyrics and a style
+
+### sushilaMusicGen.cpp: songs from lyrics and a style
 | System | File | Size | sha256 |
 |---|---|---:|---|
-| Sushila Music Generator for Other Linux | [sushilaMusicGenerator.cpp-0.1.0-linux-x86_64.AppImage](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaMusicGenerator.cpp-0.1.0-linux-x86_64.AppImage) | 82 MB | `24cc33864da7ccd15ff26cf42a3a2e93cedd7c56d6397095a4ed78b62ee18435` |
-| Sushila Music Generator for Ubuntu / Debian | [sushilaMusicGenerator.cpp-0.1.0-linux-amd64.deb](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaMusicGenerator.cpp-0.1.0-linux-amd64.deb) | 4 MB | `9a665fa6dc6ea3bbdadff2fa61dc103b10f524b09e44d3d115d534f9b70bb93b` |
-| Sushila Music Generator for Fedora | [sushilaMusicGenerator.cpp-0.1.0-linux-x86_64.rpm](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaMusicGenerator.cpp-0.1.0-linux-x86_64.rpm) | 4 MB | `1bbdda50afab0f2661a2d8d766f0b364d11de8f82b87e073673f8e004d116a75` |
-| Sushila Music Generator for Mac (Apple M1-M4) | [sushilaMusicGenerator.cpp-0.1.0-macos-arm64.dmg](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaMusicGenerator.cpp-0.1.0-macos-arm64.dmg) | 6 MB | `11ca27a3f4477d46c7122ff2e6ab7919e95501828c9c106eb76e12b26e54caa5` |
-| Sushila Music Generator for Mac (Intel) | [sushilaMusicGenerator.cpp-0.1.0-macos-x64.dmg](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaMusicGenerator.cpp-0.1.0-macos-x64.dmg) | 6 MB | `d05a59b9ee5f61455266dd9a0f99c2793fa5cfa80098222dd29387d2587db423` |
-| Sushila Music Generator for Windows | [sushilaMusicGenerator.cpp-0.1.0-windows-x64-setup.exe](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushilaMusicGenerator.cpp-0.1.0-windows-x64-setup.exe) | 3 MB | `2ad5c4fce6c0099d352de144792de4062f244d13b3023e70c7251af8222edc3e` |
+
 
 ### sushilaHostStation.cpp: run any Sushila model pack (chat, images, music), share it on your network
 | System | File | Size | sha256 |
@@ -44,7 +47,12 @@ Installs everything (engine, image model, app), then draws *"Two bears dancing i
 One per system; the apps pick the right one for your graphics card by themselves.
 | System | File | Size | sha256 |
 |---|---|---:|---|
-
+| Linux (CPU) | [sushila.cpp-0.1.0-linux-x86_64.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-linux-x86_64.tar.gz) | 27 MB | `b391393369a3421b678f60a55abca28c8435c173db11bf142570a13a54a8ac3a` |
+| Linux, AMD / Intel GPU (Vulkan) | [sushila.cpp-0.1.0-linux-x86_64-vulkan.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-linux-x86_64-vulkan.tar.gz) | 69 MB | `69d25cbfe83a37b34c44c368f37abbbda13f9666365e8c7de151c528565beb12` |
+| Mac, Apple M1-M4 (Metal) | [sushila.cpp-0.1.0-macos-aarch64.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-macos-aarch64.tar.gz) | 27 MB | `f473730312a5a0147febbd8c7fb582c3b55166adef785f02fef1856ca10c089b` |
+| Mac (Intel) | [sushila.cpp-0.1.0-macos-x86_64.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-macos-x86_64.tar.gz) | 27 MB | `ef93cec1767574f5454339847679df7e338ba0f0a8bd964300392a3421f62420` |
+| Windows (CPU) | [sushila.cpp-0.1.0-windows-x86_64.zip](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-windows-x86_64.zip) | 23 MB | `70b0640a52bd0fb31dde338456cd63602d9c9e6e1f7220240a85685a53ce81b6` |
+| Windows, AMD / Intel GPU (Vulkan) | [sushila.cpp-0.1.0-windows-x86_64-vulkan.zip](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-windows-x86_64-vulkan.zip) | 62 MB | `8b908d9f52b24e64e593c00ca0549fb7e4c664286808e7d5e3ba874adf77076e` |
 
 **Safety.** Every model pack and engine build is listed with its sha256 in an index signed by Sushila (Ed25519); the
 apps refuse anything that does not match. Model files come only from Sushila's own storage, Hugging Face or Ollama.
