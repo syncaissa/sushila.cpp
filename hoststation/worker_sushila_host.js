@@ -183,7 +183,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (HOST.state.settings.scope === 'all') dir = await copyForAllUsers(userDir, join(root(), 'engine', v));
       const server = join(dir, build.server);
       await invoke('set_executable', { path: server });
-      HOST.state.engine = { version: v, server, dir, source: HOST.state.settings.scope === 'all' ? 'installed for all users' : 'installed for this user', installedAt: new Date().toISOString() };
+      const servers = { text: server };
+      if (build.servers && build.servers.image && safeRelPath(build.servers.image)) { servers.image = join(dir, build.servers.image); await invoke('set_executable', { path: servers.image }); }
+      HOST.state.engine = { version: v, server, servers, dir, source: HOST.state.settings.scope === 'all' ? 'installed for all users' : 'installed for this user', installedAt: new Date().toISOString() };
       await invoke('remove_path', { path: staging }).catch(() => {});
       await saveState();
       await ensureDefaultModel();
@@ -231,7 +233,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         if (!ALLOWED_SOURCE(f.url)) throw new Error(`${pack.name}: ${f.path} comes from a source Host Station does not download from (only sushila.ai, the Sushila B2 bucket, Hugging Face and Ollama).`);
       }
       if (!safeRelPath(pack.serve && pack.serve.model) || !pack.files.some((f) => f.path === pack.serve.model)) throw new Error(`${pack.name}: the model file is not part of the pack.`);
-      for (const a of (pack.serve.args || [])) if (!/^[\w.=:-]{1,64}$/.test(a)) throw new Error(`${pack.name}: unexpected engine option ${a}`);
+      for (const a of (pack.serve.args || [])) if (!/^[\w.=:-]{1,64}$/.test(a) && !(a.startsWith('{pack}/') && safeRelPath(a.slice(7)) && pack.files.some((f) => f.path === a.slice(7)))) throw new Error(`${pack.name}: unexpected engine option ${a}`);
+      if (pack.serve.engine && !['text', 'image'].includes(pack.serve.engine)) throw new Error(`${pack.name}: unknown engine ${pack.serve.engine}`);
     }
 
     // ---------- model packs: the "Install" flow
@@ -291,7 +294,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         await invoke('move_path', { src: staging, dest: dir });
         let final = dir;
         if (HOST.state.settings.scope === 'all') final = await copyForAllUsers(dir, join(root(), 'packs', meta.id));
-        HOST.state.packs[meta.id] = { id: meta.id, name: meta.name, kind: meta.kind || 'text', bytes: meta.files.reduce((a, f) => a + f.bytes, 0), dir: final, model: meta.serve.model,
+        HOST.state.packs[meta.id] = { id: meta.id, name: meta.name, kind: meta.kind || 'text', engine: meta.serve.engine || 'text', bytes: meta.files.reduce((a, f) => a + f.bytes, 0), dir: final, model: meta.serve.model,
           args: meta.serve.args || [], files: meta.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })), license: meta.license,
           scope: HOST.state.settings.scope, installedAt: new Date().toISOString(), artifacts: meta.artifacts || [], source: path };
         HOST.lastInstalled = meta.id;
@@ -321,7 +324,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       }
       let dir = userDir;
       if (HOST.state.settings.scope === 'all') dir = await copyForAllUsers(userDir, join(root(), 'packs', pack.id));
-      HOST.state.packs[pack.id] = { id: pack.id, name: pack.name, kind: pack.kind || 'text', bytes: pack.files.reduce((a, f) => a + (f.bytes || 0), 0), dir, model: pack.serve.model, args: pack.serve.args || [], files: pack.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })),
+      HOST.state.packs[pack.id] = { id: pack.id, name: pack.name, kind: pack.kind || 'text', engine: pack.serve.engine || 'text', bytes: pack.files.reduce((a, f) => a + (f.bytes || 0), 0), dir, model: pack.serve.model, args: pack.serve.args || [], files: pack.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })),
         license: pack.license, scope: HOST.state.settings.scope, installedAt: new Date().toISOString(), artifacts: pack.artifacts || [] };
       await saveState();
     }
@@ -364,14 +367,20 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (HOST.state.running[id]) return;
       const port = freePort();
       const threads = s.threads || Math.max(1, Math.min(16, HOST.info.cpus - 1));
-      const args = ['-m', join(p.dir, ...p.model.split('/')), '--host', '127.0.0.1', '--port', String(port),
-        '-t', String(threads), '-c', String(s.contextSize * Math.max(1, s.parallel)), '-np', String(Math.max(1, s.parallel)), '-ngl', String(s.gpuLayers), ...p.args];
-      log(`starting ${p.name} on port ${port}: ${HOST.state.engine.server} ${args.join(' ')}`);
-      await invoke('spawn_process', { id: 'engine:' + id, program: HOST.state.engine.server, args, cwd: p.dir, env: null });
+      const packArgs = (p.args || []).map((a) => (a.startsWith('{pack}/') ? join(p.dir, ...a.slice(7).split('/')) : a));
+      const image = p.engine === 'image';
+      const program = image ? (HOST.state.engine.servers || {}).image : HOST.state.engine.server;
+      if (!program) throw new Error(`${p.name} needs the image engine (stable-diffusion.cpp), which this Sushila.cpp installation does not include. Install or update Sushila.cpp in the Engine tab.`);
+      const args = image
+        ? ['--listen-ip', '127.0.0.1', '--listen-port', String(port), '-t', String(threads), ...packArgs]  // stable-diffusion.cpp sd-server
+        : ['-m', join(p.dir, ...p.model.split('/')), '--host', '127.0.0.1', '--port', String(port),
+           '-t', String(threads), '-c', String(s.contextSize * Math.max(1, s.parallel)), '-np', String(Math.max(1, s.parallel)), '-ngl', String(s.gpuLayers), ...packArgs];
+      log(`starting ${p.name} on port ${port}: ${program} ${args.join(' ')}`);
+      await invoke('spawn_process', { id: 'engine:' + id, program, args, cwd: p.dir, env: null });
       HOST.state.running[id] = { port, name: p.name, kind: p.kind || 'text', startedAt: new Date().toISOString(), ready: false };
       await saveState(); render();
       for (let i = 0; i < 300; i++) {  // the model loads, then /health answers
-        try { await invoke('http_text', { url: `http://127.0.0.1:${port}/health`, timeoutS: 3 }); HOST.state.running[id].ready = true; log(`${p.name} is ready.`); await saveState(); return; }
+        try { await invoke('http_text', { url: `http://127.0.0.1:${port}${image ? '/' : '/health'}`, timeoutS: 3 }); HOST.state.running[id].ready = true; log(`${p.name} is ready.`); await saveState(); return; }
         catch (_) { await new Promise((r) => setTimeout(r, 1000)); if (!HOST.state.running[id]) throw new Error(`${p.name} stopped while loading; see Run & Logs.`); }
       }
       throw new Error(`${p.name} did not become ready within 5 minutes; see Run & Logs.`);
@@ -564,7 +573,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('tbody', {}, installed.map((p) => {
           const r = s.running[p.id];
           return el('tr', {},
-            el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, (p.kind === 'music' ? 'Music' : 'Text (LLM)') + (p.id === DEFAULT_MODEL ? ' · default model' : '') + ((p.artifacts || []).length ? ' · precomputed: ' + p.artifacts.join(', ') : ''))),
+            el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, (p.kind === 'music' ? 'Music' : p.kind === 'image' ? 'Images' : 'Text (LLM)') + (p.id === DEFAULT_MODEL ? ' · default model' : '') + ((p.artifacts || []).length ? ' · precomputed: ' + p.artifacts.join(', ') : ''))),
             el('td', {}, p.bytes ? gb(p.bytes) : ''),
             el('td', {}, r ? el('span', { class: 'pill on' }, (r.ready ? 'running' : 'starting') + ' · port ' + r.port) : el('span', { class: 'pill' }, 'stopped')),
             el('td', {}, el('div', { class: 'row', style: 'margin:0' },
@@ -742,7 +751,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     document.head.append(el('style', {}, `
 .bar2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar2 select,.bar2 input{max-width:260px}
 .music{max-width:760px;margin:0 auto;padding:16px}.music label{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}
-.music textarea,.music input,.music select{width:100%}.music audio{width:100%;margin-top:14px}.track{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px;background:var(--card)}`));
+.music textarea,.music input,.music select{width:100%}.bar2 label select,.bar2 label input{width:auto}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px}.gallery figure{margin:0}.gallery img{width:100%;border-radius:10px;border:1px solid var(--line)}.music audio{width:100%;margin-top:14px}.track{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px;background:var(--card)}`));
     document.title = 'Sushila Inference';
     const qs = new URLSearchParams(location.search);
     const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
@@ -802,7 +812,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const s = await r.json();
         models = s.running || [];
-        modelSel.replaceChildren(...(models.length ? models.map((m) => el('option', { value: m.packId }, m.name + (m.kind === 'music' ? ' (music)' : ''))) : [el('option', { value: '' }, 'No model running')]));
+        modelSel.replaceChildren(...(models.length ? models.map((m) => el('option', { value: m.packId }, m.name + (m.kind === 'music' ? ' (music)' : m.kind === 'image' ? ' (images)' : ''))) : [el('option', { value: '' }, 'No model running')]));
         if (want && models.find((m) => m.packId === want)) modelSel.value = want;
         want = '';
         setStatus(server ? 'Remote: ' + server.replace(/^https?:\/\//, '') : 'This computer', models.length ? 'on' : 'off');
@@ -817,7 +827,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       model = models.find((m) => m.packId === modelSel.value) || null;
       msgs.length = 0;
       if (!model) { main.replaceChildren(el('div', { class: 'chat' }, el('div', { class: 'sub' }, server ? 'No model is running on that server.' : 'No model is running. In Sushila Host Station, press Start server (or Run inference) next to a model.'))); return; }
-      (model.kind === 'music' ? musicScreen : chatScreen)();
+      (model.kind === 'music' ? musicScreen : model.kind === 'image' ? imageScreen : chatScreen)();
     }
     const keyHint = () => (server && !keys[server] ? el('div', { class: 'sub' }, 'This server needs an access key: choose "Add a remote server…" again with the key.') : null);
     const explain = (r, body) => r.status === 401 ? 'This server needs an access key (Server → Add a remote server…).' : r.status === 429 ? 'Too many requests for this key; wait a minute.' : (body || 'HTTP ' + r.status);
@@ -902,6 +912,39 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         $('mmsg').textContent = '';
       } catch (e) { $('mmsg').className = 'msg err'; $('mmsg').textContent = String(e.message || e); }
       finally { $('mgo').disabled = false; }
+    }
+
+    // ---------- images (image packs): POST /v1/images/generations (OpenAI format) -> base64 PNG
+    function imageScreen() {
+      main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create images'),
+        el('label', { for: 'iprompt' }, 'Describe the image'), el('textarea', { id: 'iprompt', rows: 4, placeholder: 'e.g. a red fox in fresh snow at sunrise, soft light, photograph' }),
+        el('div', { class: 'bar2' },
+          el('label', {}, 'Size ', el('select', { id: 'isize' }, [['1024x1024', 'Square 1024'], ['768x768', 'Square 768 (faster)'], ['768x1024', 'Portrait'], ['1024x768', 'Landscape']].map(([v, t]) => el('option', { value: v }, t)))),
+          el('label', {}, 'Images ', el('select', { id: 'in' }, [1, 2, 4].map((n) => el('option', { value: n }, String(n))))),
+          el('label', {}, 'Seed ', el('input', { id: 'iseed', type: 'number', placeholder: 'random', style: 'width:110px' }))),
+        el('div', { class: 'row' }, el('button', { id: 'igo', class: 'big', onclick: makeImage }, 'Submit')),
+        el('div', { class: 'msg', id: 'imsg' }), keyHint(), el('div', { id: 'gallery', class: 'gallery' })));
+      $('iprompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) makeImage(); });
+    }
+    async function makeImage() {
+      const prompt = $('iprompt').value.trim();
+      if (!prompt || !model) { $('imsg').className = 'msg err'; $('imsg').textContent = 'Describe the image first.'; return; }
+      $('igo').disabled = true; $('imsg').className = 'msg'; $('imsg').textContent = 'Creating… the first image after starting takes longer while the model loads.';
+      const t0 = performance.now(), seed = $('iseed').value.trim();
+      try {
+        const r = await fetch(base() + '/v1/images/generations', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth()),
+          // stable-diffusion.cpp's OpenAI endpoint: engine options ride inside the prompt as <sd_cpp_extra_args>{...}</sd_cpp_extra_args>
+          body: JSON.stringify({ model: model.packId, prompt: prompt + (seed ? ` <sd_cpp_extra_args>${JSON.stringify({ seed: +seed })}</sd_cpp_extra_args>` : ''),
+            size: $('isize').value, n: +$('in').value, output_format: 'png' }) });
+        if (!r.ok) throw new Error(explain(r, await r.text()));
+        const j = await r.json(), secs = ((performance.now() - t0) / 1000).toFixed(1);
+        const imgs = (j.data || []).map((d) => d.b64_json ? 'data:image/png;base64,' + d.b64_json : d.url).filter(Boolean);
+        if (!imgs.length) throw new Error('The server returned no image.');
+        for (const src of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
+          el('a', { href: src, download: 'sushila-image.png' }, 'Download'))));
+        $('imsg').textContent = `${imgs.length} image${imgs.length > 1 ? 's' : ''} in ${secs} s`;
+      } catch (e) { $('imsg').className = 'msg err'; $('imsg').textContent = String(e.message || e); }
+      finally { $('igo').disabled = false; }
     }
 
     fillServers();

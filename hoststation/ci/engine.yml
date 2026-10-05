@@ -26,14 +26,24 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          cmake -S llama.cpp -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF ${{ matrix.cmake }}
+          cmake -S llama.cpp -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_TESTS=OFF ${{ matrix.cmake }}
           cmake --build build --config Release --target llama-server -j 4
+      - name: Build the image engine (stable-diffusion.cpp sd-server, pinned)
+        shell: bash
+        run: |
+          git clone --recursive https://github.com/leejet/stable-diffusion.cpp sdcpp && git -C sdcpp checkout 3f8527a46c54ecf4cb4ed6003da8e8982283c73c && git -C sdcpp submodule update --init --recursive
+          extra="${{ matrix.cmake }}"; extra="${extra//GGML_METAL_EMBED_LIBRARY/GGML_METAL_EMBED_LIBRARY}"
+          metal=""; [ "${{ matrix.key }}" = macos-aarch64 ] && metal="-DSD_METAL=ON"
+          cmake -S sdcpp -B sdbuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSD_BUILD_EXAMPLES=ON -DSD_SERVER_BUILD_FRONTEND=OFF $metal $extra
+          cmake --build sdbuild --config Release --target sd-server -j 4
       - name: Package
         shell: bash
         run: |
           mkdir -p pkg
           f=$(find build -name "llama-server${{ matrix.exe }}" -type f | head -1)
           cp "$f" "pkg/sushila-server${{ matrix.exe }}"
+          g=$(find sdbuild -name "sd-server${{ matrix.exe }}" -type f | head -1); cp "$g" "pkg/sushila-sd-server${{ matrix.exe }}"
+          cp sdcpp/LICENSE pkg/LICENSE-stable-diffusion.cpp
           cp LICENSE pkg/ 2>/dev/null || true; cp llama.cpp/LICENSE pkg/LICENSE-llama.cpp
           name="sushila-cpp-${{ inputs.version }}-${{ matrix.key }}.${{ matrix.archive }}"
           if [ "${{ matrix.archive }}" = zip ]; then (cd pkg && 7z a "../$name" . >/dev/null); else tar -czf "$name" -C pkg .; fi
@@ -60,7 +70,8 @@ jobs:
               p = os.path.join('dist', f)
               b2.put_file(p, f'hoststation/engine/{v}/{f}')
               builds[key] = {'file': f, 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest(), 'bytes': os.path.getsize(p),
-                             'archive': 'zip' if f.endswith('.zip') else 'tar.gz', 'server': 'sushila-server.exe' if key.startswith('windows') else 'sushila-server'}
+                             'archive': 'zip' if f.endswith('.zip') else 'tar.gz', 'server': 'sushila-server.exe' if key.startswith('windows') else 'sushila-server',
+                             'servers': {'image': 'sushila-sd-server.exe' if key.startswith('windows') else 'sushila-sd-server'}}
           latest = {'version': v, 'built_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()), 'commit': os.environ.get('GITHUB_SHA', ''), 'builds': builds}
           b2.put('hoststation/engine/LATEST.json', json.dumps(latest, indent=1).encode())
           print(json.dumps(latest, indent=1))
