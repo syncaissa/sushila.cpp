@@ -23,6 +23,9 @@ jobs:
           # NVIDIA GPUs (RTX 20-series to 50-series, A100/H100): CUDA builds; the CUDA runtime libraries ship next to the programs
           - { os: windows-latest, key: windows-x86_64-cuda, archive: zip, exe: .exe, cuda: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON", cuda_arch: "75;80;86;89;90;120" }
           - { os: ubuntu-22.04, key: linux-x86_64-cuda, archive: tar.gz, exe: "", cuda: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON", cuda_arch: "75;80;86;89;90;120" }
+          # AMD Radeon / Intel Arc and Iris GPUs: Vulkan builds (the Vulkan runtime comes with the graphics driver)
+          - { os: windows-latest, key: windows-x86_64-vulkan, archive: zip, exe: .exe, vulkan: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_VULKAN=ON" }
+          - { os: ubuntu-22.04, key: linux-x86_64-vulkan, archive: tar.gz, exe: "", vulkan: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_VULKAN=ON" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +33,10 @@ jobs:
         if: ${{ matrix.cuda }}
         uses: Jimver/cuda-toolkit@v0.2.24
         with: { cuda: "12.8.1", method: network, sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''["nvcc","cudart","cublas","cublas_dev","thrust","visual_studio_integration"]'' || ''["nvcc","cudart","thrust"]'' }}', non-cuda-sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''[]'' || ''["libcublas","libcublas-dev"]'' }}' }
+      - name: Vulkan SDK
+        if: ${{ matrix.vulkan }}
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with: { vulkan_version: "1.4.309.0", install_runtime: true, cache: true, stripdown: true }
       - name: Visual Studio environment and Ninja (Windows CUDA builds bypass the VS CUDA integration)
         if: ${{ matrix.cuda && startsWith(matrix.os, 'windows') }}
         uses: ilammy/msvc-dev-cmd@v1
@@ -48,7 +55,7 @@ jobs:
         run: |
           git clone --recursive https://github.com/leejet/stable-diffusion.cpp sdcpp && git -C sdcpp checkout 3f8527a46c54ecf4cb4ed6003da8e8982283c73c && git -C sdcpp submodule update --init --recursive
           extra="${{ matrix.cmake }}"; extra="${extra//GGML_METAL_EMBED_LIBRARY/GGML_METAL_EMBED_LIBRARY}"
-          metal=""; [ "${{ matrix.key }}" = macos-aarch64 ] && metal="-DSD_METAL=ON"; [ "${{ matrix.cuda }}" = true ] && metal="-DSD_CUDA=ON"
+          metal=""; [ "${{ matrix.key }}" = macos-aarch64 ] && metal="-DSD_METAL=ON"; [ "${{ matrix.cuda }}" = true ] && metal="-DSD_CUDA=ON"; [ "${{ matrix.vulkan }}" = true ] && metal="-DSD_VULKAN=ON"
           arch=""; [ -n "${{ matrix.cuda_arch }}" ] && arch="-DCMAKE_CUDA_ARCHITECTURES=${{ matrix.cuda_arch }}"
           cmake -S sdcpp -B sdbuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSD_BUILD_EXAMPLES=ON -DSD_SERVER_BUILD_FRONTEND=OFF $metal $extra ${arch:+"$arch"}
           cmake --build sdbuild --config Release --target sd-server -j 4

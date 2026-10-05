@@ -183,7 +183,21 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         HOST.gpu = r && r.code === 0 && (r.stdout || '').trim() ? { vendor: 'nvidia', name: r.stdout.trim().split('\n')[0] } : null;
         if (HOST.gpu) log(`NVIDIA GPU found: ${HOST.gpu.name}`);
       }
-      return HOST.gpu && builds[platformKey() + '-cuda'] ? platformKey() + '-cuda' : platformKey();
+      if (HOST.gpu && builds[platformKey() + '-cuda']) return platformKey() + '-cuda';
+      if (HOST.otherGpu === undefined) {  // AMD Radeon, Intel Arc/Iris: the Vulkan build
+        let names = '';
+        if (HOST.info.os === 'windows') {
+          const r = await invoke('run_capture', { program: 'powershell', args: ['-NoProfile', '-Command', '(Get-CimInstance Win32_VideoController).Name'], timeoutS: 20 }).catch(() => null);
+          names = r && r.code === 0 ? r.stdout || '' : '';
+        } else if (HOST.info.os === 'linux') {
+          const r = await invoke('run_capture', { program: 'lspci', args: [], timeoutS: 10 }).catch(() => null);
+          names = r && r.code === 0 ? (r.stdout || '').split('\n').filter((l) => /VGA|3D|Display/.test(l)).join('\n') : '';
+        }
+        HOST.otherGpu = /AMD|Radeon|Intel.*(Arc|Iris|Xe)/i.test(names) ? names.split('\n').find((l) => /AMD|Radeon|Intel/i.test(l)).trim() : null;
+        if (HOST.otherGpu) log(`GPU found: ${HOST.otherGpu} (Vulkan)`);
+      }
+      if (HOST.otherGpu && builds[platformKey() + '-vulkan']) return platformKey() + '-vulkan';
+      return platformKey();
     }
     async function installEngine() {
       const key = await engineKey();
