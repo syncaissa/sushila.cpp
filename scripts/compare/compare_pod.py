@@ -197,7 +197,7 @@ def start_sglang(target, head):
     mem = '0.85' if NGPU >= 2 else '0.55'  # one GPU: leave room for Ollama's copy of the model
     args = ['python3', '-m', 'sglang.launch_server', '--model-path', target, '--port', '30000', '--mem-fraction-static', mem,
             '--context-length', cfg.get('CTX', '4096'), '--cuda-graph-max-bs-decode', '4', '--max-running-requests', '4',
-            *S16, '--speculative-draft-model-path', head]
+            *shlex.split(cfg.get('SGLANG_EXTRA', '')), *S16, '--speculative-draft-model-path', head]  # per-model engine settings
     p = subprocess.Popen(args, env=env, stdout=open(f'{W}/sglang.log', 'w'), stderr=subprocess.STDOUT)
     wait_http('http://127.0.0.1:30000/health', p, 'sglang', 3600)
     import sglang
