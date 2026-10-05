@@ -1734,6 +1734,7 @@ async function logDownload(db, request, { file, kind, system, bytes, packId, use
 // sizes and sha256 come from that model's CHECKSUMS.json, and links are B2 download links valid for 24 hours. Engine
 // builds are listed in B2 hoststation/engine/LATEST.json ({version, builds: {<os>-<arch>: {file, sha256, bytes,
 // archive, server}}}) once they are published.
+const HOST_RUNTIMES = ['image-nunchaku'];
 const HOST_PACKS = [
   { id: 'qwen2.5-0.5b-q4km', category: 'Text (LLM)', name: 'Qwen2.5 0.5B Instruct (4-bit)', model: 'precomputed/qwen2.5-0.5b-q4km', minRamGB: 2,
     description: 'Small and fast; runs on any computer. With the precomputed output-layer landscape: CPU decoding 1.13-1.26x faster with identical output.',
@@ -1758,6 +1759,48 @@ const HOST_PACKS = [
     serve: { engine: 'image', model: 'z_image_turbo-Q4_K.gguf',
       args: ['--diffusion-model', '{pack}/z_image_turbo-Q4_K.gguf', '--llm', '{pack}/Qwen3-4B-Instruct-2507-Q4_K_M.gguf', '--vae', '{pack}/ae.safetensors',
         '--cfg-scale', '1.0', '--steps', '8', '--diffusion-fa', '--offload-to-cpu'] } },
+  { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs (Turbo: under 1 second)', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
+    variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 7.5, maxCompute: 11.9 },
+    description: 'Z-Image-Turbo with Nunchaku 4-bit kernels for NVIDIA RTX 20/30/40-series: a 768x768 image in about 0.8 s on an RTX 4090 (Turbo: 6 steps), or the published 1024x1024 / 8 steps (Regular). Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
+    license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant int4 transformer'],
+    files: [['weights/model_index.json', 'model_index.json', 'config'],
+      ['weights/scheduler/scheduler_config.json', 'scheduler/scheduler_config.json', 'config'],
+      ['weights/text_encoder/config.json', 'text_encoder/config.json', 'config'],
+      ['weights/text_encoder/generation_config.json', 'text_encoder/generation_config.json', 'config'],
+      ['weights/text_encoder/model-00001-of-00003.safetensors', 'text_encoder/model-00001-of-00003.safetensors', 'weights'],
+      ['weights/text_encoder/model-00002-of-00003.safetensors', 'text_encoder/model-00002-of-00003.safetensors', 'weights'],
+      ['weights/text_encoder/model-00003-of-00003.safetensors', 'text_encoder/model-00003-of-00003.safetensors', 'weights'],
+      ['weights/text_encoder/model.safetensors.index.json', 'text_encoder/model.safetensors.index.json', 'config'],
+      ['weights/tokenizer/merges.txt', 'tokenizer/merges.txt', 'config'],
+      ['weights/tokenizer/tokenizer.json', 'tokenizer/tokenizer.json', 'config'],
+      ['weights/tokenizer/tokenizer_config.json', 'tokenizer/tokenizer_config.json', 'config'],
+      ['weights/tokenizer/vocab.json', 'tokenizer/vocab.json', 'config'],
+      ['weights/transformer/config.json', 'transformer/config.json', 'config'],
+      ['weights/vae/config.json', 'vae/config.json', 'config'],
+      ['weights/vae/diffusion_pytorch_model.safetensors', 'vae/diffusion_pytorch_model.safetensors', 'weights'],
+      ['weights/transformer/svdq-int4_r128-z-image-turbo.safetensors', 'transformer/svdq-int4_r128-z-image-turbo.safetensors', 'weights']],
+    serve: { engine: 'image-nunchaku', model: 'model_index.json', args: ['--model-dir', '{pack}/model_index.json', '--transformer', '{pack}/transformer/svdq-int4_r128-z-image-turbo.safetensors'] } },
+  { id: 'z-image-turbo-nvidia-fp4', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA RTX 50-series (Turbo: under 1 second)', model: 'precomputed/z-image-turbo-nvidia-fp4', minRamGB: 16,
+    variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 12.0 },
+    description: 'Z-Image-Turbo with Nunchaku FP4 kernels for NVIDIA RTX 50-series (Blackwell). Turbo: 768x768 in 6 steps; Regular: the published 1024x1024 / 8 steps. Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
+    license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant fp4 transformer'],
+    files: [['weights/model_index.json', 'model_index.json', 'config'],
+      ['weights/scheduler/scheduler_config.json', 'scheduler/scheduler_config.json', 'config'],
+      ['weights/text_encoder/config.json', 'text_encoder/config.json', 'config'],
+      ['weights/text_encoder/generation_config.json', 'text_encoder/generation_config.json', 'config'],
+      ['weights/text_encoder/model-00001-of-00003.safetensors', 'text_encoder/model-00001-of-00003.safetensors', 'weights'],
+      ['weights/text_encoder/model-00002-of-00003.safetensors', 'text_encoder/model-00002-of-00003.safetensors', 'weights'],
+      ['weights/text_encoder/model-00003-of-00003.safetensors', 'text_encoder/model-00003-of-00003.safetensors', 'weights'],
+      ['weights/text_encoder/model.safetensors.index.json', 'text_encoder/model.safetensors.index.json', 'config'],
+      ['weights/tokenizer/merges.txt', 'tokenizer/merges.txt', 'config'],
+      ['weights/tokenizer/tokenizer.json', 'tokenizer/tokenizer.json', 'config'],
+      ['weights/tokenizer/tokenizer_config.json', 'tokenizer/tokenizer_config.json', 'config'],
+      ['weights/tokenizer/vocab.json', 'tokenizer/vocab.json', 'config'],
+      ['weights/transformer/config.json', 'transformer/config.json', 'config'],
+      ['weights/vae/config.json', 'vae/config.json', 'config'],
+      ['weights/vae/diffusion_pytorch_model.safetensors', 'vae/diffusion_pytorch_model.safetensors', 'weights'],
+      ['weights/transformer/svdq-fp4_r128-z-image-turbo.safetensors', 'transformer/svdq-fp4_r128-z-image-turbo.safetensors', 'weights']],
+    serve: { engine: 'image-nunchaku', model: 'model_index.json', args: ['--model-dir', '{pack}/model_index.json', '--transformer', '{pack}/transformer/svdq-fp4_r128-z-image-turbo.safetensors'] } },
   { id: 'z-image-turbo-q8', category: 'Images', kind: 'image', name: 'Z-Image-Turbo (image generation, 8-bit, best quality)', model: 'precomputed/z-image-turbo-q8', minRamGB: 16,
     description: 'The same model at 8 bits: near-original image quality, a bit slower and larger than the 4-bit pack. Best with a GPU with 10 GB+.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: [],
@@ -1830,7 +1873,26 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
       })) };
     }
   } catch (e) { console.error('hoststation engine', e.message); }
-  const body = { version: 1, generated: new Date().toISOString(), linksValidHours: 24, engine, packs };
+  // runtimes the app installs on demand (e.g. image-nunchaku: Python + PyTorch + Nunchaku for the NVIDIA image packs)
+  const runtimes = {};
+  for (const name of HOST_RUNTIMES) {
+    try {
+      const ltext = await getText(`hoststation/runtime/${name}/LATEST.json`), lsig = await getText(`hoststation/runtime/${name}/LATEST.json.sig`);
+      const latest = ltext && lsig ? JSON.parse(ltext) : null;
+      if (!latest || !latest.version || !latest.builds) continue;
+      const pre = `hoststation/runtime/${name}/${latest.version}/`, tok = await grant(pre);
+      const link = (key, i, f) => {
+        direct[`runtime/${name}/${key}/${i}`] = { url: `${b2.fileUrl(a.downloadUrl, pre + f.path)}?Authorization=${encodeURIComponent(tok)}`, file: f.path.split('/').pop(), bytes: f.bytes };
+        return { ...f, url: `${origin}/hoststation/get/runtime/${name}/${key}/${i}` };
+      };
+      runtimes[name] = { version: latest.version, index: { text: ltext, signature: lsig.trim() }, builds: Object.fromEntries(Object.entries(latest.builds).map(([key, b]) => {
+        const files = [b.python, b.server, ...b.wheels];
+        const linked = files.map((f, i) => link(key, i, f));
+        return [key, { bytes: b.bytes, python: { ...linked[0], exe: b.python.exe }, server: { ...linked[1], script: b.server.script }, wheels: linked.slice(2) }];
+      })) };
+    } catch (e) { console.error('hoststation runtime', name, e.message); }
+  }
+  const body = { version: 1, generated: new Date().toISOString(), linksValidHours: 24, engine, runtimes, packs };
   hostCatalogCache = { body, direct, origin, until: Date.now() + 10 * 60 * 1000 };
   return body;
 }
@@ -2358,14 +2420,14 @@ export default {
         if (!b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
         return await servePack(request, env, b2, db, ctx, url.origin, decodeURIComponent(p.slice('/hoststation/pack/'.length, -'.sushilapack'.length)));
       }
-      if (p.startsWith('/hoststation/get/')) {  // a pack file or engine build: count it, then hand over to B2
+      if (p.startsWith('/hoststation/get/')) {  // a pack file, engine build or runtime file: count it, then hand over to B2
         if (!b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
         await hostCatalog(env, b2, url.origin);
         const key = decodeURIComponent(p.slice('/hoststation/get/'.length));
         const d = hostCatalogCache && hostCatalogCache.direct[key];
         if (!d) return new Response('Not found', { status: 404, headers: SEC });
         const [first] = key.split('/');
-        ctx.waitUntil(logDownload(db, request, { file: d.file, kind: first === 'engine' ? 'engine' : 'pack', packId: first === 'engine' ? '' : first, bytes: d.bytes }));
+        ctx.waitUntil(logDownload(db, request, { file: d.file, kind: first === 'engine' || first === 'runtime' ? first : 'pack', packId: first === 'engine' || first === 'runtime' ? '' : first, bytes: d.bytes }));
         return new Response(null, { status: 302, headers: { location: d.url, 'cache-control': 'no-store', ...SEC } });
       }
       if (p.startsWith('/hoststation/download/')) {

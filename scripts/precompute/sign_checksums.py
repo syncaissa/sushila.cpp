@@ -9,6 +9,7 @@ signing machine (~/.sushila_signing_key, mode 600) and is never copied to pods, 
   sign_checksums.py pubkey                          print the public key (base64)
   sign_checksums.py sign precomputed/<model>        sign <prefix>/CHECKSUMS.json -> <prefix>/CHECKSUMS.json.sig
   sign_checksums.py sign hoststation/engine         sign hoststation/engine/LATEST.json -> LATEST.json.sig
+  sign_checksums.py sign hoststation/runtime/image-nunchaku   the NVIDIA image runtime's LATEST.json
   sign_checksums.py check <prefix>                  verify the signature in B2 against the public key
 
 Sign only after `b2_save.py verify <prefix>` passes. Any later rewrite of the index (a new save or a weights mirror)
@@ -44,7 +45,7 @@ def _pub_b64(pk):
 
 
 def _index_name(prefix):
-    return 'LATEST.json' if prefix.rstrip('/').endswith('hoststation/engine') else 'CHECKSUMS.json'
+    return 'LATEST.json' if prefix.startswith('hoststation/') else 'CHECKSUMS.json'  # engine and runtimes: LATEST.json
 
 
 def _get(b2, name):

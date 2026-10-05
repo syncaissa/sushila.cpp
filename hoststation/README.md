@@ -34,7 +34,8 @@ A desktop app for Windows, macOS and Linux (Tauri 2). With a few clicks, and no 
 4. **Signing refuses unsafe indexes.** `sign_checksums.py` refuses to sign an index that lists executables, scripts or
    pickle files.
 5. **Engine releases are signed by hand.** Engine builds come from CI unsigned; they are offered only after
-   `sign_checksums.py sign hoststation/engine`.
+   `sign_checksums.py sign hoststation/engine`. The NVIDIA image runtime (Python, PyTorch, Nunchaku wheels) is
+   signed the same way (`sign hoststation/runtime/image-nunchaku`) and installed offline from the checked files.
 
 Tested headlessly (2026-10-05) against the live catalog:
 - a changed checksum in the index, a `.exe` in a pack, and a `../` path were all refused;
@@ -87,6 +88,39 @@ It packages each build as an archive with `sushila-server` at the top level. It 
 `hoststation/engine/<version>/` and writes `hoststation/engine/LATEST.json`, which the catalog reads. It needs the
 repository secrets `B2_KEY_ID` and `B2_APP_KEY`. Until a build is published, the Engine tab offers **Find an existing
 installation**.
+
+## Fast images on NVIDIA GPUs (Turbo: under a second)
+
+On a PC with an NVIDIA RTX GPU, the image packs come in a Turbo variant that runs Z-Image-Turbo on Nunchaku's
+4-bit kernels (SVDQuant) instead of stable-diffusion.cpp:
+
+| RTX 4090, Z-Image-Turbo (measured 2026-10-05) | 1024², 8 steps | 768², 8 steps | 768², 6 steps |
+|---|---:|---:|---:|
+| stable-diffusion.cpp (Q4_K GGUF, the pack for every other computer) | 5.30 s | 3.03 s | not measured |
+| Nunchaku int4 (pack `z-image-turbo-nvidia`) | 1.97 s | 1.01 s | **0.80 s** |
+
+- **Packs.** `z-image-turbo-nvidia` (int4, RTX 20/30/40-series, compute 7.5–11.9) and `z-image-turbo-nvidia-fp4`
+  (RTX 50-series, compute 12.0+). Both declare `variantOf: 'z-image-turbo'` and `requires: {gpu: 'nvidia', ...}`.
+  The app reads the GPU's compute capability with `nvidia-smi` and installs the variant that fits (`bestVariant`), so
+  there is still one installer and one image product per machine; computers without a matching NVIDIA GPU get the
+  stable-diffusion.cpp pack.
+- **Modes.** Turbo (default): 768×768, 6 steps. Regular: the model's published 1024×1024, 8 steps. A request's own size
+  wins; the page preselects 768 in Turbo.
+- **Runtime.** The packs need Python + PyTorch (CUDA 12.8) + Nunchaku, installed once by the app (about 4 GB) with no
+  command prompt: CPython 3.11 (python-build-standalone), the exact wheels resolved by
+  `scripts/runtime/build_image_runtime.py` (torch 2.8.0+cu128, diffusers 0.36.0, transformers 4.55.2, accelerate 1.9.0,
+  peft 0.17.0, Nunchaku 1.2.1: the set Nunchaku's own CI tests), and `runtime/image-nunchaku/sushila_image_server.py`.
+  Every file is mirrored into our B2 (`hoststation/runtime/image-nunchaku/<version>/`), listed with its sha256 in
+  `LATEST.json`, and signed (`sign_checksums.py sign hoststation/runtime/image-nunchaku`). The app checks each file,
+  then runs `python -m pip install --no-index --no-deps <wheels>`: pip never goes online.
+- **Server.** `sushila_image_server.py` answers the same `POST /v1/images/generations` as stable-diffusion.cpp's server
+  (seed and steps also inside `<sd_cpp_extra_args>`), plus `/health` and `/v1/models`, runs fully offline
+  (`HF_HUB_OFFLINE=1`), and keeps the 4B text encoder in system memory on GPUs with less than 18 GB.
+- **Needs** an NVIDIA driver new enough for CUDA 12.8 (570+). The app checks `torch.cuda.is_available()` after the
+  install and says so if the driver is too old.
+- Nunchaku's GitHub organisation was renamed several times (mit-han-lab → nunchaku-tech → nunchaku-ai → nunchux-ai)
+  and the PyPI name `nunchaku` is an unrelated project: the wheel is pinned by URL and sha256 from GitHub repository
+  id 884123664, never installed by name.
 
 ## Making browsers and operating systems trust the installer
 
@@ -189,7 +223,7 @@ every redirect*, and checked again in `worker_sushila_host.js` for clear message
 | Source | Why |
 |---|---|
 | `https://sushila.ai` | the signed catalog |
-| `https://f<NNN>.backblazeb2.com/file/sushila-ai/...` | our own B2 bucket (packs, engine builds); no other B2 bucket |
+| `https://f<NNN>.backblazeb2.com/file/sushila-ai/...` | our own B2 bucket (packs, engine builds, the NVIDIA image runtime); no other B2 bucket |
 | `https://huggingface.co`, `*.huggingface.co`, `*.hf.co` | Hugging Face files and their CDNs |
 | `https://registry.ollama.ai`, `ollama.com`, and Ollama's registry storage (one Cloudflare R2 bucket, path `/ollama/`) | Ollama model files |
 | `http://127.0.0.1`, `localhost` | only to check this computer's own model servers |

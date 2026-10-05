@@ -60,6 +60,20 @@ The **Home** screen walks you through four steps.
 
 To add more packs later, open **Model Packs**. Installed packs keep working without the internet.
 
+### Images on an NVIDIA graphics card (gaming PCs)
+
+If your PC has an NVIDIA RTX graphics card (20, 30, 40 or 50 series), the app picks the **Turbo** image pack for it
+automatically. That pack draws a 768×768 image in under a second on an RTX 4090.
+
+- The first install also downloads the **NVIDIA image runtime** once (about 4 GB: Python, PyTorch, Nunchaku). Every file
+  comes from Sushila's own storage and is checked against Sushila's signature. Setup takes a few minutes; you don't
+  type anything.
+- You need an up-to-date NVIDIA driver (version 570 or newer). If the driver is older, the app says so: update it from
+  nvidia.com or the GeForce app, then click **Install** again.
+- The **Regular / Turbo** switch on the image page chooses between Turbo (768×768, 6 steps, fastest) and Regular (the
+  model's own 1024×1024, 8 steps).
+- Computers without an NVIDIA RTX card get the standard image pack, which works on any computer but is slower.
+
 ## Safety: what the app protects you from
 
 - **Signed by Sushila.** Every pack and engine build comes with a list of its files and their sha256 checksums, signed
@@ -112,6 +126,8 @@ Your packs are in the data folder shown in **Settings**; delete that folder to f
   installed. Try again later, and report it at https://sushila.ai/bugs/new.
 - **The model does not start:** open **Run & Logs**. The log shows what the engine reported, often that there is not
   enough memory for this pack.
+- **"PyTorch cannot use the NVIDIA GPU":** the NVIDIA driver is too old for the image runtime. Update the driver
+  (570 or newer) and install the pack again; the downloaded files are reused.
 - **Your browser or Windows warns about the installer:** download it only from https://sushila.ai and compare its
   sha256 with the one on the download page.
 

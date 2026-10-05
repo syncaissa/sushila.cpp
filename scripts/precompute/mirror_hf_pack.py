@@ -10,6 +10,8 @@ from Hugging Face at a pinned revision, checked against the sha256 Hugging Face 
   mirror_hf_pack.py <pack> <repo>:<file>:<b2 path> [...]
   e.g. mirror_hf_pack.py z-image-turbo \\
          leejet/Z-Image-Turbo-GGUF:z_image_turbo-Q4_K.gguf:weights/diffusion/z_image_turbo-Q4_K.gguf ...
+A source "b2:<other pack>:<path>" copies a file another pack already holds, inside B2 (no download; its sha256 and
+Hugging Face source come from that pack's CHECKSUMS.json), e.g. b2:z-image-turbo-nvidia:weights/vae/config.json.
 """
 import hashlib
 import json
@@ -68,6 +70,22 @@ def mirror(b2, name, url, size, want_sha256):
     return sha256.hexdigest(), total
 
 
+def copy_from_pack(b2, src_pack, path, dest_name):
+    """Server-side copy of precomputed/<src_pack>/<path> (files up to 5 GB); returns its CHECKSUMS entry and source."""
+    src = f'precomputed/{src_pack}'
+    checks = b2_save._read_checks(b2, src)
+    entry = next((f for f in checks.get('files', []) if f['path'] == path), None)
+    if not entry:
+        sys.exit(f'{src}/CHECKSUMS.json does not list {path}')
+    r = b2.call('b2_list_file_names', {'bucketId': b2.bid, 'prefix': f'{src}/{path}', 'maxFileCount': 1})
+    f = next((x for x in r['files'] if x['fileName'] == f'{src}/{path}'), None)
+    if not f or f['contentLength'] != entry['bytes']:
+        sys.exit(f'{src}/{path} is not in B2 as listed')
+    b2.call('b2_copy_file', {'sourceFileId': f['fileId'], 'fileName': dest_name, 'metadataDirective': 'COPY'})
+    source = next((x for x in (checks.get('bound_to') or {}).get('huggingface', []) if x.get('sha256') == entry['sha256']), None)
+    return entry['sha256'], entry['bytes'], source
+
+
 def main():
     if len(sys.argv) < 3:
         sys.exit(__doc__)
@@ -76,6 +94,14 @@ def main():
     pre = f'precomputed/{pack}'
     files, sources = [], []
     for spec in specs:
+        if spec.startswith('b2:'):
+            _, src_pack, path, dest = spec.split(':', 3)
+            got, nbytes, source = copy_from_pack(b2, src_pack, path, f'{pre}/{dest}')
+            print(f'copied {src_pack}/{path} in B2 ({nbytes / 1e9:.2f} GB)', flush=True)
+            files.append({'path': dest, 'bytes': nbytes, 'sha256': got})
+            if source and source not in sources:
+                sources.append(source)
+            continue
         repo, path, dest = spec.split(':', 2)
         rev, want, size, lic = hf_meta(repo, path)
         print(f'{repo}/{path} @ {rev[:12]} ({(size or 0) / 1e9:.2f} GB, {lic})', flush=True)

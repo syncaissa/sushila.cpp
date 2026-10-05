@@ -146,6 +146,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         HOST.catalog = { packs: [], engine: null };
         HOST.catalogError = 'Could not reach the catalog (' + e + '). Installed packs keep working offline.';
       }
+      HOST.fit = {};  // packs made for one kind of GPU: does this computer have it?
+      for (const p of HOST.catalog.packs || []) if (p.requires) HOST.fit[p.id] = await packFits(p).catch(() => false);
     }
 
     // ---------- engine (Sushila.cpp)
@@ -178,12 +180,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 
     async function engineKey() {  // e.g. windows-x86_64-cuda on a PC with an NVIDIA GPU, else windows-x86_64
       const builds = (HOST.catalog && HOST.catalog.engine && HOST.catalog.engine.builds) || {};
-      if (HOST.gpu === undefined) {
-        const r = await invoke('run_capture', { program: 'nvidia-smi', args: ['--query-gpu=name', '--format=csv,noheader'], timeoutS: 15 }).catch(() => null);
-        HOST.gpu = r && r.code === 0 && (r.stdout || '').trim() ? { vendor: 'nvidia', name: r.stdout.trim().split('\n')[0] } : null;
-        if (HOST.gpu) log(`NVIDIA GPU found: ${HOST.gpu.name}`);
-      }
-      if (HOST.gpu && builds[platformKey() + '-cuda']) return platformKey() + '-cuda';
+      if ((await nvidiaGpu()) && builds[platformKey() + '-cuda']) return platformKey() + '-cuda';
       if (HOST.otherGpu === undefined) {  // AMD Radeon, Intel Arc/Iris: the Vulkan build
         let names = '';
         if (HOST.info.os === 'windows') {
@@ -199,6 +196,85 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (HOST.otherGpu && builds[platformKey() + '-vulkan']) return platformKey() + '-vulkan';
       return platformKey();
     }
+    // The NVIDIA GPU, if any: {vendor, name, compute (e.g. 8.9 for an RTX 4090), memoryGB}. Older drivers lack compute_cap.
+    async function nvidiaGpu() {
+      if (HOST.gpu !== undefined) return HOST.gpu;
+      const q = async (fields) => {
+        const r = await invoke('run_capture', { program: 'nvidia-smi', args: ['--query-gpu=' + fields, '--format=csv,noheader,nounits'], timeoutS: 15 }).catch(() => null);
+        return r && r.code === 0 && (r.stdout || '').trim() ? r.stdout.trim().split(/\r?\n/)[0].split(',').map((x) => x.trim()) : null;
+      };
+      const full = await q('name,compute_cap,memory.total'), name = full || (await q('name'));
+      HOST.gpu = name ? { vendor: 'nvidia', name: name[0], compute: full ? parseFloat(full[1]) || 0 : 0, memoryGB: full ? Math.round((parseFloat(full[2]) || 0) / 1024) : 0 } : null;
+      if (HOST.gpu) log(`NVIDIA GPU found: ${HOST.gpu.name}${HOST.gpu.compute ? ` (compute ${HOST.gpu.compute}, ${HOST.gpu.memoryGB} GB)` : ''}`);
+      return HOST.gpu;
+    }
+    // Packs made for one kind of GPU (e.g. the NVIDIA Turbo image packs) say so in `requires`.
+    async function packFits(p) {
+      const r = p && p.requires;
+      if (!r) return true;
+      if (r.gpu === 'nvidia') {
+        const g = await nvidiaGpu();
+        if (!g || !g.compute) return false;
+        if (r.minCompute && g.compute < r.minCompute) return false;
+        if (r.maxCompute && g.compute > r.maxCompute) return false;
+        const rt = HOST.catalog && HOST.catalog.runtimes && HOST.catalog.runtimes['image-nunchaku'];
+        if (p.serve && p.serve.engine === 'image-nunchaku' && !(rt && rt.builds && rt.builds[platformKey() + '-cuda'])) return false;
+      }
+      return true;
+    }
+    // The best pack for this computer: a variant made for its GPU (e.g. z-image-turbo-nvidia) if one fits, else the pack itself.
+    async function bestVariant(id) {
+      const packs = (HOST.catalog && HOST.catalog.packs) || [];
+      for (const p of packs) if (p.variantOf === id && (await packFits(p))) return p.id;
+      return id;
+    }
+
+    // ---------- runtimes: programs a pack needs besides Sushila.cpp, installed once (signed, every file checked)
+    // image-nunchaku: Python 3.11 + PyTorch (CUDA) + Nunchaku + the Sushila image server, for the NVIDIA image packs.
+    async function installRuntime(name) {
+      const cat = HOST.catalog && HOST.catalog.runtimes && HOST.catalog.runtimes[name];
+      const key = platformKey() + '-cuda', build = cat && cat.builds && cat.builds[key];
+      if (!build) throw new Error(`The ${name} runtime is not published for ${key}.`);
+      const index = await signedIndex(cat.index, `Sushila runtime ${name}`);
+      const ref = index.builds && index.builds[key];
+      if (!ref) throw new Error(`The signed list of ${name} runtimes has no build for ${key}.`);
+      const listed = Object.fromEntries([ref.python, ref.server, ...ref.wheels].map((f) => [f.path, f]));
+      for (const f of [build.python, build.server, ...build.wheels]) {
+        const r = listed[f.path];
+        if (!r || r.sha256 !== f.sha256 || r.bytes !== f.bytes || !safeRelPath(f.path) || !ALLOWED_SOURCE(f.url)) throw new Error(`${f.path} does not match the signed runtime list; refusing to install it.`);
+      }
+      if (!safeRelPath(ref.python.exe) || !/^[\w.-]+\.py$/.test(ref.server.script)) throw new Error('The runtime entry is not valid.');
+      const dir = join(userRoot(), 'runtime', name, index.version), dl = join(userRoot(), 'downloads');
+      log(`installing the ${name} runtime ${index.version} (${gb(build.bytes)}, once)`);
+      const py = join(dl, build.python.path.split('/').pop());
+      await download('runtime:python', build.python.url, py, build.python.sha256, build.python.bytes, 'Python 3.11 (image runtime)');
+      await invoke('extract_archive', { archive: py, dest: dir });
+      await invoke('remove_path', { path: py }).catch(() => {});
+      const srv = join(dl, build.server.path.split('/').pop());
+      await download('runtime:server', build.server.url, srv, build.server.sha256, build.server.bytes, 'Sushila image server');
+      await invoke('extract_archive', { archive: srv, dest: join(dir, 'server') });
+      await invoke('remove_path', { path: srv }).catch(() => {});
+      const wheels = [];
+      for (const w of build.wheels) {
+        const dest = join(dir, 'wheels', w.path.split('/').pop());
+        await download('runtime:' + w.path, w.url, dest, w.sha256, w.bytes, w.path.split('/').pop().split('-').slice(0, 2).join(' '));
+        wheels.push(dest);
+      }
+      const exe = join(dir, ...ref.python.exe.split('/'));
+      await invoke('set_executable', { path: exe }).catch(() => {});
+      say('Setting up the image runtime (PyTorch, Nunchaku)… this takes a few minutes, once.', '');
+      // offline: only the wheels above, each already checked against the signed list
+      const r = await invoke('run_capture', { program: exe, args: ['-m', 'pip', 'install', '--no-index', '--no-deps', '--no-warn-script-location', '--disable-pip-version-check', ...wheels], timeoutS: 3600 });
+      if (r.code !== 0) throw new Error('The image runtime did not install: ' + String(r.stderr || r.stdout).slice(-400));
+      await invoke('remove_path', { path: join(dir, 'wheels') }).catch(() => {});
+      const t = await invoke('run_capture', { program: exe, args: ['-c', 'import torch, nunchaku; print(torch.cuda.is_available())'], timeoutS: 300 });
+      if (t.code !== 0 || !/True/.test(t.stdout || '')) throw new Error('The image runtime is installed, but PyTorch cannot use the NVIDIA GPU. Update the NVIDIA driver (version 570 or newer) and try again. ' + String(t.stderr || '').slice(-300));
+      HOST.state.runtimes = HOST.state.runtimes || {};
+      HOST.state.runtimes[name] = { version: index.version, python: exe, script: join(dir, 'server', ref.server.script), dir, installedAt: new Date().toISOString() };
+      await saveState();
+      log(`the ${name} runtime is ready`);
+    }
+
     async function installEngine() {
       const key = await engineKey();
       const build = HOST.catalog && HOST.catalog.engine && HOST.catalog.engine.builds && HOST.catalog.engine.builds[key];
@@ -227,8 +303,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     async function ensureDefaultModel() {
       if (Object.keys(HOST.state.packs).length || !HOST.state.engine) return;
       if (!HOST.catalog || !(HOST.catalog.packs || []).length) await loadCatalog();
-      const pack = (HOST.catalog.packs || []).find((p) => p.id === DEFAULT_MODEL);
-      if (!pack) { log(`the default model ${DEFAULT_MODEL} is not in the catalog`); return; }
+      const want = await bestVariant(DEFAULT_MODEL), pack = (HOST.catalog.packs || []).find((p) => p.id === want);
+      if (!pack) { log(`the default model ${want} is not in the catalog`); return; }
       log(`installing the default model: ${pack.name}`);
       await installPack(pack, { noAsk: true });
     }
@@ -266,7 +342,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       }
       if (!safeRelPath(pack.serve && pack.serve.model) || !pack.files.some((f) => f.path === pack.serve.model)) throw new Error(`${pack.name}: the model file is not part of the pack.`);
       for (const a of (pack.serve.args || [])) if (!/^[\w.=:-]{1,64}$/.test(a) && !(a.startsWith('{pack}/') && safeRelPath(a.slice(7)) && pack.files.some((f) => f.path === a.slice(7)))) throw new Error(`${pack.name}: unexpected engine option ${a}`);
-      if (pack.serve.engine && !['text', 'image', 'music'].includes(pack.serve.engine)) throw new Error(`${pack.name}: unknown engine ${pack.serve.engine}`);
+      if (pack.serve.engine && !['text', 'image', 'image-nunchaku', 'music'].includes(pack.serve.engine)) throw new Error(`${pack.name}: unknown engine ${pack.serve.engine}`);
     }
 
     // ---------- model packs: the "Install" flow
@@ -279,6 +355,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (!HOST.state.engine) throw new Error('Install Sushila.cpp first (Engine tab).');
       if (HOST.state.packs[pack.id]) { HOST.lastInstalled = pack.id; say(`${pack.name} is already installed.`, 'ok'); return; }
       await checkPack(pack);
+      if (!(await packFits(pack))) throw new Error(`${pack.name} needs ${pack.requires && pack.requires.gpu === 'nvidia' ? 'a matching NVIDIA GPU' : 'other hardware'}; install ${pack.variantOf || 'another pack'} instead.`);
+      if (pack.serve.engine === 'image-nunchaku' && !(HOST.state.runtimes && HOST.state.runtimes['image-nunchaku'])) await installRuntime('image-nunchaku');
       const found = await findPackFile(pack.id);
       if (found) { log(`found ${found} in your Downloads folder`); await installFromPackFile(found, pack.id); return; }
       if (!opts.noAsk && confirm(`${pack.name} is not in your Downloads folder.\n\nDid you save a copy of it somewhere else (another folder, a USB drive)?\n\nOK = choose the file   ·   Cancel = download it now`)) {
@@ -389,7 +467,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     // ---------- run models (several at once, each on its own port)
     // Turbo: Sushila.cpp uses the pack's precomputed files (output-layer landscape, draft head). Regular: the plain model,
     // as Ollama or stock llama.cpp would run it (SUSHILA=0 turns the lookup off). Packs without precomputed files run Regular.
-    function canTurbo(p) { return (p.engine || 'text') === 'text' && (p.artifacts || []).length > 0; }
+    // NVIDIA image packs: Turbo is 768x768 in 6 steps (under a second on an RTX 4090); Regular the published 1024x1024, 8 steps.
+    function canTurbo(p) { return p.engine === 'image-nunchaku' || ((p.engine || 'text') === 'text' && (p.artifacts || []).length > 0); }
     async function setMode(id, mode) {
       const p = HOST.state.packs[id]; if (!p) return;
       if (mode === 'turbo' && !canTurbo(p)) throw new Error(`${p.name} has no precomputed files yet: Turbo is not available.`);
@@ -411,10 +490,14 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const port = freePort();
       const threads = s.threads || Math.max(1, Math.min(16, HOST.info.cpus - 1));
       const packArgs = (p.args || []).map((a) => (a.startsWith('{pack}/') ? join(p.dir, ...a.slice(7).split('/')) : a));
+      const nunchaku = p.engine === 'image-nunchaku', rt = nunchaku && HOST.state.runtimes && HOST.state.runtimes['image-nunchaku'];
+      if (nunchaku && !rt) throw new Error(`${p.name} needs the NVIDIA image runtime: install the pack again to set it up.`);
       const image = p.engine === 'image', music = p.engine === 'music';
-      const program = image ? (HOST.state.engine.servers || {}).image : music ? (HOST.state.engine.servers || {}).music : HOST.state.engine.server;
+      const program = nunchaku ? rt.python : image ? (HOST.state.engine.servers || {}).image : music ? (HOST.state.engine.servers || {}).music : HOST.state.engine.server;
       if (!program) throw new Error(`${p.name} needs the ${image ? 'image engine (stable-diffusion.cpp)' : music ? 'music engine (acestep.cpp)' : 'engine'}, which this Sushila.cpp installation does not include. Install or update Sushila.cpp in the Engine tab.`);
-      const args = music
+      const args = nunchaku
+        ? [rt.script, '--host', '127.0.0.1', '--port', String(port), '--name', id, ...packArgs]  // Sushila image server (Python, Nunchaku)
+        : music
         ? ['--models', p.dir, '--host', '127.0.0.1', '--port', String(port), '--keep-loaded', ...packArgs]  // acestep.cpp ace-server
         : image
         ? ['--listen-ip', '127.0.0.1', '--listen-port', String(port), '-t', String(threads), ...packArgs]  // stable-diffusion.cpp sd-server
@@ -423,7 +506,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       log(`starting ${p.name} on port ${port}: ${program} ${args.join(' ')}`);
       const env = {};
       if (HOST.info.os === 'linux' && HOST.state.engine.dir) env.LD_LIBRARY_PATH = HOST.state.engine.dir;  // bundled CUDA runtime
-      if (mode === 'regular') env.SUSHILA = '0';  // the plain model: no landscape, no draft head
+      if (mode === 'regular') env.SUSHILA = '0';  // the plain model: no landscape, no draft head (images: 1024x1024, 8 steps)
+      if (nunchaku) Object.assign(env, { PYTHONNOUSERSITE: '1', PYTHONUNBUFFERED: '1', HF_HUB_OFFLINE: '1' });
       await invoke('spawn_process', { id: 'engine:' + id, program, args, cwd: p.dir, env: Object.keys(env).length ? env : null });
       HOST.state.running[id] = { port, name: p.name, kind: p.kind || 'text', startedAt: new Date().toISOString(), ready: false, mode };
       log(`${p.name}: ${mode === 'turbo' ? 'Turbo (precomputed files on)' : 'Regular (plain model)'}`);
@@ -684,18 +768,19 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const rowsFor = (cat) => list.filter((p) => (p.category || 'Other') === cat).map((p) => {
         const inst = s.packs[p.id];
         const total = p.files.reduce((a, f) => a + (f.bytes || 0), 0);
-        const fits = !p.minRamGB || ram >= p.minRamGB * 1e9;
+        const fits = !p.minRamGB || ram >= p.minRamGB * 1e9, gpuOk = !HOST.fit || HOST.fit[p.id] !== false;
+        const needs = p.requires && p.requires.gpu === 'nvidia' ? (p.requires.minCompute >= 12 ? 'needs an NVIDIA RTX 50-series GPU' : 'needs an NVIDIA RTX 20/30/40-series GPU') : 'not for this computer';
         return el('tr', {},
           el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, p.description || ''), p.artifacts && p.artifacts.length ? el('div', { class: 'sub' }, 'Precomputed: ' + p.artifacts.join(', ')) : el('div', { class: 'sub' }, 'Weights only (precomputed files coming)')),
           el('td', {}, gb(total), el('div', { class: 'sub' }, p.minRamGB ? `needs ${p.minRamGB} GB memory` : '')),
           el('td', {}, p.licenseUrl ? el('a', { href: '#', onclick: (e) => { e.preventDefault(); invoke('open_url', { url: p.licenseUrl }); } }, p.license) : p.license),
-          el('td', {}, inst ? el('span', { class: 'pill on' }, 'installed') : fits ? '' : el('span', { class: 'pill off' }, 'too large for this computer')),
+          el('td', {}, inst ? el('span', { class: 'pill on' }, 'installed') : !gpuOk ? el('span', { class: 'pill off' }, needs) : fits ? '' : el('span', { class: 'pill off' }, 'too large for this computer')),
           el('td', {}, inst
             ? el('div', { class: 'row', style: 'margin:0' },
                 el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(async () => { const bad = await verifyPack(p.id); if (bad.length) throw new Error('Changed or missing: ' + bad.join(', ') + '. Install again to repair.'); }, 'All files match their sha256.') }, 'Verify'),
                 el('button', { class: 'danger', disabled: HOST.busy, onclick: () => { if (confirm(`Remove ${p.name}?`)) act(() => removePack(p.id), 'Removed.'); } }, 'Remove'))
-            : el('button', { disabled: HOST.busy || !s.engine, title: s.engine ? '' : 'Install Sushila.cpp first', onclick: () => {
-                if (!confirm(`Install ${p.name} (${gb(total)})?\n\nBy installing you accept its license: ${p.license}.`)) return;
+            : el('button', { disabled: HOST.busy || !s.engine || !gpuOk, title: !gpuOk ? needs : s.engine ? '' : 'Install Sushila.cpp first', onclick: () => {
+                if (!confirm(`Install ${p.name} (${gb(total)}${p.serve && p.serve.engine === 'image-nunchaku' && !(s.runtimes && s.runtimes['image-nunchaku']) ? ', plus the NVIDIA image runtime once' : ''})?\n\nBy installing you accept its license: ${p.license}.`)) return;
                 act(() => installPack(p), `${p.name} is installed. Start it from Home.`);
               } }, 'Install')));
       });
@@ -806,14 +891,15 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         // first start of a flavor (e.g. Sushila Image Generator): engine, its model, start it, open the page with the demo prompt
         await act(async () => {
           if (!HOST.state.engine) { say('Installing Sushila.cpp…', ''); await installEngine(); }
-          if (!HOST.state.packs[DEFAULT_MODEL]) {
-            const pack = (HOST.catalog.packs || []).find((p) => p.id === DEFAULT_MODEL);
-            if (!pack) throw new Error(`${DEFAULT_MODEL} is not in the catalog right now; check your internet connection and restart.`);
+          const want = await bestVariant(DEFAULT_MODEL);  // e.g. the NVIDIA Turbo image pack on a PC with an RTX GPU
+          if (!HOST.state.packs[want]) {
+            const pack = (HOST.catalog.packs || []).find((p) => p.id === want);
+            if (!pack) throw new Error(`${want} is not in the catalog right now; check your internet connection and restart.`);
             await installPack(pack, { noAsk: true });
           }
-          await startModel(DEFAULT_MODEL);
+          await startModel(want);
           HOST.state.presetDone = true; await saveState();
-          await generateHere(DEFAULT_MODEL, PRESET.demoPrompt || '', { lyrics: PRESET.demoLyrics || '' });  // the first result, right in the app
+          await generateHere(want, PRESET.demoPrompt || '', { lyrics: PRESET.demoLyrics || '' });  // the first result, right in the app
         }, `${APP} is ready. Your browser shows the first result.`);
       } else if (HOST.state.engine && !Object.keys(HOST.state.packs).length) {
         // an engine but no model yet (e.g. Sushila.cpp was already on this computer): install the default model now
@@ -930,7 +1016,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         b.classList.toggle('on', !!m && b.dataset.mode === (m.mode || 'regular'));
         b.disabled = !m || !local || (b.dataset.mode === 'turbo' && !can);
       });
-      sw.title = !m ? '' : !local ? 'Only the computer running the model can switch modes.' : can ? 'Turbo uses this model\'s precomputed Sushila files (landscape, draft head); Regular runs the plain model.'
+      sw.title = !m ? '' : !local ? 'Only the computer running the model can switch modes.' : can && m.kind === 'image' ? 'Turbo: 768x768 in 6 steps on Nunchaku 4-bit kernels (under a second on an RTX 4090); Regular: the published 1024x1024, 8 steps.' : can ? 'Turbo uses this model\'s precomputed Sushila files (landscape, draft head); Regular runs the plain model.'
         : 'This model has no precomputed Sushila files yet, so it runs Regular (the plain model).';
     }
     async function switchMode(mode) {
@@ -1085,7 +1171,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create images'),
         el('label', { for: 'iprompt' }, 'Describe the image'), el('textarea', { id: 'iprompt', rows: 4, placeholder: 'e.g. a red fox in fresh snow at sunrise, soft light, photograph' }),
         el('div', { class: 'bar2' },
-          el('label', {}, 'Size ', el('select', { id: 'isize' }, [['1024x1024', 'Square 1024'], ['768x768', 'Square 768 (faster)'], ['768x1024', 'Portrait'], ['1024x768', 'Landscape']].map(([v, t]) => el('option', { value: v }, t)))),
+          el('label', {}, 'Size ', el('select', { id: 'isize' }, [['1024x1024', 'Square 1024'], ['768x768', 'Square 768 (fastest)'], ['768x1024', 'Portrait'], ['1024x768', 'Landscape']].map(([v, t]) => el('option', { value: v, selected: v === (model && model.mode === 'turbo' ? '768x768' : '1024x1024') }, t)))),
           el('label', {}, 'Images ', el('select', { id: 'in' }, [1, 2, 4].map((n) => el('option', { value: n }, String(n))))),
           el('label', {}, 'Seed ', el('input', { id: 'iseed', type: 'number', placeholder: 'random', style: 'width:110px' }))),
         el('div', { class: 'row' }, el('button', { id: 'igo', class: 'big', onclick: makeImage }, 'Submit')),
