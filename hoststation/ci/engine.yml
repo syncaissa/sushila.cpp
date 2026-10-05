@@ -33,7 +33,7 @@ jobs:
         if: ${{ matrix.cuda }}
         uses: Jimver/cuda-toolkit@v0.2.24
         with: { cuda: "12.8.1", method: network, sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''["nvcc","cudart","cublas","cublas_dev","thrust","visual_studio_integration"]'' || ''["nvcc","cudart","thrust"]'' }}', non-cuda-sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''[]'' || ''["libcublas","libcublas-dev"]'' }}' }
-      - name: Vulkan SDK (Windows; the full LunarG installer, as llama.cpp's own releases do: includes SPIRV-Headers)
+      - name: Vulkan SDK (Windows; the full LunarG installer, as llama.cpp releases do, with SPIRV-Headers)
         if: ${{ matrix.vulkan && startsWith(matrix.os, 'windows') }}
         shell: pwsh
         run: |
