@@ -30,21 +30,28 @@ PROMPTS = ['Two bears dancing in a forest near a river', 'a red fox standing in 
            'portrait of an elderly woman with silver hair, natural window light, 85mm']
 
 
-def fetch(b2, name, dest, sha):
+def fetch(b2, name, dest, sha, tries=8):
+    """Download from B2, resuming where a broken connection stopped (urllib can return a short body without an error)."""
     os.makedirs(os.path.dirname(dest), exist_ok=True)
-    if os.path.exists(dest) and hashlib.sha256(open(dest, 'rb').read()).hexdigest() == sha:
-        return dest
-    r = urllib.request.urlopen(urllib.request.Request(f'{b2_save._download_url(b2)}/file/{b2.bucket}/{urllib.parse.quote(name)}',
-                                                      headers={'Authorization': b2.tok}), timeout=600)
-    h = hashlib.sha256()
-    with open(dest, 'wb') as o:
-        while True:
-            b = r.read(1 << 22)
-            if not b:
-                break
-            h.update(b)
-            o.write(b)
-    if h.hexdigest() != sha:
+    for attempt in range(tries):
+        have = os.path.getsize(dest) if os.path.exists(dest) else 0
+        if have and hashlib.sha256(open(dest, 'rb').read()).hexdigest() == sha:
+            return dest
+        h = {'Authorization': b2.tok, **({'Range': f'bytes={have}-'} if have else {})}
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(f'{b2_save._download_url(b2)}/file/{b2.bucket}/{urllib.parse.quote(name)}', headers=h), timeout=120)
+            with open(dest, 'ab' if have and r.status == 206 else 'wb') as o:
+                while True:
+                    b = r.read(1 << 22)
+                    if not b:
+                        break
+                    o.write(b)
+        except Exception as e:  # noqa: BLE001
+            print(f'  {name}: {e}; retrying', flush=True)
+            time.sleep(5 * (attempt + 1))
+        if os.path.exists(dest) and hashlib.sha256(open(dest, 'rb').read()).hexdigest() != sha and attempt >= 3:
+            os.remove(dest)  # a damaged start: begin again
+    if hashlib.sha256(open(dest, 'rb').read()).hexdigest() != sha:
         sys.exit(f'sha256 mismatch: {name}')
     return dest
 
