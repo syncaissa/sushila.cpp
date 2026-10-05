@@ -78,7 +78,7 @@ c = json.load(open(hd + '/config.json')); c['dtype'] = c['torch_dtype'] = name
 json.dump(c, open(d + '/pub_head_serve/config.json', 'w'), indent=2)
 PYX
   python3 $P/make_prompts.py --tokenizer $TARGET --chat-kwargs "$CHAT_KWARGS" --out $D --train $((NCONV + 300)) > $D/prompts.log 2>&1 || { log "prompts failed"; exit 1; }
-  if [ "$SMOKE" = 1 ]; then for f in main val ood mt40 gsm8k; do head -n 6 $D/$f.jsonl > $D/$f.tmp && mv $D/$f.tmp $D/$f.jsonl; done; fi
+  if [ "$SMOKE" = 1 ]; then for f in main val ood mt40 gsm8k gsm40; do head -n 6 $D/$f.jsonl > $D/$f.tmp && mv $D/$f.tmp $D/$f.jsonl; done; fi
   log "models and prompts ready ($(tr '\n' ' ' < $D/prompts.log))"
 fi
 
@@ -115,7 +115,7 @@ sglang_suite() {  # sglang_suite <prefix> [server args]: main, ood, temperature 
   bench ${pre}_main --prompts $D/main.jsonl
   bench ${pre}_ood --prompts $D/ood.jsonl
   bench ${pre}_mt_t07 --prompts $D/mt40.jsonl --temperature 0.7
-  [ "$pre" = pub ] || bench ${pre}_gsm100 --prompts $D/gsm8k.jsonl --max-tokens 512
+  [ "$pre" = pub ] || bench ${pre}_gsm100 --prompts $D/${GSM_SET:-gsm8k}.jsonl --max-tokens ${GSM_MAX:-512}
   stop
 }
 
@@ -276,7 +276,7 @@ if [ ! -s $D/out/ollama_gsm100.json ]; then
   ob ollama_main --prompts $D/main.jsonl
   ob ollama_ood --prompts $D/ood.jsonl
   ob ollama_mt_t07 --prompts $D/mt40.jsonl --temperature 0.7
-  ob ollama_gsm100 --prompts $D/gsm8k.jsonl --max-tokens 512
+  ob ollama_gsm100 --prompts $D/${GSM_SET:-gsm8k}.jsonl --max-tokens ${GSM_MAX:-512}
   ollama show --modelfile $OLLAMA_TAG | sed -n 's/^FROM \(\/.*\)/\1/p' | head -1 | xargs -r sha256sum > $D/out/ollama_blob.txt
   pkill -x ollama || true; sleep 5
 fi

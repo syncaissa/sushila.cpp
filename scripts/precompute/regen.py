@@ -11,7 +11,8 @@ import json
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-HEADERS = {'qwen': '<|im_start|>assistant\n', 'llama3': '<|start_header_id|>assistant<|end_header_id|>\n\n'}
+HEADERS = {'qwen': '<|im_start|>assistant\n', 'llama3': '<|start_header_id|>assistant<|end_header_id|>\n\n',
+           'deepseek-r1-distill': '<｜Assistant｜>'}
 
 
 def main():

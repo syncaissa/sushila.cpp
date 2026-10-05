@@ -31,7 +31,8 @@ def main():
     args = ap.parse_args()
     res = []
     for line in list(open(args.prompts))[:args.warmup]:
-        w = {'model': args.model, 'prompt': json.loads(line)['text'], 'raw': True, 'stream': False,
+        wt = json.loads(line)['text']
+        w = {'model': args.model, 'prompt': wt, 'raw': True, 'stream': False, **({'think': False} if '<think>\n\n</think>' in wt else {}),
              'options': {'temperature': args.temperature, 'num_predict': args.max_tokens, 'num_ctx': 4096, **({'num_thread': args.threads} if args.threads else {})}}
         urllib.request.urlopen(urllib.request.Request(args.host + '/api/generate', data=json.dumps(w).encode(), headers={'Content-Type': 'application/json'}), timeout=1800).read()
     for line in open(args.prompts):
@@ -40,6 +41,8 @@ def main():
                 'options': {'temperature': args.temperature, 'num_predict': args.max_tokens, 'num_ctx': 4096, 'seed': args.seed}}
         if args.threads:
             body['options']['num_thread'] = args.threads
+        if '<think>\n\n</think>' in p['text']:  # non-thinking mode (e.g. Qwen3 enable_thinking=False): Ollama needs think=false
+            body['think'] = False
         for rep in range(args.reps):
             r = json.loads(urllib.request.urlopen(urllib.request.Request(args.host + '/api/generate', data=json.dumps(body).encode(),
                            headers={'Content-Type': 'application/json'}), timeout=1800).read())

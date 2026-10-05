@@ -42,7 +42,7 @@ def last_number(t):
 def accuracy(r):
     def ok(x):
         try:
-            return abs(float(last_number(x['text'])) - float(x['ref'])) < 1e-6
+            return abs(float(last_number(x['text'].split('</think>')[-1])) - float(x['ref'])) < 1e-6  # reasoning models: the answer after </think>
         except (TypeError, ValueError):
             return False
     k, n = sum(ok(x) for x in r), len(r)
@@ -73,7 +73,7 @@ if 'ood' in out['sets']:
 acc = {e: accuracy(load(f'{e}_gsm100')) for e in ('ollama', 'base', 'ours') if load(f'{e}_gsm100')}
 if acc:
     out['gsm8k_accuracy'] = acc
-    lines += ['', 'GSM8K accuracy (100 problems, 512 tokens): ' + ', '.join(f"{e} {a['pct']:.0f}% ({a['ci'][0]:.0f}-{a['ci'][1]:.0f})" for e, a in acc.items())]
+    lines += ['', f'GSM8K accuracy ({len(load("base_gsm100"))} problems): ' + ', '.join(f"{e} {a['pct']:.0f}% ({a['ci'][0]:.0f}-{a['ci'][1]:.0f})" for e, a in acc.items())]
 if os.path.exists(f'{D}/chosen.txt'):
     out['chosen_head'] = os.path.basename(open(f'{D}/chosen.txt').read().strip())
     vals = {os.path.basename(f)[4:-5]: speed(json.load(open(f'{D}/out/{f}'))) for f in sorted(os.listdir(f'{D}/out')) if f.startswith('val_') and f.endswith('.json')}
