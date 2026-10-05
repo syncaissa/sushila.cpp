@@ -1,15 +1,17 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-05T18:54Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-05T19:05Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
 | `ace-step-15` | weights (4) | 8.1 GB | yes | 2026-10-05 |
 | `deepseek-r1-distill-llama-70b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 88.6 GB | yes | 2026-10-05 |
 | `qwen2.5-0.5b-q4km` | landscape (48), landscapes-earlier (4), calibration (7), weights (1) | 0.8 GB | yes | 2026-10-05 |
+| `qwen2.5-coder-7b` | weights (1) | 4.7 GB | yes | 2026-10-05 |
 | `qwen3-235b-a22b` | draft-head (2), checkpoints (2), training-data (2), config.env (1) | 4.9 GB | **no** | 2026-10-05 |
 | `qwen3-30b-a3b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (17) | 36.2 GB | yes | 2026-10-04 |
 | `qwen3-32b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (20) | 42.7 GB | yes | 2026-10-04 |
+| `qwen3-4b-instruct-2507` | weights (1) | 2.5 GB | yes | 2026-10-05 |
 | `z-image-turbo` | weights (3) | 6.7 GB | yes | 2026-10-05 |
 | `z-image-turbo-nvidia` | weights (16) | 12.2 GB | yes | 2026-10-05 |
 | `z-image-turbo-nvidia-fp4` | weights (16) | 12.4 GB | yes | 2026-10-05 |
@@ -54,6 +56,16 @@ Output-layer landscape for Qwen2.5-0.5B-Instruct Q4_K_M (CPU decoding 1.13-1.26x
   - `calibration/` (7 files, 0.02 GB): calibration activations and imatrix used to build the landscape
   - `weights/` (1 files, 0.40 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
+### `qwen2.5-coder-7b`
+
+
+
+- **Use:** 
+- **Results:** -
+- **Bound to:** `{"huggingface": [{"repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", "file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf", "revision": "13fb94bfda8c8cf22497dc57b78f391a9acb426a", "sha256": "509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c", "license": "apache-2.0"}]}`
+- **Folders:**
+  - `weights/` (1 files, 4.68 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
 ### `qwen3-235b-a22b`
 
 
@@ -94,6 +106,16 @@ EAGLE-3 draft head refitted to Qwen3-32B's own answers (warm start thoughtworks/
   - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
   - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
   - `weights/` (20 files, 39.54 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `qwen3-4b-instruct-2507`
+
+
+
+- **Use:** 
+- **Results:** -
+- **Bound to:** `{"huggingface": [{"repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF", "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "revision": "a06e946bb6b655725eafa393f4a9745d460374c9", "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597", "license": "apache-2.0"}]}`
+- **Folders:**
+  - `weights/` (1 files, 2.50 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
 ### `z-image-turbo`
 

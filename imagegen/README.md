@@ -1,4 +1,4 @@
-# Sushila Image Generator
+# Sushila ImageGen (sushilaImageGen.cpp)
 
 One download, a few clicks, and your computer makes images from text, offline after setup.
 
@@ -12,11 +12,11 @@ One download, a few clicks, and your computer makes images from text, offline af
 
 After that, type any prompt and press **Submit**. Images are made on your computer; nothing is uploaded.
 
-**How it is built:** it is Sushila Host Station (`../hoststation/`) with a preset, `presets/image-generator.json`
-(`{"product": "Sushila Image Generator", "defaultModel": "z-image-turbo", "demoPrompt": "..."}`), which `build.rs` turns into
+**How it is built:** it is Sushila Host Station (`../hoststation/`) with a preset, `presets/imagegen.json`
+(`{"product": "Sushila ImageGen (sushilaImageGen.cpp)", "defaultModel": "z-image-turbo", "demoPrompt": "..."}`), which `build.rs` turns into
 `dist/preset.js`. The installers come from `.github/workflows/hoststation.yml` (flavor `image`); the engine builds,
 including CUDA, from `.github/workflows/engine.yml`. It shares its data folder with Host Station, so the two never
 download a pack twice.
 
-**Downloads:** https://sushila.ai/hoststation#image-generator (once the first signed installers are published).
+**Downloads:** https://sushila.ai/hoststation#imagegen (once the first signed installers are published).
 Speed work toward sub-second images: `../scripts/image/`.

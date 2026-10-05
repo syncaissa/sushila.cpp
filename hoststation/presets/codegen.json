@@ -1,0 +1,11 @@
+{
+ "key": "codegen",
+ "product": "Sushila CodeGen",
+ "binary": "sushila-codegen",
+ "file": "sushilaCodeGen.cpp",
+ "models": [
+  "qwen3-coder-30b-a3b",
+  "qwen2.5-coder-7b"
+ ],
+ "demoPrompt": "Write a Python function that returns the n-th Fibonacci number in O(log n) time, with a short explanation and two tests."
+}

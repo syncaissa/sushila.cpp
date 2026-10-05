@@ -35,7 +35,7 @@ const st = JSON.parse(fs.readFileSync(path.join(DATA, 'state.json')));
 ok(st.packs['z-image-turbo'] && st.packs['z-image-turbo'].engine === 'image' && st.packs['z-image-turbo'].kind === 'image', 'the image pack passes the signature and file checks and installs: ' + msg());
 btn('Home').click(); await sleep(30);
 const row = [...d.querySelectorAll('tr')].find((r) => r.textContent.includes('Z-Image-Turbo'));
-ok(row && btn('Generate right here', row), 'Home lists it with Generate right here');
+ok(row && btn('Here on the app', row), 'Home lists it with Here on the app');
 btn('Start server', row).click(); await sleep(400);
 const sp = spawned['engine:z-image-turbo'];
 ok(sp && sp.program === '/opt/s/sushila-sd-server', 'it starts the image engine (sd-server)');

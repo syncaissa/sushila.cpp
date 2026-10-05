@@ -1,0 +1,11 @@
+{
+ "key": "chatgen",
+ "product": "Sushila ChatGen",
+ "binary": "sushila-chatgen",
+ "file": "sushilaChatGen.cpp",
+ "models": [
+  "qwen3-30b-a3b-q4km",
+  "qwen3-4b-instruct-2507"
+ ],
+ "demoPrompt": "Hi! In three short sentences: what can you help me with, and why is it nice that you run privately on my own computer?"
+}

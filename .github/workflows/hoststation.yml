@@ -15,21 +15,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # flavor host = Sushila Host Station; flavor image = Sushila Image Generator (same app + presets/image-generator.json:
-          # first start installs the engine and Z-Image-Turbo, starts it and opens the page with a demo prompt). Intel Macs are
-          # cross-compiled (Intel runners are retired).
+          # flavor host = Sushila Host Station; imagegen / musicgen / chatgen / codegen = the same app (same id and data
+          # folder: one engine, one model store) with presets/<flavor>.json naming its first start (its model, its screen).
+          # Every build carries all presets. Intel Macs are cross-compiled (Intel runners are retired).
           - { os: windows-latest, args: "", target: "", flavor: host, preset: "" }
           - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: host, preset: "" }
           - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: host, preset: "" }
           - { os: ubuntu-22.04, args: "", target: "", flavor: host, preset: "" }
-          - { os: windows-latest, args: "", target: "", flavor: image, preset: "presets/image-generator.json" }
-          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: image, preset: "presets/image-generator.json" }
-          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: image, preset: "presets/image-generator.json" }
-          - { os: ubuntu-22.04, args: "", target: "", flavor: image, preset: "presets/image-generator.json" }
-          - { os: windows-latest, args: "", target: "", flavor: music, preset: "presets/music-generator.json" }
-          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: music, preset: "presets/music-generator.json" }
-          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: music, preset: "presets/music-generator.json" }
-          - { os: ubuntu-22.04, args: "", target: "", flavor: music, preset: "presets/music-generator.json" }
+          - { os: windows-latest, args: "", target: "", flavor: imagegen, preset: "presets/imagegen.json" }
+          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: imagegen, preset: "presets/imagegen.json" }
+          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: imagegen, preset: "presets/imagegen.json" }
+          - { os: ubuntu-22.04, args: "", target: "", flavor: imagegen, preset: "presets/imagegen.json" }
+          - { os: windows-latest, args: "", target: "", flavor: musicgen, preset: "presets/musicgen.json" }
+          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: musicgen, preset: "presets/musicgen.json" }
+          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: musicgen, preset: "presets/musicgen.json" }
+          - { os: ubuntu-22.04, args: "", target: "", flavor: musicgen, preset: "presets/musicgen.json" }
+          - { os: windows-latest, args: "", target: "", flavor: chatgen, preset: "presets/chatgen.json" }
+          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: chatgen, preset: "presets/chatgen.json" }
+          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: chatgen, preset: "presets/chatgen.json" }
+          - { os: ubuntu-22.04, args: "", target: "", flavor: chatgen, preset: "presets/chatgen.json" }
+          - { os: windows-latest, args: "", target: "", flavor: codegen, preset: "presets/codegen.json" }
+          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: codegen, preset: "presets/codegen.json" }
+          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: codegen, preset: "presets/codegen.json" }
+          - { os: ubuntu-22.04, args: "", target: "", flavor: codegen, preset: "presets/codegen.json" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -60,8 +68,8 @@ jobs:
         run: |
           if [ "${{ matrix.flavor }}" != host ]; then
             echo "SUSHILA_PRESET=${{ matrix.preset }}" >> "$GITHUB_ENV"
-            (python3 -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product'], 'identifier': p['identifier']}, open('flavor.conf.json','w'))" 2>/dev/null \
-              || python -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product'], 'identifier': p['identifier']}, open('flavor.conf.json','w'))")
+            (python3 -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product'], 'mainBinaryName': p['binary']}, open('flavor.conf.json','w'))" 2>/dev/null \
+              || python -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product'], 'mainBinaryName': p['binary']}, open('flavor.conf.json','w'))")
             echo "TAURI_FLAVOR_ARGS=--config $GITHUB_WORKSPACE/hoststation/flavor.conf.json" >> "$GITHUB_ENV"
           fi
       - uses: tauri-apps/tauri-action@v0
@@ -101,12 +109,12 @@ jobs:
           for root, _, names in os.walk('dist'):
               for n in names:
                   kind = next((k for k in kinds if n.endswith(k[0])), None)
-                  product = 'image-generator' if n.startswith('Sushila Image Generator') else 'music-generator' if n.startswith('Sushila Music Generator') else 'host-station'
+                  product = next((k for k, pre in (('imagegen', 'Sushila ImageGen'), ('musicgen', 'Sushila MusicGen'), ('chatgen', 'Sushila ChatGen'), ('codegen', 'Sushila CodeGen')) if n.startswith(pre)), 'host-station')
                   if not kind or any(f['platform'] == kind[1] and f['product'] == product for f in files):
                       continue
                   p = os.path.join(root, n)
                   b2.put_file(p, f'hoststation/app/{v}/{n}')
-                  files.append({'product': product, 'platform': kind[1], 'label': {'image-generator': 'Sushila Image Generator for ', 'music-generator': 'Sushila Music Generator for '}.get(product, '') + kind[2], 'file': n, 'bytes': os.path.getsize(p), 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest()})
+                  files.append({'product': product, 'platform': kind[1], 'label': {'imagegen': 'Sushila ImageGen for ', 'musicgen': 'Sushila MusicGen for ', 'chatgen': 'Sushila ChatGen for ', 'codegen': 'Sushila CodeGen for '}.get(product, '') + kind[2], 'file': n, 'bytes': os.path.getsize(p), 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest()})
           b2.put('hoststation/app/LATEST.json', json.dumps({'version': v, 'built_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()), 'files': files}, indent=1).encode())
           print(json.dumps(files, indent=1))
           PYX

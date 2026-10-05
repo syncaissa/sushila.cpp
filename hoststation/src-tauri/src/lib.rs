@@ -662,10 +662,13 @@ fn local_addresses() -> Vec<String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
-    // one window only: a second start (e.g. from a sushila:// link) focuses the running app, which receives the link
+    // one window only: a second start (a sushila:// link, or another Sushila product) focuses the running app
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+    // another Sushila product (e.g. ChatGen started while ImageGen is open) is the same app: the running window gets
+    // its program path and adds that product's part
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
         if let Some(w) = app.get_webview_window("main") { let _ = w.unminimize(); let _ = w.set_focus(); }
+        let _ = app.emit("second-instance", json!({ "argv": argv }));
     }));
     builder
         .plugin(tauri_plugin_deep_link::init())

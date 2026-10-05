@@ -24,13 +24,15 @@
   const CATALOG_URL = 'https://sushila.ai/hoststation/catalog.json';
   // Installed right after Sushila.cpp, so there is always a model to try: small (0.5 GB), fast on any computer, and it
   // carries a precomputed landscape. Any pack id from the catalog works here.
-  // A product flavor (e.g. "Sushila Image Generator") is the same app with a preset, loaded from preset.js before this file:
+  // A product (e.g. "Sushila ImageGen") is the same app with a preset, loaded from preset.js before this file:
   //   window.SUSHILA_PRESET = { product, defaultModel, demoPrompt }   (see presets/*.json and build.rs)
   // On first start it installs the engine and the preset's model, starts it, and opens the page with the demo prompt.
   const PRESET = (typeof window !== 'undefined' && window.SUSHILA_PRESET && typeof window.SUSHILA_PRESET === 'object') ? window.SUSHILA_PRESET : null;
-  const DEFAULT_MODEL = (PRESET && PRESET.defaultModel) || 'qwen2.5-0.5b-q4km';
-  // each product has its own app id, data folder and ports, so Host Station, Image Generator and Music Generator can be
-  // installed and run side by side (Host Station 8765+, Image Generator 8775+, Music Generator 8785+)
+  // every build carries all products (Host Station, ImageGen, MusicGen, ChatGen, CodeGen): they are one app with one
+  // engine and one model store; each product only adds its model pack and opens its own screen
+  const PRESETS = (typeof window !== 'undefined' && window.SUSHILA_PRESETS && typeof window.SUSHILA_PRESETS === 'object') ? window.SUSHILA_PRESETS : {};
+  const DEFAULT_MODEL = (PRESET && ((PRESET.models || [])[0] || PRESET.defaultModel)) || 'qwen2.5-0.5b-q4km';
+  // all products share one app id, data folder and port (one engine, one model store); a preset may still set ports
   const DEFAULTS = { catalogUrl: CATALOG_URL, port: (PRESET && PRESET.port) || 8765, enginePort: (PRESET && PRESET.enginePort) || 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user', parallel: 1, keepCopy: true };
   const SHARE_DEFAULTS = { enabled: false, bind: '0.0.0.0', hosts: [], keys: [], perMinute: 30 };
   // Sushila signing keys (Ed25519, base64). Every pack and engine build must come with an index signed by one of these;
@@ -62,7 +64,7 @@ button.ghost{background:transparent;color:var(--acc)}button.danger{background:tr
 button:disabled{opacity:.45;cursor:not-allowed}input,select,textarea{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
 code{background:var(--code);padding:1px 5px;border-radius:5px;font-size:13px}
 .top{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:2}
-.top h1{font-size:18px;margin:0}.top .sp{flex:1}.pill{font-size:12px;padding:2px 9px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
+.top h1{font-size:18px;margin:0}.slogan{font-size:12px;color:var(--mut);font-style:italic;margin-top:2px}.top .sp{flex:1}.pill{font-size:12px;padding:2px 9px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
 .pill.on{color:var(--ok);border-color:var(--ok)}.pill.off{color:var(--warn);border-color:var(--warn)}
 .tabs{display:flex;gap:4px;padding:10px 22px 0;flex-wrap:wrap}.tab{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--mut);border-radius:0;padding:8px 12px}
 .tab[aria-selected=true]{color:var(--acc);border-bottom-color:var(--acc)}
@@ -279,8 +281,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       log(`the ${name} runtime is ready`);
     }
 
-    // Host Station, Image Generator and Music Generator each have their own folder; an engine one of them installed
-    // (or an all-users install) is reused when it is the same signed build for this computer's GPU.
+    // Installs made by earlier versions (when products had their own folders) or for all users: an engine there is reused when it is the same signed build for this computer's GPU.
     const PRODUCT_IDS = ['ai.sushila.hoststation', 'ai.sushila.imagegenerator', 'ai.sushila.musicgenerator'];
     async function reuseEngine(key, build, v) {
       const parent = HOST.info.data_dir.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]+$/, '');  // the folder holding each app's folder
@@ -326,6 +327,41 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       await invoke('remove_path', { path: staging }).catch(() => {});
       await saveState();
       await ensureDefaultModel();
+    }
+
+    // ---------- products: ImageGen, MusicGen, ChatGen, CodeGen are this app with a first-start preset
+    // The product's model: one already installed from its list, else the first that fits this computer (GPU, memory),
+    // else the smallest. E.g. ChatGen: Qwen3 30B-A3B with 32 GB of memory, Qwen3 4B otherwise.
+    async function presetModel(p) {
+      const list = (p.models && p.models.length ? p.models : [p.defaultModel]).filter(Boolean), packs = (HOST.catalog && HOST.catalog.packs) || [];
+      const installed = list.find((id) => HOST.state.packs[id]);
+      if (installed) return installed;
+      const ram = HOST.info.memory_bytes || 0;
+      for (const id of list) {
+        const pack = packs.find((x) => x.id === id);
+        if (!pack || (pack.minRamGB && ram && ram < pack.minRamGB * 1e9)) continue;
+        if (await packFits(pack)) return id;
+      }
+      return list[list.length - 1];
+    }
+    async function runPreset(p) {
+      for (let i = 0; HOST.busy && i < 7200; i++) await new Promise((r) => setTimeout(r, 500));  // e.g. another product is still installing: wait its turn
+      HOST.state.presetsDone = HOST.state.presetsDone || {};
+      const first = !HOST.state.presetsDone[p.key];
+      await act(async () => {
+        if (!HOST.state.engine) { say('Installing Sushila.cpp…', ''); await installEngine(); }
+        if (!HOST.catalog || !(HOST.catalog.packs || []).length) await loadCatalog();
+        const id = await presetModel(p);
+        if (!HOST.state.packs[id]) {
+          const pack = (HOST.catalog.packs || []).find((x) => x.id === id);
+          if (!pack) throw new Error(`${id} is not in the catalog right now; check your internet connection and try again.`);
+          say(`${p.product}: installing ${pack.name}…`, '');
+          await installPack(pack, { noAsk: true });
+        }
+        if (!HOST.state.running[id]) await startModel(id);
+        HOST.state.presetsDone[p.key] = true; await saveState();
+        await generateHere(id, first ? p.demoPrompt || '' : '', { lyrics: first ? p.demoLyrics || '' : '', title: p.product });
+      }, `${p.product} is ready.`);
     }
 
     // There is always a model to try: the default pack follows the engine (same signature and checksum checks).
@@ -552,11 +588,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       delete HOST.state.running[id];
       await saveState();
     }
-    async function runInference(id) {  // "Generate in browser"
+    async function runInference(id) {  // "Open in browser"
       if (!HOST.state.running[id]) await startModel(id);
       await launchPage(id);
     }
-    // "Generate right here": the same page inside this window; the server and download screens step aside
+    // "Here on the app": the same page inside this window; the server and download screens step aside
     async function generateHere(id, prompt, extra = {}) {
       if (!HOST.state.running[id]) await startModel(id);
       HOST.studio = { id, prompt, ...extra };
@@ -565,7 +601,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     function renderStudio() {
       const st = HOST.studio, c = el('div', { id: 'studio' });
       $('app').replaceChildren(c);
-      inferencePage({ container: c, title: APP, base: `http://127.0.0.1:${HOST.state.settings.port}`, token: HOST.state.token, model: st.id, prompt: st.prompt, lyrics: st.lyrics, run: !!st.prompt,
+      inferencePage({ container: c, title: st.title || APP, base: `http://127.0.0.1:${HOST.state.settings.port}`, token: HOST.state.token, model: st.id, prompt: st.prompt, lyrics: st.lyrics, run: !!st.prompt,
         onBack: () => { HOST.studio = null; render(); }, onBrowser: (id) => act(() => runInference(id || st.id)),
         setMode: async (id, mode) => { HOST.busy = true; try { await setMode(id, mode); } finally { HOST.busy = false; } } });
       HOST.studio.prompt = '';  // the demo runs once
@@ -689,19 +725,20 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     // ---------- screens
     let tab = 'home';
     function render() {
-      if (HOST.studio) return;  // in "Generate right here" the page stays; ◀ Host Station comes back
+      if (HOST.studio) return;  // in "Here on the app" the page stays; ◀ Host Station comes back
       const app = $('app');
       app.replaceChildren(top(), tabs(), el('main', {}, el('div', { id: 'msg', class: 'msg ' + msg.kind }, msg.text), installedBanner(), screen()), downloadsPanel());
     }
     function top() {
       const n = Object.keys(HOST.state.running).length;
-      return el('div', { class: 'top' }, el('h1', {}, APP), el('span', { class: 'pill' }, 'v' + HOST.info.app_version),
+      return el('div', { class: 'top' }, el('div', {}, el('h1', {}, APP), el('div', { class: 'slogan' }, 'When apps are installed locally, you are the King (or Queen!)')),
+        el('span', { class: 'pill' }, 'v' + HOST.info.app_version),
         el('span', { class: 'sp' }),
         el('span', { class: 'pill ' + (HOST.state.engine ? 'on' : 'off') }, HOST.state.engine ? 'Sushila.cpp ' + HOST.state.engine.version : 'Sushila.cpp not installed'),
         el('span', { class: 'pill ' + (n ? 'on' : '') }, n ? `${n} model${n > 1 ? 's' : ''} running` : 'No model running'),
         el('button', { class: 'ghost', onclick: () => { HOST.showDownloads = !HOST.showDownloads; render(); } }, 'Downloads',
           Object.keys(HOST.downloads).length ? el('span', { class: 'badge' }, String(Object.keys(HOST.downloads).length)) : null),
-        el('button', { onclick: () => act(() => launchPage()), disabled: !n }, 'Generate in browser'));
+        el('button', { onclick: () => act(() => launchPage()), disabled: !n }, 'Open in browser'));
     }
     function tabs() {
       const t = [['home', 'Home'], ['engine', 'Engine'], ['packs', 'Model Packs'], ['run', 'Run & Logs'], ['settings', 'Settings']];
@@ -727,8 +764,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const p = HOST.lastInstalled && HOST.state.packs[HOST.lastInstalled];
       if (!p) return null;
       return el('div', { class: 'card', style: 'margin-bottom:14px;border-color:var(--acc)' }, el('b', {}, `${p.name} is installed.`),
-        el('div', { class: 'row' }, el('button', { class: 'big', disabled: HOST.busy, onclick: () => act(() => generateHere(p.id)) }, 'Generate right here'),
-          el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(() => runInference(p.id), `${p.name}: the page is open in your browser.`) }, 'Generate in browser'),
+        el('div', { class: 'row' }, el('button', { class: 'big', disabled: HOST.busy, onclick: () => act(() => generateHere(p.id)) }, 'Here on the app'),
+          el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(() => runInference(p.id), `${p.name}: the page is open in your browser.`) }, 'Open in browser'),
           el('button', { class: 'ghost', onclick: () => { HOST.lastInstalled = null; render(); } }, 'Close')));
     }
     function downloadsPanel() {
@@ -758,8 +795,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
             el('td', {}, el('div', { class: 'row', style: 'margin:0' },
               r ? el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(() => stopModel(p.id), `${p.name} stopped.`) }, 'Stop server')
                 : el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => startModel(p.id), `${p.name} is running.`) }, 'Start server'),
-              el('button', { disabled: HOST.busy || !s.engine, onclick: () => act(() => generateHere(p.id)) }, 'Generate right here'),
-              el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => runInference(p.id), `${p.name}: the page is open in your browser.`) }, 'Generate in browser'))));
+              el('button', { disabled: HOST.busy || !s.engine, onclick: () => act(() => generateHere(p.id)) }, 'Here on the app'),
+              el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => runInference(p.id), `${p.name}: the page is open in your browser.`) }, 'Open in browser'))));
         })));
     }
     function homeScreen() {
@@ -920,25 +957,22 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         // models are installed but their engine is gone (e.g. the Sushila app it was shared with was uninstalled): put it back
         act(installEngine, 'Sushila.cpp is installed again.');
       }
-      if (PRESET && !HOST.state.presetDone) {
-        // first start of a flavor (e.g. Sushila Image Generator): engine, its model, start it, open the page with the demo prompt
-        await act(async () => {
-          if (!HOST.state.engine) { say('Installing Sushila.cpp…', ''); await installEngine(); }
-          const want = await bestVariant(DEFAULT_MODEL);  // e.g. the NVIDIA Turbo image pack on a PC with an RTX GPU
-          if (!HOST.state.packs[want]) {
-            const pack = (HOST.catalog.packs || []).find((p) => p.id === want);
-            if (!pack) throw new Error(`${want} is not in the catalog right now; check your internet connection and restart.`);
-            await installPack(pack, { noAsk: true });
-          }
-          await startModel(want);
-          HOST.state.presetDone = true; await saveState();
-          await generateHere(want, PRESET.demoPrompt || '', { lyrics: PRESET.demoLyrics || '' });  // the first result, right in the app
-        }, `${APP} is ready. Your browser shows the first result.`);
+      if (PRESET && HOST.state.presetDone && !(HOST.state.presetsDone || {})[PRESET.key]) {  // the flag of earlier versions
+        HOST.state.presetsDone = Object.assign({}, HOST.state.presetsDone, { [PRESET.key]: true });
+      }
+      if (PRESET && !(HOST.state.presetsDone || {})[PRESET.key]) {
+        await runPreset(PRESET);  // first start of a product: its model, started, with its demo
       } else if (HOST.state.engine && !Object.keys(HOST.state.packs).length) {
         // an engine but no model yet (e.g. Sushila.cpp was already on this computer): install the default model now
         act(ensureDefaultModel, 'The default model is installed. Press Run inference to try it.');
       }
       listen('deep-link', () => handleLinks());
+      // another Sushila product started while this window is open (e.g. ChatGen after ImageGen): add its part here
+      listen('second-instance', (payload) => {
+        const exe = String(((payload && payload.argv) || [])[0] || '').toLowerCase();
+        const p = Object.values(PRESETS).find((x) => (x.binary && exe.includes(x.binary.toLowerCase())) || (x.product && exe.includes(x.product.toLowerCase())));
+        if (p && (!PRESET || p.key !== PRESET.key || !(HOST.state.presetsDone || {})[p.key])) runPreset(p);
+      });
       setInterval(async () => {  // Regular/Turbo switches asked for by the browser page (POST /api/mode)
         if (HOST.busy) return;
         const raw = await invoke('read_text', { path: join(HOST.info.data_dir, 'mode-request.json') }).catch(() => null);
@@ -966,6 +1000,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px}.gallery figure{margin:0}.gallery img{width:100%;border-radius:10px;border:1px solid var(--line)}
 .modesw{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin-left:6px}.modesw button{border:0;border-radius:0;background:transparent;color:var(--mut);padding:5px 12px;font-size:13px}
 .modesw button.on{background:var(--acc);color:#fff}.modesw button:disabled{opacity:.4}
+.maxed .top,.maxed #remote,.maxed .chat>.bar2{display:none}.maxed .chat{max-width:none;margin:0;padding:12px 18px}.maxed #log{min-height:calc(100vh - 170px)}
+.restorebtn{position:fixed;top:10px;right:14px;z-index:9;display:none}.maxed .restorebtn{display:inline-block}
+.bubble pre{position:relative;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow:auto;white-space:pre;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;margin:8px 0}
+.bubble pre .copy{position:absolute;top:6px;right:6px;font-size:12px;padding:3px 8px}.bubble .lang{font-size:11px;color:var(--mut);margin-bottom:4px}
 .dlbtn{display:inline-block;margin-top:6px;padding:6px 14px;border-radius:8px;background:var(--acc);color:#fff;text-decoration:none;font-weight:600}.music audio{width:100%;margin-top:14px}.track{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px;background:var(--card)}`));
     if (!embedded) document.title = 'Sushila Inference';
     const qs = embedded ? new URLSearchParams() : new URLSearchParams(location.search);
@@ -996,9 +1034,24 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('div', { class: 'modesw', id: 'modesw', role: 'group', 'aria-label': 'Speed mode' },
           el('button', { 'data-mode': 'regular', onclick: () => switchMode('regular') }, 'Regular'), el('button', { 'data-mode': 'turbo', onclick: () => switchMode('turbo') }, 'Turbo'))),
       el('span', { class: 'sp' }), el('span', { class: 'pill', id: 'status' }, '…'),
-      embedded && opts.onBrowser ? el('button', { class: 'ghost', onclick: () => opts.onBrowser(model && model.packId) }, 'Generate in browser') : null);
+      el('button', { class: 'ghost', id: 'maxbtn', title: 'Only the conversation, as large as the window', onclick: () => setMax(true) }, '⛶ Maximize'),
+      embedded && opts.onBrowser ? el('button', { class: 'ghost', onclick: () => opts.onBrowser(model && model.packId) }, 'Open in browser') : null);
     const main = el('div', { id: 'main' });
-    app.replaceChildren(head, el('div', { style: 'padding:0 22px' }, remoteBox), main);
+    const restore = el('button', { class: 'restorebtn', onclick: () => setMax(false) }, '⤡ Restore');
+    app.replaceChildren(head, el('div', { style: 'padding:0 22px' }, remoteBox), main, restore);
+    function setMax(on) { app.classList.toggle('maxed', on); if (on && $('q')) $('q').focus(); }
+    // replies with ``` code blocks: shown as code, each with a Copy button (text only: nothing in a reply is run)
+    function rich(text) {
+      const out = [], parts = text.split(/```/);
+      parts.forEach((part, i) => {
+        if (i % 2 === 0) { if (part) out.push(document.createTextNode(part)); return; }
+        const nl = part.indexOf('\n'), lang = nl > 0 && /^[\w+#.-]{1,20}$/.test(part.slice(0, nl).trim()) ? part.slice(0, nl).trim() : '';
+        const code = (lang ? part.slice(nl + 1) : part).replace(/\n$/, '');
+        const btn = el('button', { class: 'ghost copy', onclick: () => { try { navigator.clipboard.writeText(code); btn.textContent = 'Copied'; } catch (_) {} } }, 'Copy');
+        out.push(el('pre', {}, lang ? el('div', { class: 'lang' }, lang) : null, btn, el('code', {}, code)));
+      });
+      return out;
+    }
 
     function fillServers() {
       serverSel.replaceChildren(el('option', { value: '' }, 'This computer'), ...hosts.map((h) => el('option', { value: h }, h.replace(/^https?:\/\//, ''))),
@@ -1120,7 +1173,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
             let j; try { j = JSON.parse(data); } catch (_) { continue; }
             if (j.timings) timings = j.timings;
             const d = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
-            if (d) { if (!first) first = performance.now(); text += d; n += 1; out.textContent = text; follow(); }
+            if (d) { if (!first) first = performance.now(); text += d; n += 1; out.replaceChildren(...rich(text)); follow(); }
           }
         }
       } catch (e) {

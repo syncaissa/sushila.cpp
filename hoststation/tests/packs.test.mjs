@@ -47,7 +47,7 @@ await sleep(800); await idle();
 ok(downloads[0] && downloads[0].dest === path.join(DL, 'qwen2.5-0.5b-q4km.sushilapack') && /\/hoststation\/pack\/qwen2\.5-0\.5b-q4km\.sushilapack$/.test(downloads[0].url), 'default model is saved to Downloads as qwen2.5-0.5b-q4km.sushilapack');
 ok(!answers.some((q) => /somewhere else/.test(q)), 'the default model asks no questions');
 ok(fs.existsSync(path.join(DATA, 'packs/qwen2.5-0.5b-q4km/qwen2.5-0.5b-q4km.gguf.sushila/landscape.mclp')), 'installed from the file: model + landscape in place');
-ok(btn('Generate right here') && btn('Generate in browser'), 'after the install: Generate right here and Generate in browser');
+ok(btn('Here on the app') && btn('Open in browser'), 'after the install: Here on the app and Open in browser');
 const install = async (name) => { btn('Model Packs').click(); await sleep(30); [...d.querySelectorAll('tr')].find((r) => r.textContent.includes(name)).querySelector('button').click(); await sleep(60); await idle(); };
 // a pack already in Downloads (browser-renamed copy) -> installed without downloading
 const p32 = catalog.packs.find((p) => p.id === 'qwen3-32b-q4km'); fs.writeFileSync(path.join(DL, 'qwen3-32b-q4km (1).sushilapack'), 'x');

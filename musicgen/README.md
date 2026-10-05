@@ -1,4 +1,4 @@
-# Sushila Music Generator
+# Sushila MusicGen (sushilaMusicGen.cpp)
 
 One download, a few clicks, and your computer writes and sings songs, offline after setup.
 
@@ -14,6 +14,6 @@ Then type **1. Lyrics** and **2. Style** and press **Generate**: a full song wit
 browser. The **Regular / Turbo** switch: Turbo uses Sushila's precomputed files for a model; ACE-Step has none yet, so it
 runs Regular (the plain model).
 
-**How it is built:** Sushila Host Station (`../hoststation/`) with `presets/music-generator.json`; installers from
+**How it is built:** Sushila Host Station (`../hoststation/`) with `presets/musicgen.json`; installers from
 `.github/workflows/hoststation.yml` (flavor `music`); engines from `.github/workflows/engine.yml`.
-**Downloads:** https://sushila.ai/hoststation#music-generator (once the first signed installers are published).
+**Downloads:** https://sushila.ai/hoststation#musicgen (once the first signed installers are published).

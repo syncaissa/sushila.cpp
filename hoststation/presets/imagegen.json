@@ -1,0 +1,12 @@
+{
+ "key": "imagegen",
+ "product": "Sushila ImageGen",
+ "binary": "sushila-imagegen",
+ "file": "sushilaImageGen.cpp",
+ "models": [
+  "z-image-turbo-nvidia-fp4",
+  "z-image-turbo-nvidia",
+  "z-image-turbo"
+ ],
+ "demoPrompt": "Two bears dancing in a forest near a river"
+}

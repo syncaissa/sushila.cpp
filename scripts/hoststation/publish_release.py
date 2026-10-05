@@ -4,7 +4,7 @@
   publish_release.py <version> [--engine-run <run id>] [--app-run <run id>] [--only key,key]
 
 Takes the build artifacts of ci/engine.yml (Sushila.cpp engine per system) and/or ci/hoststation.yml (installers of
-Sushila Host Station, Image Generator, Music Generator) and
+Sushila Host Station, ChatGen, CodeGen, ImageGen, MusicGen) and
   1. uploads each file to a GitHub release v<version> of syncaissa/sushila.cpp (the main repository), under a product name:
        sushila.cpp-<v>-<system>.zip|tar.gz, sushilaHostStation.cpp-<v>-<system>..., sushilaImageGenerator.cpp-...,
        sushilaMusicGenerator.cpp-...   (GitHub counts every download)
@@ -39,8 +39,9 @@ SRC = 'syncaissa/sushila.cpp'            # builds run here
 PUB = SRC                                # releases live in the main repository too, so every download counts in one place
 # (while it is private, sushila.ai fetches release files with a read-only token: GITHUB_RELEASE_TOKEN in Cloudflare)
 TOK = open(os.path.expanduser('~/.github_token')).read().strip()
-PRODUCTS = {'host-station': ('sushilaHostStation.cpp', 'Sushila Host Station'), 'image-generator': ('sushilaImageGenerator.cpp', 'Sushila Image Generator'),
-            'music-generator': ('sushilaMusicGenerator.cpp', 'Sushila Music Generator')}
+PRODUCTS = {'host-station': ('sushilaHostStation.cpp', 'Sushila Host Station'), 'imagegen': ('sushilaImageGen.cpp', 'Sushila ImageGen'),
+            'musicgen': ('sushilaMusicGen.cpp', 'Sushila MusicGen'), 'chatgen': ('sushilaChatGen.cpp', 'Sushila ChatGen'),
+            'codegen': ('sushilaCodeGen.cpp', 'Sushila CodeGen')}
 KINDS = [('-setup.exe', 'windows-x86_64', 'Windows', 'windows-x64-setup.exe'), ('aarch64.dmg', 'macos-aarch64', 'Mac (Apple M1-M4)', 'macos-arm64.dmg'),
          ('x64.dmg', 'macos-x86_64', 'Mac (Intel)', 'macos-x64.dmg'), ('.deb', 'linux-deb', 'Ubuntu / Debian', 'linux-amd64.deb'),
          ('.rpm', 'linux-rpm', 'Fedora', 'linux-x86_64.rpm'), ('.AppImage', 'linux-appimage', 'Other Linux', 'linux-x86_64.AppImage')]
@@ -134,7 +135,7 @@ def main():
             for n in z.namelist():
                 base = n.split('/')[-1]
                 kind = next((k for k in KINDS if base.endswith(k[0])), None)
-                product = 'image-generator' if base.startswith('Sushila Image Generator') else 'music-generator' if base.startswith('Sushila Music Generator') else 'host-station'
+                product = next((k for k, (_, name) in PRODUCTS.items() if k != 'host-station' and base.startswith(name)), 'host-station')
                 if not kind or (only and f'{product}/{kind[1]}' not in only):
                     continue
                 pub = f'{PRODUCTS[product][0]}-{v}-{kind[3]}'
@@ -143,7 +144,7 @@ def main():
                     o.write(src.read())
                 b2.put_file(p, f'hoststation/app/{v}/{pub}')
                 url, api = upload(rel, pub, p)
-                app['files'] = [f for f in app['files'] if not (f['product'] == product and f['platform'] == kind[1])]
+                app['files'] = [f for f in app['files'] if f['product'] in PRODUCTS and not (f['product'] == product and f['platform'] == kind[1])]
                 app['files'].append({'product': product, 'platform': kind[1], 'label': ('' if product == 'host-station' else PRODUCTS[product][1] + ' for ') + kind[2],
                                      'file': pub, 'bytes': os.path.getsize(p), 'sha256': sha(p), 'github': url, 'githubAsset': api})
                 os.remove(p)
@@ -179,16 +180,25 @@ computer, faster: work that every user's computer would repeat (an output-layer 
 model) is computed once, ahead of time, and shipped with the model. Measured speedups: up to **3.64x** over Ollama for
 DeepSeek-R1-Distill-Llama-70B; a 768x768 image in **0.8 s** on an RTX 4090 (measured). Website: **https://sushila.ai**
 
-No command prompt needed: download, install, click.
+No command prompt needed: download, install, click. All products are one app: install a second one and it only adds
+its model (one engine, one model store per computer). When apps are installed locally, you are the King (or Queen!)
 <!-- release -->
 ## Downloads (version {v})
 
-### sushilaImageGenerator.cpp: pictures from a sentence
-Installs everything (engine, image model, app), then draws *"Two bears dancing in a forest near a river"*.
-{head}{rows('image-generator')}
+### sushilaChatGen.cpp: a private assistant that runs on your computer
+Installs everything (engine, a chat model that fits your computer, app) and opens a chat; nothing you type leaves your computer.
+{head}{rows('chatgen')}
 
-### sushilaMusicGenerator.cpp: songs from lyrics and a style
-{head}{rows('music-generator')}
+### sushilaCodeGen.cpp: write programs in many languages, locally
+A coding model (Qwen3-Coder on computers with 24 GB+ of memory) with code blocks you can copy.
+{head}{rows('codegen')}
+
+### sushilaImageGen.cpp: pictures from a sentence
+Installs everything (engine, image model, app), then draws *"Two bears dancing in a forest near a river"*.
+{head}{rows('imagegen')}
+
+### sushilaMusicGen.cpp: songs from lyrics and a style
+{head}{rows('musicgen')}
 
 ### sushilaHostStation.cpp: run any Sushila model pack (chat, images, music), share it on your network
 {head}{rows('host-station')}

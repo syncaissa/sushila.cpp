@@ -1744,6 +1744,21 @@ const HOST_PACKS = [
       ['landscape/landscape.mclp', 'qwen2.5-0.5b-q4km.gguf.sushila/landscape.mclp', 'landscape'],
       ['landscape/LICENSE.txt', 'qwen2.5-0.5b-q4km.gguf.sushila/LICENSE.txt', 'license']],
     serve: { model: 'qwen2.5-0.5b-q4km.gguf', args: [] } },
+  { id: 'qwen3-4b-instruct-2507', category: 'Text (LLM)', name: 'Qwen3 4B Instruct 2507 (chat, 4-bit)', model: 'precomputed/qwen3-4b-instruct-2507', minRamGB: 6,
+    description: 'A capable private chat model that runs on almost any computer (2.5 GB). Default of Sushila ChatGen on computers with less than 24 GB of memory.',
+    license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507', artifacts: [],
+    files: [['weights/gguf/Qwen3-4B-Instruct-2507-Q4_K_M.gguf', 'Qwen3-4B-Instruct-2507-Q4_K_M.gguf', 'weights']],
+    serve: { model: 'Qwen3-4B-Instruct-2507-Q4_K_M.gguf', args: [] } },
+  { id: 'qwen3-coder-30b-a3b', category: 'Code', name: 'Qwen3-Coder 30B-A3B Instruct (coding, 4-bit)', model: 'precomputed/qwen3-coder-30b-a3b', minRamGB: 24,
+    description: 'A strong open coding model (mixture of experts: 3B active, so it is fast even on a CPU): writes, explains and fixes programs in many languages. Default of Sushila CodeGen with 24 GB+ of memory.',
+    license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct', artifacts: [],
+    files: [['weights/gguf/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf', 'Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf', 'weights']],
+    serve: { model: 'Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf', args: [] } },
+  { id: 'qwen2.5-coder-7b', category: 'Code', name: 'Qwen2.5-Coder 7B Instruct (coding, 4-bit)', model: 'precomputed/qwen2.5-coder-7b', minRamGB: 8,
+    description: 'A compact coding model (4.7 GB) for computers with 8-24 GB of memory: code in many languages, with explanations.',
+    license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct', artifacts: [],
+    files: [['weights/gguf/qwen2.5-coder-7b-instruct-q4_k_m.gguf', 'qwen2.5-coder-7b-instruct-q4_k_m.gguf', 'weights']],
+    serve: { model: 'qwen2.5-coder-7b-instruct-q4_k_m.gguf', args: [] } },
   { id: 'ace-step-15', category: 'Music', kind: 'music', name: 'ACE-Step 1.5 (songs from lyrics and a style)', model: 'precomputed/ace-step-15', minRamGB: 12,
     description: 'Full songs with vocals from your lyrics and a style description (stereo 48 kHz MP3), up to several minutes; 8-step turbo model with the 4B song-writing model. Runs on GPUs with 8 GB+, slower on CPU.',
     license: 'MIT', licenseUrl: 'https://huggingface.co/ACE-Step/Ace-Step1.5', artifacts: [],
@@ -1946,10 +1961,15 @@ const HOSTSTATION = (env, app, packs = []) => () => {
   const table = (product) => (app && app.files || []).filter((f) => (f.product || 'host-station') === product).map((f) => `
     <tr><td><b>${esc(f.label || f.platform)}</b></td><td class="num">${gb(f.bytes || 0)}</td>
       <td class="act"><a class="btn small" href="/hoststation/download/${product === 'host-station' ? '' : product + '/'}${esc(f.platform)}">Download</a> <button class="copy" data-copy="${esc(f.sha256)}" title="Copy sha256">sha256</button></td></tr>`).join('');
-  const rows = table('host-station'), irows = table('image-generator'), mrows = table('music-generator');
+  const rows = table('host-station');
+  const product = (key, file, title, text) => { const r = table(key); return `
+<h2 id="${key}">${title} <span class="muted" style="font-size:.6em">${file}</span></h2>
+<p>${text}</p>
+${r ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${r}</tbody></table></div>` : '<p class="note">These installers are being built and signed. Check back soon.</p>'}`; };
   return `
 <h1>Sushila Host Station</h1>
-<p class="lead">A free desktop app for Windows, macOS and Linux. It installs Sushila.cpp and model packs with a few clicks, runs models on your own computer, and opens a chat page in your browser. No command prompt needed.</p>
+<p class="lead">A free desktop app for Windows, macOS and Linux. It installs Sushila.cpp and model packs with a few clicks, runs models on your own computer, and opens a chat page in your browser. No command prompt needed. When apps are installed locally, you are the King (or Queen!)</p>
+<p>ChatGen, CodeGen, ImageGen and MusicGen below are this same app, each set up for one job. Install a second one and it only adds its model: one engine and one model store per computer.</p>
 
 <p><a class="btn hsget" href="#" data-start="welcome">Install step by step</a></p>
 ${HS_WIZARD(app, packs)}
@@ -1958,15 +1978,10 @@ ${rows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num
 <p class="note">Check the sha256 of your download against the one listed here. Installers are code-signed by the Sushila project.</p>`
     : '<p class="note">The first installers are being built and signed. Check back soon.</p>'}
 
-<h2 id="image-generator">Sushila Image Generator</h2>
-<p>The same app, set up for one job: after you install it, it installs Sushila.cpp and the Z-Image-Turbo image pack by itself, starts it, and opens your browser with a first image already being made ("Two bears dancing in a forest near a river"), with a Download button. Everything runs on your computer.</p>
-${irows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${irows}</tbody></table></div>`
-  : '<p class="note">The Image Generator installers are being built and signed. Check back soon.</p>'}
-
-<h2 id="music-generator">Sushila Music Generator</h2>
-<p>The same app, set up for songs: after you install it, it installs Sushila.cpp and the ACE-Step 1.5 music pack by itself, starts it, and makes a first song from sample lyrics and a style. Then type <b>1. Lyrics</b> and <b>2. Style</b> and press <b>Generate</b>: a full song with vocals, made on your computer, with a Download button.</p>
-${mrows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${mrows}</tbody></table></div>`
-  : '<p class="note">The Music Generator installers are being built and signed. Check back soon.</p>'}
+${product('chatgen', 'sushilaChatGen.cpp', 'Sushila ChatGen', 'A private assistant: after you install it, it installs Sushila.cpp and a chat model that fits your computer (Qwen3 30B-A3B with 24 GB+ of memory, Qwen3 4B otherwise), starts it, and opens a chat. Nothing you type leaves your computer. <b>Maximize</b> shows only the conversation.')}
+${product('codegen', 'sushilaCodeGen.cpp', 'Sushila CodeGen', 'Write programs in many languages, locally: Qwen3-Coder 30B-A3B with 24 GB+ of memory (Qwen2.5-Coder 7B otherwise). Answers show code blocks with a Copy button.')}
+${product('imagegen', 'sushilaImageGen.cpp', 'Sushila ImageGen', 'Pictures from a sentence: it installs Sushila.cpp and Z-Image-Turbo (the fast Turbo pack on NVIDIA RTX cards: a 768x768 image in under a second on an RTX 4090), starts it, and makes a first image ("Two bears dancing in a forest near a river") with a Download button.')}
+${product('musicgen', 'sushilaMusicGen.cpp', 'Sushila MusicGen', 'Songs from lyrics and a style: it installs Sushila.cpp and ACE-Step 1.5, starts it, and makes a first song. Then type <b>1. Lyrics</b> and <b>2. Style</b> and press <b>Generate</b>: a full song with vocals, with a Download button.')}
 
 <h2>Install, then four clicks</h2>
 <ol>
@@ -2465,7 +2480,7 @@ export default {
       }
       if (p.startsWith('/hoststation/download/')) {
         const rest = p.slice('/hoststation/download/'.length).split('/');
-        const product = rest.length > 1 ? rest[0] : 'host-station', platform = rest[rest.length - 1];
+        const product = ({ 'image-generator': 'imagegen', 'music-generator': 'musicgen' })[rest[0]] || (rest.length > 1 ? rest[0] : 'host-station'), platform = rest[rest.length - 1];
         const app = b2.configured ? await hostApp(env, b2).catch(() => null) : null;
         const f = app && app.files.find((x) => x.platform === platform && (x.product || 'host-station') === product);
         if (!f) return new Response('No installer is published for this system yet.', { status: 404, headers: SEC });
