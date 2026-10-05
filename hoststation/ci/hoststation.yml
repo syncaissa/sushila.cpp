@@ -60,8 +60,8 @@ jobs:
         run: |
           if [ "${{ matrix.flavor }}" != host ]; then
             echo "SUSHILA_PRESET=${{ matrix.preset }}" >> "$GITHUB_ENV"
-            (python3 -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product']}, open('flavor.conf.json','w'))" 2>/dev/null \
-              || python -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product']}, open('flavor.conf.json','w'))")
+            (python3 -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product'], 'identifier': p['identifier']}, open('flavor.conf.json','w'))" 2>/dev/null \
+              || python -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product'], 'identifier': p['identifier']}, open('flavor.conf.json','w'))")
             echo "TAURI_FLAVOR_ARGS=--config $GITHUB_WORKSPACE/hoststation/flavor.conf.json" >> "$GITHUB_ENV"
           fi
       - uses: tauri-apps/tauri-action@v0

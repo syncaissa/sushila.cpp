@@ -29,7 +29,9 @@
   // On first start it installs the engine and the preset's model, starts it, and opens the page with the demo prompt.
   const PRESET = (typeof window !== 'undefined' && window.SUSHILA_PRESET && typeof window.SUSHILA_PRESET === 'object') ? window.SUSHILA_PRESET : null;
   const DEFAULT_MODEL = (PRESET && PRESET.defaultModel) || 'qwen2.5-0.5b-q4km';
-  const DEFAULTS = { catalogUrl: CATALOG_URL, port: 8765, enginePort: 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user', parallel: 1, keepCopy: true };
+  // each product has its own app id, data folder and ports, so Host Station, Image Generator and Music Generator can be
+  // installed and run side by side (Host Station 8765+, Image Generator 8775+, Music Generator 8785+)
+  const DEFAULTS = { catalogUrl: CATALOG_URL, port: (PRESET && PRESET.port) || 8765, enginePort: (PRESET && PRESET.enginePort) || 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user', parallel: 1, keepCopy: true };
   const SHARE_DEFAULTS = { enabled: false, bind: '0.0.0.0', hosts: [], keys: [], perMinute: 30 };
   // Sushila signing keys (Ed25519, base64). Every pack and engine build must come with an index signed by one of these;
   // the private key never leaves the signing machine (scripts/precompute/sign_checksums.py). Add a new key here

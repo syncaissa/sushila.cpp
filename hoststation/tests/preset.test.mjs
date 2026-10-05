@@ -38,7 +38,7 @@ ok(st.packs['z-image-turbo'] && !st.packs['qwen2.5-0.5b-q4km'], 'first start ins
 ok(spawned['engine:z-image-turbo'] && spawned['engine:z-image-turbo'].program === '/opt/s/sushila-sd-server', 'it starts the image engine (found next to Sushila.cpp)');
 ok(spawned['engine:z-image-turbo'] && spawned['engine:z-image-turbo'].env && spawned['engine:z-image-turbo'].env.LD_LIBRARY_PATH === '/opt/s', 'Linux: the bundled CUDA runtime is on the library path');
 ok(!opened.length && w.document.getElementById('studio') && w.document.querySelector('#studio h1').textContent === 'Sushila Image Generator', 'the first result opens right in the app, titled Sushila Image Generator (no browser needed)');
-ok(w.__req && w.__req.u === 'http://127.0.0.1:8765/v1/images/generations' && w.__req.b.prompt === 'Two bears dancing in a forest near a river' && w.__req.h['x-sushila-token'], 'the app makes "Two bears dancing in a forest near a river" itself, with its session token');
+ok(w.__req && w.__req.u === `http://127.0.0.1:${PRESET.port}/v1/images/generations` && w.__req.b.prompt === 'Two bears dancing in a forest near a river' && w.__req.h['x-sushila-token'], 'the app makes "Two bears dancing in a forest near a river" itself, with its session token');
 await sleep(100);
 ok(w.document.querySelector('.gallery img') && w.document.querySelector('.gallery a.dlbtn[download]'), 'the image is shown in the app with a Download button');
 ok(st.presetDone === true, 'the automatic first start happens once');
