@@ -1,0 +1,82 @@
+[
+ {
+  "prompt": "a red fox standing in fresh snow at sunrise, soft golden light, photograph",
+  "wall_s": 4.963669538497925,
+  "generate_s": 3.36,
+  "text_encode_s": 0.34,
+  "vae_decode_s": 0.31,
+  "ok": true
+ },
+ {
+  "prompt": "a cozy cafe interior with a chalkboard menu that says \"SUSHILA\", warm lighting",
+  "wall_s": 4.949375629425049,
+  "generate_s": 3.31,
+  "text_encode_s": 0.32,
+  "vae_decode_s": 0.3,
+  "ok": true
+ },
+ {
+  "prompt": "an astronaut riding a horse on mars, cinematic, highly detailed",
+  "wall_s": 4.971167087554932,
+  "generate_s": 3.36,
+  "text_encode_s": 0.33,
+  "vae_decode_s": 0.31,
+  "ok": true
+ },
+ {
+  "prompt": "portrait of an elderly woman with silver hair, natural window light, 85mm",
+  "wall_s": 5.002686262130737,
+  "generate_s": 3.37,
+  "text_encode_s": 0.33,
+  "vae_decode_s": 0.31,
+  "ok": true
+ },
+ {
+  "prompt": "a bowl of ramen with a soft-boiled egg, top view, food photography",
+  "wall_s": 4.95184063911438,
+  "generate_s": 3.35,
+  "text_encode_s": 0.34,
+  "vae_decode_s": 0.31,
+  "ok": true
+ },
+ {
+  "prompt": "a futuristic city skyline at night with neon signs, rain on the street",
+  "wall_s": 4.876472234725952,
+  "generate_s": 3.26,
+  "text_encode_s": 0.33,
+  "vae_decode_s": 0.3,
+  "ok": true
+ },
+ {
+  "prompt": "a watercolor painting of a lighthouse on a cliff during a storm",
+  "wall_s": 4.940849542617798,
+  "generate_s": 3.31,
+  "text_encode_s": 0.33,
+  "vae_decode_s": 0.3,
+  "ok": true
+ },
+ {
+  "prompt": "a golden retriever puppy playing with a ball in a garden",
+  "wall_s": 5.07576060295105,
+  "generate_s": 3.45,
+  "text_encode_s": 0.34,
+  "vae_decode_s": 0.31,
+  "ok": true
+ },
+ {
+  "prompt": "a minimalist product photo of a white sneaker on a pastel background",
+  "wall_s": 4.890389919281006,
+  "generate_s": 3.31,
+  "text_encode_s": 0.33,
+  "vae_decode_s": 0.3,
+  "ok": true
+ },
+ {
+  "prompt": "a mountain lake reflecting snowy peaks, early morning mist",
+  "wall_s": 5.271561145782471,
+  "generate_s": 3.64,
+  "text_encode_s": 0.32,
+  "vae_decode_s": 0.58,
+  "ok": true
+ }
+]

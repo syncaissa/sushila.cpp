@@ -1,0 +1,82 @@
+[
+ {
+  "prompt": "a red fox standing in fresh snow at sunrise, soft golden light, photograph",
+  "wall_s": 7.206322908401489,
+  "generate_s": 5.53,
+  "text_encode_s": 0.32,
+  "vae_decode_s": 0.46,
+  "ok": true
+ },
+ {
+  "prompt": "a cozy cafe interior with a chalkboard menu that says \"SUSHILA\", warm lighting",
+  "wall_s": 7.477530479431152,
+  "generate_s": 5.79,
+  "text_encode_s": 0.35,
+  "vae_decode_s": 0.63,
+  "ok": true
+ },
+ {
+  "prompt": "an astronaut riding a horse on mars, cinematic, highly detailed",
+  "wall_s": 7.503129005432129,
+  "generate_s": 5.81,
+  "text_encode_s": 0.32,
+  "vae_decode_s": 0.63,
+  "ok": true
+ },
+ {
+  "prompt": "portrait of an elderly woman with silver hair, natural window light, 85mm",
+  "wall_s": 7.321058988571167,
+  "generate_s": 5.56,
+  "text_encode_s": 0.32,
+  "vae_decode_s": 0.44,
+  "ok": true
+ },
+ {
+  "prompt": "a bowl of ramen with a soft-boiled egg, top view, food photography",
+  "wall_s": 7.348653554916382,
+  "generate_s": 5.61,
+  "text_encode_s": 0.34,
+  "vae_decode_s": 0.45,
+  "ok": true
+ },
+ {
+  "prompt": "a futuristic city skyline at night with neon signs, rain on the street",
+  "wall_s": 7.251218557357788,
+  "generate_s": 5.56,
+  "text_encode_s": 0.32,
+  "vae_decode_s": 0.46,
+  "ok": true
+ },
+ {
+  "prompt": "a watercolor painting of a lighthouse on a cliff during a storm",
+  "wall_s": 7.234443187713623,
+  "generate_s": 5.58,
+  "text_encode_s": 0.33,
+  "vae_decode_s": 0.46,
+  "ok": true
+ },
+ {
+  "prompt": "a golden retriever puppy playing with a ball in a garden",
+  "wall_s": 7.279968500137329,
+  "generate_s": 5.59,
+  "text_encode_s": 0.34,
+  "vae_decode_s": 0.45,
+  "ok": true
+ },
+ {
+  "prompt": "a minimalist product photo of a white sneaker on a pastel background",
+  "wall_s": 7.403374433517456,
+  "generate_s": 5.65,
+  "text_encode_s": 0.34,
+  "vae_decode_s": 0.48,
+  "ok": true
+ },
+ {
+  "prompt": "a mountain lake reflecting snowy peaks, early morning mist",
+  "wall_s": 7.239331960678101,
+  "generate_s": 5.55,
+  "text_encode_s": 0.34,
+  "vae_decode_s": 0.46,
+  "ok": true
+ }
+]

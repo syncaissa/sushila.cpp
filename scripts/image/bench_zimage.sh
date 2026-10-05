@@ -2,7 +2,7 @@
 # Z-Image-Turbo speed baseline on one NVIDIA GPU (step 1 of the sub-second plan): the same prompts and seeds on
 #   A. stable-diffusion.cpp (CUDA build, our signed B2 pack: Q4_K and Q8_0 GGUF)       -> what Host Station ships
 #   B. diffusers (bf16, original weights from Hugging Face; plus torch.compile)       -> the reference engine
-#   C. Nunchaku SVDQuant 4-bit (nunchaku-tech/nunchaku-z-image-turbo)                 -> the fastest published path
+#   C. Nunchaku SVDQuant 4-bit (nunchaku-ai/nunchaku-z-image-turbo)                 -> the fastest published path
 # 1024x1024 and 768x768, 8 steps, cfg 1.0; 3 warm-up images, then 10 timed images per setting. Writes
 # $W/out/*.json (seconds per image, per stage when available) and $W/img/<engine>/*.png (references for quality checks).
 # Usage on a GPU pod: W=/workspace/zimg bash bench_zimage.sh          (needs ~/.b2_key for the pack download)
@@ -97,7 +97,7 @@ try:
     from nunchaku.utils import get_precision
     from diffusers import ZImagePipeline
     prec = get_precision()  # int4 on RTX 40-series / A100, fp4 on RTX 50-series
-    tr = NunchakuZImageTransformer2DModel.from_pretrained(f'nunchaku-tech/nunchaku-z-image-turbo/svdq-{prec}_r128-z-image-turbo.safetensors')
+    tr = NunchakuZImageTransformer2DModel.from_pretrained(f'nunchaku-ai/nunchaku-z-image-turbo/svdq-{prec}_r128-z-image-turbo.safetensors')
     pipe = ZImagePipeline.from_pretrained('Tongyi-MAI/Z-Image-Turbo', transformer=tr, torch_dtype=torch.bfloat16).to('cuda')
     for size in (1024, 768): bench(f'nunchaku-{prec}', pipe, size)
 except Exception as e: print('nunchaku failed:', str(e)[:300])

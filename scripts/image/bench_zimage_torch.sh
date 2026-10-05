@@ -2,7 +2,7 @@
 # Z-Image-Turbo speed baseline on one NVIDIA GPU (step 1 of the sub-second plan): the same prompts and seeds on
 #   A. stable-diffusion.cpp (CUDA build, our signed B2 pack: Q4_K and Q8_0 GGUF)       -> what Host Station ships
 #   B. diffusers (bf16, original weights from Hugging Face; plus torch.compile)       -> the reference engine
-#   C. Nunchaku SVDQuant 4-bit (nunchaku-tech/nunchaku-z-image-turbo)                 -> the fastest published path
+#   C. Nunchaku SVDQuant 4-bit (nunchaku-ai/nunchaku-z-image-turbo)                 -> the fastest published path
 # 1024x1024 and 768x768, 8 steps, cfg 1.0; 3 warm-up images, then 10 timed images per setting. Writes
 # $W/out/*.json (seconds per image, per stage when available) and $W/img/<engine>/*.png (references for quality checks).
 # Usage on a GPU pod: W=/workspace/zimg bash bench_zimage_torch.sh          (needs ~/.b2_key for the pack download)
@@ -27,12 +27,18 @@ EOF
 
 # (part B/C only; part A is bench_zimage.sh)
 # ---------- B, C. diffusers bf16 (+ torch.compile) and Nunchaku 4-bit ----------
+# the Nunchaku wheel comes from its GitHub releases, looked up by repository id 884123664 (mit-han-lab/nunchaku, renamed
+# several times). Never 'pip install nunchaku': that PyPI name belongs to an unrelated project.
 # its own venv: PyTorch >= 2.5 (diffusers' Z-Image kernels) and the Nunchaku wheel built for that exact torch
 python3 -m venv $W/venv && . $W/venv/bin/activate
 pip install -q torch==2.8.0 torchvision --index-url https://download.pytorch.org/whl/cu128 > $W/pip.log 2>&1
 pip install -q "diffusers>=0.36" transformers accelerate sentencepiece protobuf "numpy<2.3" >> $W/pip.log 2>&1
-WHL=$(curl -s https://api.github.com/repos/nunchaku-tech/nunchaku/releases/latest | python3 -c "import json,sys; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if 'torch2.8' in a['name'] and 'cp'+''.join(map(str,sys.version_info[:2])) in a['name'] and 'linux_x86_64' in a['name']))")
+WHL=$(curl -sL https://api.github.com/repositories/884123664/releases?per_page=1 | python3 -c "import json,sys; print(next(a['browser_download_url'] for a in json.load(sys.stdin)[0]['assets'] if 'cu12.8torch2.8-' in a['name'] and 'cp'+''.join(map(str,sys.version_info[:2])) in a['name'] and 'linux_x86_64' in a['name']))")
 log "nunchaku wheel: $WHL"; pip install -q "$WHL" >> $W/pip.log 2>&1 || log "nunchaku wheel install failed"
+# Nunchaku 1.3.0.dev20260306 calls diffusers' ZImageTransformer2DModel.forward positionally; diffusers >= 0.37 inserted
+# return_dict/controlnet arguments before patch_size, so patch_size lands in controlnet_block_samples ("int is not iterable")
+NZ=$(python3 -c "import nunchaku,os;print(os.path.dirname(nunchaku.__file__))" 2>/dev/null)/models/transformers/transformer_zimage.py
+[ -f "$NZ" ] && sed -i 's/return super().forward(x, t, cap_feats, patch_size, f_patch_size, return_dict)/return super().forward(x, t, cap_feats, patch_size=patch_size, f_patch_size=f_patch_size, return_dict=return_dict)/' "$NZ"
 python3 - "$W" <<'PY' 2>&1 | tee -a $W/run.log
 import json, os, sys, time, torch
 W = sys.argv[1]; prompts = [l.strip() for l in open(f'{W}/prompts.txt') if l.strip()]
@@ -63,7 +69,7 @@ try:
     from nunchaku.utils import get_precision
     from diffusers import ZImagePipeline
     prec = get_precision()  # int4 on RTX 40-series / A100, fp4 on RTX 50-series
-    tr = NunchakuZImageTransformer2DModel.from_pretrained(f'nunchaku-tech/nunchaku-z-image-turbo/svdq-{prec}_r128-z-image-turbo.safetensors')
+    tr = NunchakuZImageTransformer2DModel.from_pretrained(f'nunchaku-ai/nunchaku-z-image-turbo/svdq-{prec}_r128-z-image-turbo.safetensors')
     pipe = ZImagePipeline.from_pretrained('Tongyi-MAI/Z-Image-Turbo', transformer=tr, torch_dtype=torch.bfloat16).to('cuda')
     for size in (1024, 768): bench(f'nunchaku-{prec}', pipe, size)
 except Exception as e: print('nunchaku failed:', str(e)[:300])

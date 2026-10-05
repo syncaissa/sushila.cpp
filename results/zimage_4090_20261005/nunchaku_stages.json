@@ -1,0 +1,164 @@
+[
+ {
+  "rank": 128,
+  "size": 1024,
+  "steps": 8,
+  "total": 1.974,
+  "text": 0.039,
+  "transformer": 1.739,
+  "vae": 0.152
+ },
+ {
+  "rank": 128,
+  "size": 1024,
+  "steps": 6,
+  "total": 1.54,
+  "text": 0.039,
+  "transformer": 1.308,
+  "vae": 0.152
+ },
+ {
+  "rank": 128,
+  "size": 1024,
+  "steps": 4,
+  "total": 1.1,
+  "text": 0.039,
+  "transformer": 0.873,
+  "vae": 0.152
+ },
+ {
+  "rank": 128,
+  "size": 768,
+  "steps": 8,
+  "total": 1.011,
+  "text": 0.038,
+  "transformer": 0.859,
+  "vae": 0.083
+ },
+ {
+  "rank": 128,
+  "size": 768,
+  "steps": 6,
+  "total": 0.795,
+  "text": 0.038,
+  "transformer": 0.645,
+  "vae": 0.083
+ },
+ {
+  "rank": 128,
+  "size": 768,
+  "steps": 4,
+  "total": 0.576,
+  "text": 0.038,
+  "transformer": 0.43,
+  "vae": 0.083
+ },
+ {
+  "rank": 128,
+  "size": 512,
+  "steps": 8,
+  "total": 0.494,
+  "text": 0.037,
+  "transformer": 0.402,
+  "vae": 0.032
+ },
+ {
+  "rank": 128,
+  "size": 512,
+  "steps": 6,
+  "total": 0.393,
+  "text": 0.039,
+  "transformer": 0.303,
+  "vae": 0.032
+ },
+ {
+  "rank": 128,
+  "size": 512,
+  "steps": 4,
+  "total": 0.291,
+  "text": 0.038,
+  "transformer": 0.201,
+  "vae": 0.032
+ },
+ {
+  "rank": 32,
+  "size": 1024,
+  "steps": 8,
+  "total": 1.911,
+  "text": 0.038,
+  "transformer": 1.67,
+  "vae": 0.152
+ },
+ {
+  "rank": 32,
+  "size": 1024,
+  "steps": 6,
+  "total": 1.486,
+  "text": 0.037,
+  "transformer": 1.254,
+  "vae": 0.152
+ },
+ {
+  "rank": 32,
+  "size": 1024,
+  "steps": 4,
+  "total": 1.066,
+  "text": 0.037,
+  "transformer": 0.836,
+  "vae": 0.152
+ },
+ {
+  "rank": 32,
+  "size": 768,
+  "steps": 8,
+  "total": 0.956,
+  "text": 0.039,
+  "transformer": 0.804,
+  "vae": 0.083
+ },
+ {
+  "rank": 32,
+  "size": 768,
+  "steps": 6,
+  "total": 0.748,
+  "text": 0.038,
+  "transformer": 0.603,
+  "vae": 0.083
+ },
+ {
+  "rank": 32,
+  "size": 768,
+  "steps": 4,
+  "total": 0.548,
+  "text": 0.039,
+  "transformer": 0.403,
+  "vae": 0.083
+ },
+ {
+  "rank": 32,
+  "size": 512,
+  "steps": 8,
+  "total": 0.468,
+  "text": 0.039,
+  "transformer": 0.374,
+  "vae": 0.032
+ },
+ {
+  "rank": 32,
+  "size": 512,
+  "steps": 6,
+  "total": 0.372,
+  "text": 0.039,
+  "transformer": 0.28,
+  "vae": 0.032
+ },
+ {
+  "rank": 32,
+  "size": 512,
+  "steps": 4,
+  "total": 0.276,
+  "text": 0.038,
+  "transformer": 0.187,
+  "vae": 0.032
+ }
+]
