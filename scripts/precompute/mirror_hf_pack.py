@@ -34,11 +34,48 @@ def hf_meta(repo, path):
     sys.exit(f'{repo} has no file {path}')
 
 
+def in_b2(b2, name, size):
+    """A finished upload of the right size: mirror() only finishes an upload after its sha256 matched."""
+    r = b2.call('b2_list_file_names', {'bucketId': b2.bid, 'prefix': name, 'maxFileCount': 1})
+    return any(f['fileName'] == name and f['contentLength'] == size for f in r['files'])
+
+
+class _Stream:
+    """Reads a URL to the end, reopening with a Range request where a slow or stalled connection broke off."""
+    def __init__(self, url):
+        self.url, self.pos, self.r = url, 0, None
+
+    def read(self, n):
+        for attempt in range(20):
+            try:
+                if self.r is None:
+                    h = {'User-Agent': 'sushila-mirror', **({'Range': f'bytes={self.pos}-'} if self.pos else {})}
+                    self.r = urllib.request.urlopen(urllib.request.Request(self.url, headers=h), timeout=120)
+                    if self.pos and self.r.status != 206:
+                        raise IOError('the server ignored the Range request')
+                b = self.r.read(n)
+                self.pos += len(b)
+                return b
+            except (OSError, IOError) as e:  # timeouts, resets: reopen at the same position
+                print(f'  connection broke at {self.pos / 1e9:.2f} GB ({e}); resuming', flush=True)
+                self.r = None
+                time.sleep(min(60, 5 * (attempt + 1)))
+        raise IOError(f'{self.url}: gave up after 20 attempts')
+
+
 def mirror(b2, name, url, size, want_sha256):
-    sha256, sha1_all = hashlib.sha256(), hashlib.sha1()
-    r = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'sushila-mirror'}), timeout=900)
+    if want_sha256 and size and in_b2(b2, name, size):
+        print(f'  {name}: already in B2', flush=True)
+        return want_sha256, size
+    sha256 = hashlib.sha256()
+    r = _Stream(url)
     if size <= PART:
-        data = r.read()
+        data = b''
+        while True:
+            b = r.read(PART)
+            if not b:
+                break
+            data += b
         sha256.update(data)
         if want_sha256 and sha256.hexdigest() != want_sha256:
             sys.exit(f'sha256 mismatch for {url}')
