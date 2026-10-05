@@ -71,8 +71,10 @@ PY
 }
 
 M=$W/models
-Q7=$(ls $M/qwen2.5-coder-7b/weights/gguf/*.gguf); Q4=$(ls $M/qwen3-4b-instruct-2507/weights/gguf/*.gguf); QC=$(ls $M/qwen3-coder-30b-a3b/weights/gguf/*.gguf)
-QA=$(ls $M/qwen3-30b-a3b/weights/ollama/blobs/sha256-* | head -1); Q32=$(ls $M/qwen3-32b/weights/ollama/blobs/sha256-* | head -1)
+# b2_save.restore drops the restored prefix (weights/, weights/ollama/); an Ollama model's GGUF is its largest blob
+Q7=$(ls $M/qwen2.5-coder-7b/gguf/*.gguf); Q4=$(ls $M/qwen3-4b-instruct-2507/gguf/*.gguf); QC=$(ls $M/qwen3-coder-30b-a3b/gguf/*.gguf)
+QA=$(ls -S $M/qwen3-30b-a3b/blobs/sha256-* | head -1); Q32=$(ls -S $M/qwen3-32b/blobs/sha256-* | head -1)
+for f in "$Q7" "$Q4" "$QC" "$QA" "$Q32"; do [ -s "$f" ] || { log "model file missing: $f"; exit 1; }; done
 D25=$M/qwen2.5-coder-0.5b-instruct-q8_0.gguf; D3=$M/Qwen3-0.6B-Q8_0.gguf
 [ -s $D25 ] || curl -sL -o $D25 https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q8_0.gguf
 [ -s $D3 ] || curl -sL -o $D3 https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
@@ -85,6 +87,8 @@ for spec in "coder7b:$Q7:$D25" "qwen3_4b:$Q4:$D3" "coder30b:$QC:$D3" "qwen3_30b:
   run ${name}_gpu_turbo16 $model 99 -md $draft -ngld 99 --draft-max 16 --draft-min 1
   run ${name}_gpu_turbo8 $model 99 -md $draft -ngld 99 --draft-max 8 --draft-min 1
 done
+# CPU timings need an otherwise idle machine: wait for any other build on this pod to finish
+while pgrep -f "build_linux_cuda.sh" > /dev/null; do sleep 30; done
 for spec in "coder7b:$Q7:$D25" "qwen3_4b:$Q4:$D3" "coder30b:$QC:$D3"; do
   IFS=: read name model draft <<< "$spec"
   run ${name}_cpu_std $model 0 -t 8 -tb 8
