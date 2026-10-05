@@ -25,6 +25,7 @@ const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="u
 
 struct Host {
     data_dir: PathBuf,
+    downloads_dir: Option<PathBuf>,  // the user's Downloads folder: packs are saved there too, and looked for there
     procs: Mutex<HashMap<String, oneshot::Sender<()>>>,
     server: Mutex<Option<(String, oneshot::Sender<()>)>>,  // (address, stop signal) of the running web server
     links: std::sync::Mutex<Vec<String>>,  // sushila:// links received before the page was ready
@@ -80,6 +81,7 @@ fn host_info(app: AppHandle, host: State<'_, Host>) -> Value {
         "cpus": std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
         "memory_bytes": sys.total_memory(),
         "data_dir": host.data_dir.to_string_lossy(),
+        "downloads_dir": host.downloads_dir.as_ref().map(|d| d.to_string_lossy().to_string()),
         "home_dir": std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default(),
     })
 }
@@ -163,7 +165,8 @@ async fn file_sha256(path: String) -> Result<String, String> {
 
 /// Unpacks a .zip, .tar.gz or .tgz archive into dest (paths that would escape dest are skipped).
 #[tauri::command]
-async fn extract_archive(archive: String, dest: String) -> Result<(), String> {
+async fn extract_archive(host: State<'_, Host>, archive: String, dest: String) -> Result<(), String> {
+    if !under(&host.data_dir, Path::new(&dest)) { return Err("archives unpack only into the app folder".into()); }
     tokio::task::spawn_blocking(move || -> Result<(), String> {
         std::fs::create_dir_all(&dest).map_err(err)?;
         let f = std::fs::File::open(&archive).map_err(err)?;
@@ -182,6 +185,14 @@ async fn extract_archive(archive: String, dest: String) -> Result<(), String> {
                     use std::os::unix::fs::PermissionsExt;
                     std::fs::set_permissions(&out, std::fs::Permissions::from_mode(mode)).map_err(err)?;
                 }
+            }
+            Ok(())
+        } else if archive.ends_with(".sushilapack") || archive.ends_with(".tar") {
+            let mut t = tar::Archive::new(f);  // a pack: plain tar; the page verifies the signed index and every sha256
+            for e in t.entries().map_err(err)? {
+                let mut e = e.map_err(err)?;
+                if !matches!(e.header().entry_type(), tar::EntryType::Regular | tar::EntryType::Directory) { continue; }  // no links
+                e.unpack_in(&dest).map_err(err)?;
             }
             Ok(())
         } else {
@@ -209,14 +220,50 @@ fn verify_signature(public_key_b64: String, message: String, signature_b64: Stri
     key.verify(message.as_bytes(), &Signature::from_bytes(&sig)).is_ok()
 }
 
-/// Downloads may only be written inside the app's data folder (packs and engines are staged there first).
-fn inside_data_dir(host: &Host, dest: &Path) -> Result<(), String> {
-    if dest.components().any(|c| matches!(c, std::path::Component::ParentDir)) { return Err("download path contains '..'".into()); }
-    let root = std::fs::canonicalize(&host.data_dir).map_err(err)?;
+/// Files may only be written inside the app's data folder, or, for .sushilapack files, the user's Downloads folder.
+fn under(root: &Path, dest: &Path) -> bool {
+    let Ok(root) = std::fs::canonicalize(root) else { return false };
     let mut probe = dest.to_path_buf();
-    while !probe.exists() { if !probe.pop() { break; } }
-    let real = std::fs::canonicalize(&probe).map_err(err)?;
-    if real.starts_with(&root) { Ok(()) } else { Err(format!("refusing to download outside the app folder: {}", dest.display())) }
+    while !probe.exists() { if !probe.pop() { return false; } }
+    std::fs::canonicalize(&probe).map(|r| r.starts_with(&root)).unwrap_or(false)
+}
+fn inside_data_dir(host: &Host, dest: &Path) -> Result<(), String> {
+    if dest.components().any(|c| matches!(c, std::path::Component::ParentDir)) { return Err("path contains '..'".into()); }
+    if under(&host.data_dir, dest) { return Ok(()); }
+    let pack_file = dest.extension().and_then(|e| e.to_str()).map(|e| e == "sushilapack" || e == "part").unwrap_or(false)
+        && dest.to_string_lossy().contains(".sushilapack");
+    if pack_file { if let Some(dl) = &host.downloads_dir { if under(dl, dest) { return Ok(()); } } }
+    Err(format!("refusing to write outside the app folder: {}", dest.display()))
+}
+
+/// Copies a file into the app's data folder (e.g. a pack file found in Downloads); the page checks its sha256 after.
+#[tauri::command]
+async fn copy_file(host: State<'_, Host>, src: String, dest: String) -> Result<(), String> {
+    let d = PathBuf::from(&dest);
+    if !under(&host.data_dir, &d) { return Err("copies go only into the app folder".into()); }
+    if let Some(p) = d.parent() { tokio::fs::create_dir_all(p).await.map_err(err)?; }
+    tokio::fs::copy(&src, &d).await.map(|_| ()).map_err(err)
+}
+
+/// Moves a file or folder within the app's data folder (a verified pack from staging into place).
+#[tauri::command]
+fn move_path(host: State<'_, Host>, src: String, dest: String) -> Result<(), String> {
+    let (s, d) = (PathBuf::from(&src), PathBuf::from(&dest));
+    if !under(&host.data_dir, &s) || !under(&host.data_dir, &d) { return Err("moves stay inside the app folder".into()); }
+    if let Some(p) = d.parent() { std::fs::create_dir_all(p).map_err(err)?; }
+    if d.exists() { if d.is_dir() { std::fs::remove_dir_all(&d).map_err(err)?; } else { std::fs::remove_file(&d).map_err(err)?; } }
+    std::fs::rename(&s, &d).map_err(err)
+}
+
+/// The operating system's "open file" dialog. Returns the chosen path, or nothing if the user cancels.
+#[tauri::command]
+async fn pick_file(app: AppHandle, title: String, extensions: Vec<String>) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (tx, rx) = oneshot::channel();
+    let exts: Vec<&str> = extensions.iter().map(|s| s.as_str()).collect();
+    app.dialog().file().set_title(&title).add_filter("Sushila model pack", &exts).pick_file(move |p| { let _ = tx.send(p); });
+    let picked = rx.await.map_err(err)?;
+    Ok(picked.and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().to_string()))
 }
 
 // ---------- network ----------
@@ -591,11 +638,13 @@ pub fn run() {
     }));
     builder
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            app.manage(Host { data_dir, procs: Mutex::new(HashMap::new()), server: Mutex::new(None), links: std::sync::Mutex::new(vec![]), downloads: std::sync::Mutex::new(HashMap::new()) });
+            let downloads_dir = app.path().download_dir().ok();
+            app.manage(Host { data_dir, downloads_dir, procs: Mutex::new(HashMap::new()), server: Mutex::new(None), links: std::sync::Mutex::new(vec![]), downloads: std::sync::Mutex::new(HashMap::new()) });
             // sushila:// links (the "Install in Host Station" buttons on sushila.ai). The page decides what to do and
             // always asks the user first; here they are only queued and passed on.
             use tauri_plugin_deep_link::DeepLinkExt;
@@ -613,7 +662,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            host_info, open_url, verify_signature, download_control, read_text, write_text, list_dir, path_exists, make_dirs, remove_path, set_executable,
+            host_info, open_url, verify_signature, download_control, copy_file, move_path, pick_file, read_text, write_text, list_dir, path_exists, make_dirs, remove_path, set_executable,
             file_sha256, extract_archive, http_text, download, run_capture, spawn_process, kill_process,
             running_processes, run_elevated, server_start, server_stop, local_addresses, take_links
         ])

@@ -15,6 +15,7 @@ let emit = {};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const cmds = {
   host_info: () => ({ app_version: '0.1.0', os: 'linux', arch: 'x86_64', family: 'unix', cpus: 8, memory_bytes: 16e9, data_dir: DATA }),
+  list_dir: () => [], copy_file: () => {},
   read_text: ({ path: p }) => fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null, write_text: ({ path: p, content }) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, content); },
   path_exists: ({ path: p }) => fs.existsSync(p), file_sha256: ({ path: p }) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex'),
   http_text: async ({ url }) => url.includes('catalog') ? JSON.stringify(catalog) : 'ok', take_links: () => [], server_stop: async () => {}, server_start: async () => '', local_addresses: () => [],
@@ -37,8 +38,9 @@ const cmds = {
   spawn_process: ({ id, args }) => { spawned[id] = args; return 1; }, kill_process: ({ id }) => { delete spawned[id]; return true; },
   open_url: ({ url }) => { opened.push(url); },
 };
+fs.writeFileSync(path.join(DATA, 'state.json'), JSON.stringify({ settings: { keepCopy: false } }));  // this test: packs download straight into the app
 const w = new JSDOM('<!doctype html><div id="app"></div>', { runScripts: 'outside-only', pretendToBeVisual: true }).window;
-w.confirm = () => true;
+w.confirm = (q) => !/somewhere else/.test(q);
 w.__TAURI__ = { core: { invoke: async (c, a) => { if (!cmds[c]) throw new Error('missing ' + c); return cmds[c](a || {}); } }, event: { listen: async (ev, fn) => { emit[ev] = fn; } } };
 w.eval(JS);
 const d = w.document, msg = () => d.getElementById('msg').textContent;
@@ -71,12 +73,12 @@ ok(/cancelled/.test(msg()) && !fs.existsSync(path.join(DATA, 'packs/qwen3-32b-q4
 // 4. the models list: start server, run inference, stop server
 btn('Home').click(); await sleep(50);
 const row = [...d.querySelectorAll('tr')].find((r) => r.textContent.includes('Qwen2.5 0.5B'));
-ok(row && btn('Start server', row) && btn('Run inference', row), 'Home lists the model with Start server and Run inference');
+ok(row && btn('Start server', row) && btn('Open inference', row), 'Home lists the model with Start server and Open inference');
 btn('Start server', row).click(); await sleep(400);
 ok(spawned['engine:qwen2.5-0.5b-q4km'] && JSON.parse(fs.readFileSync(path.join(DATA, 'state.json'))).running['qwen2.5-0.5b-q4km'], 'Start server starts it on its own port');
 const row2 = [...d.querySelectorAll('tr')].find((r) => r.textContent.includes('Qwen2.5 0.5B'));
-btn('Run inference', row2).click(); await sleep(200);
-ok(opened.at(-1) && /\?t=[0-9a-f]+&model=qwen2\.5-0\.5b-q4km$/.test(opened.at(-1)), 'Run inference opens the page for that model');
+btn('Open inference', row2).click(); await sleep(200);
+ok(opened.at(-1) && /\?t=[0-9a-f]+&model=qwen2\.5-0\.5b-q4km$/.test(opened.at(-1)), 'Open inference opens the page for that model');
 btn('Stop server', [...d.querySelectorAll('tr')].find((r) => r.textContent.includes('Qwen2.5 0.5B'))).click(); await sleep(200);
 ok(!spawned['engine:qwen2.5-0.5b-q4km'], 'Stop server stops it');
 // 5. a pack whose file points at another website is refused before any download

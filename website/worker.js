@@ -391,7 +391,8 @@ function page(env, user, models, packs = [], app = null, mode = 'home') {
       <td>${esc(p.category || '')}</td>
       <td class="num">${gb(p.files.reduce((a, f) => a + (f.bytes || 0), 0))}</td>
       <td>${p.licenseUrl ? `<a href="${esc(p.licenseUrl)}">${esc(p.license)}</a>` : esc(p.license)}</td>
-      <td class="act"><a class="btn small hsinstall" href="sushila://install-pack/${esc(p.id)}" data-name="${esc(p.name)}">Install in Host Station</a></td>
+      <td class="act"><a class="btn small hsinstall" href="sushila://install-pack/${esc(p.id)}" data-name="${esc(p.name)}">Install in Host Station</a>
+        <a class="btn small ghost" href="/hoststation/pack/${esc(p.id)}.sushilapack" title="Save the pack to your Downloads folder; Host Station installs it from there">Download pack</a></td>
     </tr>`).join('');
 
   const listedRows = LISTED.map((m) => `
@@ -1789,7 +1790,8 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
       });
       if (files.some((f) => !f)) continue;  // a file is not in B2 (yet): do not offer a broken pack
       const { model, files: _f, ollamaGguf, ...pub } = p;
-      packs.push({ ...pub, files, index: { text, signature: signature.trim() } });
+      const packBytes = 512 + 0 + files.reduce((a, f) => a + 512 + f.bytes + pad512(f.bytes), 0) + 1024;  // approximate (+ metadata)
+      packs.push({ ...pub, files, index: { text, signature: signature.trim() }, packUrl: `${origin}/hoststation/pack/${p.id}.sushilapack`, packBytes });
     } catch (e) { console.error('hoststation pack', p.id, e.message); }
   }
   let engine = null;
@@ -2057,6 +2059,85 @@ const HS_WIZARD = (app, packs = []) => {
 </script>`;
 };
 
+// --- .sushilapack: one file per model pack (a plain tar) --------------------------------------------------------------
+// sushila-pack.json (the catalog entry: files with sha256, the Sushila-signed index) followed by every pack file at its
+// install path. Streamed from B2 with an exact Content-Length, and resumable: a Range request starts at the right byte,
+// even inside a file. Host Station installs it after checking the signature and every sha256.
+function tarHeader(name, size) {
+  const h = new Uint8Array(512), enc = new TextEncoder();
+  const put = (off, len, str) => h.set(enc.encode(str).slice(0, len), off);
+  let prefix = '';
+  if (name.length > 100) { const i = name.lastIndexOf('/', 155); prefix = name.slice(0, i); name = name.slice(i + 1); }
+  put(0, 100, name); put(100, 8, '0000644\0'); put(108, 8, '0000000\0'); put(116, 8, '0000000\0');
+  if (size < 8589934592) put(124, 12, size.toString(8).padStart(11, '0') + '\0');
+  else { h[124] = 0x80; let v = BigInt(size); for (let i = 135; i >= 125; i--) { h[i] = Number(v & 255n); v >>= 8n; } }  // GNU base-256: files over 8 GB
+  put(136, 12, Math.floor(Date.UTC(2026, 0, 1) / 1000).toString(8).padStart(11, '0') + '\0');
+  h[156] = 48;  // '0': regular file
+  put(257, 6, 'ustar\0'); put(263, 2, '00'); put(345, 155, prefix);
+  for (let i = 148; i < 156; i++) h[i] = 32;
+  let sum = 0; for (const b of h) sum += b;
+  put(148, 8, sum.toString(8).padStart(6, '0') + '\0 ');
+  return h;
+}
+const pad512 = (n) => (512 - (n % 512)) % 512;
+
+async function packLayout(env, b2, origin, id) {
+  const cat = await hostCatalog(env, b2, origin);
+  const p = cat.packs.find((x) => x.id === id);
+  if (!p) return null;
+  const meta = new TextEncoder().encode(JSON.stringify({ format: 1, id: p.id, name: p.name, kind: p.kind || 'text', category: p.category, license: p.license,
+    licenseUrl: p.licenseUrl, description: p.description, artifacts: p.artifacts || [], serve: p.serve, minRamGB: p.minRamGB,
+    files: p.files.map(({ path, src, role, bytes, sha256 }) => ({ path, src, role, bytes, sha256 })), index: p.index }, null, 1));
+  const segs = [{ data: tarHeader('sushila-pack.json', meta.length) }, { data: meta }, { data: new Uint8Array(pad512(meta.length)) }];
+  p.files.forEach((f, i) => {
+    const d = hostCatalogCache.direct[`${p.id}/${i}`];
+    segs.push({ data: tarHeader(f.path, f.bytes) }, { url: d.url, size: f.bytes }, { data: new Uint8Array(pad512(f.bytes)) });
+  });
+  segs.push({ data: new Uint8Array(1024) });
+  let off = 0;
+  for (const s of segs) { s.start = off; s.size = s.size ?? s.data.length; off += s.size; }
+  return { pack: p, segs, total: off, file: `${p.id}.sushilapack` };
+}
+
+function packStream(layout, from) {
+  const parts = layout.segs.filter((s) => s.start + s.size > from && s.size > 0);
+  let i = 0, reader = null;
+  return new ReadableStream({
+    async pull(ctl) {
+      for (;;) {
+        if (reader) {
+          const { done, value } = await reader.read();
+          if (!done) { ctl.enqueue(value); return; }
+          reader = null; i++;
+          continue;
+        }
+        if (i >= parts.length) { ctl.close(); return; }
+        const s = parts[i], skip = Math.max(0, from - s.start);
+        if (s.data) { ctl.enqueue(skip ? s.data.slice(skip) : s.data); i++; return; }
+        const r = await fetch(s.url, skip ? { headers: { range: `bytes=${skip}-` } } : {});
+        if (!r.ok) { ctl.error(new Error('B2 ' + r.status)); return; }
+        reader = r.body.getReader();
+      }
+    },
+    cancel() { if (reader) reader.cancel(); },
+  });
+}
+
+async function servePack(request, env, b2, db, ctx, origin, id) {
+  const layout = await packLayout(env, b2, origin, id);
+  if (!layout) return new Response('Not found', { status: 404, headers: SEC });
+  const m = (request.headers.get('range') || '').match(/^bytes=(\d+)-$/);
+  const from = m ? Math.min(+m[1], layout.total) : 0;
+  ctx.waitUntil(logDownload(db, request, { file: layout.file, kind: 'pack', packId: id, bytes: layout.total }));
+  const len = layout.total - from;
+  let body = packStream(layout, from);
+  if (typeof FixedLengthStream !== 'undefined') { const fl = new FixedLengthStream(len); body.pipeTo(fl.writable); body = fl.readable; }
+  const h = { 'content-type': 'application/x-tar', 'content-disposition': `attachment; filename="${layout.file}"`, 'accept-ranges': 'bytes',
+    'content-length': String(len), 'cache-control': 'no-store', ...SEC };
+  if (from) h['content-range'] = `bytes ${from}-${layout.total - 1}/${layout.total}`;
+  return new Response(body, { status: from ? 206 : 200, headers: h });
+}
+
 // --- Admin APIs (isAdmin on the user's row; set it with makeUserAdmin.py) ---
 async function adminApi(request, env, db, user, path) {
   if (!user || !user.isAdmin) return json({ error: 'Admins only.' }, 403);
@@ -2237,6 +2318,10 @@ export default {
         let packs = [], app = null;
         try { if (b2.configured) [packs, app] = await Promise.all([hostCatalog(env, b2, url.origin).then((c) => c.packs), hostApp(env, b2)]); } catch (e) { console.error('packs', e.message); }
         return html(page(env, user, await visibleModels(db), packs, app));
+      }
+      if (p.startsWith('/hoststation/pack/') && p.endsWith('.sushilapack')) {
+        if (!b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
+        return await servePack(request, env, b2, db, ctx, url.origin, decodeURIComponent(p.slice('/hoststation/pack/'.length, -'.sushilapack'.length)));
       }
       if (p.startsWith('/hoststation/get/')) {  // a pack file or engine build: count it, then hand over to B2
         if (!b2.configured) return new Response('Not available.', { status: 503, headers: SEC });

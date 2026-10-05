@@ -25,7 +25,7 @@
   // Installed right after Sushila.cpp, so there is always a model to try: small (0.5 GB), fast on any computer, and it
   // carries a precomputed landscape. Any pack id from the catalog works here.
   const DEFAULT_MODEL = 'qwen2.5-0.5b-q4km';
-  const DEFAULTS = { catalogUrl: CATALOG_URL, port: 8765, enginePort: 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user', parallel: 1 };
+  const DEFAULTS = { catalogUrl: CATALOG_URL, port: 8765, enginePort: 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user', parallel: 1, keepCopy: true };
   const SHARE_DEFAULTS = { enabled: false, bind: '0.0.0.0', hosts: [], keys: [], perMinute: 30 };
   // Sushila signing keys (Ed25519, base64). Every pack and engine build must come with an index signed by one of these;
   // the private key never leaves the signing machine (scripts/precompute/sign_checksums.py). Add a new key here
@@ -196,7 +196,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const pack = (HOST.catalog.packs || []).find((p) => p.id === DEFAULT_MODEL);
       if (!pack) { log(`the default model ${DEFAULT_MODEL} is not in the catalog`); return; }
       log(`installing the default model: ${pack.name}`);
-      await installPack(pack);
+      await installPack(pack, { noAsk: true });
     }
 
     // Everything is downloaded and verified in the user's folder first; an all-users install then copies it with
@@ -234,16 +234,89 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       for (const a of (pack.serve.args || [])) if (!/^[\w.=:-]{1,64}$/.test(a)) throw new Error(`${pack.name}: unexpected engine option ${a}`);
     }
 
-    // ---------- model packs
-    async function installPack(pack) {
+    // ---------- model packs: the "Install" flow
+    //   1. already installed?                         -> say so; Open inference
+    //   2. <pack>.sushilapack in the Downloads folder? -> install from it (no download)
+    //   3. not there: "Did you save a copy elsewhere?" -> the system's file chooser
+    //   4. otherwise download <pack>.sushilapack into Downloads (kept, optional), then install from it
+    // Wherever the file comes from, the Sushila signature and every sha256 are checked before it is installed.
+    async function installPack(pack, opts = {}) {
       if (!HOST.state.engine) throw new Error('Install Sushila.cpp first (Engine tab).');
+      if (HOST.state.packs[pack.id]) { HOST.lastInstalled = pack.id; say(`${pack.name} is already installed.`, 'ok'); return; }
       await checkPack(pack);
+      const found = await findPackFile(pack.id);
+      if (found) { log(`found ${found} in your Downloads folder`); await installFromPackFile(found, pack.id); return; }
+      if (!opts.noAsk && confirm(`${pack.name} is not in your Downloads folder.\n\nDid you save a copy of it somewhere else (another folder, a USB drive)?\n\nOK = choose the file   ·   Cancel = download it now`)) {
+        const picked = await invoke('pick_file', { title: `Choose ${pack.id}.sushilapack`, extensions: ['sushilapack'] });
+        if (picked) { await installFromPackFile(picked, pack.id); return; }
+      }
+      if (HOST.state.settings.keepCopy && HOST.info.downloads_dir && pack.packUrl && ALLOWED_SOURCE(pack.packUrl)) {
+        const dest = join(HOST.info.downloads_dir, `${pack.id}.sushilapack`);
+        await download('packfile:' + pack.id, pack.packUrl, dest, null, null, `${pack.name} (saved to Downloads)`);  // size: from the server
+        await installFromPackFile(dest, pack.id);
+        return;
+      }
+      await installPackFiles(pack);  // no copy wanted: download the files straight into the app
+    }
+
+    async function findPackFile(id) {
+      const dir = HOST.info.downloads_dir;
+      if (!dir) return null;
+      const re = new RegExp('^' + id.replace(/[.\-]/g, '\\$&') + '( ?\\(\\d+\\))?\\.sushilapack$');
+      const hit = (await invoke('list_dir', { path: dir }).catch(() => [])).filter((e) => !e.is_dir && re.test(e.name)).sort((a, b) => b.bytes - a.bytes)[0];
+      return hit ? join(dir, hit.name) : null;
+    }
+
+    // Unpack into a staging folder inside the app, check everything against the signed index, then move into place.
+    async function installFromPackFile(path, expectId) {
+      const staging = join(userRoot(), 'staging', (expectId || 'pack') + '-' + randomToken().slice(0, 8));
+      try {
+        await invoke('extract_archive', { archive: path, dest: staging });
+        const raw = await invoke('read_text', { path: join(staging, 'sushila-pack.json') });
+        if (!raw) throw new Error('This file is not a Sushila model pack.');
+        const meta = JSON.parse(raw);
+        if (expectId && meta.id !== expectId) throw new Error(`This file holds ${meta.id}, not ${expectId}.`);
+        const index = await signedIndex(meta.index, meta.name || meta.id);
+        const listed = Object.fromEntries((index.files || []).map((f) => [f.path, f]));
+        for (const f of meta.files) {
+          if (!safeRelPath(f.path) || !PACK_FILE_OK.test(f.path)) throw new Error(`${meta.name}: ${f.path} is not an allowed data file.`);
+          const ref = listed[f.src];
+          if (!ref || ref.sha256 !== f.sha256 || ref.bytes !== f.bytes) throw new Error(`${meta.name}: ${f.path} does not match the signed index.`);
+          const got = await invoke('file_sha256', { path: join(staging, ...f.path.split('/')) }).catch(() => 'missing');
+          if (got !== f.sha256) throw new Error(`${meta.name}: ${f.path} is ${got === 'missing' ? 'missing' : 'damaged or changed'}; nothing was installed.`);
+        }
+        if (!safeRelPath(meta.serve && meta.serve.model) || !meta.files.some((f) => f.path === meta.serve.model)) throw new Error(`${meta.name}: the model file is not part of the pack.`);
+        const dir = join(userRoot(), 'packs', meta.id);
+        await invoke('remove_path', { path: join(staging, 'sushila-pack.json') });
+        await invoke('move_path', { src: staging, dest: dir });
+        let final = dir;
+        if (HOST.state.settings.scope === 'all') final = await copyForAllUsers(dir, join(root(), 'packs', meta.id));
+        HOST.state.packs[meta.id] = { id: meta.id, name: meta.name, kind: meta.kind || 'text', bytes: meta.files.reduce((a, f) => a + f.bytes, 0), dir: final, model: meta.serve.model,
+          args: meta.serve.args || [], files: meta.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })), license: meta.license,
+          scope: HOST.state.settings.scope, installedAt: new Date().toISOString(), artifacts: meta.artifacts || [], source: path };
+        HOST.lastInstalled = meta.id;
+        await saveState();
+        log(`${meta.name} installed from ${path}`);
+      } finally {
+        await invoke('remove_path', { path: staging }).catch(() => {});
+      }
+    }
+    async function importPackFile() {
+      const picked = await invoke('pick_file', { title: 'Choose a Sushila model pack (.sushilapack)', extensions: ['sushilapack'] });
+      if (picked) await installFromPackFile(picked, null);
+    }
+
+    async function installPackFiles(pack) {
       const userDir = join(userRoot(), 'packs', pack.id);
       let i = 0;
       for (const f of pack.files) {
         i += 1;
         const dest = join(userDir, ...f.path.split('/'));
         if ((await invoke('path_exists', { path: dest })) && (await invoke('file_sha256', { path: dest })) === f.sha256) continue;
+        const saved = HOST.info.downloads_dir && join(HOST.info.downloads_dir, f.path.split('/').pop());
+        if (saved && (await invoke('path_exists', { path: saved })) && (await invoke('file_sha256', { path: saved })) === f.sha256) {
+          log(`using ${saved} from your Downloads folder`); await invoke('copy_file', { src: saved, dest }); continue;
+        }
         await download(`pack:${pack.id}:${i}`, f.url, dest, f.sha256, f.bytes, `${pack.name}: file ${i} of ${pack.files.length} (${f.path.split('/').pop()})`);
       }
       let dir = userDir;
@@ -431,7 +504,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     let tab = 'home';
     function render() {
       const app = $('app');
-      app.replaceChildren(top(), tabs(), el('main', {}, el('div', { id: 'msg', class: 'msg ' + msg.kind }, msg.text), screen()), downloadsPanel());
+      app.replaceChildren(top(), tabs(), el('main', {}, el('div', { id: 'msg', class: 'msg ' + msg.kind }, msg.text), installedBanner(), screen()), downloadsPanel());
     }
     function top() {
       const n = Object.keys(HOST.state.running).length;
@@ -463,6 +536,13 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           el('button', { class: 'danger', onclick: () => controlDownload(d.id, 'cancel') }, 'Cancel')));
     }
     function progressBars() { return Object.values(HOST.downloads).map(downloadItem); }
+    function installedBanner() {  // after an install: one click to use it
+      const p = HOST.lastInstalled && HOST.state.packs[HOST.lastInstalled];
+      if (!p) return null;
+      return el('div', { class: 'card', style: 'margin-bottom:14px;border-color:var(--acc)' }, el('b', {}, `${p.name} is installed.`),
+        el('div', { class: 'row' }, el('button', { class: 'big', disabled: HOST.busy, onclick: () => act(() => runInference(p.id), `${p.name}: the inference page is open in your browser.`) }, p.kind === 'music' ? 'Open music page' : p.kind === 'image' ? 'Open image page' : 'Open inference'),
+          el('button', { class: 'ghost', onclick: () => { HOST.lastInstalled = null; render(); } }, 'Close')));
+    }
     function downloadsPanel() {
       const list = Object.values(HOST.downloads);
       return el('div', { class: 'dlpanel' + (HOST.showDownloads ? '' : ' hidden') }, el('div', { class: 'row', style: 'margin:0 0 8px' }, el('h2', { style: 'flex:1;margin:0' }, 'Downloads'),
@@ -490,7 +570,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
             el('td', {}, el('div', { class: 'row', style: 'margin:0' },
               r ? el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(() => stopModel(p.id), `${p.name} stopped.`) }, 'Stop server')
                 : el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => startModel(p.id), `${p.name} is running.`) }, 'Start server'),
-              el('button', { disabled: HOST.busy || !s.engine, onclick: () => act(() => runInference(p.id), `${p.name}: the inference page is open in your browser.`) }, p.kind === 'music' ? 'Create music' : 'Run inference'))));
+              el('button', { disabled: HOST.busy || !s.engine, onclick: () => act(() => runInference(p.id), `${p.name}: the inference page is open in your browser.`) }, p.kind === 'music' ? 'Create music' : p.kind === 'image' ? 'Create images' : 'Open inference'))));
         })));
     }
     function homeScreen() {
@@ -552,7 +632,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           cats.map((cat) => el('div', {}, el('h2', { style: 'margin-top:16px' }, cat),
             el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Pack'), el('th', {}, 'Size'), el('th', {}, 'License'), el('th', {}, ''), el('th', {}, ''))), el('tbody', {}, rowsFor(cat))))),
           list.length ? null : el('div', { class: 'sub', style: 'margin-top:10px' }, 'No packs listed yet.'),
-          el('div', { class: 'row' }, el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(loadCatalog, 'Catalog refreshed.') }, 'Refresh catalog'))),
+          el('div', { class: 'row' }, el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(loadCatalog, 'Catalog refreshed.') }, 'Refresh catalog'),
+            el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(importPackFile, 'The pack is installed.') }, 'Add a pack file (.sushilapack)…'))),
         local.length ? el('div', { class: 'card', style: 'margin-top:14px' }, el('h2', {}, 'Installed, not in the catalog'), local.map((p) => el('div', {}, p.name))) : null,
         progressBars());
     }
@@ -573,12 +654,14 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         field('port', 'Inference page port', 'number'), field('enginePort', 'Engine port', 'number'),
         field('threads', 'CPU threads (0 = automatic)', 'number'), field('contextSize', 'Context length (tokens)', 'number'),
         field('gpuLayers', 'Layers on the GPU (0 = CPU only)', 'number'),
+        el('label', { class: 'f' }, el('input', { type: 'checkbox', id: 'set-keepCopy', checked: s.keepCopy }), ' Keep a copy of downloaded packs (.sushilapack) in my Downloads folder'),
+        el('div', { class: 'sub' }, 'Handy for installing on another computer or reinstalling offline; uses the pack\'s size again on disk.'),
         el('div', { class: 'row' }, el('button', { onclick: () => act(async () => {
           const cu = $('set-catalogUrl').value.trim();
           if (!ALLOWED_SOURCE(cu)) throw new Error('The catalog must come from sushila.ai (or another allowed source).');
           s.catalogUrl = cu;
           for (const k of ['port', 'enginePort', 'threads', 'contextSize', 'gpuLayers']) s[k] = Math.max(0, parseInt($('set-' + k).value, 10) || 0);
-          s.scope = $('set-scope').value;
+          s.scope = $('set-scope').value; s.keepCopy = $('set-keepCopy').checked;
           await saveState(); await loadCatalog();
         }, 'Saved. A new inference-page port takes effect after a restart.') }, 'Save')),
         el('div', { class: 'sub', style: 'margin-top:12px' }, `Data folder: ${userRoot()}`),
