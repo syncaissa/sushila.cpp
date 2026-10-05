@@ -470,9 +470,20 @@ static void sp_accumulate(const struct sp_weight * e, const int32_t * kept, cons
 #    define SP_TLS __declspec(thread)
 #    include <intrin.h>
 #    define SP_POPCOUNT(x) ((int) __popcnt(x))
+#    define SP_PUBLISH(p, v) InterlockedExchangePointer((void * volatile *) (p), (v))                  // full barrier
+#    define SP_LOAD64(p) ((int64_t) InterlockedCompareExchange64((volatile LONG64 *) (p), 0, 0))
+static bool sp_cas64(int64_t * p, int64_t * expected, int64_t desired) {
+    const int64_t old = InterlockedCompareExchange64((volatile LONG64 *) p, desired, *expected);
+    if (old == *expected) { return true; }
+    *expected = old;
+    return false;
+}
 #else
 #    define SP_TLS __thread
 #    define SP_POPCOUNT(x) __builtin_popcount(x)
+#    define SP_PUBLISH(p, v) __atomic_store_n((p), (v), __ATOMIC_RELEASE)
+#    define SP_LOAD64(p) __atomic_load_n((p), __ATOMIC_RELAXED)
+#    define sp_cas64(p, e, d) __atomic_compare_exchange_n((p), (e), (d), false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)
 #endif
 static SP_TLS int32_t * tl_kept;
 static SP_TLS float   * tl_xk, * tl_samp, * tl_tmp, * tl_msum;
@@ -559,7 +570,7 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
                     GGML_ASSERT(e->data && e->norms);
                 }
                 e->next = sp.list;
-                __atomic_store_n(&sp.list, e, __ATOMIC_RELEASE);   // published fully initialized (other threads read the list)
+                SP_PUBLISH(&sp.list, e);   // published fully initialized (other threads read the list)
             }
             sp.cur = e;
         }
@@ -609,12 +620,12 @@ bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor
     // (remaining / (2 nth), long contiguous streams) and down to SP_KCH at the end (balance)
     int my = 0;
     for (;;) {
-        int64_t i0 = __atomic_load_n(&sp.next_col, __ATOMIC_RELAXED), len;
+        int64_t i0 = SP_LOAD64(&sp.next_col), len;
         do {
             if (i0 >= K) { break; }
             len = (K - i0) / (2 * nth);
             len = len < SP_KCH ? SP_KCH : (len / SP_KCH) * SP_KCH;
-        } while (!__atomic_compare_exchange_n(&sp.next_col, &i0, i0 + len, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+        } while (!sp_cas64(&sp.next_col, &i0, i0 + len));
         if (i0 >= K) { break; }
         const int64_t i1 = i0 + len < K ? i0 + len : K;
         int n = 0;

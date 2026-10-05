@@ -16,15 +16,15 @@ jobs:
       matrix:
         include:
           # portable binaries: never tuned to the CI machine's CPU (GGML_NATIVE=OFF); x86 builds need AVX2 (2013+ CPUs)
-          - { os: windows-latest, key: windows-x86_64, archive: zip, exe: .exe, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON" }
+          - { os: windows-2022, key: windows-x86_64, archive: zip, exe: .exe, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON" }
           - { os: macos-14, key: macos-aarch64, archive: tar.gz, exe: "", cmake: "-DGGML_NATIVE=OFF -DGGML_METAL_EMBED_LIBRARY=ON" }
           - { os: macos-14, key: macos-x86_64, archive: tar.gz, exe: "", cmake: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DGGML_METAL=OFF -DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON" }
           - { os: ubuntu-22.04, key: linux-x86_64, archive: tar.gz, exe: "", cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON" }
           # NVIDIA GPUs (RTX 20-series to 50-series, A100/H100): CUDA builds; the CUDA runtime libraries ship next to the programs
-          - { os: windows-latest, key: windows-x86_64-cuda, archive: zip, exe: .exe, cuda: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON", cuda_arch: "75;80;86;89;90;120" }
+          - { os: windows-2022, key: windows-x86_64-cuda, archive: zip, exe: .exe, cuda: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON", cuda_arch: "75;80;86;89;90;120" }
           - { os: ubuntu-22.04, key: linux-x86_64-cuda, archive: tar.gz, exe: "", cuda: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON", cuda_arch: "75;80;86;89;90;120" }
           # AMD Radeon / Intel Arc and Iris GPUs: Vulkan builds (the Vulkan runtime comes with the graphics driver)
-          - { os: windows-latest, key: windows-x86_64-vulkan, archive: zip, exe: .exe, vulkan: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_VULKAN=ON" }
+          - { os: windows-2022, key: windows-x86_64-vulkan, archive: zip, exe: .exe, vulkan: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_VULKAN=ON" }
           - { os: ubuntu-22.04, key: linux-x86_64-vulkan, archive: tar.gz, exe: "", vulkan: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_VULKAN=ON" }
     runs-on: ${{ matrix.os }}
     steps:
@@ -33,8 +33,17 @@ jobs:
         if: ${{ matrix.cuda }}
         uses: Jimver/cuda-toolkit@v0.2.24
         with: { cuda: "12.8.1", method: network, sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''["nvcc","cudart","cublas","cublas_dev","thrust","visual_studio_integration"]'' || ''["nvcc","cudart","thrust"]'' }}', non-cuda-sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''[]'' || ''["libcublas","libcublas-dev"]'' }}' }
-      - name: Vulkan SDK
-        if: ${{ matrix.vulkan }}
+      - name: Vulkan SDK (Windows; the full LunarG installer, as llama.cpp's own releases do: includes SPIRV-Headers)
+        if: ${{ matrix.vulkan && startsWith(matrix.os, 'windows') }}
+        shell: pwsh
+        run: |
+          $v = "1.4.357.0"
+          curl.exe -o $env:RUNNER_TEMP/VulkanSDK-Installer.exe -L "https://sdk.lunarg.com/sdk/download/$v/windows/vulkansdk-windows-X64-$v.exe"
+          & "$env:RUNNER_TEMP\VulkanSDK-Installer.exe" --accept-licenses --default-answer --confirm-command install
+          Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\$v"
+          Add-Content $env:GITHUB_PATH "C:\VulkanSDK\$v\bin"
+      - name: Vulkan SDK (Linux)
+        if: ${{ matrix.vulkan && !startsWith(matrix.os, 'windows') }}
         uses: jakoch/install-vulkan-sdk-action@v1
         with: { vulkan_version: "1.4.309.0", install_runtime: true, cache: true, stripdown: true }
       - name: Visual Studio environment and Ninja (Windows CUDA builds bypass the VS CUDA integration)
