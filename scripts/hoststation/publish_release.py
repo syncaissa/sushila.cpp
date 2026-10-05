@@ -10,7 +10,7 @@ Sushila Host Station, Image Generator, Music Generator) and
        sushilaMusicGenerator.cpp-...   (GitHub counts every download)
   2. keeps the same file permanently in B2: hoststation/engine/<v>/ and hoststation/app/<v>/ (never deleted)
   3. updates hoststation/engine/LATEST.json and hoststation/app/LATEST.json (each entry: B2 file, sha256, GitHub URL)
-  4. writes the release notes: the download table with sha256 sums
+  4. writes the download table with sha256 sums into the release notes and downloads/README.md of the repository
 The engine list must be signed afterwards (the signing key never leaves the signing machine):
   python3 scripts/precompute/sign_checksums.py sign hoststation/engine
 Needs ~/.github_token and ~/.b2_key.
@@ -156,7 +156,11 @@ def main():
         app.update({'built_utc': now, 'run': int(a.app_run)})
         b2.put('hoststation/app/LATEST.json', json.dumps(app, indent=1).encode())
     notes = readme(v, tag, eng, app)
-    gh('PATCH', f'https://api.github.com/repos/{PUB}/releases/{rel["id"]}', {'body': notes.split('<!-- release -->')[1]})  # the main README is not touched
+    gh('PATCH', f'https://api.github.com/repos/{PUB}/releases/{rel["id"]}', {'body': notes.split('<!-- release -->')[1]})
+    cur = gh('GET', f'https://api.github.com/repos/{PUB}/contents/downloads/README.md', ok404=True)  # the main README is not touched
+    gh('PUT', f'https://api.github.com/repos/{PUB}/contents/downloads/README.md', {'message': f'downloads: Sushila {v}', 'content': base64.b64encode(notes.encode()).decode(),
+                                                                                   **({'sha': cur['sha']} if cur else {})})
+    print('updated downloads/README.md (git pull to get it locally)')
     print(f'https://github.com/{PUB}/releases/tag/{tag}')
     if a.engine_run:
         print('next: python3 scripts/precompute/sign_checksums.py sign hoststation/engine')
@@ -198,8 +202,10 @@ apps refuse anything that does not match. Model files come only from Sushila's o
 Each file above is also kept permanently on Sushila's own storage with the same sha256.
 <!-- release -->
 
+All releases: https://github.com/syncaissa/sushila.cpp/releases
+
 ## Questions, bugs
-Open an issue here or write via https://sushila.ai. License: MIT (Syncaissa Systems Inc.); the engine includes llama.cpp,
+Open an issue or write via https://sushila.ai. License: MIT (Syncaissa Systems Inc.); the engine includes llama.cpp,
 stable-diffusion.cpp and acestep.cpp (MIT), licenses inside each archive. Models keep their own licenses (shown before
 download).
 '''
