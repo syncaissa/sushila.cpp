@@ -1,17 +1,18 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-05T17:16Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-05T18:30Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
 | `ace-step-15` | weights (4) | 8.1 GB | yes | 2026-10-05 |
 | `deepseek-r1-distill-llama-70b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 88.6 GB | yes | 2026-10-05 |
 | `qwen2.5-0.5b-q4km` | landscape (48), landscapes-earlier (4), calibration (7), weights (1) | 0.8 GB | yes | 2026-10-05 |
+| `qwen3-235b-a22b` | draft-head (2), checkpoints (2), training-data (2), config.env (1) | 4.9 GB | **no** | 2026-10-05 |
 | `qwen3-30b-a3b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (17) | 36.2 GB | yes | 2026-10-04 |
 | `qwen3-32b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (20) | 42.7 GB | yes | 2026-10-04 |
 | `z-image-turbo` | weights (3) | 6.7 GB | yes | 2026-10-05 |
-| `z-image-turbo-nvidia` | **no CHECKSUMS.json** | | | |
-| `z-image-turbo-nvidia-fp4` | **no CHECKSUMS.json** | | | |
+| `z-image-turbo-nvidia` | weights (16) | 12.2 GB | yes | 2026-10-05 |
+| `z-image-turbo-nvidia-fp4` | weights (16) | 12.4 GB | **no** | 2026-10-05 |
 | `z-image-turbo-q8` | weights (3) | 9.4 GB | yes | 2026-10-05 |
 
 ## Each model
@@ -53,6 +54,19 @@ Output-layer landscape for Qwen2.5-0.5B-Instruct Q4_K_M (CPU decoding 1.13-1.26x
   - `calibration/` (7 files, 0.02 GB): calibration activations and imatrix used to build the landscape
   - `weights/` (1 files, 0.40 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
+### `qwen3-235b-a22b`
+
+
+
+- **Use:** python3 -m sglang.launch_server --model-path <sglang_target> --speculative-algorithm EAGLE3 --speculative-num-steps 4 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --speculative-draft-model-path draft-head/
+- **Results:** -
+- **Bound to:** `{"sglang_target": {"repo": "QuixiAI/Qwen3-235B-A22B-AWQ", "revision": "1df91c166baa937f2d571a9cece7a1037c1cc772"}, "warm_start_head": {"repo": "lmsys/Qwen3-235B-A22B-EAGLE3", "revision": "d75f968c7d9d19ebdfb1a2fbdd176d61a032da14"}, "ollama_gguf": {"tag": "qwen3:235b-a22b-q4_K_M", "sha256": null}}`
+- **Folders:**
+  - `draft-head/` (2 files, 2.43 GB): the precomputed draft head chosen on validation prompts (ready to serve)
+  - `checkpoints/` (2 files, 2.43 GB): every other trained head checkpoint (for re-selection or further training)
+  - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
+  - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
+
 ### `qwen3-30b-a3b`
 
 EAGLE-3 draft head refitted to Qwen3-30B-A3B (MoE) (warm start AngelSlim/Qwen3-a3B_eagle3); 1.65x vs Ollama; keeps throughput at 64 users.
@@ -90,6 +104,26 @@ Image pack (no Sushila artifacts yet): Z-Image-Turbo Q4_K + Qwen3-4B text encode
 - **Bound to:** `{"huggingface": [{"repo": "leejet/Z-Image-Turbo-GGUF", "file": "z_image_turbo-Q4_K.gguf", "revision": "c61c0e422dc8b541b7548cf33a4ef8302b0f8085", "sha256": "14b375ab4f226bc5378f68f37e899ef3c2242b8541e61e2bc1aff40976086fbd", "license": "apache-2.0"}, {"repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF", "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "revision": "a06e946bb6b655725eafa393f4a9745d460374c9", `
 - **Folders:**
   - `weights/` (3 files, 6.70 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `z-image-turbo-nvidia`
+
+
+
+- **Use:** 
+- **Results:** -
+- **Bound to:** `{"huggingface": [{"repo": "Tongyi-MAI/Z-Image-Turbo", "file": "model_index.json", "revision": "f332072aa78be7aecdf3ee76d5c247082da564a6", "sha256": "18a90e1bc117a29a8b7961bb200c86ff0b9704609e87c7171511dc724fcdc9d3", "license": "apache-2.0"}, {"repo": "Tongyi-MAI/Z-Image-Turbo", "file": "scheduler/scheduler_config.json", "revision": "f332072aa78be7aecdf3ee76d5c247082da564a6", "sha256": "3b979ab0956`
+- **Folders:**
+  - `weights/` (16 files, 12.24 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `z-image-turbo-nvidia-fp4`
+
+
+
+- **Use:** 
+- **Results:** -
+- **Bound to:** `{"huggingface": [{"repo": "Tongyi-MAI/Z-Image-Turbo", "file": "model_index.json", "revision": "f332072aa78be7aecdf3ee76d5c247082da564a6", "sha256": "18a90e1bc117a29a8b7961bb200c86ff0b9704609e87c7171511dc724fcdc9d3", "license": "apache-2.0"}, {"repo": "Tongyi-MAI/Z-Image-Turbo", "file": "scheduler/scheduler_config.json", "revision": "f332072aa78be7aecdf3ee76d5c247082da564a6", "sha256": "3b979ab0956`
+- **Folders:**
+  - `weights/` (16 files, 12.43 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
 ### `z-image-turbo-q8`
 
