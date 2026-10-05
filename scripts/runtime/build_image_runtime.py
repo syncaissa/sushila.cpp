@@ -47,7 +47,7 @@ SERVER = os.path.join(HERE, '..', '..', 'hoststation', 'runtime', 'image-nunchak
 def resolve(key):
     tags, ntag, _, _ = PLATFORMS[key]
     with tempfile.TemporaryDirectory(dir=os.environ.get('TMPDIR')) as d:
-        cmd = [sys.executable, '-m', 'pip', 'install', '--dry-run', '--ignore-installed', '--no-cache-dir', '--only-binary=:all:',
+        cmd = [sys.executable, '-m', 'pip', 'install', '--dry-run', '--ignore-installed', '--only-binary=:all:',
                '--python-version', PY, '--implementation', 'cp', '--abi', 'cp311', '--target', os.path.join(d, 't'),
                '--index-url', 'https://pypi.org/simple', '--extra-index-url', 'https://download.pytorch.org/whl/cu128',
                '--report', os.path.join(d, 'r.json'), '--quiet']
@@ -61,11 +61,22 @@ def resolve(key):
         url, sha = di['url'], (di.get('archive_info') or {}).get('hashes', {}).get('sha256')
         if it['metadata']['name'].lower() == 'nunchaku':
             sha = NUNCHAKU_SHA256[ntag]
+        if not sha:  # some files on the PyTorch index carry no hash: take the same file's sha256 from PyPI (checked on download)
+            sha = pypi_sha256(it['metadata']['name'], it['metadata']['version'], url.split('/')[-1].split('#')[0])
         if not sha:
             sys.exit(f'{url}: no sha256 to check it against; refusing to mirror')
         wheels.append({'name': it['metadata']['name'], 'version': it['metadata']['version'], 'file': urllib.request.unquote(url.split('/')[-1].split('#')[0]),
                        'url': url, 'sha256': sha})
     return wheels
+
+
+def pypi_sha256(name, version, fname):
+    try:
+        j = json.loads(urllib.request.urlopen(f'https://pypi.org/pypi/{name}/{version}/json', timeout=60).read())
+    except Exception:
+        return None
+    fname = urllib.request.unquote(fname)
+    return next((u['digests']['sha256'] for u in j.get('urls', []) if u['filename'] == fname), None)
 
 
 def python_build(key):
