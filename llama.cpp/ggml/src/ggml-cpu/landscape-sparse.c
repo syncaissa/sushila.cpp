@@ -7,7 +7,24 @@
 #include "simd-mappings.h"
 
 #include <math.h>
-#include <pthread.h>
+#if defined(_WIN32)   // portable "run once" (MSVC has no pthreads)
+#    ifndef WIN32_LEAN_AND_MEAN
+#        define WIN32_LEAN_AND_MEAN
+#    endif
+#    ifndef NOMINMAX
+#        define NOMINMAX
+#    endif
+#    include <windows.h>
+typedef INIT_ONCE sushila_once_t;
+#    define SUSHILA_ONCE_INIT INIT_ONCE_STATIC_INIT
+static BOOL CALLBACK sushila_once_cb(PINIT_ONCE o, PVOID fn, PVOID * ctx) { (void) o; (void) ctx; ((void (*)(void)) fn)(); return TRUE; }
+static void sushila_once(sushila_once_t * o, void (*fn)(void)) { InitOnceExecuteOnce(o, sushila_once_cb, (PVOID) fn, NULL); }
+#else
+#    include <pthread.h>
+typedef pthread_once_t sushila_once_t;
+#    define SUSHILA_ONCE_INIT PTHREAD_ONCE_INIT
+static void sushila_once(sushila_once_t * o, void (*fn)(void)) { pthread_once(o, fn); }
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,7 +103,7 @@ static struct {
     double             check_err2, check_ref2, check_calls;
 } sp;
 
-static pthread_once_t sp_once = PTHREAD_ONCE_INIT;
+static sushila_once_t sp_once = SUSHILA_ONCE_INIT;
 static volatile int   sp_enabled = 1;   // runtime switch (ggml_cpu_sparse_set_enabled), e.g. draft on, verify off
 
 void ggml_cpu_sparse_set_enabled(bool on) { sp_enabled = on ? 1 : 0; }
@@ -486,7 +503,7 @@ static int sp_count(const float * x, const float * norms, int64_t K, float tau) 
 }
 
 bool ggml_sparse_mul_mat(struct ggml_compute_params * params, struct ggml_tensor * dst) {
-    pthread_once(&sp_once, sp_init);
+    sushila_once(&sp_once, sp_init);
     float budget = 1.0f;
     int kind;
     if (!sp.on || !sp_enabled || (kind = sp_applies(dst, &budget)) < 0) {
