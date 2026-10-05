@@ -1,6 +1,6 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-05T19:05Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-05T19:13Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
@@ -12,6 +12,7 @@ Generated 2026-10-05T19:05Z by `scripts/precompute/b2_index.py`. Everything here
 | `qwen3-30b-a3b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (17) | 36.2 GB | yes | 2026-10-04 |
 | `qwen3-32b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (20) | 42.7 GB | yes | 2026-10-04 |
 | `qwen3-4b-instruct-2507` | weights (1) | 2.5 GB | yes | 2026-10-05 |
+| `qwen3-coder-30b-a3b` | weights (1) | 18.6 GB | yes | 2026-10-05 |
 | `z-image-turbo` | weights (3) | 6.7 GB | yes | 2026-10-05 |
 | `z-image-turbo-nvidia` | weights (16) | 12.2 GB | yes | 2026-10-05 |
 | `z-image-turbo-nvidia-fp4` | weights (16) | 12.4 GB | yes | 2026-10-05 |
@@ -116,6 +117,16 @@ EAGLE-3 draft head refitted to Qwen3-32B's own answers (warm start thoughtworks/
 - **Bound to:** `{"huggingface": [{"repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF", "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "revision": "a06e946bb6b655725eafa393f4a9745d460374c9", "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597", "license": "apache-2.0"}]}`
 - **Folders:**
   - `weights/` (1 files, 2.50 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `qwen3-coder-30b-a3b`
+
+
+
+- **Use:** 
+- **Results:** -
+- **Bound to:** `{"huggingface": [{"repo": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF", "file": "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf", "revision": "b17cb02dd882d5b6ab62fc777ad2995f19668350", "sha256": "fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad", "license": "apache-2.0"}]}`
+- **Folders:**
+  - `weights/` (1 files, 18.56 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
 ### `z-image-turbo`
 
