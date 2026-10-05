@@ -1,0 +1,129 @@
+{
+ "runtime": "0.1.0",
+ "pack": "z-image-turbo-nvidia-fp4",
+ "download_s": 340,
+ "pip_install_s": 57,
+ "runtime_check": "2.8.0+cu128 True 0.36.0",
+ "turbo": {
+  "load_s": 90,
+  "median_generate_s": 0.708,
+  "runs": [
+   {
+    "prompt": "Two bears dancing in a forest near a river",
+    "wall_s": 0.948,
+    "mode": "turbo",
+    "steps": 6,
+    "width": 768,
+    "height": 768,
+    "seconds": 0.715
+   },
+   {
+    "prompt": "a red fox standing in fresh snow at sunrise, soft golden light, photograph",
+    "wall_s": 0.975,
+    "mode": "turbo",
+    "steps": 6,
+    "width": 768,
+    "height": 768,
+    "seconds": 0.708
+   },
+   {
+    "prompt": "a cozy cafe interior with a chalkboard menu that says \"SUSHILA\", warm lighting",
+    "wall_s": 0.96,
+    "mode": "turbo",
+    "steps": 6,
+    "width": 768,
+    "height": 768,
+    "seconds": 0.706
+   },
+   {
+    "prompt": "a futuristic city skyline at night with neon signs, rain on the street",
+    "wall_s": 1.0,
+    "mode": "turbo",
+    "steps": 6,
+    "width": 768,
+    "height": 768,
+    "seconds": 0.706
+   },
+   {
+    "prompt": "portrait of an elderly woman with silver hair, natural window light, 85mm",
+    "wall_s": 0.952,
+    "mode": "turbo",
+    "steps": 6,
+    "width": 768,
+    "height": 768,
+    "seconds": 0.713
+   },
+   {
+    "prompt": "extra-args seed 7, 1024",
+    "wall_s": 1.821,
+    "seed": 7,
+    "mode": "turbo",
+    "steps": 6,
+    "width": 1024,
+    "height": 1024,
+    "seconds": 1.435
+   }
+  ]
+ },
+ "regular": {
+  "load_s": 92,
+  "median_generate_s": 1.845,
+  "runs": [
+   {
+    "prompt": "Two bears dancing in a forest near a river",
+    "wall_s": 2.283,
+    "mode": "regular",
+    "steps": 8,
+    "width": 1024,
+    "height": 1024,
+    "seconds": 1.836
+   },
+   {
+    "prompt": "a red fox standing in fresh snow at sunrise, soft golden light, photograph",
+    "wall_s": 2.187,
+    "mode": "regular",
+    "steps": 8,
+    "width": 1024,
+    "height": 1024,
+    "seconds": 1.821
+   },
+   {
+    "prompt": "a cozy cafe interior with a chalkboard menu that says \"SUSHILA\", warm lighting",
+    "wall_s": 2.267,
+    "mode": "regular",
+    "steps": 8,
+    "width": 1024,
+    "height": 1024,
+    "seconds": 1.823
+   },
+   {
+    "prompt": "a futuristic city skyline at night with neon signs, rain on the street",
+    "wall_s": 2.297,
+    "mode": "regular",
+    "steps": 8,
+    "width": 1024,
+    "height": 1024,
+    "seconds": 1.869
+   },
+   {
+    "prompt": "portrait of an elderly woman with silver hair, natural window light, 85mm",
+    "wall_s": 2.212,
+    "mode": "regular",
+    "steps": 8,
+    "width": 1024,
+    "height": 1024,
+    "seconds": 1.845
+   },
+   {
+    "prompt": "extra-args seed 7, 1024",
+    "wall_s": 2.251,
+    "seed": 7,
+    "mode": "regular",
+    "steps": 8,
+    "width": 1024,
+    "height": 1024,
+    "seconds": 1.851
+   }
+  ]
+ }
+}

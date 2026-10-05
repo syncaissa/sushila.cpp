@@ -1,0 +1,16 @@
+[18:50:04] GPU NVIDIA GeForce RTX 5090, 31.4 GiB, compute 12.0; mode Turbo (default 768x768, 6 steps)
+quantization_config: {'method': 'svdquant', 'weight': {'dtype': 'fp4_e2m1_all', 'scale_dtype': [None, 'fp8_e4m3_nan'], 'group_size': 16}, 'activation': {'dtype': 'fp4_e2m1_all', 'scale_dtype': 'fp8_e4m3_nan', 'group_size': 16}, 'rank': 128, 'skip_refiners': False}, rank=128, skip_refiners=False
+Loading pipeline components...:   0%|          | 0/5 [00:00<?, ?it/s]Loading pipeline components...:  40%|████      | 2/5 [00:00<00:00, 10.16it/s]
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s][ALoading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00, 72.56it/s]
+Loading pipeline components...:  80%|████████  | 4/5 [00:00<00:00, 14.25it/s]Loading pipeline components...: 100%|██████████| 5/5 [00:00<00:00, 15.37it/s]
+[18:51:27] loaded in 83 s; warming up
+/workspace/e2e/runtime/python/lib/python3.11/site-packages/nunchaku/utils.py:47: UserWarning: Using a non-tuple sequence for multidimensional indexing is deprecated and will be changed in pytorch 2.9; use x[tuple(seq)] instead of x[seq]. In pytorch 2.9 this will be interpreted as tensor index, x[torch.tensor(seq)], which will result either in an error or a different result (Triggered internally at /pytorch/torch/csrc/autograd/python_variable_indexing.cpp:306.)
+  result[[slice(0, extent) for extent in tensor.shape]] = tensor
+[18:51:28] ready
+[18:51:28] listening on http://127.0.0.1:8099
+[18:51:31] 1 x 768x768, 6 steps: 0.72 s
+[18:51:32] 1 x 768x768, 6 steps: 0.71 s
+[18:51:33] 1 x 768x768, 6 steps: 0.71 s
+[18:51:34] 1 x 768x768, 6 steps: 0.71 s
+[18:51:35] 1 x 768x768, 6 steps: 0.71 s
+[18:51:37] 1 x 1024x1024, 6 steps: 1.44 s
