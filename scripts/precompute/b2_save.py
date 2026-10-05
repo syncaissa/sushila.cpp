@@ -190,6 +190,10 @@ def save_precomputed(W, model, envfile):
     if old.get('weights'):
         checks['weights'] = old['weights']
         checks['files'] += [f for f in old.get('files', []) if f['path'].startswith('weights/')]
+    for k, v in (old.get('bound_to') or {}).items():  # e.g. the Hugging Face sources of a Host Station pack in the same folder
+        checks['bound_to'].setdefault(k, v)
+    if old.get('kept_not_installable'):
+        checks['kept_not_installable'] = old['kept_not_installable']
     b2.put(f'{pre}/CHECKSUMS.json', json.dumps(checks, indent=1).encode())
     print(f'precomputed: {len(files)} files -> b2://{b2.bucket}/{pre}/ (CHECKSUMS.json)')
     res = b2.tree(D, f'results/{model}', exclude=('hs/', 'cache_', 'ckpt_chunk_', 'head_ckpt_', 'pub_head', 'regen.jsonl', 'train.jsonl', 'chunk_'))
