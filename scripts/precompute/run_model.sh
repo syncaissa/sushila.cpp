@@ -242,7 +242,8 @@ if [ ! -s $D/chosen.txt ]; then
 fi
 HB=$(cat $D/chosen.txt)
 save_b2() {  # precomputed artifacts are computed once and must never be lost: save them to B2 right away
-  if [ -s $HOME/.b2_key ] || [ -n "${B2_KEY_ID:-}" ]; then
+  if [ "$SMOKE" = 1 ]; then log "smoke run: B2 save skipped (it would write precomputed/$MODEL/ from a test head)"
+  elif [ -s $HOME/.b2_key ] || [ -n "${B2_KEY_ID:-}" ]; then
     python3 $P/b2_save.py precomputed $W $MODEL $ENV_FILE > $D/b2_save.log 2>&1 && log "saved to B2: $(grep -E '^precomputed|^verified' $D/b2_save.log | tr '\n' ' ')" \
       || log "B2 SAVE FAILED (see b2_save.log): precomputed artifacts are only on this machine"
   else
@@ -258,7 +259,8 @@ sglang_suite ours $S16 --speculative-draft-model-path $HB
 for cfg in base pub ours; do
   [ -s $D/out/load_$cfg.json ] && continue
   case $cfg in base) a="";; pub) a="$S16 --speculative-draft-model-path $D/pub_head_serve";; ours) a="$S16 --speculative-draft-model-path $HB";; esac
-  python3 -m sglang.launch_server --model-path $TARGET --port 30000 --mem-fraction-static 0.85 --context-length ${CTX:-4096} \
+  # 70B models with a 16-token tree at 64 users need 532 MB of FlashInfer workspace (SGLang's default: 384 MB)
+  SGLANG_FLASHINFER_WORKSPACE_SIZE=$((1024 * 1024 * 1024)) python3 -m sglang.launch_server --model-path $TARGET --port 30000 --mem-fraction-static 0.85 --context-length ${CTX:-4096} \
     --max-running-requests 64 --cuda-graph-max-bs-decode 64 $a > $D/server_load_$cfg.log 2>&1 & SP=$!
   ok=0; for i in $(seq 1 240); do curl -sf localhost:30000/health > /dev/null && { ok=1; break; }; kill -0 $SP 2>/dev/null || break; sleep 10; done
   if [ $ok = 1 ]; then

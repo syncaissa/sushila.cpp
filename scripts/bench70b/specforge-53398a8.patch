@@ -38,3 +38,17 @@ index 69d457d..588062c 100644
  
      def preprocess(self, input_ids, target, loss_mask):
          # Shift loss_mask with input_ids and final target states; auxiliary hidden
+diff --git a/specforge/utils.py b/specforge/utils.py
+index 4158aa7..e2167c9 100644
+--- a/specforge/utils.py
++++ b/specforge/utils.py
+@@ -212,6 +212,9 @@ def safe_conversations_generator(file_path):
+                 continue
+             try:
+                 row = json.loads(line)
++                if "text" in row and "conversations" not in row:  # local patch: preformatted rows (--is-preformatted)
++                    yield {"text": row["text"]}
++                    continue
+                 raw_convs = row.get("conversations", [])
+ 
+                 # 1. Ensure 'conversations' is a list
