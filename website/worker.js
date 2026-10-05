@@ -360,7 +360,7 @@ material changes.</p>
 <p>The Sushila project, <a href="mailto:${esc(contact)}">${esc(contact)}</a>.</p>
 `;
 
-function page(env, user, models, packs = []) {
+function page(env, user, models, packs = [], app = null) {
   const REPO = String(env.REPO_URL || REPO_DEFAULT).replace(/\/+$/, '');
   const released = String(env.RELEASED || '').toLowerCase() === 'true';
   const contact = env.CONTACT || DEFAULT_CONTACT;
@@ -505,7 +505,8 @@ build/bin/llama-server -m model.gguf -ngl 99 --port 8080</code></pre></div>
     <thead><tr><th>Pack</th><th>Kind</th><th class="num">Size</th><th>License</th><th></th></tr></thead>
     <tbody>${packRows}</tbody>
   </table></div>` : '<p class="note">The pack list is unavailable right now. Please try again shortly.</p>'}
-  <p class="note" id="hsmissing" hidden>Nothing opened? Install <a href="/hoststation">Sushila Host Station</a> first, then click the button again. The app always asks before installing anything.</p>
+  <p class="row"><a class="btn ghost hsget" href="/hoststation">Get Sushila Host Station (free)</a> <span class="sub">New here? The button walks you through installing the app first, with a few clicks.</span></p>
+  ${HS_WIZARD(app)}
 </section>
 
 <section id="models">
@@ -584,16 +585,6 @@ ${footer(contact)}
   ['pointerenter', 'pointermove', 'pointerdown'].forEach(ev => el.addEventListener(ev, rock, { passive: true }));
   // anywhere on the page: moving the mouse, touching, scrolling or using the wheel sets it rocking (one swing at a time)
   ['pointermove', 'pointerdown', 'touchmove', 'scroll', 'wheel', 'keydown'].forEach(ev => window.addEventListener(ev, rock, { passive: true }));
-})();
-(function () {  // "Install in Host Station": if the app does not take the link (the page keeps focus), point to the download
-  const hint = document.getElementById('hsmissing');
-  document.querySelectorAll('.hsinstall').forEach(a => a.addEventListener('click', () => {
-    let left = false;
-    const away = () => { left = true; };
-    window.addEventListener('blur', away, { once: true });
-    document.addEventListener('visibilitychange', away, { once: true });
-    setTimeout(() => { if (!left && hint) { hint.hidden = false; hint.scrollIntoView({ block: 'nearest' }); } }, 1800);
-  }));
 })();
 document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; }
@@ -1777,6 +1768,8 @@ const HOSTSTATION = (env, app) => () => {
 <h1>Sushila Host Station</h1>
 <p class="lead">A free desktop app for Windows, macOS and Linux. It installs Sushila.cpp and model packs with a few clicks, runs models on your own computer, and opens a chat page in your browser. No command prompt needed.</p>
 
+<p><a class="btn hsget" href="#">Install step by step</a></p>
+${HS_WIZARD(app)}
 <h2>Download${app ? ` (version ${esc(app.version)})` : ''}</h2>
 ${rows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
 <p class="note">Check the sha256 of your download against the one listed here. Installers are code-signed by the Sushila project.</p>`
@@ -1802,6 +1795,103 @@ document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', asyn
   try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; } catch (e) { prompt('sha256', b.dataset.copy); }
   setTimeout(() => b.textContent = 'sha256', 1500);
 }));
+</script>`;
+};
+
+// Step-by-step "install Sushila Host Station first" wizard, shared by the home page (Install in Host Station buttons)
+// and /hoststation. A web page cannot see whether an app is installed: when a sushila:// link does not open anything,
+// the wizard asks, then guides the visitor through download and install for their system, and finally sends them back
+// to the pack they chose. `app` is hostApp() (installers in B2) or null while none are published.
+const HS_WIZARD = (app) => {
+  const files = (app && app.files || []).map(({ platform, label, file, sha256, bytes, url }) => ({ platform, label, file, sha256, bytes, url }));
+  const data = JSON.stringify({ version: app ? app.version : null, files }).replace(/</g, '\\u003c');
+  return `
+<style>
+#hswiz{border:1px solid var(--line);border-radius:14px;padding:0;max-width:620px;width:calc(100% - 32px);background:var(--card);color:var(--fg)}
+#hswiz::backdrop{background:rgba(0,0,0,.45)}#hswiz .in{padding:22px 24px}#hswiz h2{margin:0 0 6px;font-size:21px}
+#hswiz .steps{counter-reset:s;list-style:none;padding:0;margin:14px 0}#hswiz .steps li{counter-increment:s;margin:10px 0;padding-left:38px;position:relative}
+#hswiz .steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:26px;height:26px;border-radius:50%;background:var(--accbg);color:var(--acc);font-weight:700;text-align:center;line-height:26px}
+#hswiz .bar{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}#hswiz .big{font-size:17px;padding:12px 22px}
+#hswiz .os{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}#hswiz .os button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:14px}
+#hswiz .os button[aria-pressed=true]{border-color:var(--acc);background:var(--accbg);color:var(--acc);font-weight:600}
+#hswiz .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--acc);margin-right:6px}#hswiz kbd{border:1px solid var(--line);border-radius:5px;padding:0 5px;font:inherit;font-size:13px}
+</style>
+<dialog id="hswiz" aria-labelledby="hswiz-t"><div class="in" id="hswiz-body"></div></dialog>
+<script>
+(function () {
+  const APP = ${data};
+  const dlg = document.getElementById('hswiz'), body = document.getElementById('hswiz-body');
+  if (!dlg) return;
+  const E = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} } };
+  const SYSTEMS = { 'windows-x86_64': 'Windows', 'macos-aarch64': 'Mac (Apple M1–M4)', 'macos-x86_64': 'Mac (Intel)', 'linux-deb': 'Ubuntu / Debian', 'linux-rpm': 'Fedora', 'linux-appimage': 'Other Linux' };
+  let sys = /Windows/.test(navigator.userAgent) ? 'windows-x86_64' : /Mac/.test(navigator.userAgent) ? 'macos-aarch64' : /Fedora|Red Hat/.test(navigator.userAgent) ? 'linux-rpm' : 'linux-deb';
+  if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues && sys.startsWith('macos')) {
+    navigator.userAgentData.getHighEntropyValues(['architecture']).then(v => { if (v.architecture === 'x86') sys = 'macos-x86_64'; }).catch(() => {});
+  }
+  let pack = null;  // {id, name} the visitor wanted, or null
+  const link = () => pack ? 'sushila://install-pack/' + encodeURIComponent(pack.id) : 'sushila://open';
+  const STEPS = {
+    'windows-x86_64': ['Click <b>Download</b> above. The installer is a few megabytes.', 'Open the downloaded file: click it in your browser\\'s download bar or <b>Downloads</b> list.',
+      'If Windows shows <i>“Windows protected your PC”</i>, click <b>More info</b> → <b>Run anyway</b>. (This appears only until the installer has built a download reputation.)',
+      'Choose <b>Only for me</b> (no administrator password) → <b>Next</b> → <b>Install</b> → <b>Finish</b>.', 'Sushila Host Station opens by itself, and it is in the Start menu from now on.'],
+    'macos-aarch64': ['Click <b>Download</b> above.', 'Open the downloaded <b>.dmg</b> file.', 'Drag <b>Sushila Host Station</b> onto the <b>Applications</b> folder.',
+      'Open it from <b>Launchpad</b> or <b>Applications</b>. If macOS asks <i>“Are you sure you want to open it?”</i>, click <b>Open</b>.'],
+    'linux-deb': ['Click <b>Download</b> above (the .deb file).', 'Double-click it; <b>Software</b> opens. Click <b>Install</b> and enter your password.', 'Open <b>Sushila Host Station</b> from your applications menu.'],
+    'linux-rpm': ['Click <b>Download</b> above (the .rpm file).', 'Double-click it; <b>Software</b> opens. Click <b>Install</b>.', 'Open <b>Sushila Host Station</b> from your applications menu.'],
+    'linux-appimage': ['Click <b>Download</b> above (the .AppImage file).', 'Right-click the file → <b>Properties</b> → <b>Permissions</b> → tick <b>Allow executing file as program</b>.', 'Double-click the file to start Sushila Host Station.'],
+  };
+  STEPS['macos-x86_64'] = STEPS['macos-aarch64'];
+  const fileFor = (k) => APP.files.find(f => f.platform === k);
+  const gb = (b) => b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(b / 1e6)) + ' MB';
+
+  function ask() {
+    body.innerHTML = '<h2 id="hswiz-t">Did Sushila Host Station open?</h2>' +
+      '<p>' + (pack ? 'To install <b>' + E(pack.name) + '</b>, this website hands it to the free <b>Sushila Host Station</b> app on your computer.' : 'Sushila Host Station is the free app that runs model packs on your computer.') +
+      ' If your browser asked to open it, choose <b>Open</b>.</p>' +
+      '<div class="bar"><button class="btn ghost" data-a="close">Yes, it opened</button><button class="btn big" data-a="download">No: install Host Station first</button></div>';
+  }
+  function download() {
+    const f = fileFor(sys);
+    body.innerHTML = '<h2 id="hswiz-t">Step 1 of 3 · Download Sushila Host Station</h2><p>Your system:</p><div class="os">' +
+      Object.entries(SYSTEMS).map(([k, v]) => '<button data-sys="' + k + '" aria-pressed="' + (k === sys) + '">' + E(v) + '</button>').join('') + '</div>' +
+      (f ? '<p><a class="btn big" href="' + E(f.url) + '" data-a="got">Download for ' + E(SYSTEMS[sys]) + '</a> <span class="sub">' + gb(f.bytes || 0) + ' · version ' + E(APP.version) + '</span></p>' +
+           '<p class="sub">sha256 ' + E(f.sha256) + '</p>'
+         : '<p class="note">The installer for ' + E(SYSTEMS[sys]) + ' is being built and signed. Please check back soon; this page will offer it here.</p>') +
+      '<div class="bar"><button class="btn ghost" data-a="ask">Back</button><button class="btn" data-a="install"' + (f ? '' : ' disabled') + '>I downloaded it: next</button></div>';
+  }
+  function install() {
+    body.innerHTML = '<h2 id="hswiz-t">Step 2 of 3 · Install it</h2><ol class="steps">' + STEPS[sys].map(s => '<li>' + s + '</li>').join('') + '</ol>' +
+      '<p class="sub">Everything Host Station installs is signed by Sushila and checked before use. Model packs contain only data, never programs.</p>' +
+      '<div class="bar"><button class="btn ghost" data-a="download">Back</button><button class="btn big" data-a="done">Host Station is open: next</button></div>';
+  }
+  function done() {
+    body.innerHTML = '<h2 id="hswiz-t">Step 3 of 3 · ' + (pack ? 'Install ' + E(pack.name) : 'Ready') + '</h2>' +
+      (pack ? '<p>Click the button. Host Station shows the pack, its size and license, and asks you to confirm. It installs the Sushila.cpp engine first if needed, then the pack.</p>'
+            : '<p>In Host Station, follow the four steps on its Home screen: install Sushila.cpp, add a model pack, start it, and open the chat page.</p>') +
+      '<div class="bar"><button class="btn ghost" data-a="close">Close</button><a class="btn big" href="' + E(link()) + '" data-a="sent">' + (pack ? 'Install ' + E(pack.name) + ' in Host Station' : 'Open Host Station') + '</a></div>';
+  }
+  const views = { ask, download, install, done };
+  body.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-a],[data-sys]'); if (!t) return;
+    if (t.dataset.sys) { sys = t.dataset.sys; download(); return; }
+    const a = t.dataset.a;
+    if (a === 'close') { if (t.textContent.startsWith('Yes')) store.set('hs-has-app', '1'); dlg.close(); return; }
+    if (a === 'got') { setTimeout(install, 400); return; }  // let the download start, then show how to install
+    if (a === 'sent') { store.set('hs-has-app', '1'); setTimeout(() => dlg.close(), 600); return; }
+    if (a === 'done') store.set('hs-has-app', '1');
+    e.preventDefault(); (views[a] || ask)();
+  });
+  window.hsWizard = (p, start) => { pack = p; (views[start] || ask)(); if (!dlg.open) dlg.showModal(); };
+  // "Install in Host Station": try the app; when nothing takes the link, open the wizard
+  document.querySelectorAll('.hsinstall').forEach(a => a.addEventListener('click', () => {
+    const p = { id: a.getAttribute('href').split('/').pop(), name: a.dataset.name };
+    let left = false; const away = () => { left = true; };
+    window.addEventListener('blur', away, { once: true }); document.addEventListener('visibilitychange', away, { once: true });
+    setTimeout(() => { if (!left) window.hsWizard(p, 'ask'); }, 1800);
+  }));
+  document.querySelectorAll('.hsget').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); window.hsWizard(null, 'download'); }));
+})();
 </script>`;
 };
 
@@ -1981,9 +2071,9 @@ export default {
         return html(docPage(env, 'Admin', 'sushila.ai administration.', ADMIN(), user));
       }
       if (p === '/' || p === '/index.html') {
-        let packs = [];
-        try { if (b2.configured) packs = (await hostCatalog(env, b2)).packs; } catch (e) { console.error('packs', e.message); }
-        return html(page(env, user, await visibleModels(db), packs));
+        let packs = [], app = null;
+        try { if (b2.configured) [packs, app] = await Promise.all([hostCatalog(env, b2).then((c) => c.packs), hostApp(env, b2)]); } catch (e) { console.error('packs', e.message); }
+        return html(page(env, user, await visibleModels(db), packs, app));
       }
       if (p === '/hoststation' || p === '/hoststation/') {
         let app = null;

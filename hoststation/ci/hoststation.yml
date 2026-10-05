@@ -5,7 +5,10 @@
 #   macOS:   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
 #   Windows: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID (Microsoft Trusted Signing, used by signCommand)
 name: Sushila Host Station installers
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      publish: { description: "upload the installers to B2 (sushila.ai offers them in the install wizard)", type: boolean, default: false }
 jobs:
   build:
     strategy:
@@ -47,3 +50,34 @@ jobs:
             hoststation/src-tauri/target/**/release/bundle/**/*.deb
             hoststation/src-tauri/target/**/release/bundle/**/*.rpm
             hoststation/src-tauri/target/**/release/bundle/**/*.AppImage
+  publish:
+    # Uploads the installers to B2 hoststation/app/<version>/ and writes hoststation/app/LATEST.json, which sushila.ai's
+    # install wizard and /hoststation page read. Publish only signed installers (see README). Secrets: B2_KEY_ID, B2_APP_KEY.
+    if: ${{ inputs.publish }}
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: Upload to B2 and write LATEST.json
+        env: { B2_KEY_ID: "${{ secrets.B2_KEY_ID }}", B2_APP_KEY: "${{ secrets.B2_APP_KEY }}" }
+        run: |
+          python3 - <<'PYX'
+          import hashlib, json, os, sys, time
+          sys.path.insert(0, 'scripts/precompute'); import b2_save
+          v = json.load(open('hoststation/src-tauri/tauri.conf.json'))['version']
+          b2, files = b2_save.B2(), []
+          kinds = [('-setup.exe', 'windows-x86_64', 'Windows'), ('aarch64.dmg', 'macos-aarch64', 'Mac (Apple M1-M4)'), ('x64.dmg', 'macos-x86_64', 'Mac (Intel)'),
+                   ('.deb', 'linux-deb', 'Ubuntu / Debian'), ('.rpm', 'linux-rpm', 'Fedora'), ('.AppImage', 'linux-appimage', 'Other Linux')]
+          for root, _, names in os.walk('dist'):
+              for n in names:
+                  kind = next((k for k in kinds if n.endswith(k[0])), None)
+                  if not kind or any(f['platform'] == kind[1] for f in files):
+                      continue
+                  p = os.path.join(root, n)
+                  b2.put_file(p, f'hoststation/app/{v}/{n}')
+                  files.append({'platform': kind[1], 'label': kind[2], 'file': n, 'bytes': os.path.getsize(p), 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest()})
+          b2.put('hoststation/app/LATEST.json', json.dumps({'version': v, 'built_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()), 'files': files}, indent=1).encode())
+          print(json.dumps(files, indent=1))
+          PYX
