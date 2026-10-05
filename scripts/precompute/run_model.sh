@@ -174,13 +174,17 @@ else
   unset SF_EMBED_FROM                 # the head uses the model's embeddings
   sed -i 's/load_target_embedding: LOADEMB/load_target_embedding: true/' $D/train.yaml
 fi
-python3 - $D/regen.jsonl $CH $D <<'PYX'
+python3 - $D/regen.jsonl $CH $D ${PREFORMAT:-0} <<'PYX'
 import json, sys
 rows = [l for l in open(sys.argv[1]) if l.strip()]; ch = int(sys.argv[2])
 for k in range(0, len(rows), ch):
-    open(f'{sys.argv[3]}/chunk_{k // ch:02d}.jsonl', 'w').writelines(rows[k:k + ch])
+    part = rows[k:k + ch]
+    if sys.argv[4] == '1':  # preformatted: the exact text the model produced, reasoning included
+        part = [json.dumps({'id': (r := json.loads(l))['id'], 'text': r['text']}) + '\n' for l in part]
+    open(f'{sys.argv[3]}/chunk_{k // ch:02d}.jsonl', 'w').writelines(part)
 print(len(rows))
 PYX
+PF=""; if [ "${PREFORMAT:-0}" = 1 ]; then PF=--is-preformatted; fi
 PREV=$D/pub_head; n=0
 CHUNKS=$(ls $D/chunk_*.jsonl | sort); [ -s $D/chosen.txt ] && [ -d "$(cat $D/chosen.txt)" ] && CHUNKS=""   # head chosen already (or restored from B2): no retraining
 for c in $CHUNKS; do
@@ -188,7 +192,7 @@ for c in $CHUNKS; do
   if [ -z "$(ls -d $out/run-$k-step* 2>/dev/null)" ]; then
     rm -rf $D/hs $D/cache_$k; t0=$(date +%s)
     (cd $SF && $W/sfenv/bin/torchrun --standalone --nproc_per_node 1 scripts/prepare_hidden_states.py --target-model-path $TARGET --strategy eagle3 \
-      --draft-model-config $D/pub_head/config.json --data-path $c --chat-template $SF_TEMPLATE --max-length 1024 --batch-size 4 \
+      --draft-model-config $D/pub_head/config.json --data-path $c --chat-template $SF_TEMPLATE --max-length 1024 --batch-size 4 $PF \
       --cache-dir $D/cache_$k --output-path $D/hs --sglang-mem-fraction-static 0.75 > $D/capture_$k.log 2>&1) || { log "$k: capture failed"; exit 1; }
     t1=$(date +%s)
     sed -e "s|PREV|$PREV|" -e "s|CACHE|$D/cache_$k|" -e "s|RUNID|run-$k|" -e "s|OUTDIR|$out|" $D/train.yaml > $D/train_$k.yaml

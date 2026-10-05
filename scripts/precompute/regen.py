@@ -43,18 +43,20 @@ def main():
         try:
             r = json.loads(urllib.request.urlopen(urllib.request.Request(f'http://localhost:{a.port}/generate', data=json.dumps(body).encode(),
                            headers={'Content-Type': 'application/json'}), timeout=900).read())
-            return p, r['text']
+            return p, r['text'], r.get('meta_info', {}).get('finish_reason', {}).get('type') == 'stop'
         except Exception as e:  # noqa: BLE001
-            return p, None
+            return p, None, False
 
     out, done = [], 0
     with ThreadPoolExecutor(a.concurrency) as ex:
-        for p, text in ex.map(answer, rows):
+        for p, text, finished in ex.map(answer, rows):
             done += 1
             if text and text.strip() and len(out) < a.n:
                 c = ([{'role': 'system', 'content': ''}] if a.system_turn else []) + [{'role': 'user', 'content': p['question']},
                                                                                       {'role': 'assistant', 'content': prefix + text}]
-                out.append({'id': f"dolly-{p['id']}", 'conversations': c})
+                # 'text': the exact prompt the model saw plus its answer, for preformatted training (PREFORMAT=1). Chat
+                # templates such as DeepSeek-R1's delete the <think> reasoning from earlier turns, which is the text the head must learn.
+                out.append({'id': f"dolly-{p['id']}", 'conversations': c, 'text': p['text'] + text + (tok.eos_token if finished else '')})
     with open(a.out, 'w') as f:
         for r in out:
             f.write(json.dumps(r) + '\n')

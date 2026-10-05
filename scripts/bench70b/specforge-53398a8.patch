@@ -12,6 +12,19 @@ index 3e154e9..8dd711a 100644
      draft_model.freeze_embedding()
      return draft_model.to(device=_device(), dtype=_torch_dtype(cfg))
  
+diff --git a/specforge/data/template.py b/specforge/data/template.py
+index 6fdd0b6..f3d211c 100644
+--- a/specforge/data/template.py
++++ b/specforge/data/template.py
+@@ -187,7 +187,7 @@ TEMPLATE_REGISTRY.register(
+     template=ChatTemplate(
+         assistant_header="<｜Assistant｜>",
+         user_header="<｜User｜>",
+-        end_of_turn_token=None,
++        end_of_turn_token="<｜end▁of▁sentence｜>",  # local patch: None crashes GeneralParser
+         system_prompt=None,
+     ),
+ )
 diff --git a/specforge/modeling/target/target_head.py b/specforge/modeling/target/target_head.py
 index 69d457d..588062c 100644
 --- a/specforge/modeling/target/target_head.py
