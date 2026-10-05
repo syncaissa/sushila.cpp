@@ -1,0 +1,83 @@
+mirroring wheels/nunchaku-1.2.1+cu12.8torch2.8-cp311-cp311-linux_x86_64.whl
+  hoststation/runtime/image-nunchaku/0.1.0/wheels/nunchaku-1.2.1+cu12.8torch2.8-cp311-cp311-linux_x86_64.whl: already in B2
+mirroring wheels/torch-2.8.0+cu128-cp311-cp311-manylinux_2_28_x86_64.whl
+  hoststation/runtime/image-nunchaku/0.1.0/wheels/torch-2.8.0+cu128-cp311-cp311-manylinux_2_28_x86_64.whl: already in B2
+mirroring wheels/torchvision-0.23.0+cu128-cp311-cp311-manylinux_2_28_x86_64.whl
+  hoststation/runtime/image-nunchaku/0.1.0/wheels/torchvision-0.23.0+cu128-cp311-cp311-manylinux_2_28_x86_64.whl: already in B2
+mirroring wheels/diffusers-0.36.0-py3-none-any.whl
+  hoststation/runtime/image-nunchaku/0.1.0/wheels/diffusers-0.36.0-py3-none-any.whl: already in B2
+mirroring wheels/huggingface_hub-0.34.4-py3-none-any.whl
+  hoststation/runtime/image-nunchaku/0.1.0/wheels/huggingface_hub-0.34.4-py3-none-any.whl: already in B2
+mirroring wheels/transformers-4.55.2-py3-none-any.whl
+  hoststation/runtime/image-nunchaku/0.1.0/wheels/transformers-4.55.2-py3-none-any.whl: already in B2
+mirroring wheels/accelerate-1.9.0-py3-none-any.whl
+  hoststation/runtime/image-nunchaku/0.1.0/wheels/accelerate-1.9.0-py3-none-any.whl: already in B2
+mirroring wheels/peft-0.17.0-py3-none-any.whl
+  hoststation/runtime/image-nunchaku/0.1.0/wheels/peft-0.17.0-py3-none-any.whl: already in B2
+mirroring wheels/nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl
+mirroring wheels/nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+mirroring wheels/nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl
+mirroring wheels/nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+mirroring wheels/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl
+mirroring wheels/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+mirroring wheels/nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+mirroring wheels/nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_x86_64.whl
+mirroring wheels/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl
+mirroring wheels/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+mirroring wheels/nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_x86_64.whl
+mirroring wheels/nvidia_nccl_cu12-2.27.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+mirroring wheels/nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl
+mirroring wheels/nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+mirroring wheels/triton-3.4.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+mirroring wheels/hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+mirroring wheels/httpx-0.28.1-py3-none-any.whl
+mirroring wheels/httpcore-1.0.9-py3-none-any.whl
+mirroring wheels/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+mirroring wheels/tokenizers-0.21.4-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+mirroring wheels/safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+mirroring wheels/pillow-12.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+mirroring wheels/einops-0.8.2-py3-none-any.whl
+mirroring wheels/protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl
+mirroring wheels/sentencepiece-0.2.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+mirroring wheels/fsspec-2026.9.0-py3-none-any.whl
+mirroring wheels/h11-0.16.0-py3-none-any.whl
+mirroring wheels/packaging-26.3-py3-none-any.whl
+mirroring wheels/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+mirroring wheels/regex-2026.9.29-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+mirroring wheels/setuptools-84.0.0-py3-none-any.whl
+mirroring wheels/sympy-1.14.0-py3-none-any.whl
+mirroring wheels/mpmath-1.3.0-py3-none-any.whl
+mirroring wheels/tqdm-4.70.1-py3-none-any.whl
+mirroring wheels/typing_extensions-4.16.0-py3-none-any.whl
+mirroring wheels/anyio-4.15.1-py3-none-any.whl
+mirroring wheels/idna-3.20-py3-none-any.whl
+mirroring wheels/certifi-2026.7.22-py3-none-any.whl
+mirroring wheels/filelock-4.0.12-py3-none-any.whl
+mirroring wheels/importlib_metadata-9.0.1-py3-none-any.whl
+mirroring wheels/zipp-4.1.1-py3-none-any.whl
+mirroring wheels/jinja2-3.1.6-py3-none-any.whl
+mirroring wheels/markupsafe-3.0.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+mirroring wheels/networkx-3.6.1-py3-none-any.whl
+mirroring wheels/psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl
+mirroring wheels/requests-2.34.2-py3-none-any.whl
+mirroring wheels/charset_normalizer-3.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+mirroring wheels/urllib3-2.8.0-py3-none-any.whl
+mirroring python/cpython-3.11.17+20261003-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz
+mirroring wheels/nunchaku-1.2.1+cu12.8torch2.8-cp311-cp311-win_amd64.whl
+mirroring wheels/torch-2.8.0+cu128-cp311-cp311-win_amd64.whl
+mirroring wheels/torchvision-0.23.0+cu128-cp311-cp311-win_amd64.whl
+mirroring wheels/hf_xet-1.6.0-cp38-abi3-win_amd64.whl
+mirroring wheels/numpy-2.4.6-cp311-cp311-win_amd64.whl
+mirroring wheels/tokenizers-0.21.4-cp39-abi3-win_amd64.whl
+mirroring wheels/safetensors-0.8.0-cp310-abi3-win_amd64.whl
+mirroring wheels/pillow-12.3.0-cp311-cp311-win_amd64.whl
+mirroring wheels/protobuf-7.36.2-cp310-abi3-win_amd64.whl
+mirroring wheels/sentencepiece-0.2.2-cp311-cp311-win_amd64.whl
+mirroring wheels/pyyaml-6.0.3-cp311-cp311-win_amd64.whl
+mirroring wheels/regex-2026.9.29-cp311-cp311-win_amd64.whl
+mirroring wheels/markupsafe-3.0.4-cp311-cp311-win_amd64.whl
+mirroring wheels/psutil-7.2.2-cp37-abi3-win_amd64.whl
+mirroring wheels/charset_normalizer-3.5.2-cp311-cp311-win_amd64.whl
+mirroring python/cpython-3.11.17+20261003-x86_64-pc-windows-msvc-install_only_stripped.tar.gz
+wrote hoststation/runtime/image-nunchaku/LATEST.json (unsigned). Next: python3 scripts/precompute/sign_checksums.py sign hoststation/runtime/image-nunchaku
+EXIT 0

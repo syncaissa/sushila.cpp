@@ -1,0 +1,16 @@
+[18:27:19] GPU NVIDIA GeForce RTX 4090, 23.5 GiB, compute 8.9; mode Turbo (default 768x768, 6 steps)
+quantization_config: {'method': 'svdquant', 'weight': {'dtype': 'int4', 'scale_dtype': None, 'group_size': 64}, 'activation': {'dtype': 'int4', 'scale_dtype': None, 'group_size': 64}, 'rank': 128, 'skip_refiners': False}, rank=128, skip_refiners=False
+Loading pipeline components...:   0%|          | 0/5 [00:00<?, ?it/s]Loading pipeline components...:  40%|████      | 2/5 [00:00<00:00,  8.97it/s]
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s][ALoading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00, 77.59it/s]
+Loading pipeline components...: 100%|██████████| 5/5 [00:00<00:00, 15.44it/s]Loading pipeline components...: 100%|██████████| 5/5 [00:00<00:00, 14.21it/s]
+[18:27:52] loaded in 32 s; warming up
+/workspace/e2e/runtime/python/lib/python3.11/site-packages/nunchaku/utils.py:47: UserWarning: Using a non-tuple sequence for multidimensional indexing is deprecated and will be changed in pytorch 2.9; use x[tuple(seq)] instead of x[seq]. In pytorch 2.9 this will be interpreted as tensor index, x[torch.tensor(seq)], which will result either in an error or a different result (Triggered internally at /pytorch/torch/csrc/autograd/python_variable_indexing.cpp:306.)
+  result[[slice(0, extent) for extent in tensor.shape]] = tensor
+[18:27:53] ready
+[18:27:53] listening on http://127.0.0.1:8099
+[18:27:54] 1 x 768x768, 6 steps: 0.92 s
+[18:27:55] 1 x 768x768, 6 steps: 0.92 s
+[18:27:57] 1 x 768x768, 6 steps: 0.91 s
+[18:27:58] 1 x 768x768, 6 steps: 0.92 s
+[18:27:59] 1 x 768x768, 6 steps: 0.91 s
+[18:28:01] 1 x 1024x1024, 6 steps: 1.88 s
