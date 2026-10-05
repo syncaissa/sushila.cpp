@@ -99,7 +99,7 @@ SP=""
 serve() {  # serve <label> [sglang args...]
   local label=$1; shift
   python3 -m sglang.launch_server --model-path $TARGET --port 30000 --mem-fraction-static 0.85 --context-length ${CTX:-4096} \
-    --cuda-graph-max-bs-decode 4 --max-running-requests 4 ${SGLANG_EXTRA:-} "$@" > $D/server_$label.log 2>&1 & SP=$!
+    --cuda-graph-max-bs-decode 4 --max-running-requests 4 --tp-size ${TP:-1} ${SGLANG_EXTRA:-} "$@" > $D/server_$label.log 2>&1 & SP=$!
   for i in $(seq 1 240); do curl -sf localhost:30000/health > /dev/null && return 0; kill -0 $SP 2>/dev/null || { log "$label: server died (see server_$label.log)"; return 1; }; sleep 10; done
   log "$label: server did not start"; return 1
 }
@@ -192,7 +192,7 @@ for c in $CHUNKS; do
   k=$(basename $c .jsonl); out=$D/ckpt_$k
   if [ -z "$(ls -d $out/run-$k-step* 2>/dev/null)" ]; then
     rm -rf $D/hs $D/cache_$k; t0=$(date +%s)
-    (cd $SF && $W/sfenv/bin/torchrun --standalone --nproc_per_node 1 scripts/prepare_hidden_states.py --target-model-path $TARGET --strategy eagle3 \
+    (cd $SF && $W/sfenv/bin/torchrun --standalone --nproc_per_node ${TP:-1} scripts/prepare_hidden_states.py --target-model-path $TARGET --strategy eagle3 --tp-size ${TP:-1} \
       --draft-model-config $D/pub_head/config.json --data-path $c --chat-template $SF_TEMPLATE --max-length 1024 --batch-size 4 $PF \
       --cache-dir $D/cache_$k --output-path $D/hs --sglang-mem-fraction-static 0.75 > $D/capture_$k.log 2>&1) || { log "$k: capture failed"; exit 1; }
     t1=$(date +%s)
@@ -262,7 +262,7 @@ for cfg in base pub ours; do
   case $cfg in base) a="";; pub) a="$S16 --speculative-draft-model-path $D/pub_head_serve";; ours) a="$S16 --speculative-draft-model-path $HB";; esac
   # 70B models with a 16-token tree at 64 users need 532 MB of FlashInfer workspace (SGLang's default: 384 MB)
   SGLANG_FLASHINFER_WORKSPACE_SIZE=$((1024 * 1024 * 1024)) python3 -m sglang.launch_server --model-path $TARGET --port 30000 --mem-fraction-static 0.85 --context-length ${CTX:-4096} \
-    --max-running-requests 64 --cuda-graph-max-bs-decode 64 ${SGLANG_EXTRA:-} $a > $D/server_load_$cfg.log 2>&1 & SP=$!
+    --max-running-requests 64 --cuda-graph-max-bs-decode 64 --tp-size ${TP:-1} ${SGLANG_EXTRA:-} $a > $D/server_load_$cfg.log 2>&1 & SP=$!
   ok=0; for i in $(seq 1 240); do curl -sf localhost:30000/health > /dev/null && { ok=1; break; }; kill -0 $SP 2>/dev/null || break; sleep 10; done
   if [ $ok = 1 ]; then
     python3 $P/bench_load.py --prompts $D/ood.jsonl --concurrency 1 4 16 64 --out $D/out/load_$cfg.json > $D/out/load_$cfg.log 2>&1 \

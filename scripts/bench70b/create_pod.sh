@@ -7,7 +7,7 @@ source "$(dirname "$0")/../../runpod/api.sh"
 KEY="$(cat ~/.ssh/id_ed25519.pub 2>/dev/null || cat ~/.ssh/id_rsa.pub)"
 for gpu in "NVIDIA A100 80GB PCIe" "NVIDIA A100-SXM4-80GB"; do
   body="$(jq -n --arg gpu "$gpu" --arg key "$KEY" '{name:($ENV.POD_NAME // "sushila-bench"), imageName:"runpod/base:1.4.0-ubuntu2204",
-    gpuTypeIds:[$gpu], gpuCount:1, cloudType:"SECURE", containerDiskInGb:250, volumeInGb:0, minVCPUPerGPU:12,
+    gpuTypeIds:[$gpu], gpuCount:(($ENV.GPUS // "1")|tonumber), cloudType:"SECURE", containerDiskInGb:(($ENV.DISK_GB // "250")|tonumber), volumeInGb:0, minVCPUPerGPU:12,
     minRAMPerGPU:100, allowedCudaVersions:["13.0"], ports:["22/tcp"], env:{PUBLIC_KEY:$key}}')"
   out=$(runpod POST /pods "$body")
   id=$(echo "$out" | jq -r 'if type=="object" then .id else empty end')
