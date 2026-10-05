@@ -139,7 +139,8 @@ model:
   draft_checkpoint_path: "PREV"
   vocab_mapping_path: "$D/vocab_mapping.pt"
   target_backend: "sglang"
-  embedding_key: "model.embed_tokens.weight"
+  embedding_key: "${EMBED_KEY:-model.embed_tokens.weight}"
+  lm_head_key: "${LM_HEAD_KEY:-lm_head.weight}"
   torch_dtype: "$(cat $D/target_dtype.txt)"
   load_target_embedding: LOADEMB
 data:

@@ -12,7 +12,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 HEADERS = {'qwen': '<|im_start|>assistant\n', 'llama3': '<|start_header_id|>assistant<|end_header_id|>\n\n',
-           'deepseek-r1-distill': '<｜Assistant｜>'}
+           'deepseek-r1-distill': '<｜Assistant｜>', 'gemma': '<start_of_turn>model\n'}
 
 
 def main():
@@ -43,20 +43,22 @@ def main():
         try:
             r = json.loads(urllib.request.urlopen(urllib.request.Request(f'http://localhost:{a.port}/generate', data=json.dumps(body).encode(),
                            headers={'Content-Type': 'application/json'}), timeout=900).read())
-            return p, r['text'], r.get('meta_info', {}).get('finish_reason', {}).get('type') == 'stop'
+            fr = r.get('meta_info', {}).get('finish_reason') or {}
+            end = tok.convert_ids_to_tokens(fr['matched']) if fr.get('type') == 'stop' and isinstance(fr.get('matched'), int) else (tok.eos_token if fr.get('type') == 'stop' else '')
+            return p, r['text'], end  # the token the model actually stopped on (Gemma: <end_of_turn>, not <eos>)
         except Exception as e:  # noqa: BLE001
-            return p, None, False
+            return p, None, ''
 
     out, done = [], 0
     with ThreadPoolExecutor(a.concurrency) as ex:
-        for p, text, finished in ex.map(answer, rows):
+        for p, text, end in ex.map(answer, rows):
             done += 1
             if text and text.strip() and len(out) < a.n:
                 c = ([{'role': 'system', 'content': ''}] if a.system_turn else []) + [{'role': 'user', 'content': p['question']},
                                                                                       {'role': 'assistant', 'content': prefix + text}]
                 # 'text': the exact prompt the model saw plus its answer, for preformatted training (PREFORMAT=1). Chat
                 # templates such as DeepSeek-R1's delete the <think> reasoning from earlier turns, which is the text the head must learn.
-                out.append({'id': f"dolly-{p['id']}", 'conversations': c, 'text': p['text'] + text + (tok.eos_token if finished else '')})
+                out.append({'id': f"dolly-{p['id']}", 'conversations': c, 'text': p['text'] + text + end})
     with open(a.out, 'w') as f:
         for r in out:
             f.write(json.dumps(r) + '\n')
