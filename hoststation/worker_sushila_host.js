@@ -20,11 +20,15 @@
 (function () {
   'use strict';
 
-  const APP = 'Sushila Host Station';
+  const APP = (typeof window !== 'undefined' && window.SUSHILA_PRESET && window.SUSHILA_PRESET.product) || 'Sushila Host Station';
   const CATALOG_URL = 'https://sushila.ai/hoststation/catalog.json';
   // Installed right after Sushila.cpp, so there is always a model to try: small (0.5 GB), fast on any computer, and it
   // carries a precomputed landscape. Any pack id from the catalog works here.
-  const DEFAULT_MODEL = 'qwen2.5-0.5b-q4km';
+  // A product flavor (e.g. "Sushila Image Generator") is the same app with a preset, loaded from preset.js before this file:
+  //   window.SUSHILA_PRESET = { product, defaultModel, demoPrompt }   (see presets/*.json and build.rs)
+  // On first start it installs the engine and the preset's model, starts it, and opens the page with the demo prompt.
+  const PRESET = (typeof window !== 'undefined' && window.SUSHILA_PRESET && typeof window.SUSHILA_PRESET === 'object') ? window.SUSHILA_PRESET : null;
+  const DEFAULT_MODEL = (PRESET && PRESET.defaultModel) || 'qwen2.5-0.5b-q4km';
   const DEFAULTS = { catalogUrl: CATALOG_URL, port: 8765, enginePort: 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user', parallel: 1, keepCopy: true };
   const SHARE_DEFAULTS = { enabled: false, bind: '0.0.0.0', hosts: [], keys: [], perMinute: 30 };
   // Sushila signing keys (Ed25519, base64). Every pack and engine build must come with an index signed by one of these;
@@ -157,7 +161,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
             const v = await invoke('run_capture', { program: p, args: ['--version'], timeoutS: 20 }).catch(() => ({}));
             const text = (v.stdout || '') + (v.stderr || '');
             if (/sushila/i.test(text) || name === 'sushila-server') {
-              s.engine = { version: (text.match(/version:?\s*([\w.\-]+)/i) || [])[1] || 'unknown', server: p, dir: '', source: 'found on this computer', installedAt: '' };
+              const dir = p.replace(/[\\/][^\\/]+$/, ''), sd = join(dir, HOST.info.family === 'windows' ? 'sushila-sd-server.exe' : 'sushila-sd-server');
+              const servers = { text: p }; if (await invoke('path_exists', { path: sd })) servers.image = sd;
+              s.engine = { version: (text.match(/version:?\s*([\w.\-]+)/i) || [])[1] || 'unknown', server: p, servers, dir, source: 'found on this computer', installedAt: '' };
               await saveState();
               return s.engine;
             }
@@ -168,14 +174,24 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       return null;
     }
 
+    async function engineKey() {  // e.g. windows-x86_64-cuda on a PC with an NVIDIA GPU, else windows-x86_64
+      const builds = (HOST.catalog && HOST.catalog.engine && HOST.catalog.engine.builds) || {};
+      if (HOST.gpu === undefined) {
+        const r = await invoke('run_capture', { program: 'nvidia-smi', args: ['--query-gpu=name', '--format=csv,noheader'], timeoutS: 15 }).catch(() => null);
+        HOST.gpu = r && r.code === 0 && (r.stdout || '').trim() ? { vendor: 'nvidia', name: r.stdout.trim().split('\n')[0] } : null;
+        if (HOST.gpu) log(`NVIDIA GPU found: ${HOST.gpu.name}`);
+      }
+      return HOST.gpu && builds[platformKey() + '-cuda'] ? platformKey() + '-cuda' : platformKey();
+    }
     async function installEngine() {
-      const build = HOST.catalog && HOST.catalog.engine && HOST.catalog.engine.builds && HOST.catalog.engine.builds[platformKey()];
-      if (!build) throw new Error(`No Sushila.cpp build is published for ${platformKey()} yet.`);
+      const key = await engineKey();
+      const build = HOST.catalog && HOST.catalog.engine && HOST.catalog.engine.builds && HOST.catalog.engine.builds[key];
+      if (!build) throw new Error(`No Sushila.cpp build is published for ${key} yet.`);
       const index = await signedIndex(HOST.catalog.engine.index, 'Sushila.cpp ' + HOST.catalog.engine.version);
-      const v = index.version, ref = index.builds && index.builds[platformKey()];
+      const v = index.version, ref = index.builds && index.builds[key];
       if (!ref || ref.sha256 !== build.sha256 || !build.sha256) throw new Error('This build does not match the signed list of Sushila.cpp builds; refusing to install it.');
       if (!safeRelPath(build.server) || !ALLOWED_SOURCE(build.url)) throw new Error('The build entry is not valid or not from an allowed source.');
-      const staging = join(userRoot(), 'downloads', `sushila-cpp-${v}-${platformKey()}.${build.archive || 'zip'}`);
+      const staging = join(userRoot(), 'downloads', `sushila-cpp-${v}-${key}.${build.archive || 'zip'}`);
       await download('engine', build.url, staging, build.sha256, build.bytes, `Sushila.cpp ${v}`);
       const userDir = join(userRoot(), 'engine', v);
       await invoke('extract_archive', { archive: staging, dest: userDir });
@@ -376,7 +392,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         : ['-m', join(p.dir, ...p.model.split('/')), '--host', '127.0.0.1', '--port', String(port),
            '-t', String(threads), '-c', String(s.contextSize * Math.max(1, s.parallel)), '-np', String(Math.max(1, s.parallel)), '-ngl', String(s.gpuLayers), ...packArgs];
       log(`starting ${p.name} on port ${port}: ${program} ${args.join(' ')}`);
-      await invoke('spawn_process', { id: 'engine:' + id, program, args, cwd: p.dir, env: null });
+      const env = HOST.info.os === 'linux' && HOST.state.engine.dir ? { LD_LIBRARY_PATH: HOST.state.engine.dir } : null;  // bundled CUDA runtime
+      await invoke('spawn_process', { id: 'engine:' + id, program, args, cwd: p.dir, env });
       HOST.state.running[id] = { port, name: p.name, kind: p.kind || 'text', startedAt: new Date().toISOString(), ready: false };
       await saveState(); render();
       for (let i = 0; i < 300; i++) {  // the model loads, then /health answers
@@ -504,8 +521,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (code !== 0) throw new Error('The firewall rule was not added (exit code ' + code + ').');
     }
 
-    async function launchPage(id) {
-      const url = `http://127.0.0.1:${HOST.state.settings.port}/?t=${HOST.state.token}` + (id ? '&model=' + encodeURIComponent(id) : '');
+    async function launchPage(id, prompt) {
+      const url = `http://127.0.0.1:${HOST.state.settings.port}/?t=${HOST.state.token}` + (id ? '&model=' + encodeURIComponent(id) : '')
+        + (prompt ? '&prompt=' + encodeURIComponent(prompt) + '&run=1' : '');
       await invoke('open_url', { url });
     }
 
@@ -735,8 +753,23 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       catch (e) { say('The local web server could not start: ' + e + '. Choose another port in Settings.', 'err'); }
       await Promise.all([loadCatalog(), detectEngine()]);
       render();
-      // an engine but no model yet (e.g. Sushila.cpp was already on this computer): install the default model now
-      if (HOST.state.engine && !Object.keys(HOST.state.packs).length) act(ensureDefaultModel, 'The default model is installed. Press Run inference to try it.');
+      if (PRESET && !HOST.state.presetDone) {
+        // first start of a flavor (e.g. Sushila Image Generator): engine, its model, start it, open the page with the demo prompt
+        await act(async () => {
+          if (!HOST.state.engine) { say('Installing Sushila.cpp…', ''); await installEngine(); }
+          if (!HOST.state.packs[DEFAULT_MODEL]) {
+            const pack = (HOST.catalog.packs || []).find((p) => p.id === DEFAULT_MODEL);
+            if (!pack) throw new Error(`${DEFAULT_MODEL} is not in the catalog right now; check your internet connection and restart.`);
+            await installPack(pack, { noAsk: true });
+          }
+          await startModel(DEFAULT_MODEL);
+          await launchPage(DEFAULT_MODEL, PRESET.demoPrompt || '');
+          HOST.state.presetDone = true; await saveState();
+        }, `${APP} is ready. Your browser shows the first result.`);
+      } else if (HOST.state.engine && !Object.keys(HOST.state.packs).length) {
+        // an engine but no model yet (e.g. Sushila.cpp was already on this computer): install the default model now
+        act(ensureDefaultModel, 'The default model is installed. Press Run inference to try it.');
+      }
       listen('deep-link', () => handleLinks());
       await handleLinks();  // the link that started the app, if any
     })().catch((e) => { $('app').textContent = 'Sushila Host Station could not start: ' + e; });
@@ -752,14 +785,16 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .bar2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar2 select,.bar2 input{max-width:260px}
 .music{max-width:760px;margin:0 auto;padding:16px}.music label{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}
 .music textarea,.music input,.music select{width:100%}.bar2 label select,.bar2 label input{width:auto}
-.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px}.gallery figure{margin:0}.gallery img{width:100%;border-radius:10px;border:1px solid var(--line)}.music audio{width:100%;margin-top:14px}.track{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px;background:var(--card)}`));
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px}.gallery figure{margin:0}.gallery img{width:100%;border-radius:10px;border:1px solid var(--line)}
+.dlbtn{display:inline-block;margin-top:6px;padding:6px 14px;border-radius:8px;background:var(--acc);color:#fff;text-decoration:none;font-weight:600}.music audio{width:100%;margin-top:14px}.track{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px;background:var(--card)}`));
     document.title = 'Sushila Inference';
     const qs = new URLSearchParams(location.search);
     const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
     if (qs.get('t')) { try { sessionStorage.setItem('sushila-token', qs.get('t')); } catch (_) {} }
     let token = ''; try { token = sessionStorage.getItem('sushila-token') || ''; } catch (_) {}
     let want = qs.get('model') || '';
-    if (qs.get('t') || qs.get('model')) history.replaceState(null, '', '/');
+    let autoPrompt = (qs.get('prompt') || '').slice(0, 2000), autoRun = qs.get('run') === '1';  // e.g. the first-start demo
+    if (qs.get('t') || qs.get('model') || qs.get('prompt')) history.replaceState(null, '', '/');
     let hosts = store.get('sushila-hosts', []);     // remote Host Stations: ["https://ai.example.com", ...]
     let keys = store.get('sushila-keys', {});       // their access keys, kept in this browser only
     let server = store.get('sushila-server', '');   // '' = this computer
@@ -841,6 +876,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           'Temperature', el('select', { id: 'temp' }, ['0', '0.3', '0.7', '1.0'].map((t) => el('option', { selected: t === '0.7' }, t))),
           el('button', { class: 'ghost', onclick: () => { msgs.length = 0; $('log').replaceChildren(); } }, 'New chat')), keyHint()));
       $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+      if (autoPrompt) { $('q').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; send(); } }
     }
     async function send() {
       const q = $('q').value.trim();
@@ -925,6 +961,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('div', { class: 'row' }, el('button', { id: 'igo', class: 'big', onclick: makeImage }, 'Submit')),
         el('div', { class: 'msg', id: 'imsg' }), keyHint(), el('div', { id: 'gallery', class: 'gallery' })));
       $('iprompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) makeImage(); });
+      if (autoPrompt) { $('iprompt').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeImage(); } }
     }
     async function makeImage() {
       const prompt = $('iprompt').value.trim();
@@ -941,7 +978,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         const imgs = (j.data || []).map((d) => d.b64_json ? 'data:image/png;base64,' + d.b64_json : d.url).filter(Boolean);
         if (!imgs.length) throw new Error('The server returned no image.');
         for (const src of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
-          el('a', { href: src, download: 'sushila-image.png' }, 'Download'))));
+          el('a', { href: src, download: 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'))));
         $('imsg').textContent = `${imgs.length} image${imgs.length > 1 ? 's' : ''} in ${secs} s`;
       } catch (e) { $('imsg').className = 'msg err'; $('imsg').textContent = String(e.message || e); }
       finally { $('igo').disabled = false; }

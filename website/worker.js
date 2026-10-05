@@ -1846,9 +1846,10 @@ async function hostApp(env, b2) {
 
 const HOSTSTATION = (env, app, packs = []) => () => {
   const REPO = String(env.REPO_URL || REPO_DEFAULT).replace(/\/+$/, '');
-  const rows = app && app.files && app.files.length ? app.files.map((f) => `
+  const table = (product) => (app && app.files || []).filter((f) => (f.product || 'host-station') === product).map((f) => `
     <tr><td><b>${esc(f.label || f.platform)}</b></td><td class="num">${gb(f.bytes || 0)}</td>
-      <td class="act"><a class="btn small" href="${esc(f.url)}">Download</a> <button class="copy" data-copy="${esc(f.sha256)}" title="Copy sha256">sha256</button></td></tr>`).join('') : '';
+      <td class="act"><a class="btn small" href="/hoststation/download/${product === 'host-station' ? '' : product + '/'}${esc(f.platform)}">Download</a> <button class="copy" data-copy="${esc(f.sha256)}" title="Copy sha256">sha256</button></td></tr>`).join('');
+  const rows = table('host-station'), irows = table('image-generator');
   return `
 <h1>Sushila Host Station</h1>
 <p class="lead">A free desktop app for Windows, macOS and Linux. It installs Sushila.cpp and model packs with a few clicks, runs models on your own computer, and opens a chat page in your browser. No command prompt needed.</p>
@@ -1859,6 +1860,11 @@ ${HS_WIZARD(app, packs)}
 ${rows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
 <p class="note">Check the sha256 of your download against the one listed here. Installers are code-signed by the Sushila project.</p>`
     : '<p class="note">The first installers are being built and signed. Check back soon.</p>'}
+
+<h2 id="image-generator">Sushila Image Generator</h2>
+<p>The same app, set up for one job: after you install it, it installs Sushila.cpp and the Z-Image-Turbo image pack by itself, starts it, and opens your browser with a first image already being made ("Two bears dancing in a forest near a river"), with a Download button. Everything runs on your computer.</p>
+${irows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${irows}</tbody></table></div>`
+  : '<p class="note">The Image Generator installers are being built and signed. Check back soon.</p>'}
 
 <h2>Install, then four clicks</h2>
 <ol>
@@ -1888,7 +1894,7 @@ document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', asyn
 // the wizard asks, then guides the visitor through download and install for their system, and finally sends them back
 // to the pack they chose. `app` is hostApp() (installers in B2) or null while none are published.
 const HS_WIZARD = (app, packs = []) => {
-  const files = (app && app.files || []).map(({ platform, label, file, sha256, bytes, url }) => ({ platform, label, file, sha256, bytes, url }));
+  const files = (app && app.files || []).filter((f) => (f.product || 'host-station') === 'host-station').map(({ platform, label, file, sha256, bytes, url }) => ({ platform, label, file, sha256, bytes, url }));
   const plist = packs.map((p) => ({ id: p.id, name: p.name, category: p.category || 'Other', description: p.description || '', license: p.license,
     bytes: (p.files || []).reduce((a, f) => a + (f.bytes || 0), 0), minRamGB: p.minRamGB || 0 }));
   const data = JSON.stringify({ version: app ? app.version : null, files, packs: plist }).replace(/</g, '\\u003c');
@@ -2352,9 +2358,10 @@ export default {
         return new Response(null, { status: 302, headers: { location: d.url, 'cache-control': 'no-store', ...SEC } });
       }
       if (p.startsWith('/hoststation/download/')) {
-        const platform = p.slice('/hoststation/download/'.length);
+        const rest = p.slice('/hoststation/download/'.length).split('/');
+        const product = rest.length > 1 ? rest[0] : 'host-station', platform = rest[rest.length - 1];
         const app = b2.configured ? await hostApp(env, b2).catch(() => null) : null;
-        const f = app && app.files.find((x) => x.platform === platform);
+        const f = app && app.files.find((x) => x.platform === platform && (x.product || 'host-station') === product);
         if (!f) return new Response('No installer is published for this system yet.', { status: 404, headers: SEC });
         ctx.waitUntil(logDownload(db, request, { file: f.file, kind: 'installer', system: platform, bytes: f.bytes }));
         const h = {}; if (request.headers.get('range')) h.range = request.headers.get('range');

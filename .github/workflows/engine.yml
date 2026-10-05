@@ -20,21 +20,30 @@ jobs:
           - { os: macos-14, key: macos-aarch64, archive: tar.gz, exe: "", cmake: "-DGGML_NATIVE=OFF -DGGML_METAL_EMBED_LIBRARY=ON" }
           - { os: macos-14, key: macos-x86_64, archive: tar.gz, exe: "", cmake: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DGGML_METAL=OFF -DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON" }
           - { os: ubuntu-22.04, key: linux-x86_64, archive: tar.gz, exe: "", cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON" }
+          # NVIDIA GPUs (RTX 20-series to 50-series, A100/H100): CUDA builds; the CUDA runtime libraries ship next to the programs
+          - { os: windows-latest, key: windows-x86_64-cuda, archive: zip, exe: .exe, cuda: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON", cuda_arch: "75;80;86;89;90;120" }
+          - { os: ubuntu-22.04, key: linux-x86_64-cuda, archive: tar.gz, exe: "", cuda: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON", cuda_arch: "75;80;86;89;90;120" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: CUDA toolkit
+        if: ${{ matrix.cuda }}
+        uses: Jimver/cuda-toolkit@v0.2.24
+        with: { cuda: "12.8.1", method: network, sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''["nvcc","cudart","cublas","cublas_dev","thrust","visual_studio_integration"]'' || ''["nvcc","cudart","cublas","cublas-dev","thrust"]'' }}', non-cuda-sub-packages: '${{ startsWith(matrix.os, ''windows'') && ''[]'' || ''["libcublas","libcublas-dev"]'' }}' }
       - name: Build
         shell: bash
         run: |
-          cmake -S llama.cpp -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_TESTS=OFF ${{ matrix.cmake }}
+          arch=""; [ -n "${{ matrix.cuda_arch }}" ] && arch="-DCMAKE_CUDA_ARCHITECTURES=${{ matrix.cuda_arch }}"
+          cmake -S llama.cpp -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_TESTS=OFF ${{ matrix.cmake }} ${arch:+"$arch"}
           cmake --build build --config Release --target llama-server -j 4
       - name: Build the image engine (stable-diffusion.cpp sd-server, pinned)
         shell: bash
         run: |
           git clone --recursive https://github.com/leejet/stable-diffusion.cpp sdcpp && git -C sdcpp checkout 3f8527a46c54ecf4cb4ed6003da8e8982283c73c && git -C sdcpp submodule update --init --recursive
           extra="${{ matrix.cmake }}"; extra="${extra//GGML_METAL_EMBED_LIBRARY/GGML_METAL_EMBED_LIBRARY}"
-          metal=""; [ "${{ matrix.key }}" = macos-aarch64 ] && metal="-DSD_METAL=ON"
-          cmake -S sdcpp -B sdbuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSD_BUILD_EXAMPLES=ON -DSD_SERVER_BUILD_FRONTEND=OFF $metal $extra
+          metal=""; [ "${{ matrix.key }}" = macos-aarch64 ] && metal="-DSD_METAL=ON"; [ "${{ matrix.cuda }}" = true ] && metal="-DSD_CUDA=ON"
+          arch=""; [ -n "${{ matrix.cuda_arch }}" ] && arch="-DCMAKE_CUDA_ARCHITECTURES=${{ matrix.cuda_arch }}"
+          cmake -S sdcpp -B sdbuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSD_BUILD_EXAMPLES=ON -DSD_SERVER_BUILD_FRONTEND=OFF $metal $extra ${arch:+"$arch"}
           cmake --build sdbuild --config Release --target sd-server -j 4
       - name: Package
         shell: bash
@@ -44,6 +53,10 @@ jobs:
           cp "$f" "pkg/sushila-server${{ matrix.exe }}"
           g=$(find sdbuild -name "sd-server${{ matrix.exe }}" -type f | head -1); cp "$g" "pkg/sushila-sd-server${{ matrix.exe }}"
           cp sdcpp/LICENSE pkg/LICENSE-stable-diffusion.cpp
+          if [ "${{ matrix.cuda }}" = true ]; then  # CUDA runtime next to the programs (redistributable under the CUDA EULA)
+            if [ "${{ matrix.exe }}" = .exe ]; then for l in cudart64_12 cublas64_12 cublasLt64_12; do cp "$CUDA_PATH/bin/$l.dll" pkg/; done
+            else for l in libcudart.so.12 libcublas.so.12 libcublasLt.so.12; do cp -L $(find /usr/local/cuda* /usr/lib/x86_64-linux-gnu -name "$l" 2>/dev/null | head -1) pkg/; done; fi
+          fi
           cp LICENSE pkg/ 2>/dev/null || true; cp llama.cpp/LICENSE pkg/LICENSE-llama.cpp
           name="sushila-cpp-${{ inputs.version }}-${{ matrix.key }}.${{ matrix.archive }}"
           if [ "${{ matrix.archive }}" = zip ]; then (cd pkg && 7z a "../$name" . >/dev/null); else tar -czf "$name" -C pkg .; fi

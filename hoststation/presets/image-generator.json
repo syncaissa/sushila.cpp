@@ -1,0 +1,5 @@
+{
+  "product": "Sushila Image Generator",
+  "defaultModel": "z-image-turbo",
+  "demoPrompt": "Two bears dancing in a forest near a river"
+}

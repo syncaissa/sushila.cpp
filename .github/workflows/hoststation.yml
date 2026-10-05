@@ -15,10 +15,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: windows-latest, args: "", target: "" }
-          - { os: macos-14, args: "--target aarch64-apple-darwin", target: aarch64-apple-darwin }
-          - { os: macos-14, args: "--target x86_64-apple-darwin", target: x86_64-apple-darwin }   # Intel Macs, cross-compiled (Intel runners are retired)
-          - { os: ubuntu-22.04, args: "", target: "" }
+          # flavor host = Sushila Host Station; flavor image = Sushila Image Generator (same app + presets/image-generator.json:
+          # first start installs the engine and Z-Image-Turbo, starts it and opens the page with a demo prompt). Intel Macs are
+          # cross-compiled (Intel runners are retired).
+          - { os: windows-latest, args: "", target: "", flavor: host, preset: "" }
+          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: host, preset: "" }
+          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: host, preset: "" }
+          - { os: ubuntu-22.04, args: "", target: "", flavor: host, preset: "" }
+          - { os: windows-latest, args: "", target: "", flavor: image, preset: "presets/image-generator.json" }
+          - { os: macos-14, args: "--target aarch64-apple-darwin", target: "aarch64-apple-darwin", flavor: image, preset: "presets/image-generator.json" }
+          - { os: macos-14, args: "--target x86_64-apple-darwin", target: "x86_64-apple-darwin", flavor: image, preset: "presets/image-generator.json" }
+          - { os: ubuntu-22.04, args: "", target: "", flavor: image, preset: "presets/image-generator.json" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -43,13 +50,20 @@ jobs:
           for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID; do
             if [ -n "${!v}" ]; then { echo "$v<<SUSHILA_EOF"; echo "${!v}"; echo "SUSHILA_EOF"; } >> "$GITHUB_ENV"; fi
           done
+      - name: Product name for the flavor
+        shell: bash
+        run: |
+          if [ "${{ matrix.flavor }}" = image ]; then
+            echo "SUSHILA_PRESET=${{ matrix.preset }}" >> "$GITHUB_ENV"
+            echo 'TAURI_FLAVOR_ARGS=--config {"productName":"Sushila Image Generator"}' >> "$GITHUB_ENV"
+          fi
       - uses: tauri-apps/tauri-action@v0
         with:
           projectPath: hoststation
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} ${{ env.TAURI_FLAVOR_ARGS }}
       - uses: actions/upload-artifact@v4
         with:
-          name: hoststation-${{ matrix.os }}-${{ matrix.target }}
+          name: ${{ matrix.flavor }}-${{ matrix.os }}-${{ matrix.target }}
           path: |
             hoststation/src-tauri/target/**/release/bundle/**/*.msi
             hoststation/src-tauri/target/**/release/bundle/**/*.exe
@@ -80,11 +94,12 @@ jobs:
           for root, _, names in os.walk('dist'):
               for n in names:
                   kind = next((k for k in kinds if n.endswith(k[0])), None)
-                  if not kind or any(f['platform'] == kind[1] for f in files):
+                  product = 'image-generator' if n.startswith('Sushila Image Generator') else 'host-station'
+                  if not kind or any(f['platform'] == kind[1] and f['product'] == product for f in files):
                       continue
                   p = os.path.join(root, n)
                   b2.put_file(p, f'hoststation/app/{v}/{n}')
-                  files.append({'platform': kind[1], 'label': kind[2], 'file': n, 'bytes': os.path.getsize(p), 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest()})
+                  files.append({'product': product, 'platform': kind[1], 'label': ('Sushila Image Generator for ' if product == 'image-generator' else '') + kind[2], 'file': n, 'bytes': os.path.getsize(p), 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest()})
           b2.put('hoststation/app/LATEST.json', json.dumps({'version': v, 'built_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()), 'files': files}, indent=1).encode())
           print(json.dumps(files, indent=1))
           PYX
