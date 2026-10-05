@@ -279,6 +279,28 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       log(`the ${name} runtime is ready`);
     }
 
+    // Host Station, Image Generator and Music Generator each have their own folder; an engine one of them installed
+    // (or an all-users install) is reused when it is the same signed build for this computer's GPU.
+    const PRODUCT_IDS = ['ai.sushila.hoststation', 'ai.sushila.imagegenerator', 'ai.sushila.musicgenerator'];
+    async function reuseEngine(key, build, v) {
+      const parent = HOST.info.data_dir.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]+$/, '');  // the folder holding each app's folder
+      const places = PRODUCT_IDS.map((id) => join(parent, id, 'engine', v)).concat([join(SYSTEM_DIRS[platformKey().split('-')[0]], 'engine', v)]);
+      for (const dir of places) {
+        if (dir === join(userRoot(), 'engine', v)) continue;
+        let m; try { m = JSON.parse((await invoke('read_text', { path: join(dir, 'sushila-engine.json') })) || 'null'); } catch (_) { m = null; }
+        if (!m || m.version !== v || m.key !== key || m.sha256 !== build.sha256 || !safeRelPath(m.server)) continue;
+        const server = join(dir, m.server);
+        if (!(await invoke('path_exists', { path: server }))) continue;
+        const servers = { text: server };
+        for (const k of ['image', 'music']) if (m.servers && m.servers[k] && safeRelPath(m.servers[k]) && (await invoke('path_exists', { path: join(dir, m.servers[k]) }))) servers[k] = join(dir, m.servers[k]);
+        log(`reusing Sushila.cpp ${v} (${key}) already installed in ${dir}`);
+        HOST.state.engine = { version: v, server, servers, dir, source: 'shared with another Sushila app on this computer', installedAt: new Date().toISOString() };
+        await saveState();
+        return true;
+      }
+      return false;
+    }
+
     async function installEngine() {
       const key = await engineKey();
       const build = HOST.catalog && HOST.catalog.engine && HOST.catalog.engine.builds && HOST.catalog.engine.builds[key];
@@ -287,10 +309,13 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const v = index.version, ref = index.builds && index.builds[key];
       if (!ref || ref.sha256 !== build.sha256 || !build.sha256) throw new Error('This build does not match the signed list of Sushila.cpp builds; refusing to install it.');
       if (!safeRelPath(build.server) || !ALLOWED_SOURCE(build.url)) throw new Error('The build entry is not valid or not from an allowed source.');
+      if (await reuseEngine(key, build, v)) { await ensureDefaultModel(); return; }
       const staging = join(userRoot(), 'downloads', `sushila-cpp-${v}-${key}.${build.archive || 'zip'}`);
       await download('engine', build.url, staging, build.sha256, build.bytes, `Sushila.cpp ${v}`);
       const userDir = join(userRoot(), 'engine', v);
       await invoke('extract_archive', { archive: staging, dest: userDir });
+      // what this folder holds, so the other Sushila products on this computer can reuse it instead of downloading again
+      await invoke('write_text', { path: join(userDir, 'sushila-engine.json'), content: JSON.stringify({ version: v, key, sha256: build.sha256, server: build.server, servers: build.servers || {} }) });
       let dir = userDir;
       if (HOST.state.settings.scope === 'all') dir = await copyForAllUsers(userDir, join(root(), 'engine', v));
       const server = join(dir, build.server);
@@ -891,6 +916,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       catch (e) { say('The local web server could not start: ' + e + '. Choose another port in Settings.', 'err'); }
       await Promise.all([loadCatalog(), detectEngine()]);
       render();
+      if (!HOST.state.engine && Object.keys(HOST.state.packs).length && (HOST.catalog.packs || []).length) {
+        // models are installed but their engine is gone (e.g. the Sushila app it was shared with was uninstalled): put it back
+        act(installEngine, 'Sushila.cpp is installed again.');
+      }
       if (PRESET && !HOST.state.presetDone) {
         // first start of a flavor (e.g. Sushila Image Generator): engine, its model, start it, open the page with the demo prompt
         await act(async () => {
