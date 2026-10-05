@@ -1,6 +1,6 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-05T19:17Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-05T22:46Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
@@ -8,7 +8,7 @@ Generated 2026-10-05T19:17Z by `scripts/precompute/b2_index.py`. Everything here
 | `deepseek-r1-distill-llama-70b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 88.6 GB | yes | 2026-10-05 |
 | `qwen2.5-0.5b-q4km` | landscape (48), landscapes-earlier (4), calibration (7), weights (1) | 0.8 GB | yes | 2026-10-05 |
 | `qwen2.5-coder-7b` | weights (1) | 4.7 GB | yes | 2026-10-05 |
-| `qwen3-235b-a22b` | draft-head (2), checkpoints (2), training-data (2), config.env (1) | 4.9 GB | **no** | 2026-10-05 |
+| `qwen3-235b-a22b` | draft-head (2), checkpoints (2), training-data (2), config.env (1), weights (43) | 271.4 GB | yes | 2026-10-05 |
 | `qwen3-30b-a3b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (17) | 36.2 GB | yes | 2026-10-04 |
 | `qwen3-32b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (20) | 42.7 GB | yes | 2026-10-04 |
 | `qwen3-4b-instruct-2507` | weights (1) | 2.5 GB | yes | 2026-10-05 |
@@ -73,12 +73,13 @@ Output-layer landscape for Qwen2.5-0.5B-Instruct Q4_K_M (CPU decoding 1.13-1.26x
 
 - **Use:** python3 -m sglang.launch_server --model-path <sglang_target> --speculative-algorithm EAGLE3 --speculative-num-steps 4 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --speculative-draft-model-path draft-head/
 - **Results:** -
-- **Bound to:** `{"sglang_target": {"repo": "QuixiAI/Qwen3-235B-A22B-AWQ", "revision": "1df91c166baa937f2d571a9cece7a1037c1cc772"}, "warm_start_head": {"repo": "lmsys/Qwen3-235B-A22B-EAGLE3", "revision": "d75f968c7d9d19ebdfb1a2fbdd176d61a032da14"}, "ollama_gguf": {"tag": "qwen3:235b-a22b-q4_K_M", "sha256": null}}`
+- **Bound to:** `{"sglang_target": {"repo": "QuixiAI/Qwen3-235B-A22B-AWQ", "revision": "1df91c166baa937f2d571a9cece7a1037c1cc772"}, "warm_start_head": {"repo": "lmsys/Qwen3-235B-A22B-EAGLE3", "revision": "d75f968c7d9d19ebdfb1a2fbdd176d61a032da14"}, "ollama_gguf": {"tag": "qwen3:235b-a22b-q4_K_M", "sha256": "aeacdadecbed8a07e42026d1a1d3cd30715bb2994ebe4e4ca4009e1a4abe8d5d"}}`
 - **Folders:**
   - `draft-head/` (2 files, 2.43 GB): the precomputed draft head chosen on validation prompts (ready to serve)
   - `checkpoints/` (2 files, 2.43 GB): every other trained head checkpoint (for re-selection or further training)
   - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
   - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
+  - `weights/` (43 files, 266.51 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
 ### `qwen3-30b-a3b`
 

@@ -1,0 +1,36 @@
+Fetching 37 files:   0%|          | 0/37 [00:00<?, ?it/s]Fetching 37 files: 100%|██████████| 37/37 [00:00<00:00, 1341.53it/s]
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 4 files:  25%|██▌       | 1/4 [00:00<00:00,  7.34it/s]Fetching 4 files:  50%|█████     | 2/4 [00:00<00:00,  8.27it/s]Fetching 4 files: 100%|██████████| 4/4 [00:07<00:00,  2.38s/it]Fetching 4 files: 100%|██████████| 4/4 [00:07<00:00,  1.92s/it]
+head tensors: ['d2t', 'embed_tokens.weight', 'fc.weight', 'lm_head.weight', 'midlayer.hidden_norm.weight', 'midlayer.input_layernorm.weight', 'midlayer.mlp.down_proj.weight', 'midlayer.mlp.gate_proj.weight', 'midlayer.mlp.up_proj.weight', 'midlayer.post_attention_layernorm.weight', 'midlayer.self_attn.k_proj.weight', 'midlayer.self_attn.o_proj.weight']
+[15:30:16] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+Fetching 37 files:   0%|          | 0/37 [00:00<?, ?it/s]Fetching 37 files: 100%|██████████| 37/37 [00:00<00:00, 1276.90it/s]
+[15:33:42] base_main: 5128 tokens in 85.0 s = 60.4 tok/s (median per prompt 60.0)
+[15:43:55] base_ood: 34928 tokens in 604.0 s = 57.8 tok/s (median per prompt 57.5)
+[15:46:25] base_mt_t07: 8015 tokens in 140.1 s = 57.2 tok/s (median per prompt 57.1)
+[15:53:16] base_gsm100: 24425 tokens in 399.8 s = 61.1 tok/s (median per prompt 61.1)
+[15:58:52] pub_main: 5076 tokens in 188.0 s = 27.0 tok/s (median per prompt 27.6)
+[16:17:14] pub_ood: 34663 tokens in 1081.1 s = 32.1 tok/s (median per prompt 32.4)
+[16:22:20] pub_mt_t07: 8048 tokens in 284.4 s = 28.3 tok/s (median per prompt 29.0)
+[17:07:42] answers: 2000 conversations from 2300 prompts -> /workspace/sushila/qwen3-235b-a22b/regen.jsonl
+2000
+[17:35:09] chunk_00: capture 1209 s, train 438 s, 'acc_0': 0.6416666507720947
+[17:59:49] chunk_01: capture 1041 s, train 439 s, 'acc_0': 0.7592592835426331
+[18:04:57] val_ckpt_chunk_00: 4564 tokens in 146.9 s = 31.1 tok/s (median per prompt 30.6)
+[18:10:52] val_ckpt_chunk_01: 4446 tokens in 178.8 s = 24.9 tok/s (median per prompt 24.7)
+[18:11:07] chosen on validation: head_ckpt_chunk_00 (31.0774198931544 tok/s)
+[18:12:05] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/qwen3-235b-a22b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/qwen3-235b-a22b/CHECKSUMS.json are in B2 
+[18:17:25] ours_main: 5141 tokens in 177.8 s = 28.9 tok/s (median per prompt 29.5)
+[18:34:55] ours_ood: 34592 tokens in 1028.5 s = 33.6 tok/s (median per prompt 34.4)
+[18:39:33] ours_mt_t07: 7854 tokens in 261.9 s = 30.0 tok/s (median per prompt 29.8)
+[18:50:37] ours_gsm100: 24468 tokens in 641.5 s = 38.1 tok/s (median per prompt 38.0)
+[19:11:25] load base: concurrency 1: 59.5 tok/s total, 59.1 tok/s per user (median);concurrency 4: 126.0 tok/s total, 32.3 tok/s per user (median);concurrency 16: 211.7 tok/s total, 13.5 tok/s per user (median);concurrency 64: 344.2 tok/s total, 5.7 tok/s per user (median);
+[19:58:03] load pub: concurrency 1: 33.9 tok/s total, 35.7 tok/s per user (median);concurrency 4: 60.0 tok/s total, 15.4 tok/s per user (median);concurrency 16: 63.1 tok/s total, 4.1 tok/s per user (median);concurrency 64: 75.7 tok/s total, 1.3 tok/s per user (median);
+[20:43:03] load ours: concurrency 1: 31.5 tok/s total, 31.8 tok/s per user (median);concurrency 4: 59.0 tok/s total, 15.0 tok/s per user (median);concurrency 16: 78.8 tok/s total, 5.2 tok/s per user (median);concurrency 64: 88.1 tok/s total, 1.5 tok/s per user (median);
+[20:43:30] Ollama qwen3:235b-a22b-q4_K_M is "name=Qwen3 235B A22B"; SGLang serves QuixiAI/Qwen3-235B-A22B-AWQ (check they are the same model)
+[20:47:55] ollama_main: 5207 tokens: 47.7 tok/s with prompt processing (109.2 s), 50.8 tok/s decode only
+[21:00:34] ollama_ood: 34363 tokens: 46.1 tok/s with prompt processing (745.4 s), 50.7 tok/s decode only
+[21:03:44] ollama_mt_t07: 8254 tokens: 46.7 tok/s with prompt processing (176.6 s), 50.8 tok/s decode only
+[21:12:18] ollama_gsm100: 23607 tokens: 47.2 tok/s with prompt processing (500.2 s), 50.8 tok/s decode only
+[21:22:08] summary: /workspace/sushila/qwen3-235b-a22b/summary.md
+[21:22:49] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/qwen3-235b-a22b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/qwen3-235b-a22b/CHECKSUMS.json are in B2 
+[21:22:49] DONE

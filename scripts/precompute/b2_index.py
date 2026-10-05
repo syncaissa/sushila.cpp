@@ -119,7 +119,8 @@ def main():
     b2.put('precomputed/INDEX.json', json.dumps(out, indent=1).encode())
     b2.put('precomputed/README.md', text.encode())
     doc = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'docs', 'PRECOMPUTED.md')
-    open(doc, 'w').write(text)
+    if os.path.isdir(os.path.dirname(doc)):  # on a pod with only scripts/ copied there is no docs/: B2 still gets both files
+        open(doc, 'w').write(text)
     print(text.split('## Each model')[0])
     print(f'wrote b2://{b2.bucket}/precomputed/INDEX.json, README.md and docs/PRECOMPUTED.md')
 
