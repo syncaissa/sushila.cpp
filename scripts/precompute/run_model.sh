@@ -194,7 +194,7 @@ for c in $CHUNKS; do
     rm -rf $D/hs $D/cache_$k; t0=$(date +%s)
     (cd $SF && $W/sfenv/bin/torchrun --standalone --nproc_per_node ${TP:-1} scripts/prepare_hidden_states.py --target-model-path $TARGET --strategy eagle3 --tp-size ${TP:-1} \
       --draft-model-config $D/pub_head/config.json --data-path $c --chat-template $SF_TEMPLATE --max-length 1024 --batch-size 4 $PF \
-      --cache-dir $D/cache_$k --output-path $D/hs --sglang-mem-fraction-static 0.75 > $D/capture_$k.log 2>&1) || { log "$k: capture failed"; exit 1; }
+      --cache-dir $D/cache_$k --output-path $D/hs --sglang-mem-fraction-static ${CAPTURE_MEM:-0.75} > $D/capture_$k.log 2>&1) || { log "$k: capture failed"; exit 1; }
     t1=$(date +%s)
     sed -e "s|PREV|$PREV|" -e "s|CACHE|$D/cache_$k|" -e "s|RUNID|run-$k|" -e "s|OUTDIR|$out|" $D/train.yaml > $D/train_$k.yaml
     (cd $SF && $W/sfenv/bin/specforge train -c $D/train_$k.yaml > $D/train_$k.log 2>&1) || { log "$k: training failed"; exit 1; }

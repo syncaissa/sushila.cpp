@@ -44,6 +44,8 @@ Every setting a config can hold (defaults in brackets):
 | `EMBED_KEY` [`model.embed_tokens.weight`] | tensor name of the token embedding in the 4-bit file |
 | `LM_HEAD_KEY` [`lm_head.weight`] | tensor name of the output layer; for tied models, the embedding's name |
 | `SGLANG_EXTRA` [empty] | extra SGLang flags for every SGLang server of this model (timing, answers, load test, comparison pod) |
+| `TP` [1] | GPUs per model (tensor parallel) for SGLang and the hidden-state capture; models over ~70 GB at 4 bits need 2+ |
+| `CAPTURE_MEM` [0.75] | GPU memory share for the hidden-state capture; raise it when the weights fill most of each GPU (Qwen3-235B: 0.88) |
 | `GSM_SET` [`gsm8k`], `GSM_MAX` [512] | accuracy set and its token limit (reasoning models: `gsm40`, 1536) |
 
 What you need for a new model:
@@ -142,6 +144,13 @@ item for the new release. The same items are written as comments in each `models
   Ollama's default tag (`gemma3:27b`) is an ordinary Q4_K_M, and the QAT build is a separate tag (`...-it-qat`). State
   which one each engine reads; GSM8K checks answer quality.
 - The only head (2026-10) is a community head trained from scratch (`witcheer/...`): expect a large gain from refitting.
+
+**Very large MoE models** (`qwen3-235b-a22b`)
+- Two 80 GB GPUs: `TP=2` (and `GPUS=2 DISK_GB=500` for the pod); `CAPTURE_MEM=0.88`, because the weights take 75% of
+  each GPU.
+- SGLang 0.5.21 hung capturing the prefill CUDA graph with the head at `TP=2`: `SGLANG_EXTRA="--cuda-graph-backend-prefill disabled"`.
+- PCIe pods without NVLink print "custom allreduce failed": harmless, but slower than NVLink.
+- Ollama's `qwen3:235b` tag holds Thinking-2507; the original release is `qwen3:235b-a22b-q4_K_M`.
 
 **Any family: when a new release appears**
 1. Search Hugging Face for a 4-bit file (`<model> awq`, `gptq`, `int4`) and an EAGLE-3 head (`<model> eagle3`); read
