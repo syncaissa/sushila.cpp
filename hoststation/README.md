@@ -127,3 +127,56 @@ that download and run programs. What establishes trust:
 
 The code is written but has not been compiled yet (no Rust toolchain on the build server). Run `ci/hoststation.yml`
 or `cargo tauri build` on a desktop to produce the first installers, and fix anything the first build reports.
+
+## Serving on a network or the internet (e.g. a Windows server)
+
+The built-in web server is **axum** (Rust, on tokio and hyper), compiled into the app. It does two jobs:
+- it serves the inference page;
+- it forwards the OpenAI-compatible API (`/v1/chat/completions`, `/v1/completions`, `/v1/models` ...) to the running
+  Sushila.cpp server, streaming included.
+
+By default it listens on `127.0.0.1` only. To serve others, open **Settings → Share on the network**:
+
+1. Tick **Share this computer's model**.
+2. **Listen on:**
+   - `0.0.0.0` (every network card), when people connect directly or through a proxy on another machine;
+   - keep `127.0.0.1`, when the reverse proxy runs on the same server (safest).
+3. **Public host names:** the names people type, for example `ai.example.com`. Use `*` to accept any name (the
+   access key still protects the model).
+4. **Users served at the same time:** gives the engine that many parallel slots (`-np`), each with its own context.
+   More users need more memory. Restart the model after changing it.
+5. **Create access key** for each person or app. A key is shown once and only its sha256 is stored. Revoke it anytime.
+6. **Requests per minute per key:** the rate limit (`429` when exceeded).
+7. **Open the Windows firewall port:** adds an inbound rule for the port, after an administrator prompt.
+
+Visitors open `https://ai.example.com/`, enter their key once, and chat. Programs use the key as an OpenAI API key:
+
+```sh
+curl https://ai.example.com/v1/chat/completions -H "Authorization: Bearer sk-sushila-..." \
+     -H "content-type: application/json" -d '{"messages":[{"role":"user","content":"Hello"}]}'
+```
+```python
+from openai import OpenAI
+client = OpenAI(base_url="https://ai.example.com/v1", api_key="sk-sushila-...")
+```
+
+What outsiders can never do: install, remove, start or stop anything, or read files. Those commands exist only inside
+the desktop window, never over HTTP.
+
+### HTTPS through a reverse proxy
+
+The app speaks plain HTTP; put HTTPS in front of it. Keep the **Host** header, and turn off response buffering so
+answers stream:
+
+- **Caddy** (automatic certificates): `ai.example.com { reverse_proxy 127.0.0.1:8765 { flush_interval -1 } }`
+- **nginx:**
+  `location / { proxy_pass http://127.0.0.1:8765; proxy_set_header Host $host; proxy_buffering off; proxy_read_timeout 600s; }`
+- **IIS** (Windows Server): install *URL Rewrite* and *Application Request Routing*, add a reverse-proxy rule to
+  `http://127.0.0.1:8765`, enable *Preserve host header*, and set *Response buffer threshold* to 0.
+- **Cloudflare Tunnel** (no open port at all): `cloudflared tunnel --url http://127.0.0.1:8765`, and add the tunnel's
+  host name to *Public host names*.
+
+### Running unattended
+
+The app (and with it the server) runs while its window is open. On a server, sign in a service account, add Sushila
+Host Station to *Startup*, and leave it running. A headless Windows-service mode is a planned addition.

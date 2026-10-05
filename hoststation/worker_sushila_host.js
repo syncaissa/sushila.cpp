@@ -22,7 +22,8 @@
 
   const APP = 'Sushila Host Station';
   const CATALOG_URL = 'https://sushila.ai/hoststation/catalog.json';
-  const DEFAULTS = { catalogUrl: CATALOG_URL, port: 8765, enginePort: 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user' };
+  const DEFAULTS = { catalogUrl: CATALOG_URL, port: 8765, enginePort: 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user', parallel: 1 };
+  const SHARE_DEFAULTS = { enabled: false, bind: '0.0.0.0', hosts: [], keys: [], perMinute: 30 };
   // Sushila signing keys (Ed25519, base64). Every pack and engine build must come with an index signed by one of these;
   // the private key never leaves the signing machine (scripts/precompute/sign_checksums.py). Add a new key here
   // before retiring an old one.
@@ -100,6 +101,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       let s = raw ? JSON.parse(raw) : {};
       s.settings = Object.assign({}, DEFAULTS, s.settings || {});
       s.packs = s.packs || {};
+      s.share = Object.assign({}, SHARE_DEFAULTS, s.share || {});
       s.token = s.token || randomToken();
       s.running = null;  // nothing runs at start: models are started from this window
       HOST.state = s;
@@ -259,7 +261,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (HOST.state.running) await stopModel();
       const threads = s.threads || Math.max(1, Math.min(16, HOST.info.cpus - 1));
       const args = ['-m', join(p.dir, ...p.model.split('/')), '--host', '127.0.0.1', '--port', String(s.enginePort),
-        '-t', String(threads), '-c', String(s.contextSize), '-ngl', String(s.gpuLayers), ...p.args];
+        '-t', String(threads), '-c', String(s.contextSize * Math.max(1, s.parallel)), '-np', String(Math.max(1, s.parallel)), '-ngl', String(s.gpuLayers), ...p.args];
       log(`starting ${p.name}: ${HOST.state.engine.server} ${args.join(' ')}`);
       await invoke('spawn_process', { id: 'engine', program: HOST.state.engine.server, args, cwd: p.dir, env: null });
       HOST.state.running = { packId: id, port: s.enginePort, startedAt: new Date().toISOString() };
@@ -286,12 +288,67 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     function log(line) { HOST.logs.push(`[${new Date().toLocaleTimeString()}] ${line}`); if (HOST.logs.length > 2000) HOST.logs.splice(0, 500); const l = $('log'); if (l) { l.textContent = HOST.logs.join('\n'); l.scrollTop = l.scrollHeight; } }
     async function act(fn, okText) {
       if (HOST.busy) return;
-      HOST.busy = true; say('', ''); render();
+      HOST.busy = true; say('', '');  // no redraw here: handlers read form fields first (fn redraws when it shows progress)
       try { await fn(); if (okText) say(okText, 'ok'); } catch (e) { say(String(e && e.message || e), 'err'); log('error: ' + (e && e.message || e)); }
       finally { HOST.busy = false; render(); }
     }
     let msg = { text: '', kind: '' };
     function say(text, kind) { msg = { text, kind }; const m = $('msg'); if (m) { m.textContent = text; m.className = 'msg ' + kind; } }
+    // ---------- sushila:// links from the "Install in Host Station" buttons on sushila.ai
+    // A link only *proposes* a pack: the user always sees what it is and confirms before anything is downloaded, and the
+    // pack still has to pass every signature, checksum and data-only check.
+    async function handleLinks() {
+      const links = await invoke('take_links').catch(() => []);
+      for (const raw of links) {
+        let m;
+        try {
+          const u = new URL(raw);
+          if (u.protocol !== 'sushila:') continue;
+          const parts = (u.host + u.pathname).split('/').filter(Boolean);
+          if (parts[0] !== 'install-pack') { say('Sushila Host Station is open.', 'ok'); continue; }
+          m = parts[1] || u.searchParams.get('id') || '';
+        } catch (_) { continue; }
+        if (!/^[a-z0-9][a-z0-9.\-]{0,79}$/.test(m)) { say('The link from the website was not valid; nothing was installed.', 'err'); continue; }
+        if (!HOST.catalog || !HOST.catalog.packs || !HOST.catalog.packs.length) await loadCatalog();
+        const pack = (HOST.catalog.packs || []).find((x) => x.id === m);
+        tab = 'packs'; render();
+        if (!pack) { say(`The pack "${m}" is not in the catalog.`, 'err'); continue; }
+        if (HOST.state.packs[m]) { say(`${pack.name} is already installed. Start it from Home.`, 'ok'); continue; }
+        const total = pack.files.reduce((a, f) => a + (f.bytes || 0), 0);
+        if (!confirm(`sushila.ai asks to install this model pack:\n\n${pack.name}\n${gb(total)} · license: ${pack.license}\n\nInstall it now? By installing you accept its license.`)) { say('Not installed.', ''); continue; }
+        await act(async () => {
+          if (!HOST.state.engine) {
+            if (!confirm('Sushila.cpp (the engine that runs the pack) is not installed yet. Install it first?')) throw new Error('Install Sushila.cpp first (Engine tab).');
+            await installEngine();
+          }
+          await installPack(pack);
+        }, `${pack.name} is installed. Start it from Home.`);
+      }
+    }
+
+    // ---------- sharing on the network (e.g. a Windows server behind a reverse proxy)
+    async function startServer() {
+      const sh = HOST.state.share;
+      await invoke('server_stop');
+      HOST.serverUrl = await invoke('server_start', { port: HOST.state.settings.port, bind: sh.enabled ? sh.bind : '127.0.0.1' });
+    }
+    async function sha256Hex(text) {
+      const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    async function addKey(name) {
+      const key = 'sk-sushila-' + randomToken();
+      HOST.state.share.keys.push({ name: name || 'key ' + (HOST.state.share.keys.length + 1), sha256: await sha256Hex(key), created: new Date().toISOString() });
+      await saveState();
+      return key;  // shown once; only its hash is stored
+    }
+    async function openFirewall() {
+      if (HOST.info.os !== 'windows') throw new Error('Open the port in your firewall settings (Windows has a one-click button here).');
+      const port = String(HOST.state.settings.port);
+      const code = await invoke('run_elevated', { program: 'netsh', args: ['advfirewall', 'firewall', 'add', 'rule', 'name=Sushila Host Station', 'dir=in', 'action=allow', 'protocol=TCP', 'localport=' + port] });
+      if (code !== 0) throw new Error('The firewall rule was not added (exit code ' + code + ').');
+    }
+
     async function launchPage() {
       const url = `http://127.0.0.1:${HOST.state.settings.port}/?t=${HOST.state.token}`;
       await invoke('open_url', { url });
@@ -421,7 +478,38 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           s.scope = $('set-scope').value;
           await saveState(); await loadCatalog();
         }, 'Saved. A new inference-page port takes effect after a restart.') }, 'Save')),
-        el('div', { class: 'sub', style: 'margin-top:12px' }, `Data folder: ${userRoot()}`));
+        el('div', { class: 'sub', style: 'margin-top:12px' }, `Data folder: ${userRoot()}`),
+        shareCard());
+    }
+    function shareCard() {
+      const sh = HOST.state.share, s = HOST.state.settings;
+      const where = sh.enabled ? (HOST.addresses || []).map((a) => `http://${a}:${s.port}/`).concat(sh.hosts.filter((h) => h !== '*').map((h) => `https://${h}/`)) : [];
+      return el('div', { style: 'margin-top:22px;border-top:1px solid var(--line);padding-top:12px' }, el('h2', {}, 'Share on the network'),
+        el('div', { class: 'sub' }, 'Serve the inference page and an OpenAI-compatible API (/v1/chat/completions) to other computers: your office network, or the internet behind a reverse proxy (IIS, nginx, Caddy, Cloudflare Tunnel). Visitors need an access key; nobody can install or change anything from outside.'),
+        el('label', { class: 'f' }, el('input', { type: 'checkbox', id: 'sh-on', checked: sh.enabled }), ' Share this computer\'s model'),
+        el('label', { class: 'f', for: 'sh-bind' }, 'Listen on'), el('input', { id: 'sh-bind', value: sh.bind }),
+        el('div', { class: 'sub' }, '0.0.0.0 = every network card. With a reverse proxy on the same machine you can keep 127.0.0.1.'),
+        el('label', { class: 'f', for: 'sh-hosts' }, 'Public host names (comma-separated)'), el('input', { id: 'sh-hosts', value: sh.hosts.join(', '), placeholder: 'ai.example.com' }),
+        el('div', { class: 'sub' }, 'The names people type, e.g. ai.example.com, or the server\'s IP address. * accepts any name (the access key still protects the model).'),
+        el('label', { class: 'f', for: 'sh-pm' }, 'Requests per minute per key'), el('input', { id: 'sh-pm', type: 'number', value: sh.perMinute }),
+        el('label', { class: 'f', for: 'sh-par' }, 'Users served at the same time'), el('input', { id: 'sh-par', type: 'number', value: s.parallel }),
+        el('div', { class: 'sub' }, 'Each simultaneous user gets its own context; more users need more memory. Restart the model after changing this.'),
+        el('div', { class: 'row' },
+          el('button', { onclick: () => act(async () => {
+            sh.enabled = $('sh-on').checked; sh.bind = $('sh-bind').value.trim() || '0.0.0.0';
+            sh.hosts = $('sh-hosts').value.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+            sh.perMinute = Math.max(1, parseInt($('sh-pm').value, 10) || 30); s.parallel = Math.max(1, Math.min(64, parseInt($('sh-par').value, 10) || 1));
+            if (sh.enabled && !sh.keys.length) say('Create an access key below so people can use the shared model.', 'err');
+            await saveState(); await startServer(); HOST.addresses = await invoke('local_addresses').catch(() => []);
+          }, sh.enabled ? 'Sharing is on.' : 'Saved.') }, 'Apply'),
+          el('button', { class: 'ghost', onclick: () => act(openFirewall, 'The firewall now allows port ' + s.port + '.') }, 'Open the Windows firewall port')),
+        where.length ? el('div', { class: 'msg ok', id: 'sh-where' }, 'Reachable at: ' + where.join('  ·  ')) : null,
+        el('h2', { style: 'margin-top:16px' }, 'Access keys'),
+        sh.keys.length ? el('table', {}, el('tbody', {}, sh.keys.map((k, i) => el('tr', {}, el('td', {}, k.name), el('td', { class: 'sub' }, (k.created || '').slice(0, 10)),
+          el('td', {}, el('button', { class: 'danger', onclick: () => act(async () => { sh.keys.splice(i, 1); await saveState(); }, 'Key revoked.') }, 'Revoke'))))))
+          : el('div', { class: 'sub' }, 'No keys yet.'),
+        el('div', { class: 'row' }, el('input', { id: 'sh-kname', placeholder: 'who the key is for' }),
+          el('button', { onclick: () => act(async () => { const k = await addKey($('sh-kname').value.trim()); prompt('Copy this access key now; it is shown only once:', k); }, 'Key created.') }, 'Create access key')));
     }
 
     // ---------- start
@@ -445,10 +533,12 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         log(`the engine stopped (exit code ${p.code == null ? 'none' : p.code})`);
         if (HOST.state.running) { HOST.state.running = null; await saveState(); render(); }
       });
-      try { await invoke('server_start', { port: HOST.state.settings.port }); }
+      try { await startServer(); HOST.addresses = await invoke('local_addresses').catch(() => []); }
       catch (e) { say('The local web server could not start: ' + e + '. Choose another port in Settings.', 'err'); }
       await Promise.all([loadCatalog(), detectEngine()]);
       render();
+      listen('deep-link', () => handleLinks());
+      await handleLinks();  // the link that started the app, if any
     })().catch((e) => { $('app').textContent = 'Sushila Host Station could not start: ' + e; });
   }
 
@@ -459,6 +549,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const qs = new URLSearchParams(location.search);
     if (qs.get('t')) { try { sessionStorage.setItem('sushila-token', qs.get('t')); } catch (_) {} history.replaceState(null, '', '/'); }
     let token = ''; try { token = sessionStorage.getItem('sushila-token') || ''; } catch (_) {}
+    let key = ''; try { key = localStorage.getItem('sushila-key') || ''; } catch (_) {}
+    const auth = () => (token ? { 'x-sushila-token': token } : key ? { authorization: 'Bearer ' + key } : {});
     const msgs = [];
     let ctrl = null;
     const app = document.getElementById('app');
@@ -469,7 +561,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const box = el('div', { class: 'chat' }, el('div', { id: 'log' }),
       el('div', { class: 'composer' }, el('textarea', { id: 'q', placeholder: 'Ask anything. Runs entirely on this computer.' }),
         el('button', { id: 'send', onclick: send }, 'Send'), el('button', { id: 'stop', class: 'ghost hidden', onclick: () => ctrl && ctrl.abort() }, 'Stop')),
-      el('div', { class: 'sub', id: 'note' }, token ? '' : 'Open this page with the Launch Inference Page button in Sushila Host Station.'));
+      el('div', { class: 'row', id: 'keyrow' }, token ? null : [
+        el('input', { id: 'key', type: 'password', placeholder: 'Access key (from the person who runs this server)', value: key, style: 'flex:1' }),
+        el('button', { class: 'ghost', onclick: () => { key = $('key').value.trim(); try { localStorage.setItem('sushila-key', key); } catch (_) {} $('note').textContent = key ? 'Key saved in this browser.' : ''; } }, 'Use key')]),
+      el('div', { class: 'sub', id: 'note' }, ''));
     app.replaceChildren(head, box);
     $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
 
@@ -492,9 +587,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const t0 = performance.now(); let first = 0, n = 0, text = '', timings = null;
       try {
         const r = await fetch('/v1/chat/completions', { method: 'POST', signal: ctrl.signal,
-          headers: { 'content-type': 'application/json', 'x-sushila-token': token },
+          headers: Object.assign({ 'content-type': 'application/json' }, auth()),
           body: JSON.stringify({ messages: msgs, stream: true, max_tokens: +$('maxt').value, temperature: +$('temp').value }) });
-        if (!r.ok) throw new Error(await r.text());
+        if (!r.ok) throw new Error(r.status === 401 ? 'This server needs an access key: enter it below.' : r.status === 429 ? 'Too many requests for this key; wait a minute.' : await r.text());
         const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '';
         for (;;) {
           const { done, value } = await rd.read(); if (done) break;

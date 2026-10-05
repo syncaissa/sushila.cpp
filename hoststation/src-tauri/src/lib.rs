@@ -25,7 +25,8 @@ const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="u
 struct Host {
     data_dir: PathBuf,
     procs: Mutex<HashMap<String, oneshot::Sender<()>>>,
-    server_port: Mutex<Option<u16>>,
+    server: Mutex<Option<(String, oneshot::Sender<()>)>>,  // (address, stop signal) of the running web server
+    links: std::sync::Mutex<Vec<String>>,  // sushila:// links received before the page was ready
 }
 
 fn err<E: std::fmt::Display>(e: E) -> String { e.to_string() }
@@ -350,49 +351,80 @@ async fn run_elevated(program: String, args: Vec<String>) -> Result<i32, String>
 }
 
 // ---------- local web server ----------
-struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client }
+struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>> }
+
+// Sharing (Settings -> Share on the network), read from state.json on every request:
+//   share.enabled        accept requests from other machines (the server then listens on share.bind, e.g. 0.0.0.0)
+//   share.hosts          host names a browser or reverse proxy may use, e.g. ["ai.example.com"]; "*" accepts any
+//   share.keys           [{name, sha256}] of access keys; callers send "Authorization: Bearer <key>"
+//   share.perMinute      requests per minute per key
+fn share(st: &Value) -> Option<&Value> { st.get("share").filter(|s| s.get("enabled").and_then(|e| e.as_bool()).unwrap_or(false)) }
 
 fn read_state(dir: &Path) -> Value {
     std::fs::read_to_string(dir.join("state.json")).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null)
 }
 
-fn local_host_ok(headers: &axum::http::HeaderMap, port: u16) -> bool {
-    // Only pages on this machine may use the server (blocks DNS-rebinding pages from other sites).
+fn host_ok(headers: &axum::http::HeaderMap, port: u16, st: &Value) -> bool {
+    // Local use: only pages on this machine (blocks DNS-rebinding pages from other sites). Shared: also the configured
+    // public host names (as sent by browsers or a reverse proxy).
     let host = headers.get("host").and_then(|h| h.to_str().ok()).unwrap_or("");
-    host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}")
+    if host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}") { return true; }
+    let Some(sh) = share(st) else { return false };
+    let name = host.rsplit_once(':').map(|(h, p)| if p.chars().all(|c| c.is_ascii_digit()) { h } else { host }).unwrap_or(host).to_ascii_lowercase();
+    sh.get("hosts").and_then(|h| h.as_array()).map(|a| a.iter().filter_map(|x| x.as_str()).any(|x| x == "*" || x.eq_ignore_ascii_case(&name))).unwrap_or(false)
+}
+
+/// Who is calling: the local session token, or (when sharing) a valid access key. Returns the rate-limit bucket.
+fn caller(headers: &axum::http::HeaderMap, st: &Value) -> Option<String> {
+    let token = st.get("token").and_then(|t| t.as_str()).unwrap_or("");
+    let given = headers.get("x-sushila-token").and_then(|h| h.to_str().ok()).unwrap_or("");
+    if !token.is_empty() && given == token { return Some("local".into()); }
+    let sh = share(st)?;
+    let key = headers.get("authorization").and_then(|h| h.to_str().ok())?.strip_prefix("Bearer ")?.trim();
+    if key.len() < 20 { return None; }
+    let h = hex::encode(Sha256::digest(key.as_bytes()));
+    sh.get("keys")?.as_array()?.iter().find(|k| k.get("sha256").and_then(|x| x.as_str()) == Some(h.as_str())).map(|_| h)
 }
 
 async fn srv_page(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
-    if !local_host_ok(&headers, s.port) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     ([("content-type", "text/html; charset=utf-8"), ("cache-control", "no-store")], PAGE_HTML).into_response()
 }
 
 async fn srv_js(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
-    if !local_host_ok(&headers, s.port) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     ([("content-type", "text/javascript; charset=utf-8"), ("cache-control", "no-store")], APP_JS).into_response()
 }
 
 async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
-    if !local_host_ok(&headers, s.port) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    // only the "public" part of the Host Station state: never the session token
     let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    // only the "public" part of the Host Station state: never the session token or keys
     axum::Json(st.get("public").cloned().unwrap_or(json!({}))).into_response()
 }
 
 async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
     use axum::response::IntoResponse;
     let (parts, body) = req.into_parts();
-    if !local_host_ok(&parts.headers, s.port) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    let path = parts.uri.path();
-    if !(path.starts_with("/v1/") || path == "/health" || path == "/props") { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); }
     let st = read_state(&s.data_dir);
-    let token = st.get("token").and_then(|t| t.as_str()).unwrap_or("");
-    let given = parts.headers.get("x-sushila-token").and_then(|h| h.to_str().ok()).unwrap_or("");
-    if path.starts_with("/v1/") && (token.is_empty() || given != token) {
-        return (axum::http::StatusCode::UNAUTHORIZED, "open this page from Sushila Host Station (Launch Inference Page)").into_response();
+    if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    let path = parts.uri.path();
+    if !(path.starts_with("/v1/") || path == "/health") { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); }
+    if path.starts_with("/v1/") {
+        let Some(who) = caller(&parts.headers, &st) else {
+            return (axum::http::StatusCode::UNAUTHORIZED, "an access key is required (Authorization: Bearer <key>), or open this page from Sushila Host Station").into_response();
+        };
+        if who != "local" {
+            let per_min = share(&st).and_then(|sh| sh.get("perMinute")).and_then(|v| v.as_u64()).unwrap_or(30).max(1) as u32;
+            let mut hits = s.hits.lock().unwrap();
+            let e = hits.entry(who).or_insert((0, std::time::Instant::now()));
+            if e.1.elapsed() > Duration::from_secs(60) { *e = (0, std::time::Instant::now()); }
+            e.0 += 1;
+            if e.0 > per_min { return (axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests for this key; try again in a minute").into_response(); }
+        }
     }
     let Some(up) = st.pointer("/running/port").and_then(|p| p.as_u64()) else {
         return (axum::http::StatusCode::SERVICE_UNAVAILABLE, "no model is running: start one in Sushila Host Station").into_response();
@@ -415,38 +447,85 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     }
 }
 
-/// Starts the local web server on 127.0.0.1:port (once). Returns its address.
+/// sushila:// links that arrived before the page asked (e.g. the link that started the app).
 #[tauri::command]
-async fn server_start(host: State<'_, Host>, port: u16) -> Result<String, String> {
-    let mut cur = host.server_port.lock().await;
-    if let Some(p) = *cur { return Ok(format!("http://127.0.0.1:{p}")); }
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.map_err(|e| format!("port {port} is busy: {e}"))?;
-    let srv = Arc::new(Srv { port, data_dir: host.data_dir.clone(), http: client()? });
+fn take_links(host: State<'_, Host>) -> Vec<String> { std::mem::take(&mut *host.links.lock().unwrap()) }
+
+/// Starts the web server on bind:port (127.0.0.1 unless sharing is on). Returns its address. Call server_stop first to
+/// change the address.
+#[tauri::command]
+async fn server_start(host: State<'_, Host>, port: u16, bind: Option<String>) -> Result<String, String> {
+    let mut cur = host.server.lock().await;
+    if let Some((addr, _)) = cur.as_ref() { return Ok(addr.clone()); }
+    let bind = bind.unwrap_or_else(|| "127.0.0.1".into());
+    let ip: std::net::IpAddr = bind.parse().map_err(|_| format!("not an IP address: {bind}"))?;
+    let listener = tokio::net::TcpListener::bind((ip, port)).await.map_err(|e| format!("port {port} is busy: {e}"))?;
+    let srv = Arc::new(Srv { port, data_dir: host.data_dir.clone(), http: client()?, hits: std::sync::Mutex::new(HashMap::new()) });
     let app = axum::Router::new()
         .route("/", axum::routing::get(srv_page))
         .route("/worker_sushila_host.js", axum::routing::get(srv_js))
         .route("/api/state", axum::routing::get(srv_state))
         .fallback(srv_proxy)
         .with_state(srv);
-    tokio::spawn(async move { let _ = axum::serve(listener, app).await; });
-    *cur = Some(port);
-    Ok(format!("http://127.0.0.1:{port}"))
+    let (tx, rx) = oneshot::channel::<()>();
+    tokio::spawn(async move { let _ = axum::serve(listener, app).with_graceful_shutdown(async { let _ = rx.await; }).await; });
+    let addr = format!("http://{bind}:{port}");
+    *cur = Some((addr.clone(), tx));
+    Ok(addr)
+}
+
+#[tauri::command]
+async fn server_stop(host: State<'_, Host>) -> Result<(), String> {
+    if let Some((_, tx)) = host.server.lock().await.take() { let _ = tx.send(()); tokio::time::sleep(Duration::from_millis(300)).await; }
+    Ok(())
+}
+
+/// Addresses of this machine on the local network, to show where shared users can reach it.
+#[tauri::command]
+fn local_addresses() -> Vec<String> {
+    // the address the OS would use to reach the internet (no packet is sent)
+    let mut out = vec![];
+    if let Ok(s) = std::net::UdpSocket::bind("0.0.0.0:0") {
+        if s.connect("8.8.8.8:80").is_ok() { if let Ok(a) = s.local_addr() { out.push(a.ip().to_string()); } }
+    }
+    out
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // one window only: a second start (e.g. from a sushila:// link) focuses the running app, which receives the link
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        if let Some(w) = app.get_webview_window("main") { let _ = w.unminimize(); let _ = w.set_focus(); }
+    }));
+    builder
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            app.manage(Host { data_dir, procs: Mutex::new(HashMap::new()), server_port: Mutex::new(None) });
+            app.manage(Host { data_dir, procs: Mutex::new(HashMap::new()), server: Mutex::new(None), links: std::sync::Mutex::new(vec![]) });
+            // sushila:// links (the "Install in Host Station" buttons on sushila.ai). The page decides what to do and
+            // always asks the user first; here they are only queued and passed on.
+            use tauri_plugin_deep_link::DeepLinkExt;
+            #[cfg(any(windows, target_os = "linux"))]
+            { let _ = app.deep_link().register_all(); }
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                app.state::<Host>().links.lock().unwrap().extend(urls.iter().map(|u| u.to_string()));
+            }
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                let urls: Vec<String> = event.urls().iter().map(|u| u.to_string()).collect();
+                handle.state::<Host>().links.lock().unwrap().extend(urls.clone());
+                let _ = handle.emit("deep-link", urls);
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             host_info, open_url, verify_signature, read_text, write_text, list_dir, path_exists, make_dirs, remove_path, set_executable,
             file_sha256, extract_archive, http_text, download, run_capture, spawn_process, kill_process,
-            running_processes, run_elevated, server_start
+            running_processes, run_elevated, server_start, server_stop, local_addresses, take_links
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sushila Host Station");

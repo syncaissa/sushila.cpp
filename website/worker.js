@@ -360,7 +360,7 @@ material changes.</p>
 <p>The Sushila project, <a href="mailto:${esc(contact)}">${esc(contact)}</a>.</p>
 `;
 
-function page(env, user, models) {
+function page(env, user, models, packs = []) {
   const REPO = String(env.REPO_URL || REPO_DEFAULT).replace(/\/+$/, '');
   const released = String(env.RELEASED || '').toLowerCase() === 'true';
   const contact = env.CONTACT || DEFAULT_CONTACT;
@@ -376,6 +376,16 @@ function page(env, user, models) {
       <td><a href="${esc(m.licenseUrl)}">${esc(m.license)}</a></td>
       <td class="act"><a class="btn small" href="/download/${esc(m.file)}">Download</a>
         <button class="copy" data-copy="${m.sha256}" title="Copy sha256">sha256</button></td>
+    </tr>`).join('');
+
+  // model packs for Sushila Host Station: the button opens the desktop app through its sushila:// link
+  const packRows = packs.map((p) => `
+    <tr>
+      <td><b>${esc(p.name)}</b>${(p.artifacts || []).length ? ' <span class="tag">precomputed</span>' : ''}<div class="sub">${esc(p.description || '')}</div></td>
+      <td>${esc(p.category || '')}</td>
+      <td class="num">${gb(p.files.reduce((a, f) => a + (f.bytes || 0), 0))}</td>
+      <td>${p.licenseUrl ? `<a href="${esc(p.licenseUrl)}">${esc(p.license)}</a>` : esc(p.license)}</td>
+      <td class="act"><a class="btn small hsinstall" href="sushila://install-pack/${esc(p.id)}" data-name="${esc(p.name)}">Install in Host Station</a></td>
     </tr>`).join('');
 
   const listedRows = LISTED.map((m) => `
@@ -401,7 +411,7 @@ ${STYLE}</style>
 <body>
 <header><div class="wrap"><nav>
   ${brand()}
-  <div class="links"><a href="#how">How</a><a href="#results">Results</a><a href="#download">Download</a><a href="#models">Models</a><a href="#api">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
+  <div class="links"><a href="#how">How</a><a href="#results">Results</a><a href="#download">Download</a><a href="#packs">Packs</a><a href="#models">Models</a><a href="#api">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
 </nav></div></header>
 
 <main class="wrap">
@@ -488,6 +498,16 @@ build/bin/llama-server -m model.gguf -ngl 99 --port 8080</code></pre></div>
   Full guide: <a href="${REPO}/blob/main/INSTALL.md">INSTALL.md</a>. Provided as is, without warranty (<a href="#disclaimer">disclaimer</a>).</p>
 </section>
 
+<section id="packs">
+  <h2>Model packs</h2>
+  <p class="lead">One click installs a model and its precomputed files (landscape, draft head) into <a href="/hoststation">Sushila Host Station</a>, the free desktop app for Windows, macOS and Linux. It then runs the model on your own computer and opens a chat page in your browser. Every pack is signed by Sushila and contains only data files; the app checks each file before using it.</p>
+  ${packs.length ? `<div class="tablewrap"><table>
+    <thead><tr><th>Pack</th><th>Kind</th><th class="num">Size</th><th>License</th><th></th></tr></thead>
+    <tbody>${packRows}</tbody>
+  </table></div>` : '<p class="note">The pack list is unavailable right now. Please try again shortly.</p>'}
+  <p class="note" id="hsmissing" hidden>Nothing opened? Install <a href="/hoststation">Sushila Host Station</a> first, then click the button again. The app always asks before installing anything.</p>
+</section>
+
 <section id="models">
   <h2>Models</h2>
   <p class="lead">We host these files ourselves. Downloads are free with a <a href="/signin">sushila.ai account</a> (no password: a code is sent to your e-mail), so we can record that you accepted each model's license. Each file is byte-identical to the public release, so check its sha256 after you download it.
@@ -564,6 +584,16 @@ ${footer(contact)}
   ['pointerenter', 'pointermove', 'pointerdown'].forEach(ev => el.addEventListener(ev, rock, { passive: true }));
   // anywhere on the page: moving the mouse, touching, scrolling or using the wheel sets it rocking (one swing at a time)
   ['pointermove', 'pointerdown', 'touchmove', 'scroll', 'wheel', 'keydown'].forEach(ev => window.addEventListener(ev, rock, { passive: true }));
+})();
+(function () {  // "Install in Host Station": if the app does not take the link (the page keeps focus), point to the download
+  const hint = document.getElementById('hsmissing');
+  document.querySelectorAll('.hsinstall').forEach(a => a.addEventListener('click', () => {
+    let left = false;
+    const away = () => { left = true; };
+    window.addEventListener('blur', away, { once: true });
+    document.addEventListener('visibilitychange', away, { once: true });
+    setTimeout(() => { if (!left && hint) { hint.hidden = false; hint.scrollIntoView({ block: 'nearest' }); } }, 1800);
+  }));
 })();
 document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; }
@@ -1723,6 +1753,58 @@ async function hostCatalog(env, b2) {
   return body;
 }
 
+// Host Station installers: B2 hoststation/app/LATEST.json = {version, files: [{platform, label, file, sha256, bytes}]}
+// (written when installers are published); each file gets a 24-hour download link.
+async function hostApp(env, b2) {
+  const a = await b2.auth();
+  const r = await fetch(b2.fileUrl(a.downloadUrl, 'hoststation/app/LATEST.json'), { headers: { authorization: a.token } });
+  if (!r.ok) return null;
+  const latest = await r.json();
+  const g = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
+    body: JSON.stringify({ bucketId: a.bucketId, fileNamePrefix: `hoststation/app/${latest.version}/`, validDurationInSeconds: 24 * 3600 }) });
+  if (!g.ok) return null;
+  const tok = (await g.json()).authorizationToken;
+  latest.files = (latest.files || []).map((f) => ({ ...f, url: `${b2.fileUrl(a.downloadUrl, `hoststation/app/${latest.version}/${f.file}`)}?Authorization=${encodeURIComponent(tok)}` }));
+  return latest;
+}
+
+const HOSTSTATION = (env, app) => () => {
+  const REPO = String(env.REPO_URL || REPO_DEFAULT).replace(/\/+$/, '');
+  const rows = app && app.files && app.files.length ? app.files.map((f) => `
+    <tr><td><b>${esc(f.label || f.platform)}</b></td><td class="num">${gb(f.bytes || 0)}</td>
+      <td class="act"><a class="btn small" href="${esc(f.url)}">Download</a> <button class="copy" data-copy="${esc(f.sha256)}" title="Copy sha256">sha256</button></td></tr>`).join('') : '';
+  return `
+<h1>Sushila Host Station</h1>
+<p class="lead">A free desktop app for Windows, macOS and Linux. It installs Sushila.cpp and model packs with a few clicks, runs models on your own computer, and opens a chat page in your browser. No command prompt needed.</p>
+
+<h2>Download${app ? ` (version ${esc(app.version)})` : ''}</h2>
+${rows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num">Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+<p class="note">Check the sha256 of your download against the one listed here. Installers are code-signed by the Sushila project.</p>`
+    : '<p class="note">The first installers are being built and signed. Check back soon.</p>'}
+
+<h2>Install, then four clicks</h2>
+<ol>
+  <li><b>Install the app.</b> On Windows, run the installer and choose <i>Only for me</i> or <i>All users</i>. On macOS, drag it to Applications. On Linux, open the .deb, .rpm or AppImage.</li>
+  <li><b>Install Sushila.cpp</b> on the Home screen. If it is already on your computer, choose <i>Find an existing installation</i>.</li>
+  <li><b>Add a model pack</b>: in the app, or with <a href="/#packs">Install in Host Station</a> on this website. The app shows the pack, its size and license, and asks before installing.</li>
+  <li><b>Start</b> the model, then <b>Launch Inference Page</b>: a chat page opens at <code>http://127.0.0.1:8765/</code>, running entirely on your computer.</li>
+</ol>
+
+<h2>Safe by design</h2>
+<ul>
+  <li>Every pack and engine build is listed with sha256 checksums and <b>signed by Sushila</b>. The app refuses anything whose signature or checksums do not match.</li>
+  <li>Packs contain <b>only data</b>: model weights (GGUF, safetensors) and the precomputed landscape and head files. Programs, scripts and pickle files are refused, and nothing from a pack is ever run.</li>
+  <li>Everything stays inside the app's own folder, and the chat page and model server listen only on your own computer.</li>
+</ul>
+<p>The step-by-step guide: <a href="${REPO}/blob/main/hoststation/HOW_TO_INSTALL.md">HOW_TO_INSTALL.md</a>. Sushila is an open-source research project; the software is provided as is, without warranty (<a href="/terms">terms</a>).</p>
+<script>
+document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; } catch (e) { prompt('sha256', b.dataset.copy); }
+  setTimeout(() => b.textContent = 'sha256', 1500);
+}));
+</script>`;
+};
+
 // --- Admin APIs (isAdmin on the user's row; set it with makeUserAdmin.py) ---
 async function adminApi(request, env, db, user, path) {
   if (!user || !user.isAdmin) return json({ error: 'Admins only.' }, 403);
@@ -1898,7 +1980,16 @@ export default {
         if (!user.isAdmin) return new Response('Admins only.', { status: 403, headers: SEC });
         return html(docPage(env, 'Admin', 'sushila.ai administration.', ADMIN(), user));
       }
-      if (p === '/' || p === '/index.html') return html(page(env, user, await visibleModels(db)));
+      if (p === '/' || p === '/index.html') {
+        let packs = [];
+        try { if (b2.configured) packs = (await hostCatalog(env, b2)).packs; } catch (e) { console.error('packs', e.message); }
+        return html(page(env, user, await visibleModels(db), packs));
+      }
+      if (p === '/hoststation' || p === '/hoststation/') {
+        let app = null;
+        try { if (b2.configured) app = await hostApp(env, b2); } catch (e) { console.error('hostApp', e.message); }
+        return html(docPage(env, 'Sushila Host Station', 'Install Sushila.cpp and model packs with a few clicks, and run models on your own computer.', HOSTSTATION(env, app), user));
+      }
       if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env), user));
       if (p === '/privacy' || p === '/privacy/') return html(docPage(env, 'Privacy Policy', 'How the Sushila project handles personal data on sushila.ai and the Sushila serverless API.', PRIVACY(env), user));
       if (p === '/signin' || p === '/signin/') return html(docPage(env, 'Sign in', 'Sign in to sushila.ai with a one-time code sent to your e-mail.', SIGNIN(url), user));

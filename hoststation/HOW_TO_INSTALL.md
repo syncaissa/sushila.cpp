@@ -86,6 +86,17 @@ To add more packs later, open **Model Packs**. Installed packs keep working with
 - **CPU threads, context length, GPU layers:** the defaults suit most computers. Set GPU layers to 0 to run on the
   processor only.
 
+## Sharing with other people (optional)
+
+On a powerful computer or a Windows server you can let others use your model.
+1. Open **Settings → Share on the network**.
+2. Tick **Share**, add your server's name, and click **Apply**.
+3. Click **Create access key** for each person.
+4. Click **Open the Windows firewall port**, or put it behind your web server (see the README).
+
+They open your address in their browser, enter their key once, and chat. Programs can use the same address as an
+OpenAI-compatible API. Nobody outside can install or change anything on your computer.
+
 ## Removing
 
 - **A pack:** Model Packs → **Remove**.

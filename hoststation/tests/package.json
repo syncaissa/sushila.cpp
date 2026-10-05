@@ -1,0 +1,1 @@
+{ "name": "hoststation-tests", "private": true, "type": "module", "scripts": { "test": "node share.test.mjs" }, "devDependencies": { "jsdom": "^24.0.0" } }

@@ -3,11 +3,20 @@
   "productName": "Sushila Host Station",
   "version": "0.1.0",
   "identifier": "ai.sushila.hoststation",
-  "build": { "frontendDist": "../dist" },
+  "build": {
+    "frontendDist": "../dist"
+  },
   "app": {
     "withGlobalTauri": true,
     "windows": [
-      { "label": "main", "title": "Sushila Host Station", "width": 1180, "height": 820, "minWidth": 760, "minHeight": 560 }
+      {
+        "label": "main",
+        "title": "Sushila Host Station",
+        "width": 1180,
+        "height": 820,
+        "minWidth": 760,
+        "minHeight": 560
+      }
     ],
     "security": {
       "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src ipc: http://ipc.localhost"
@@ -19,7 +28,26 @@
     "publisher": "Sushila",
     "category": "DeveloperTool",
     "shortDescription": "Run Sushila.cpp and its model packs locally",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
-    "windows": { "nsis": { "installMode": "both" } }
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "both"
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "sushila"
+        ]
+      }
+    }
   }
 }
