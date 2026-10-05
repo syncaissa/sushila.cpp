@@ -103,6 +103,7 @@ def main():
     ap.add_argument('--engine-run')
     ap.add_argument('--app-run')
     ap.add_argument('--only', default='')
+    ap.add_argument('--engine-file', action='append', default=[], help='<build key>=<archive>: an engine built elsewhere (e.g. on a RunPod pod)')
     a = ap.parse_args()
     v, tag, only = a.version, 'v' + a.version, set(filter(None, a.only.split(',')))
     b2 = b2_save.B2()
@@ -130,6 +131,17 @@ def main():
                                   'servers': {'image': 'sushila-sd-server.exe' if win else 'sushila-sd-server', 'music': 'sushila-ace-server.exe' if win else 'sushila-ace-server'}}
             os.remove(p)
             print(f'engine {key}: {url}', flush=True)
+        for spec in a.engine_file:  # built outside GitHub Actions (same sources and packaging), e.g. linux-x86_64-cuda
+            key, p = spec.split('=', 1)
+            name = f'sushila-cpp-{v}-{key}.' + ('zip' if p.endswith('.zip') else 'tar.gz')
+            ext = 'zip' if name.endswith('.zip') else 'tar.gz'
+            b2.put_file(p, f'hoststation/engine/{v}/{name}')
+            url, api = upload(rel, f'sushila.cpp-{v}-{key}.{ext}', p)
+            win = key.startswith('windows')
+            eng['builds'][key] = {'file': name, 'sha256': sha(p), 'bytes': os.path.getsize(p), 'archive': ext, 'github': url, 'githubAsset': api,
+                                  'server': 'sushila-server.exe' if win else 'sushila-server',
+                                  'servers': {'image': 'sushila-sd-server.exe' if win else 'sushila-sd-server', 'music': 'sushila-ace-server.exe' if win else 'sushila-ace-server'}}
+            print(f'engine {key}: {url}', flush=True)
         for art in artifacts(a.app_run) if a.app_run else []:
             z = zipfile.ZipFile(io.BytesIO(artifact_zip(art['archive_download_url'])))
             for n in z.namelist():
@@ -150,8 +162,8 @@ def main():
                 os.remove(p)
                 print(f'installer {pub}: {url}', flush=True)
     now = time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime())
-    if a.engine_run:
-        eng.update({'built_utc': now, 'run': int(a.engine_run)})
+    if a.engine_run or a.engine_file:
+        eng.update({'built_utc': now, **({'run': int(a.engine_run)} if a.engine_run else {})})
         b2.put('hoststation/engine/LATEST.json', json.dumps(eng, indent=1).encode())
     if a.app_run:
         app.update({'built_utc': now, 'run': int(a.app_run)})
@@ -163,7 +175,7 @@ def main():
                                                                                    **({'sha': cur['sha']} if cur else {})})
     print('updated downloads/README.md (git pull to get it locally)')
     print(f'https://github.com/{PUB}/releases/tag/{tag}')
-    if a.engine_run:
+    if a.engine_run or a.engine_file:
         print('next: python3 scripts/precompute/sign_checksums.py sign hoststation/engine')
 
 
