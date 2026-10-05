@@ -99,7 +99,7 @@ W=/workspace/sushila bash run_models.sh models/mymodel.env          # the real r
 |---|---|---|
 | Qwen3-32B, Qwen3-30B-A3B | done (2026-10-04): results in `results/qwen3_20261004/`, precomputed artifacts and weights in B2 `precomputed/<model>/` | config in `models/` |
 | DeepSeek-R1-Distill-Llama-70B | done (2026-10-05): `results/deepseek-r1-distill-llama-70b_20261005/`; B2 `precomputed/deepseek-r1-distill-llama-70b/` | config in `models/`; see the playbook below |
-| Gemma 3 27B (Google) | running (2026-10-05); `models/gemma3-27b.env` | see the playbook below |
+| Gemma 3 27B (Google) | cause of the 1.0 accept length found (SGLang 0.5.21 regression; 0.5.14 works); `models/gemma3-27b.env` | see the playbook below |
 | Kimi-Dev-72B (Moonshot AI) | next for the paper; `models/kimi-dev-72b.env` has the findings | no published EAGLE-3 head: warm-start from the closest compatible one (`AQ-MedAI/Qwen2.5-VL-72B-Instruct-eagle3`) and refit; 4-bit GPTQ/AWQ files exist; Ollama via an imported GGUF; coding prompts |
 
 ## Model-family playbook (read before adding a new release)
@@ -144,6 +144,13 @@ item for the new release. The same items are written as comments in each `models
   Ollama's default tag (`gemma3:27b`) is an ordinary Q4_K_M, and the QAT build is a separate tag (`...-it-qat`). State
   which one each engine reads; GSM8K checks answer quality.
 - The only head (2026-10) is a community head trained from scratch (`witcheer/...`): expect a large gain from refitting.
+- **SGLang 0.5.21's EAGLE-3 path does not work for Gemma 3**: every head accepts ~1.0 draft tokens per step (no gain, a
+  slowdown). SGLang 0.5.14 accepts 1.78 with the published head (L40S: 37.9 vs 32.2 tok/s without a head). Serve Gemma
+  with `SGLANG_VERSION=0.5.14` (run_model.sh installs it in its own venv; training is unaffected). Evidence:
+  `results/gemma3-27b-probe2_20261005/`. Ruled out on 0.5.21: tree sizes, chain drafting, CUDA graphs, attention backend,
+  position handling, aux layer ids +-1. When a new Gemma or a new SGLang appears, first check the accept length of a
+  published head on 5 prompts (`gemma_probe3.sh`-style) before any full run.
+- Other new pipeline knob: `SGLANG_VERSION` (any model) pins the SGLang used for serving.
 
 **Very large MoE models** (`qwen3-235b-a22b`)
 - Two 80 GB GPUs: `TP=2` (and `GPUS=2 DISK_GB=500` for the pod); `CAPTURE_MEM=0.88`, because the weights take 75% of

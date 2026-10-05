@@ -1,0 +1,60 @@
+[2026-10-05 18:41:24] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-10-05 18:41:24] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=8, bs=[1, 2, 3, 4], avail mem=8.60 GB
+[2026-10-05 18:41:36] Capture target verify CUDA graph end. elapsed=12.54 s, mem usage=0.25 GB, avail mem=8.36 GB.
+[2026-10-05 18:41:36] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-10-05 18:41:36] Capture draft decode CUDA graph begin. backend=full, num_tokens_per_req=4, bs=[1, 2, 3, 4], avail mem=8.36 GB
+[2026-10-05 18:41:48] Capture draft decode CUDA graph end. elapsed=11.76 s, mem usage=0.04 GB, avail mem=8.31 GB.
+[2026-10-05 18:41:48] Capture draft extend CUDA graph begin. backend=full, num_tokens_per_req=8, bs=[1, 2, 3, 4], avail mem=8.31 GB
+[2026-10-05 18:41:49] Capture draft extend CUDA graph end. elapsed=1.01 s, mem usage=0.04 GB, avail mem=8.27 GB.
+[2026-10-05 18:41:49] max_total_num_tokens=32560, chunked_prefill_size=4096, max_prefill_tokens=16384, max_running_requests=4, context_len=4096, available_gpu_mem=8.27 GB
+[2026-10-05 18:41:49] Init Unified Radix Cache. Components: (<ComponentType.FULL: 0>,). Tree Core: RustUnifiedTreeCore
+[2026-10-05 18:41:49] Tree cache initialized: source=default impl=UnifiedRadixCache hybrid_swa=False hybrid_ssm=False hicache_attached=False streaming_wrapped=False
+[2026-10-05 18:41:50] Engine startup timings (s): load_weight=7.04, kv_cache_allocation=0.71, scheduler_e2e=42.41, cuda_graph={prefill=0.00, decode=0.00, target_verify=12.54, draft_prefill=0.00, draft_decode=11.76, draft_extend=1.01}, tokenizer_e2e=48.87
+[2026-10-05 18:41:50] INFO:     Started server process [5870]
+[2026-10-05 18:41:50] INFO:     Waiting for application startup.
+[2026-10-05 18:41:50] Using default chat sampling params from model generation config: {'top_k': 64, 'top_p': 0.95}
+[2026-10-05 18:41:50] INFO:     Application startup complete.
+[2026-10-05 18:41:50] INFO:     Uvicorn running on http://127.0.0.1:30001 (Press CTRL+C to quit)
+[2026-10-05 18:41:51] INFO:     127.0.0.1:46352 - "GET /model_info HTTP/1.1" 200 OK
+[2026-10-05 18:41:52] INFO:     127.0.0.1:46366 - "GET /health HTTP/1.1" 503 Service Unavailable
+[2026-10-05 18:41:57] Prefill batch, #new-seq: 1, #new-token: 7, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.83
+[2026-10-05 18:41:58] INFO:     127.0.0.1:52342 - "GET /health HTTP/1.1" 503 Service Unavailable
+[2026-10-05 18:41:58] INFO:     127.0.0.1:46360 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 18:41:58] INFO:     127.0.0.1:52344 - "POST /freeze_gc HTTP/1.1" 200 OK
+[2026-10-05 18:41:58] The server is fired up and ready to roll!
+[2026-10-05 18:42:03] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19
+[2026-10-05 18:42:04] INFO:     127.0.0.1:52350 - "GET /health HTTP/1.1" 200 OK
+[2026-10-05 18:42:04] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 1.22
+[2026-10-05 18:42:05] INFO:     127.0.0.1:52364 - "GET /health HTTP/1.1" 200 OK
+[2026-10-05 18:42:05] Prefill batch, #new-seq: 1, #new-token: 20, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 19.18
+[2026-10-05 18:42:06] Decode batch, #running-req: 1, #token: 75, token usage: 0.00, accept len: 1.05, accept rate: 0.01, cuda graph: True, gen throughput (token/s): 2.51, #queue-req: 0
+[2026-10-05 18:42:07] INFO:     127.0.0.1:52376 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 18:42:07] Prefill batch, #new-seq: 1, #new-token: 19, #cached-token: 4, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 7.73
+[2026-10-05 18:42:07] Decode batch, #running-req: 1, #token: 50, token usage: 0.00, accept len: 1.02, accept rate: 0.00, cuda graph: True, gen throughput (token/s): 27.78, #queue-req: 0
+[2026-10-05 18:42:09] Decode batch, #running-req: 1, #token: 93, token usage: 0.00, accept len: 1.10, accept rate: 0.01, cuda graph: True, gen throughput (token/s): 31.30, #queue-req: 0
+[2026-10-05 18:42:10] Decode batch, #running-req: 1, #token: 136, token usage: 0.00, accept len: 1.05, accept rate: 0.01, cuda graph: True, gen throughput (token/s): 29.81, #queue-req: 0
+[2026-10-05 18:42:11] INFO:     127.0.0.1:54644 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 18:42:11] Prefill batch, #new-seq: 1, #new-token: 43, #cached-token: 4, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 9.95
+[2026-10-05 18:42:11] Decode batch, #running-req: 1, #token: 72, token usage: 0.00, accept len: 1.00, accept rate: 0.00, cuda graph: True, gen throughput (token/s): 27.16, #queue-req: 0
+[2026-10-05 18:42:13] Decode batch, #running-req: 1, #token: 114, token usage: 0.00, accept len: 1.05, accept rate: 0.01, cuda graph: True, gen throughput (token/s): 29.83, #queue-req: 0
+[2026-10-05 18:42:14] Decode batch, #running-req: 1, #token: 156, token usage: 0.00, accept len: 1.05, accept rate: 0.01, cuda graph: True, gen throughput (token/s): 29.78, #queue-req: 0
+[2026-10-05 18:42:16] INFO:     127.0.0.1:54646 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 18:42:16] Decode batch, #running-req: 1, #token: 0, token usage: 0.00, accept len: 1.05, accept rate: 0.01, cuda graph: True, gen throughput (token/s): 29.86, #queue-req: 0
+[2026-10-05 18:42:16] Prefill batch, #new-seq: 1, #new-token: 17, #cached-token: 4, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 3.90
+[2026-10-05 18:42:17] Decode batch, #running-req: 1, #token: 85, token usage: 0.00, accept len: 1.02, accept rate: 0.00, cuda graph: True, gen throughput (token/s): 27.97, #queue-req: 0
+[2026-10-05 18:42:19] Decode batch, #running-req: 1, #token: 125, token usage: 0.00, accept len: 1.00, accept rate: 0.00, cuda graph: True, gen throughput (token/s): 28.39, #queue-req: 0
+[2026-10-05 18:42:20] Decode batch, #running-req: 1, #token: 165, token usage: 0.01, accept len: 1.00, accept rate: 0.00, cuda graph: True, gen throughput (token/s): 28.35, #queue-req: 0
+[2026-10-05 18:42:20] INFO:     127.0.0.1:54650 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 18:42:20] Prefill batch, #new-seq: 1, #new-token: 18, #cached-token: 4, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 3.97
+[2026-10-05 18:42:21] Decode batch, #running-req: 1, #token: 78, token usage: 0.00, accept len: 1.00, accept rate: 0.00, cuda graph: True, gen throughput (token/s): 27.35, #queue-req: 0
+[2026-10-05 18:42:23] Decode batch, #running-req: 1, #token: 118, token usage: 0.00, accept len: 1.00, accept rate: 0.00, cuda graph: True, gen throughput (token/s): 28.41, #queue-req: 0
+[2026-10-05 18:42:24] Decode batch, #running-req: 1, #token: 158, token usage: 0.00, accept len: 1.00, accept rate: 0.00, cuda graph: True, gen throughput (token/s): 28.37, #queue-req: 0
+[2026-10-05 18:42:25] INFO:     127.0.0.1:44968 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 18:42:25] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+[2026-10-05 18:42:26] Gracefully exiting... Remaining number of requests 0. Remaining requests remaining_rids=[].
+[2026-10-05 18:42:27] kill_process_tree called: parent_pid=5870, include_parent=False, pid=5870
+[2026-10-05 18:42:27] INFO:     Shutting down
+[2026-10-05 18:42:27] INFO:     Waiting for application shutdown.
+[2026-10-05 18:42:27] INFO:     Application shutdown complete.
+[2026-10-05 18:42:27] INFO:     Finished server process [5870]
+[2026-10-05 18:42:27] kill_process_tree called: parent_pid=5870, include_parent=False, pid=5870

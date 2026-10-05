@@ -45,6 +45,18 @@ if [ ! -f $W/.setup_done ]; then
   touch $W/.setup_done; log "setup done: sglang $(python3 -c 'import sglang; print(sglang.__version__)'), ollama $(ollama --version 2>&1 | tail -1)"
 fi
 
+# SGLang for serving: 0.5.21 (setup) unless the model's config pins another version (e.g. Gemma 3: the EAGLE-3 path of
+# 0.5.21 accepts ~1.0 draft tokens per step for Gemma 3, 0.5.14 accepts 1.78; results/gemma3-27b-probe2_20261005)
+SGPY=python3
+if [ -n "${SGLANG_VERSION:-}" ] && [ "$SGLANG_VERSION" != "0.5.21" ]; then
+  SGPY=$W/sglang-$SGLANG_VERSION/bin/python
+  if [ ! -x $SGPY ]; then
+    { uv venv -q -p 3.11 $W/sglang-$SGLANG_VERSION && VIRTUAL_ENV=$W/sglang-$SGLANG_VERSION uv pip install -q "sglang[all]==$SGLANG_VERSION" > $W/pip_sglang_$SGLANG_VERSION.log 2>&1; } \
+      || { log "SGLang $SGLANG_VERSION install failed (see pip_sglang_$SGLANG_VERSION.log)"; exit 1; }
+  fi
+  log "serving with SGLang $($SGPY -c 'import sglang; print(sglang.__version__)')"
+fi
+
 # ---------- 2 models and prompts ----------
 if [ ! -s $D/main.jsonl ] || [ ! -s $D/pub_head_serve/model.safetensors ] || [ ! -s $D/head_has_embed.txt ]; then
   $PY - "$TARGET" "$PUB_HEAD" $D <<'PYX'
@@ -98,7 +110,7 @@ PYX
 SP=""
 serve() {  # serve <label> [sglang args...]
   local label=$1; shift
-  python3 -m sglang.launch_server --model-path $TARGET --port 30000 --mem-fraction-static 0.85 --context-length ${CTX:-4096} \
+  $SGPY -m sglang.launch_server --model-path $TARGET --port 30000 --mem-fraction-static 0.85 --context-length ${CTX:-4096} \
     --cuda-graph-max-bs-decode 4 --max-running-requests 4 --tp-size ${TP:-1} ${SGLANG_EXTRA:-} "$@" > $D/server_$label.log 2>&1 & SP=$!
   for i in $(seq 1 240); do curl -sf localhost:30000/health > /dev/null && return 0; kill -0 $SP 2>/dev/null || { log "$label: server died (see server_$label.log)"; return 1; }; sleep 10; done
   log "$label: server did not start"; return 1
@@ -261,7 +273,7 @@ for cfg in base pub ours; do
   [ -s $D/out/load_$cfg.json ] && continue
   case $cfg in base) a="";; pub) a="$S16 --speculative-draft-model-path $D/pub_head_serve";; ours) a="$S16 --speculative-draft-model-path $HB";; esac
   # 70B models with a 16-token tree at 64 users need 532 MB of FlashInfer workspace (SGLang's default: 384 MB)
-  SGLANG_FLASHINFER_WORKSPACE_SIZE=$((1024 * 1024 * 1024)) python3 -m sglang.launch_server --model-path $TARGET --port 30000 --mem-fraction-static 0.85 --context-length ${CTX:-4096} \
+  SGLANG_FLASHINFER_WORKSPACE_SIZE=$((1024 * 1024 * 1024)) $SGPY -m sglang.launch_server --model-path $TARGET --port 30000 --mem-fraction-static 0.85 --context-length ${CTX:-4096} \
     --max-running-requests 64 --cuda-graph-max-bs-decode 64 --tp-size ${TP:-1} ${SGLANG_EXTRA:-} $a > $D/server_load_$cfg.log 2>&1 & SP=$!
   ok=0; for i in $(seq 1 240); do curl -sf localhost:30000/health > /dev/null && { ok=1; break; }; kill -0 $SP 2>/dev/null || break; sleep 10; done
   if [ $ok = 1 ]; then

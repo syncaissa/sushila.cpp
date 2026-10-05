@@ -1,0 +1,60 @@
+[2026-10-05 19:49:30] Load weight end. elapsed=49.18 s, type=Gemma3ForConditionalGeneration, quant=awq, bits=4, avail mem=26.28 GB, mem usage=17.60 GB.
+[2026-10-05 19:49:33] Restoring add_bos_token=True for gaunernst/gemma-3-27b-it-int4-awq (was False after v5 loading)
+[2026-10-05 19:49:33] SPECULATIVE_MOE_RUNNER_BACKEND is not initialized, using auto backend
+[2026-10-05 19:49:33] SPECULATIVE_MOE_A2A_BACKEND is not initialized, using none backend
+[2026-10-05 19:49:33] Init torch distributed begin.
+[2026-10-05 19:49:33] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-10-05 19:49:33] Load weight begin. avail mem=26.28 GB
+[2026-10-05 19:49:33] Load weight end. elapsed=0.17 s, type=LlamaForCausalLMEagle3, avail mem=21.57 GB, mem usage=4.71 GB.
+[2026-10-05 19:49:37] Restoring add_bos_token=True for gaunernst/gemma-3-27b-it-int4-awq (was False after v5 loading)
+[2026-10-05 19:49:38] KV Cache is allocated. dtype: torch.bfloat16, #tokens: 32686, K size: 7.73 GB, V size: 7.73 GB
+[2026-10-05 19:49:38] Memory pool end. avail mem=6.80 GB
+[2026-10-05 19:49:38] KV Cache is allocated. dtype: torch.bfloat16, #tokens: 32686, K size: 0.12 GB, V size: 0.12 GB
+[2026-10-05 19:49:38] Memory pool end. avail mem=6.55 GB
+[2026-10-05 19:49:38] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-10-05 19:49:38] Capture target verify CUDA graph begin. backend=full, num_tokens_per_bs=8, bs=[1, 2, 3, 4], avail mem=8.63 GB
+[2026-10-05 19:53:03] Capture target verify CUDA graph end. elapsed=204.85 s, mem usage=0.25 GB, avail mem=8.37 GB.
+[2026-10-05 19:53:03] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-10-05 19:53:03] Capture draft decode CUDA graph begin. backend=full, num_tokens_per_bs=4, bs=[1, 2, 3, 4], avail mem=8.37 GB
+[2026-10-05 19:53:09] Unexpected error during package walk: cutlass.cute.experimental
+[2026-10-05 19:53:20] Capture draft decode CUDA graph end. elapsed=17.47 s, mem usage=0.12 GB, avail mem=8.25 GB.
+[2026-10-05 19:53:20] Capture draft extend CUDA graph begin. backend=full, num_tokens_per_bs=8, bs=[1, 2, 3, 4], avail mem=8.25 GB
+[2026-10-05 19:53:21] Capture draft extend CUDA graph end. elapsed=0.88 s, mem usage=0.09 GB, avail mem=8.16 GB.
+[2026-10-05 19:53:21] max_total_num_tokens=32686, chunked_prefill_size=4096, max_prefill_tokens=16384, max_running_requests=4, context_len=4096, available_gpu_mem=8.16 GB
+[2026-10-05 19:53:21] Tree cache initialized: source=default impl=RadixCache hybrid_swa=False hybrid_ssm=False hierarchical=False streaming_wrapped=False
+[2026-10-05 19:53:22] INFO:     Started server process [9677]
+[2026-10-05 19:53:22] INFO:     Waiting for application startup.
+[2026-10-05 19:53:22] Using default chat sampling params from model generation config: {'top_k': 64, 'top_p': 0.95}
+[2026-10-05 19:53:22] INFO:     Application startup complete.
+[2026-10-05 19:53:22] INFO:     Uvicorn running on http://127.0.0.1:30001 (Press CTRL+C to quit)
+[2026-10-05 19:53:23] INFO:     127.0.0.1:36576 - "GET /model_info HTTP/1.1" 200 OK
+[2026-10-05 19:53:24] INFO:     127.0.0.1:36590 - "GET /health HTTP/1.1" 503 Service Unavailable
+[2026-10-05 19:53:25] Prefill batch, #new-seq: 1, #new-token: 7, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 1.85
+[2026-10-05 19:53:25] INFO:     127.0.0.1:36588 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 19:53:25] The server is fired up and ready to roll!
+[2026-10-05 19:53:30] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19
+[2026-10-05 19:53:30] INFO:     127.0.0.1:51990 - "GET /health HTTP/1.1" 200 OK
+[2026-10-05 19:53:30] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 4.11
+[2026-10-05 19:53:31] INFO:     127.0.0.1:52004 - "GET /health HTTP/1.1" 200 OK
+[2026-10-05 19:53:31] Prefill batch, #new-seq: 1, #new-token: 20, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 19.21
+[2026-10-05 19:53:33] Decode batch, #running-req: 1, #token: 101, token usage: 0.00, accept len: 1.70, accept rate: 0.10, cuda graph: True, gen throughput (token/s): 5.92, #queue-req: 0
+[2026-10-05 19:53:33] INFO:     127.0.0.1:52006 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 19:53:38] Prefill batch, #new-seq: 1, #new-token: 19, #cached-token: 4, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 2.91
+[2026-10-05 19:53:39] Decode batch, #running-req: 1, #token: 114, token usage: 0.00, accept len: 2.02, accept rate: 0.15, cuda graph: True, gen throughput (token/s): 12.31, #queue-req: 0
+[2026-10-05 19:53:40] INFO:     127.0.0.1:52018 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 19:53:41] Prefill batch, #new-seq: 1, #new-token: 43, #cached-token: 4, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 15.58
+[2026-10-05 19:53:41] Decode batch, #running-req: 1, #token: 80, token usage: 0.00, accept len: 1.73, accept rate: 0.10, cuda graph: True, gen throughput (token/s): 42.41, #queue-req: 0
+[2026-10-05 19:53:42] Decode batch, #running-req: 1, #token: 157, token usage: 0.00, accept len: 1.93, accept rate: 0.13, cuda graph: True, gen throughput (token/s): 49.26, #queue-req: 0
+[2026-10-05 19:53:43] INFO:     127.0.0.1:54616 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 19:53:43] Prefill batch, #new-seq: 1, #new-token: 17, #cached-token: 4, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 6.43
+[2026-10-05 19:53:44] Decode batch, #running-req: 1, #token: 81, token usage: 0.00, accept len: 2.00, accept rate: 0.14, cuda graph: True, gen throughput (token/s): 49.16, #queue-req: 0
+[2026-10-05 19:53:46] Decode batch, #running-req: 1, #token: 147, token usage: 0.00, accept len: 1.65, accept rate: 0.09, cuda graph: True, gen throughput (token/s): 42.21, #queue-req: 0
+[2026-10-05 19:53:46] INFO:     127.0.0.1:54620 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 19:53:46] Prefill batch, #new-seq: 1, #new-token: 18, #cached-token: 4, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 5.93
+[2026-10-05 19:53:47] Decode batch, #running-req: 1, #token: 79, token usage: 0.00, accept len: 1.52, accept rate: 0.07, cuda graph: True, gen throughput (token/s): 37.57, #queue-req: 0
+[2026-10-05 19:53:49] Decode batch, #running-req: 1, #token: 142, token usage: 0.00, accept len: 1.55, accept rate: 0.08, cuda graph: True, gen throughput (token/s): 39.67, #queue-req: 0
+[2026-10-05 19:53:49] INFO:     127.0.0.1:54636 - "POST /generate HTTP/1.1" 200 OK
+[2026-10-05 19:53:49] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+[2026-10-05 19:53:53] Gracefully exiting... Remaining number of requests 0. Remaining requests remaining_rids=[].
+[rank0]:[W1005 19:53:55.440030684 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[2026-10-05 19:53:56] kill_process_tree called: parent_pid=9677, include_parent=True, pid=9677
