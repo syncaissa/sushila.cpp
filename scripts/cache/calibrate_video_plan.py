@@ -99,7 +99,7 @@ def main():
         rows.append(row); open(f'{a.out}/candidates.jsonl', 'a').write(json.dumps(row) + '\n')
         print(f"{c['name']:16s} {row['s']:.1f} s  {row['speedup']:.2f}x  frame SSIM {row['ssim']:.3f}", flush=True)
     ok = [r for r in rows if r['ssim'] >= a.min_ssim]
-    best = max(ok, key=lambda r: r['speedup']) if ok else None
+    best = max(ok, key=lambda r: (round(r['speedup'], 2), r['ssim'])) if ok else None  # ties: the closer plan
     plan = {'size': f'{W}x{H}', 'frames': F, 'min_ssim': a.min_ssim, 'uncached_s_calib': base_s, 'chosen': best}
     if best:
         test = []

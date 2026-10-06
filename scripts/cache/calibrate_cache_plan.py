@@ -122,7 +122,7 @@ def main():
         open(f'{a.out}/candidates.jsonl', 'a').write(json.dumps(row) + '\n')
         print(f"{c['name']:28s} {row['s']:.2f} s  {row['speedup']:.2f}x  SSIM {row['ssim']:.3f}  PSNR {row['psnr']:.1f}", flush=True)
     ok = [r for r in rows if r['ssim'] >= a.min_ssim]
-    best = max(ok, key=lambda r: r['speedup']) if ok else None
+    best = max(ok, key=lambda r: (round(r['speedup'], 2), r['ssim'])) if ok else None  # ties: the closer plan
     plan = {'model_steps': a.steps, 'size': a.size, 'min_ssim': a.min_ssim, 'uncached_s_calib': base_s, 'chosen': best}
     if best:  # held-out test prompts: the honest numbers
         test = []
