@@ -1,0 +1,7 @@
+p0: 202 tokens, 33.3 tok/s
+p1: 173 tokens, 33.3 tok/s
+p2: 512 tokens, 33.6 tok/s
+p3: 207 tokens, 33.5 tok/s
+p4: 356 tokens, 33.4 tok/s
+p5: 247 tokens, 33.5 tok/s
+1697 tokens in 50.7 s = 33.5 tok/s (median per prompt 33.5)

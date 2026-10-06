@@ -1,0 +1,14 @@
+FROM /workspace/sushila/gguf/Kimi-Dev-72B.Q4_K_M.gguf
+# Chat template of Qwen2.5-based models (Kimi-Dev-72B uses Qwen2.5's template, including its default system message),
+# as in Ollama's qwen2.5 library model, without tools. Appended after a FROM line by run_model.sh (OLLAMA_GGUF).
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ else }}<|im_start|>system
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+{{ end }}{{- range .Messages }}<|im_start|>{{ .Role }}
+{{ .Content }}<|im_end|>
+{{ end }}<|im_start|>assistant
+"""
+PARAMETER stop "<|im_start|>"
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"

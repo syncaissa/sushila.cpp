@@ -1,0 +1,68 @@
+[
+ {
+  "id": 0,
+  "source": "gsm8k",
+  "ref": "18",
+  "tokens": 212,
+  "seconds": 10.146993567,
+  "decode_seconds": 9.814194,
+  "decode_tok_s": 21.601366347557423,
+  "wall_tok_s": 20.892887986986143,
+  "text": "\u25c1think\u25b7Okay, let's figure out how much Janet makes at the farmers' market each day. \n\nFirst, the ducks lay 16 eggs per day. Then, Janet uses some of those eggs. She eats 3 for breakfast and bakes muffins with 4 more. So the total eggs used is 3 + 4 = 7 eggs. \n\nThat means the remaining eggs are 16 - 7 = 9 eggs. Those 9 eggs are sold at the market for $2 each. So the total money made would be 9 * $2 = $18.\n\nWait, let me check again. The problem says she sells the remainder daily. So after using 7 eggs, the rest are 9. Each at $2, so 9 * 2 is 18. Yes, that's correct. So the answer should be $18 per day.\n\u25c1/think\u25b7\n\nJanet makes $18 every day at the farmers' market by selling the remaining duck eggs."
+ },
+ {
+  "id": 1,
+  "source": "gsm8k",
+  "ref": "3",
+  "tokens": 171,
+  "seconds": 8.100252697,
+  "decode_seconds": 7.883127,
+  "decode_tok_s": 21.69189967382233,
+  "wall_tok_s": 21.110452524935592,
+  "text": "\u25c1think\u25b7Okay, let's see. The problem says that a robe takes 2 bolts of blue fiber and half that much white fiber. So first, I need to figure out how much white fiber is needed. Since half of 2 is 1, that means the white fiber is 1 bolt. Then, to find the total bolts, I add the blue and white together. So 2 blue plus 1 white equals 3 bolts in total. That's the answer.\n\u25c1/think\u25b7\n\nThe robe requires 2 bolts of blue fiber and half that amount of white fiber. \n\nCalculating the white fiber:\n1/2 * 2 blue bolts = 1 white bolt\n\nTotal bolts needed:\n2 blue bolts + 1 white bolt = 3 bolts\n\nSo the total number of bolts required is 3."
+ },
+ {
+  "id": 2,
+  "source": "gsm8k",
+  "ref": "70000",
+  "tokens": 512,
+  "seconds": 23.895246397,
+  "decode_seconds": 23.724712,
+  "decode_tok_s": 21.580873141895253,
+  "wall_tok_s": 21.426855847959807,
+  "text": "\u25c1think\u25b7Okay, let's see. Josh bought a house for $80,000 and spent $50,000 on repairs. The problem says that this increased the value of the house by 150%. So first, I need to figure out what the new value of the house is after the repairs.\n\nThe original value was $80,000. Increasing that by 150% would mean adding 150% of $80,000 to the original price. Let me calculate that. 150% is the same as 1.5, so 1.5 multiplied by 80,000 is 120,000. Adding that to the original $80,000 gives a new value of $200,000.\n\nNow, to find the profit, I need to subtract the total cost from the selling price. The total cost includes the purchase price and the repair costs. So $80,000 plus $50,000 equals $130,000. Then, subtracting that from the new value of $200,000 gives a profit of $70,000.\n\nWait, but the problem says that the repairs increased the value by 150%. So the increase is 150% of the original purchase price. So the new value is original plus 150% of original. That's 80,000 + (1.5 * 80,000) = 80,000 + 120,000 = 200,000. Then the profit is the new value minus the total cost (purchase + repairs). So 200,000 - 130,000 = 70,000. So the profit is $70,000.\n\u25c1/think\u25b7\n\nJosh's total cost was $80,000 (purchase) + $50,000 (repairs) = $130,000. The repairs increased the house's value by 150% of the original purchase price, so the new value is $80,000 + (1.5 * $80,000) = $200"
+ },
+ {
+  "id": 3,
+  "source": "gsm8k",
+  "ref": "540",
+  "tokens": 197,
+  "seconds": 9.228552064,
+  "decode_seconds": 9.098535,
+  "decode_tok_s": 21.651837356233724,
+  "wall_tok_s": 21.34679401858549,
+  "text": "\u25c1think\u25b7Okay, let's see. James runs 3 sprints three times a week. Each sprint is 60 meters. So first, I need to figure out how many sprints he does in a week. If he does 3 sprints per session and has 3 sessions a week, that's 3 times 3, which is 9 sprints. Then, each sprint is 60 meters, so multiplying 9 sprints by 60 meters each gives 540 meters. So the total meters he runs a week is 540.\n\u25c1/think\u25b7\n\nJames runs a total of 540 meters per week. Here's the breakdown:\n\n- 3 sprints per session\n- 3 sessions per week\n- 60 meters per sprint\n\nTotal meters = 3 sprints/session * 3 sessions/week * 60 meters/sprint = 540 meters/week"
+ },
+ {
+  "id": 4,
+  "source": "gsm8k",
+  "ref": "20",
+  "tokens": 368,
+  "seconds": 17.380319892,
+  "decode_seconds": 17.037523,
+  "decode_tok_s": 21.599383901051812,
+  "wall_tok_s": 21.173373234021255,
+  "text": "\u25c1think\u25b7Okay, let's see. Wendi has 20 chickens, and each chicken gets 3 cups of feed per day. So the total feed needed per day would be 20 chickens multiplied by 3 cups each, which is 60 cups. \n\nNow, the problem says that she gives them three separate meals. The first meal in the morning is 15 cups, and the afternoon meal is 25 cups. So the total feed given so far is 15 + 25 = 40 cups. \n\nThe final meal should make up the remaining feed needed to reach the daily total. So the total required is 60 cups, and they've already had 40. Therefore, the last meal should be 60 - 40 = 20 cups. \n\nWait, but the question is asking how many cups she needs to give in the final meal. So the answer should be 20 cups. Let me check again. \n\nYes, 20 chickens * 3 cups each = 60 cups per day. Morning + afternoon = 40 cups. So the evening meal needs to be 60 - 40 = 20 cups. That makes sense. So the answer is 20 cups.\n\u25c1/think\u25b7\n\nWendi needs to give her chickens 20 cups of feed in the final meal of the day. \n\nHere's the breakdown:\n- Total daily feed required: 20 chickens \u00d7 3 cups/chicken = 60 cups\n- Feed already given: 15 cups (morning) + 25 cups (afternoon) = 40 cups\n- Remaining feed needed: 60 cups - 40 cups = 20 cups"
+ },
+ {
+  "id": 5,
+  "source": "gsm8k",
+  "ref": "64",
+  "tokens": 279,
+  "seconds": 13.21708269,
+  "decode_seconds": 12.895869,
+  "decode_tok_s": 21.634835155350913,
+  "wall_tok_s": 21.10904550904342,
+  "text": "\u25c1think\u25b7Okay, let's see. Kylar wants to buy 16 glasses. The first glass costs $5, and every second glass is 60% of that price. So, the second glass would be 0.6 * $5 = $3. Then the third glass is again $5, the fourth $3, and so on. So the pattern is every odd-numbered glass is $5, and every even-numbered is $3.\n\nSince there are 16 glasses, half of them would be odd (8) and half even (8). So the total cost would be 8 * $5 for the odd ones plus 8 * $3 for the even ones. That's $40 + $24 = $64. So Kylar needs to pay $64 for the 16 glasses.\n\u25c1/think\u25b7\n\nKylar needs to pay $64 for the 16 glasses. Here's the breakdown:\n\n- Every first glass in a pair costs $5\n- Every second glass in a pair costs 60% of $5, which is $3\n- For 16 glasses, there are 8 pairs\n- Total cost = (8 * $5) + (8 * $3) = $40 + $24 = $64"
+ }
+]

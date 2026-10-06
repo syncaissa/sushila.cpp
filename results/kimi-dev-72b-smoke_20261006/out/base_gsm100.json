@@ -1,0 +1,62 @@
+[
+ {
+  "id": 0,
+  "source": "gsm8k",
+  "ref": "18",
+  "tokens": 202,
+  "seconds": 6.065891981124878,
+  "wall_tok_s": 33.300955676190675,
+  "accept_len": null,
+  "text": "\u25c1think\u25b7Okay, let's see. Janet's ducks lay 16 eggs per day. She uses some of them for breakfast and baking. The rest she sells at the market for $2 each. I need to figure out how much she makes daily from selling the eggs.\n\nFirst, how many eggs does she use up? She eats 3 for breakfast and bakes muffins with 4. So that's 3 + 4 = 7 eggs used. Then, the remaining eggs are 16 - 7 = 9. Those 9 eggs are sold at the market.\n\nEach egg is sold for $2. So the total money made is 9 eggs * $2 per egg. That's 9 * 2 = $18. So every day, she makes $18 from selling the eggs at the farmers' market.\n\u25c1/think\u25b7\n\nJanet makes $18 every day at the farmers' market from selling the remaining duck eggs."
+ },
+ {
+  "id": 1,
+  "source": "gsm8k",
+  "ref": "3",
+  "tokens": 173,
+  "seconds": 5.194150686264038,
+  "wall_tok_s": 33.306696407075655,
+  "accept_len": null,
+  "text": "\u25c1think\u25b7Okay, let's see. The problem says that a robe takes 2 bolts of blue fiber and half that much white fiber. So first, I need to figure out how much white fiber is needed. Since the blue is 2 bolts, half of that would be 1 bolt of white. Then, to find the total, I add the blue and white bolts together. So 2 plus 1 equals 3. Therefore, the total bolts needed are 3.\n\u25c1/think\u25b7\n\nThe robe requires 2 bolts of blue fiber and half that amount of white fiber. \n\nCalculating the white fiber:\n2 bolts (blue) / 2 = 1 bolt (white)\n\nTotal bolts needed:\n2 (blue) + 1 (white) = 3 bolts\n\nSo the answer is 3 bolts in total."
+ },
+ {
+  "id": 2,
+  "source": "gsm8k",
+  "ref": "70000",
+  "tokens": 512,
+  "seconds": 15.244882583618164,
+  "wall_tok_s": 33.58504056634615,
+  "accept_len": null,
+  "text": "\u25c1think\u25b7Okay, let's see. Josh bought a house for $80,000 and spent $50,000 on repairs. The problem says that this increased the value of the house by 150%. So first, I need to figure out what the new value of the house is after the repairs.\n\nThe original value was $80,000. Increasing that by 150% means multiplying by 1.5. Wait, no. Wait, increasing by 150% would be adding 150% of the original value. So 150% of $80,000 is 1.5 * 80,000 = $120,000. So the increase is $120,000. Adding that to the original value gives $80,000 + $120,000 = $200,000. So the new value of the house is $200,000.\n\nBut wait, the problem says that the repairs increased the value by 150%. So the total value after repairs is the original plus 150% of the original. So 80,000 + (1.5 * 80,000) = 80,000 + 120,000 = 200,000. So the house is now worth $200,000.\n\nNow, the profit would be the selling price minus the total cost. The total cost is the purchase price plus the repair costs. So $80,000 + $50,000 = $130,000. If he sells the house for $200,000, then the profit is $200,000 - $130,000 = $70,000.\n\nWait, but the problem says that the repairs increased the value by 150%. So the value after repairs is $200,000. So when he sells it, he gets $200,000. The total cost was $130,000. So profit is $200,000 - $130,000 = $70,00"
+ },
+ {
+  "id": 3,
+  "source": "gsm8k",
+  "ref": "540",
+  "tokens": 207,
+  "seconds": 6.171717643737793,
+  "wall_tok_s": 33.54009563448435,
+  "accept_len": null,
+  "text": "\u25c1think\u25b7Okay, let's see. James runs 3 sprints three times a week. Each sprint is 60 meters. So first, I need to figure out how many sprints he does in a week. If he does 3 sprints per session and has 3 sessions a week, that's 3 times 3, which is 9 sprints. Then, each sprint is 60 meters, so multiplying 9 sprints by 60 meters each gives 540 meters. So the total meters he runs a week is 540.\n\u25c1/think\u25b7\n\nJames runs a total of 540 meters per week. \n\nHere's the breakdown:\n- 3 sprints per session \n- 3 sessions per week \n- 60 meters per sprint\n\n3 sprints/session * 3 sessions/week = 9 sprints/week\n9 sprints/week * 60 meters/sprint = 540 meters/week"
+ },
+ {
+  "id": 4,
+  "source": "gsm8k",
+  "ref": "20",
+  "tokens": 356,
+  "seconds": 10.658061027526855,
+  "wall_tok_s": 33.40194797914456,
+  "accept_len": null,
+  "text": "\u25c1think\u25b7Okay, let's see. Wendi has 20 chickens. Each chicken gets 3 cups of feed per day, so the total daily feed needed is 20 chickens * 3 cups/chicken = 60 cups. \n\nNow, she feeds them in three meals. The first meal in the morning is 15 cups, and the afternoon meal is 25 cups. So the total feed given in the first two meals is 15 + 25 = 40 cups.\n\nThe final meal should make up the remaining feed needed. Since the total required is 60 cups, and they've already had 40, the third meal should be 60 - 40 = 20 cups. \n\nWait, but wait. Let me check again. Each chicken gets 3 cups per day. So 20 chickens * 3 = 60 cups total per day. The first two meals are 15 and 25, summing to 40. So the third meal needs to be 60 - 40 = 20 cups. That makes sense. So the answer is 20 cups.\n\u25c1/think\u25b7\n\nWendi needs to give her chickens 20 cups of feed in the final meal of the day. \n\nHere's the breakdown:\n- Total daily feed needed: 20 chickens * 3 cups/chicken = 60 cups\n- Morning meal: 15 cups\n- Afternoon meal: 25 cups\n- Total given so far: 15 + 25 = 40 cups\n- Remaining for final meal: 60 - 40 = 20 cups"
+ },
+ {
+  "id": 5,
+  "source": "gsm8k",
+  "ref": "64",
+  "tokens": 247,
+  "seconds": 7.372202157974243,
+  "wall_tok_s": 33.50423587242912,
+  "accept_len": null,
+  "text": "\u25c1think\u25b7Okay, let's see. Kylar wants to buy 16 glasses. The first glass is $5, and every second glass is 60% of that price. So the second glass would be 0.6 * 5 = $3. Then the third glass is $5 again, fourth is $3, and so on. So the pattern is alternating between $5 and $3.\n\nSo for 16 glasses, there are 8 pairs of $5 and $3. Each pair costs 5 + 3 = $8. So 8 pairs would be 8 * 8 = $64. That's the total cost. Let me check: 16 glasses divided into 8 pairs, each pair costs $8. So yes, 64 dollars.\n\u25c1/think\u25b7\n\nKylar needs to pay $64 for the 16 glasses. \n\nHere's the breakdown:\n- Each pair of glasses costs $5 + (0.6 * $5) = $5 + $3 = $8\n- Since 16 glasses form 8 pairs, the total cost is 8 * $8 = $64"
+ }
+]

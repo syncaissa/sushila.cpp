@@ -1,0 +1,4 @@
+concurrency 1: 33.7 tok/s total, 33.7 tok/s per user (median)
+concurrency 4: 93.2 tok/s total, 32.8 tok/s per user (median)
+concurrency 16: 181.3 tok/s total, 32.2 tok/s per user (median)
+concurrency 64: 181.2 tok/s total, 32.2 tok/s per user (median)

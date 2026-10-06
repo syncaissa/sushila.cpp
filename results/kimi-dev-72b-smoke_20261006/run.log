@@ -1,0 +1,34 @@
+[09:00:55] setup done: sglang 0.5.21, ollama Warning: client version is 0.35.1
+[09:07:25] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. Generating test split:   0%|          | 0/164 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 164/164 [00:00<00:00, 5522.14 examples/s] Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 374413.59 examples/s] Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 290378.28 examples/s] main: 26 val: 20 mtbench: 80 train: 340 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[09:18:41] base_main: 1292 tokens in 38.4 s = 33.7 tok/s (median per prompt 33.7)
+[09:19:47] base_ood: 1443 tokens in 43.0 s = 33.5 tok/s (median per prompt 33.5)
+[09:20:50] base_mt_t07: 1368 tokens in 41.1 s = 33.3 tok/s (median per prompt 33.3)
+[09:22:07] base_gsm100: 1697 tokens in 50.7 s = 33.5 tok/s (median per prompt 33.5)
+[09:22:39] pub: server died (see server_pub.log)
+[09:22:39] stopped at line 136
+[09:25:20] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. main: 26 val: 20 mtbench: 80 train: 340 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[09:31:09] pub_main: 1292 tokens in 26.4 s = 48.9 tok/s (median per prompt 48.0)
+[09:31:55] pub_ood: 1445 tokens in 29.9 s = 48.3 tok/s (median per prompt 46.9)
+[09:33:04] pub_mt_t07: 1451 tokens in 31.7 s = 45.8 tok/s (median per prompt 45.3)
+[09:41:54] answers: 40 conversations from 340 prompts -> /workspace/sushila/kimi-dev-72b-smoke/regen.jsonl
+[09:51:22] chunk_00: capture 445 s, train 123 s, 
+[09:54:32] chunk_01: capture 86 s, train 104 s, 
+[09:59:46] val_ckpt_chunk_00: 1022 tokens in 17.4 s = 58.7 tok/s (median per prompt 57.7)
+[10:05:16] val_ckpt_chunk_01: 1022 tokens in 16.3 s = 62.9 tok/s (median per prompt 59.4)
+[10:05:32] chosen on validation: head_ckpt_chunk_01 (62.85232635701202 tok/s)
+[10:05:33] smoke run: B2 save skipped (it would write precomputed/kimi-dev-72b/ from a test head)
+[10:10:03] ours_main: 1292 tokens in 20.4 s = 63.2 tok/s (median per prompt 62.6)
+[10:10:40] ours_ood: 1444 tokens in 24.3 s = 59.4 tok/s (median per prompt 60.6)
+[10:11:18] ours_mt_t07: 1485 tokens in 24.9 s = 59.6 tok/s (median per prompt 58.2)
+[10:11:54] ours_gsm100: 1862 tokens in 24.1 s = 77.2 tok/s (median per prompt 74.3)
+[10:17:26] load base: concurrency 1: 33.7 tok/s total, 33.7 tok/s per user (median);concurrency 4: 93.2 tok/s total, 32.8 tok/s per user (median);concurrency 16: 181.3 tok/s total, 32.2 tok/s per user (median);concurrency 64: 181.2 tok/s total, 32.2 tok/s per user (median);
+[10:23:29] load pub: concurrency 1: 47.7 tok/s total, 47.2 tok/s per user (median);concurrency 4: 89.9 tok/s total, 26.9 tok/s per user (median);concurrency 16: 104.2 tok/s total, 18.9 tok/s per user (median);concurrency 64: 105.0 tok/s total, 19.1 tok/s per user (median);
+[10:29:13] load ours: concurrency 1: 59.3 tok/s total, 59.3 tok/s per user (median);concurrency 4: 129.0 tok/s total, 40.5 tok/s per user (median);concurrency 16: 138.0 tok/s total, 25.1 tok/s per user (median);concurrency 64: 138.0 tok/s total, 25.1 tok/s per user (median);
+[10:33:27] Ollama kimi-dev:72b is "name=Kimi Dev 72B"; SGLang serves QuantTrio/Kimi-Dev-72B-GPTQ-Int4 (check they are the same model)
+[10:36:25] ollama_main: 1292 tokens: 21.4 tok/s with prompt processing (60.3 s), 21.7 tok/s decode only
+[10:38:05] ollama_ood: 1344 tokens: 21.2 tok/s with prompt processing (63.4 s), 21.6 tok/s decode only
+[10:39:54] ollama_mt_t07: 1536 tokens: 21.1 tok/s with prompt processing (72.6 s), 21.6 tok/s decode only
+[10:42:01] ollama_gsm100: 1739 tokens: 21.2 tok/s with prompt processing (82.0 s), 21.6 tok/s decode only
+[10:45:22] summary: /workspace/sushila/kimi-dev-72b-smoke/summary.md
+[10:45:22] smoke run: B2 save skipped (it would write precomputed/kimi-dev-72b/ from a test head)
+[10:45:22] DONE
