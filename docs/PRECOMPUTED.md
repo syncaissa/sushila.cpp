@@ -1,6 +1,6 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-06T00:46Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-06T00:49Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
@@ -14,7 +14,7 @@ Generated 2026-10-06T00:46Z by `scripts/precompute/b2_index.py`. Everything here
 | `qwen3-32b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (20) | 42.7 GB | yes | 2026-10-04 |
 | `qwen3-4b-instruct-2507` | weights (1) | 2.5 GB | yes | 2026-10-05 |
 | `qwen3-coder-30b-a3b` | weights (1) | 18.6 GB | yes | 2026-10-05 |
-| `wan2.2-ti2v-5b` | weights (3) | 12.9 GB | **no** | 2026-10-06 |
+| `wan2.2-ti2v-5b` | weights (3) | 12.9 GB | yes | 2026-10-06 |
 | `z-image-turbo` | weights (3) | 6.7 GB | yes | 2026-10-05 |
 | `z-image-turbo-nvidia` | weights (16) | 12.2 GB | yes | 2026-10-05 |
 | `z-image-turbo-nvidia-fp4` | weights (16) | 12.4 GB | yes | 2026-10-05 |
