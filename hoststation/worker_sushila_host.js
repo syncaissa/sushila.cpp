@@ -297,15 +297,17 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         const servers = { text: server };
         for (const k of ['image', 'music']) if (m.servers && m.servers[k] && safeRelPath(m.servers[k]) && (await invoke('path_exists', { path: join(dir, m.servers[k]) }))) servers[k] = join(dir, m.servers[k]);
         log(`reusing Sushila.cpp ${v} (${key}) already installed in ${dir}`);
-        HOST.state.engine = { version: v, server, servers, dir, source: 'shared with another Sushila app on this computer', installedAt: new Date().toISOString() };
+        HOST.state.engine = { version: v, key, server, servers, dir, source: 'shared with another Sushila app on this computer', installedAt: new Date().toISOString() };
         await saveState();
         return true;
       }
       return false;
     }
 
-    async function installEngine() {
-      const key = await engineKey();
+    // The engine for this computer's GPU (engineKey), or a given build (the automatic fallback below).
+    async function installEngine(forceKey) {
+      const key = typeof forceKey === 'string' ? forceKey : await engineKey();
+      if (typeof forceKey !== 'string') HOST.state.engineFallback = null;  // a normal install tries the GPU again
       const build = HOST.catalog && HOST.catalog.engine && HOST.catalog.engine.builds && HOST.catalog.engine.builds[key];
       if (!build) throw new Error(`No Sushila.cpp build is published for ${key} yet.`);
       const index = await signedIndex(HOST.catalog.engine.index, 'Sushila.cpp ' + HOST.catalog.engine.version);
@@ -325,7 +327,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       await invoke('set_executable', { path: server });
       const servers = { text: server };
       for (const k of ['image', 'music']) if (build.servers && build.servers[k] && safeRelPath(build.servers[k])) { servers[k] = join(dir, build.servers[k]); await invoke('set_executable', { path: servers[k] }); }
-      HOST.state.engine = { version: v, server, servers, dir, source: HOST.state.settings.scope === 'all' ? 'installed for all users' : 'installed for this user', installedAt: new Date().toISOString() };
+      HOST.state.engine = { version: v, key, server, servers, dir, source: HOST.state.settings.scope === 'all' ? 'installed for all users' : 'installed for this user', installedAt: new Date().toISOString() };
       await invoke('remove_path', { path: staging }).catch(() => {});
       await saveState();
       await ensureDefaultModel();
@@ -690,7 +692,36 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       while (used.has(p) || p === HOST.state.settings.port) p += 1;
       return p;
     }
+    // GPU first, CPU only as a fallback: if the GPU engine cannot load a model (e.g. a graphics driver too old for the CUDA
+    // build), switch automatically to the next build for this computer (CUDA -> Vulkan -> CPU), say so, and start again.
+    // The Engine tab offers "Try the GPU again" (after a driver update).
+    function fallbackKey(key) {
+      const builds = (HOST.catalog && HOST.catalog.engine && HOST.catalog.engine.builds) || {};
+      if (/-cuda$/.test(key) && builds[platformKey() + '-vulkan']) return platformKey() + '-vulkan';
+      if (/-(cuda|vulkan)$/.test(key) && builds[platformKey()]) return platformKey();
+      return null;
+    }
     async function startModel(id, mode) {
+      try {
+        return await startModelOnce(id, mode);
+      } catch (e) {
+        const p = HOST.state.packs[id], key = HOST.state.engine && HOST.state.engine.key, next = key && fallbackKey(key);
+        if (!next || !p || p.engine === 'image-nunchaku' || !/stopped while loading/.test(e.message)) throw e;
+        log(`${p.name} could not start on the ${gpuLabel(key)} engine (${e.message}); switching to the ${gpuLabel(next)} engine automatically.`);
+        await stopModel(id).catch(() => {});
+        await installEngine(next);
+        HOST.state.engineFallback = { from: key, to: next, model: p.name, at: new Date().toISOString() };
+        await saveState();
+        return startModel(id, mode);
+      }
+    }
+    function gpuLabel(key) {
+      if (/-cuda$/.test(key || '')) return 'NVIDIA GPU (CUDA)';
+      if (/-vulkan$/.test(key || '')) return 'GPU (Vulkan)';
+      if (/^macos-aarch64/.test(key || '')) return 'Apple GPU (Metal)';
+      return 'CPU';
+    }
+    async function startModelOnce(id, mode) {
       const p = HOST.state.packs[id], s = HOST.state.settings;
       mode = mode || (canTurbo(p) ? 'turbo' : 'regular');
       if (!HOST.state.engine) throw new Error('Install Sushila.cpp first.');
@@ -1004,8 +1035,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const s = HOST.state, c = HOST.catalog, build = c && c.engine && c.engine.builds && c.engine.builds[platformKey()];
       return el('div', { class: 'grid' },
         el('div', { class: 'card' }, el('h2', {}, 'Sushila.cpp'),
-          s.engine ? el('div', {}, el('div', {}, `Installed: version ${s.engine.version} (${s.engine.source})`), el('div', { class: 'sub' }, s.engine.server))
+          s.engine ? el('div', {}, el('div', {}, `Installed: version ${s.engine.version} (${s.engine.source})`),
+            el('div', {}, `Runs on: ${gpuLabel(s.engine.key || platformKey())}`), el('div', { class: 'sub' }, s.engine.server))
             : el('div', { class: 'sub' }, 'Not installed.'),
+          s.engineFallback ? el('div', { class: 'card warn' }, el('div', {}, `The ${gpuLabel(s.engineFallback.from)} engine could not start ${s.engineFallback.model}, so Sushila switched to the ${gpuLabel(s.engineFallback.to)} engine automatically. Updating the graphics driver usually fixes this.`),
+            el('button', { disabled: HOST.busy, onclick: () => act(installEngine, 'Sushila.cpp for your GPU is installed.') }, 'Try the GPU again')) : null,
           el('div', { class: 'sub', style: 'margin-top:8px' }, build ? `Available: version ${c.engine.version} for ${platformKey()} (${gb(build.bytes || 0)}).` : (HOST.catalogError || `No build for ${platformKey()} is published yet.`)),
           el('div', { class: 'row' },
             el('button', { disabled: !build || HOST.busy, onclick: () => act(installEngine, 'Sushila.cpp is installed.') }, s.engine ? 'Install or update' : 'Install Sushila.cpp'),

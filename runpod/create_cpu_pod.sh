@@ -13,7 +13,7 @@ IMAGE="runpod/base:1.4.0-ubuntu2204"
 KEY="$(cat ~/.ssh/id_ed25519.pub 2>/dev/null || cat ~/.ssh/id_rsa.pub)"
 
 body="$(jq -n --arg f "$FLAVOR" --argjson v "$VCPUS" --argjson disk "$DISK" --arg img "$IMAGE" --arg key "$KEY" '{
-    name: "mc-inference-cpu",
+    name: ($ENV.POD_NAME // "mc-inference-cpu"),
     computeType: "CPU",
     cpuFlavorIds: [$f],
     vcpuCount: $v,
