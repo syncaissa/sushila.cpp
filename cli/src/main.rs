@@ -7,10 +7,9 @@
 //   sushila run <pack> "<prompt>"     one answer, picture, video or song, printed or saved (for scripts and tests)
 //   sushila status | stop | list | verify | remove <pack> | service install | selftest
 //
-// It shares its data folder with Sushila Host Station (the desktop app): packs installed with either appear in both.
-#[path = "../../src-tauri/src/net.rs"]
+// The web page it serves (web/sushila_page.js) is the whole user interface: inference, and managing this computer's
+// Sushila (packs, engine, queue, logs) through the server, which alone changes anything (one source of truth).
 mod net;
-#[path = "../../src-tauri/src/webserver.rs"]
 #[allow(dead_code)]
 mod webserver;
 mod core;

@@ -1,5 +1,5 @@
-// The local web server, shared by Sushila Host Station (the desktop app) and the sushila command (no window):
-//   /                         the inference page (Chat, Code, Images, Music, Video, Queue), the same JS file as the app
+// The web server of `sushila serve`:
+//   /                         the page (web/sushila_page.js): Chat, Code, Images, Music, Video, Queue, managing Sushila
 //   /api/state                the public part of state.json (installed packs, running models)
 //   /api/mode, /api/queue...  mode switches and the background queue (request files in data_dir, applied by the owner)
 //   /api/control, /api/logs   install, remove, start, stop... and the shared log (this computer only; applied by sushila serve)
@@ -12,8 +12,8 @@ use sha2::{Digest, Sha256};
 use tokio::sync::oneshot;
 use crate::net::client;
 
-pub const APP_JS: &str = include_str!("../../worker_sushila_host.js");
-const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sushila Inference</title></head><body><div id="app"></div><script src="/worker_sushila_host.js"></script></body></html>"#;
+pub const APP_JS: &str = include_str!("../web/sushila_page.js");
+const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sushila Inference</title></head><body><div id="app"></div><script src="/sushila.js"></script></body></html>"#;
 
 // ---------- local web server ----------
 pub struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>> }
@@ -341,7 +341,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
     let srv = Arc::new(Srv { port, data_dir, http: client()?, hits: std::sync::Mutex::new(HashMap::new()) });
     let app = axum::Router::new()
         .route("/", axum::routing::get(srv_page))
-        .route("/worker_sushila_host.js", axum::routing::get(srv_js))
+        .route("/sushila.js", axum::routing::get(srv_js))
         .route("/api/state", axum::routing::get(srv_state))
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
         .route("/api/shutdown", axum::routing::post(srv_shutdown))

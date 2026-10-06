@@ -1,5 +1,5 @@
-// Network rules shared by Sushila Host Station (the desktop app) and the sushila command (no window): where downloads
-// may come from, and the HTTP client that enforces it on every redirect. Included by both crates (#[path]).
+// Network rules of the sushila command: where downloads may come from, and the HTTP client that enforces it on every
+// redirect.
 use std::time::Duration;
 
 fn err<E: std::fmt::Display>(e: E) -> String { e.to_string() }
