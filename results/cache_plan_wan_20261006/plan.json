@@ -1,0 +1,48 @@
+{
+ "size": "832x480",
+ "frames": 49,
+ "min_ssim": 0.9,
+ "uncached_s_calib": 37.147449016571045,
+ "chosen": {
+  "name": "easycache-0.3",
+  "mode": "easycache",
+  "option": "threshold=0.3",
+  "s": 24.600967407226562,
+  "ssim": 0.9181042908142606,
+  "speedup": 1.5099995216309638
+ },
+ "test": {
+  "speedup": 1.4894698006762337,
+  "ssim": 0.9001892093939542,
+  "runs": [
+   {
+    "prompt": "Two bears dancing in a forest near a river, slow camera pan, warm golden light",
+    "s": 25.631569623947144,
+    "uncached_s": 38.188218116760254,
+    "ssim": 0.962053892284946
+   },
+   {
+    "prompt": "a hot air balloon rising over green hills, clouds drifting",
+    "s": 25.668387413024902,
+    "uncached_s": 38.232287883758545,
+    "ssim": 0.8904176350695623
+   },
+   {
+    "prompt": "a cat playing with a ball of yarn on a rug, close up",
+    "s": 27.70685911178589,
+    "uncached_s": 38.78633761405945,
+    "ssim": 0.8480961008273542
+   }
+  ]
+ },
+ "vae_720p": [
+  {
+   "tiling": false,
+   "s": 201.1068263053894
+  },
+  {
+   "tiling": true,
+   "s": 194.59365320205688
+  }
+ ]
+}

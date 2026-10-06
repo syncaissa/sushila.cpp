@@ -1,0 +1,13 @@
+uncached 480p 2 s: 37.1 s per video (median, calibration prompts)
+easycache-0.1    27.6 s  1.34x  frame SSIM 0.938
+easycache-0.2    24.6 s  1.51x  frame SSIM 0.931
+easycache-0.3    24.6 s  1.51x  frame SSIM 0.918
+dbcache-0.15     28.6 s  1.30x  frame SSIM 0.907
+dbcache-0.25     25.2 s  1.48x  frame SSIM 0.897
+spectrum-w2      26.6 s  1.40x  frame SSIM 0.918
+taylorseer       33.1 s  1.12x  frame SSIM 0.932
+CHOSEN easycache-0.3: calibration 1.51x SSIM 0.918; held-out 1.49x SSIM 0.900
+720p 2 s, VAE tiling False: 201.1 s
+720p 2 s, VAE tiling True: 194.6 s
+VIDEO_CALIBRATION_DONE
+VCACHE_ALL_DONE

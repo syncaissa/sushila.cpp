@@ -1,0 +1,7 @@
+{"name": "easycache-0.1", "mode": "easycache", "option": "threshold=0.1", "s": 27.621642112731934, "ssim": 0.9383666190152495, "speedup": 1.3448675087803081}
+{"name": "easycache-0.2", "mode": "easycache", "option": "threshold=0.2", "s": 24.613258600234985, "ssim": 0.9313773218119005, "speedup": 1.509245468871659}
+{"name": "easycache-0.3", "mode": "easycache", "option": "threshold=0.3", "s": 24.600967407226562, "ssim": 0.9181042908142606, "speedup": 1.5099995216309638}
+{"name": "dbcache-0.15", "mode": "dbcache", "option": "threshold=0.15,warmup=4", "s": 28.604756832122803, "ssim": 0.9065902529789206, "speedup": 1.2986458593087882}
+{"name": "dbcache-0.25", "mode": "dbcache", "option": "threshold=0.25,warmup=4", "s": 25.159807443618774, "ssim": 0.8969714451740046, "speedup": 1.476459988806181}
+{"name": "spectrum-w2", "mode": "spectrum", "option": "window=2,warmup=4", "s": 26.60476541519165, "ssim": 0.9181318579818892, "speedup": 1.3962704965389168}
+{"name": "taylorseer", "mode": "taylorseer", "option": "", "s": 33.106295347213745, "ssim": 0.9318242046046978, "speedup": 1.1220660187729947}

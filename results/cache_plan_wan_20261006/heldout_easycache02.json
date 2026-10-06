@@ -1,0 +1,23 @@
+[
+ {
+  "prompt": "Two bears dancing in a forest near a river, slow camera pan, warm golden light",
+  "uncached_s": 45.366288900375366,
+  "plan_s": 26.625513315200806,
+  "noise_ssim": 1.0,
+  "plan_ssim": 0.9702745696697394
+ },
+ {
+  "prompt": "a hot air balloon rising over green hills, clouds drifting",
+  "uncached_s": 37.96945297718048,
+  "plan_s": 25.167520999908447,
+  "noise_ssim": 1.0,
+  "plan_ssim": 0.8646485857397539
+ },
+ {
+  "prompt": "a cat playing with a ball of yarn on a rug, close up",
+  "uncached_s": 38.51009821891785,
+  "plan_s": 28.196006059646606,
+  "noise_ssim": 1.0,
+  "plan_ssim": 0.8877843420638158
+ }
+]
