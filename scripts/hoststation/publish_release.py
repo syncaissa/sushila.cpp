@@ -41,7 +41,7 @@ PUB = SRC                                # releases live in the main repository 
 TOK = open(os.path.expanduser('~/.github_token')).read().strip()
 PRODUCTS = {'host-station': ('sushilaHostStation.cpp', 'Sushila Host Station'), 'imagegen': ('sushilaImageGen.cpp', 'Sushila ImageGen'),
             'musicgen': ('sushilaMusicGen.cpp', 'Sushila MusicGen'), 'chatgen': ('sushilaChatGen.cpp', 'Sushila ChatGen'),
-            'codegen': ('sushilaCodeGen.cpp', 'Sushila CodeGen')}
+            'codegen': ('sushilaCodeGen.cpp', 'Sushila CodeGen'), 'videogen': ('sushilaVideoGen.cpp', 'Sushila VideoGen')}
 KINDS = [('-setup.exe', 'windows-x86_64', 'Windows', 'windows-x64-setup.exe'), ('aarch64.dmg', 'macos-aarch64', 'Mac (Apple M1-M4)', 'macos-arm64.dmg'),
          ('x64.dmg', 'macos-x86_64', 'Mac (Intel)', 'macos-x64.dmg'), ('.deb', 'linux-deb', 'Ubuntu / Debian', 'linux-amd64.deb'),
          ('.rpm', 'linux-rpm', 'Fedora', 'linux-x86_64.rpm'), ('.AppImage', 'linux-appimage', 'Other Linux', 'linux-x86_64.AppImage')]
@@ -212,7 +212,11 @@ Installs everything (engine, image model, app), then draws *"Two bears dancing i
 ### sushilaMusicGen.cpp: songs from lyrics and a style
 {head}{rows('musicgen')}
 
-### sushilaHostStation.cpp: run any Sushila model pack (chat, images, music), share it on your network
+### sushilaVideoGen.cpp: short videos from a sentence or a picture
+Installs everything (engine, Wan 2.2 TI2V-5B video model, app), then films *"Two bears dancing in a forest near a river"*.
+{head}{rows('videogen')}
+
+### sushilaHostStation.cpp: run any Sushila model pack (chat, code, images, music, video), share it on your network
 {head}{rows('host-station')}
 
 ### sushila.cpp: the engine (installed automatically by the apps above)

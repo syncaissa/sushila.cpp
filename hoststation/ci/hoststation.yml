@@ -5,26 +5,33 @@
 #   macOS:   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
 #   Windows: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID (Microsoft Trusted Signing, used by signCommand)
 name: Sushila Host Station installers
+# One job per platform compiles the app once and packages every product from it (Host Station, ImageGen, MusicGen,
+# ChatGen, CodeGen and VideoGen differ only in name and first-start preset). The compiled Rust is kept between runs
+# (rust-cache), so a UI change recompiles only the app's own crate. Choose platforms and products for quick test builds.
 on:
   workflow_dispatch:
     inputs:
       publish: { description: "upload the installers to B2 (sushila.ai offers them in the install wizard)", type: boolean, default: false }
-      mac: { description: "also build the macOS installers (macOS minutes cost 10x: build them for releases only)", type: boolean, default: false }
+      platforms: { description: "comma list: windows, linux, mac-arm, mac-intel (macOS minutes cost 10x)", default: "windows,linux" }
+      products: { description: "comma list: host, imagegen, musicgen, chatgen, codegen, videogen (or all)", default: "all" }
 jobs:
   plan:
-    # the build list: Windows and Linux always, macOS only when asked (macOS runner minutes cost 10x)
     runs-on: ubuntu-22.04
     outputs: { matrix: "${{ steps.m.outputs.matrix }}" }
     steps:
       - id: m
         shell: python
-        env: { MAC: "${{ inputs.mac }}" }
+        env: { PLATFORMS: "${{ inputs.platforms }}" }
         run: |
           import json, os
-          rows = [{"os": "windows-latest", "args": "", "target": "", "flavor": "host", "preset": ""}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "host", "preset": ""}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "host", "preset": ""}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "host", "preset": ""}, {"os": "windows-latest", "args": "", "target": "", "flavor": "imagegen", "preset": "presets/imagegen.json"}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "imagegen", "preset": "presets/imagegen.json"}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "imagegen", "preset": "presets/imagegen.json"}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "imagegen", "preset": "presets/imagegen.json"}, {"os": "windows-latest", "args": "", "target": "", "flavor": "musicgen", "preset": "presets/musicgen.json"}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "musicgen", "preset": "presets/musicgen.json"}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "musicgen", "preset": "presets/musicgen.json"}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "musicgen", "preset": "presets/musicgen.json"}, {"os": "windows-latest", "args": "", "target": "", "flavor": "chatgen", "preset": "presets/chatgen.json"}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "chatgen", "preset": "presets/chatgen.json"}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "chatgen", "preset": "presets/chatgen.json"}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "chatgen", "preset": "presets/chatgen.json"}, {"os": "windows-latest", "args": "", "target": "", "flavor": "codegen", "preset": "presets/codegen.json"}, {"os": "macos-14", "args": "--target aarch64-apple-darwin", "target": "aarch64-apple-darwin", "flavor": "codegen", "preset": "presets/codegen.json"}, {"os": "macos-14", "args": "--target x86_64-apple-darwin", "target": "x86_64-apple-darwin", "flavor": "codegen", "preset": "presets/codegen.json"}, {"os": "ubuntu-22.04", "args": "", "target": "", "flavor": "codegen", "preset": "presets/codegen.json"}]
-          if os.environ.get('MAC') != 'true':
-              rows = [r for r in rows if not r['os'].startswith('macos')]
-          open(os.environ['GITHUB_OUTPUT'], 'a').write('matrix=' + json.dumps({'include': rows}) + '\n')
+          rows = {'windows': {'os': 'windows-latest', 'args': '', 'target': ''},
+                  'linux': {'os': 'ubuntu-22.04', 'args': '', 'target': ''},
+                  'mac-arm': {'os': 'macos-14', 'args': '--target aarch64-apple-darwin', 'target': 'aarch64-apple-darwin'},
+                  'mac-intel': {'os': 'macos-14', 'args': '--target x86_64-apple-darwin', 'target': 'x86_64-apple-darwin'}}
+          want = [p.strip() for p in (os.environ.get('PLATFORMS') or 'windows,linux').split(',') if p.strip()]
+          bad = [p for p in want if p not in rows]
+          if bad: raise SystemExit(f'unknown platform(s): {bad}; use {list(rows)}')
+          open(os.environ['GITHUB_OUTPUT'], 'a').write('matrix=' + json.dumps({'include': [dict(rows[p], platform=p) for p in want]}) + '\n')
   build:
     needs: plan
     strategy:
@@ -35,6 +42,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with: { targets: "${{ matrix.target }}" }
+      - uses: Swatinem/rust-cache@v2   # compiled dependencies kept between runs: only changed crates rebuild
+        with: { workspaces: "hoststation/src-tauri -> target", key: "${{ matrix.platform }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Tauri CLI (prebuilt)
+        run: npm install -g @tauri-apps/cli@^2
       - name: Linux packages
         if: startsWith(matrix.os, 'ubuntu')
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
@@ -54,30 +67,35 @@ jobs:
           for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID; do
             if [ -n "${!v}" ]; then { echo "$v<<SUSHILA_EOF"; echo "${!v}"; echo "SUSHILA_EOF"; } >> "$GITHUB_ENV"; fi
           done
-      - name: Product name for the flavor
+      - name: Build every product from one compile
         shell: bash
         working-directory: hoststation
+        env: { PRODUCTS: "${{ inputs.products }}" }
         run: |
-          if [ "${{ matrix.flavor }}" != host ]; then
-            echo "SUSHILA_PRESET=${{ matrix.preset }}" >> "$GITHUB_ENV"
-            (python3 -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product'], 'mainBinaryName': p['binary']}, open('flavor.conf.json','w'))" 2>/dev/null \
-              || python -c "import json; p=json.load(open('${{ matrix.preset }}')); json.dump({'productName': p['product'], 'mainBinaryName': p['binary']}, open('flavor.conf.json','w'))")
-            echo "TAURI_FLAVOR_ARGS=--config $GITHUB_WORKSPACE/hoststation/flavor.conf.json" >> "$GITHUB_ENV"
-          fi
-      - uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: hoststation
-          args: ${{ matrix.args }} ${{ env.TAURI_FLAVOR_ARGS }}
+          set -e
+          all="host imagegen musicgen chatgen codegen videogen"
+          want=$(echo "${PRODUCTS:-all}" | tr ',' ' '); [ "$want" = all ] && want="$all"
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          py=$(command -v python3 || command -v python)
+          for f in $want; do
+            echo "::group::$f"
+            conf=""
+            if [ "$f" = host ]; then unset SUSHILA_PRESET; else
+              [ -f presets/$f.json ] || { echo "unknown product $f"; exit 1; }
+              export SUSHILA_PRESET=presets/$f.json
+              $py -c "import json; p=json.load(open('presets/$f.json')); json.dump({'productName': p['product'], 'mainBinaryName': p['binary']}, open('flavor.conf.json','w'))"
+              conf="--config flavor.conf.json"
+            fi
+            rm -rf src-tauri/target/*/release/bundle src-tauri/target/release/bundle
+            tauri build ${{ matrix.args }} $conf
+            find src-tauri/target -path '*release/bundle/*' -type f \( -name '*.msi' -o -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) -exec cp {} "$GITHUB_WORKSPACE/dist/" \;
+            echo "::endgroup::"
+          done
+          ls -la "$GITHUB_WORKSPACE/dist"
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.flavor }}-${{ matrix.os }}-${{ matrix.target }}
-          path: |
-            hoststation/src-tauri/target/**/release/bundle/**/*.msi
-            hoststation/src-tauri/target/**/release/bundle/**/*.exe
-            hoststation/src-tauri/target/**/release/bundle/**/*.dmg
-            hoststation/src-tauri/target/**/release/bundle/**/*.deb
-            hoststation/src-tauri/target/**/release/bundle/**/*.rpm
-            hoststation/src-tauri/target/**/release/bundle/**/*.AppImage
+          name: installers-${{ matrix.platform }}
+          path: dist/*
   publish:
     # Uploads the installers to B2 hoststation/app/<version>/ and writes hoststation/app/LATEST.json, which sushila.ai's
     # install wizard and /hoststation page read. Publish only signed installers (see README). Secrets: B2_KEY_ID, B2_APP_KEY.
@@ -101,12 +119,12 @@ jobs:
           for root, _, names in os.walk('dist'):
               for n in names:
                   kind = next((k for k in kinds if n.endswith(k[0])), None)
-                  product = next((k for k, pre in (('imagegen', 'Sushila ImageGen'), ('musicgen', 'Sushila MusicGen'), ('chatgen', 'Sushila ChatGen'), ('codegen', 'Sushila CodeGen')) if n.startswith(pre)), 'host-station')
+                  product = next((k for k, pre in (('imagegen', 'Sushila ImageGen'), ('musicgen', 'Sushila MusicGen'), ('chatgen', 'Sushila ChatGen'), ('codegen', 'Sushila CodeGen'), ('videogen', 'Sushila VideoGen')) if n.startswith(pre)), 'host-station')
                   if not kind or any(f['platform'] == kind[1] and f['product'] == product for f in files):
                       continue
                   p = os.path.join(root, n)
                   b2.put_file(p, f'hoststation/app/{v}/{n}')
-                  files.append({'product': product, 'platform': kind[1], 'label': {'imagegen': 'Sushila ImageGen for ', 'musicgen': 'Sushila MusicGen for ', 'chatgen': 'Sushila ChatGen for ', 'codegen': 'Sushila CodeGen for '}.get(product, '') + kind[2], 'file': n, 'bytes': os.path.getsize(p), 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest()})
+                  files.append({'product': product, 'platform': kind[1], 'label': {'imagegen': 'Sushila ImageGen for ', 'musicgen': 'Sushila MusicGen for ', 'chatgen': 'Sushila ChatGen for ', 'codegen': 'Sushila CodeGen for ', 'videogen': 'Sushila VideoGen for '}.get(product, '') + kind[2], 'file': n, 'bytes': os.path.getsize(p), 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest()})
           b2.put('hoststation/app/LATEST.json', json.dumps({'version': v, 'built_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()), 'files': files}, indent=1).encode())
           print(json.dumps(files, indent=1))
           PYX

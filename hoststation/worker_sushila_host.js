@@ -137,7 +137,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         app: APP, appVersion: HOST.info.app_version,
         engine: s.engine ? { version: s.engine.version, source: s.engine.source } : null,
         running: Object.entries(s.running).map(([id, r]) => ({ packId: id, name: r.name, kind: r.kind || 'text', startedAt: r.startedAt, mode: r.mode || 'regular',
-          turbo: !!(s.packs[id] && canTurbo(s.packs[id])), ready: !!r.ready })),
+          turbo: !!(s.packs[id] && canTurbo(s.packs[id])), ready: !!r.ready, request: r.mode === 'turbo' ? turboRequest(s.packs[id]) : null })),
         packs: Object.values(s.packs).map((p) => ({ id: p.id, name: p.name, kind: p.kind || 'text', turbo: canTurbo(p) })),
       };
       await invoke('write_text', { path: statePath, content: JSON.stringify(s, null, 1) });
@@ -442,6 +442,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const t0 = Date.now(), tick = (what) => { job.progress = `${what}… ${Math.round((Date.now() - t0) / 1000)} s`; };
       const post = async (path, body) => { const r = await fetch(base + path, { method: 'POST', signal: sig, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 200)}`); return r; };
       const save = async (ext, mime, b64) => { const file = `${job.id}.${ext}`; const bytes = await invoke('write_b64', { path: join(qOut(), file), data: b64 }); return { file, mime, bytes }; };
+      const accel = () => (HOST.state.running[job.model] && HOST.state.running[job.model].mode === 'turbo' ? turboRequest(p) || {} : {});  // the cache plan
       if (job.kind === 'text') {
         tick('writing');
         const j = await (await post('/v1/chat/completions', { messages: [{ role: 'user', content: String(P.prompt || '') }], max_tokens: Math.min(+P.max_tokens || 1024, 8192), temperature: P.temperature ?? 0.7, stream: false })).json();
@@ -451,14 +452,15 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       }
       if (job.kind === 'image') {
         tick('drawing');
-        const prompt = String(P.prompt || '') + (P.seed != null && P.seed !== '' ? ` <sd_cpp_extra_args>${JSON.stringify({ seed: +P.seed })}</sd_cpp_extra_args>` : '');
+        const extra = Object.assign({}, accel(), P.seed != null && P.seed !== '' ? { seed: +P.seed } : {});
+        const prompt = String(P.prompt || '') + (Object.keys(extra).length ? ` <sd_cpp_extra_args>${JSON.stringify(extra)}</sd_cpp_extra_args>` : '');
         const j = await (await post('/v1/images/generations', { model: job.model, prompt, size: P.size || '1024x1024', n: 1, output_format: 'png' })).json();
         const d = (j.data || [])[0]; if (!d || !d.b64_json) throw new Error('the server returned no image');
         return save('png', 'image/png', d.b64_json);
       }
       if (job.kind === 'video') {
         const j = await (await post('/sdcpp/v1/vid_gen', Object.assign({ negative_prompt: WAN_NEGATIVE_PROMPT, fps: 24, seed: -1, output_format: 'webm',
-          sample_params: { sample_method: 'euler', guidance: { txt_cfg: 6.0 }, flow_shift: 3.0 } }, P))).json();
+          sample_params: { sample_method: 'euler', guidance: { txt_cfg: 6.0 }, flow_shift: 3.0 } }, accel(), P))).json();
         qRun.upstream = { port, id: j.id };
         for (;;) {
           await new Promise((r) => setTimeout(r, 2000)); if (sig.aborted) throw new DOMException('stopped', 'AbortError');
@@ -613,7 +615,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         let final = dir;
         if (HOST.state.settings.scope === 'all') final = await copyForAllUsers(dir, join(root(), 'packs', meta.id));
         HOST.state.packs[meta.id] = { id: meta.id, name: meta.name, kind: meta.kind || 'text', engine: meta.serve.engine || 'text', bytes: meta.files.reduce((a, f) => a + f.bytes, 0), dir: final, model: meta.serve.model,
-          args: meta.serve.args || [], turboArgs: meta.serve.turboArgs || [], files: meta.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })), license: meta.license,
+          args: meta.serve.args || [], turboArgs: meta.serve.turboArgs || [], turboRequest: meta.serve.turboRequest || null, files: meta.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })), license: meta.license,
           scope: HOST.state.settings.scope, installedAt: new Date().toISOString(), artifacts: meta.artifacts || [], source: path };
         HOST.lastInstalled = meta.id;
         await saveState();
@@ -642,7 +644,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       }
       let dir = userDir;
       if (HOST.state.settings.scope === 'all') dir = await copyForAllUsers(userDir, join(root(), 'packs', pack.id));
-      HOST.state.packs[pack.id] = { id: pack.id, name: pack.name, kind: pack.kind || 'text', engine: pack.serve.engine || 'text', bytes: pack.files.reduce((a, f) => a + (f.bytes || 0), 0), dir, model: pack.serve.model, args: pack.serve.args || [], turboArgs: pack.serve.turboArgs || [], files: pack.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })),
+      HOST.state.packs[pack.id] = { id: pack.id, name: pack.name, kind: pack.kind || 'text', engine: pack.serve.engine || 'text', bytes: pack.files.reduce((a, f) => a + (f.bytes || 0), 0), dir, model: pack.serve.model, args: pack.serve.args || [], turboArgs: pack.serve.turboArgs || [], turboRequest: pack.serve.turboRequest || null, files: pack.files.map((f) => ({ path: f.path, sha256: f.sha256, bytes: f.bytes, role: f.role })),
         license: pack.license, scope: HOST.state.settings.scope, installedAt: new Date().toISOString(), artifacts: pack.artifacts || [] };
       await saveState();
     }
@@ -678,7 +680,16 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     // NVIDIA image packs: Accelerated is 768x768 in 6 steps (under a second on an RTX 4090); Standard the published 1024x1024, 8 steps.
     // Text packs: Accelerated = the output-layer landscape and/or a precomputed draft model (turboArgs, e.g. -md {pack}/draft.gguf),
     // offered only where it was measured faster than Standard. Music packs: Accelerated = the engine's fast sampler (turboArgs).
-    function canTurbo(p) { return p.engine === 'image-nunchaku' || (p.engine === 'music' && (p.turboArgs || []).length > 0) || ((p.engine || 'text') === 'text' && ((p.artifacts || []).length > 0 || (p.turboArgs || []).length > 0)); }
+    // Image and video packs on the shared engine (stable-diffusion.cpp): Accelerated = the precomputed cache plan measured for
+    // the model (turboRequest, e.g. EasyCache at threshold 0.2: Z-Image 1.10x, Wan 2.2 1.45x), sent with each request.
+    function turboRequest(p) {
+      const r = p && p.turboRequest;
+      if (!r || typeof r !== 'object') return null;
+      const out = {};
+      for (const k of ['cache_mode', 'cache_option', 'scm_mask']) if (typeof r[k] === 'string' && /^[\w.=,:-]{1,64}$/.test(r[k])) out[k] = r[k];
+      return Object.keys(out).length ? out : null;
+    }
+    function canTurbo(p) { return p.engine === 'image-nunchaku' || (p.engine === 'image' && !!turboRequest(p)) || (p.engine === 'music' && (p.turboArgs || []).length > 0) || ((p.engine || 'text') === 'text' && ((p.artifacts || []).length > 0 || (p.turboArgs || []).length > 0)); }
     async function setMode(id, mode) {
       const p = HOST.state.packs[id]; if (!p) return;
       if (mode === 'turbo' && !canTurbo(p)) throw new Error(`${p.name} has no precomputed files yet: Accelerated is not available.`);
@@ -1496,7 +1507,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       try {
         const r = await fetch(base() + '/v1/video/vid_gen', { method: 'POST', headers: hdr, body: JSON.stringify({
           model: model.packId, prompt, negative_prompt: WAN_NEGATIVE, width: w, height: h, video_frames: frames, fps, seed: seed ? +seed : -1,
-          init_image: startImage, sample_params: { sample_method: 'euler', guidance: { txt_cfg: 6.0 }, flow_shift: 3.0 }, output_format: 'webm' }) });
+          init_image: startImage, sample_params: { sample_method: 'euler', guidance: { txt_cfg: 6.0 }, flow_shift: 3.0 }, output_format: 'webm', ...(model.request || {}) }) });
         if (!r.ok) throw new Error(explain(r, await r.text()));
         videoJob = (await r.json()).id;
         for (;;) {
@@ -1602,6 +1613,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       $('iprompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) makeImage(); });
       if (autoPrompt) { $('iprompt').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeImage(); } }
     }
+    // stable-diffusion.cpp's OpenAI endpoint takes engine options inside the prompt: <sd_cpp_extra_args>{...}</sd_cpp_extra_args>
+    const extraArgs = (o) => (Object.keys(o).length ? ` <sd_cpp_extra_args>${JSON.stringify(o)}</sd_cpp_extra_args>` : '');
     async function makeImage() {
       const prompt = $('iprompt').value.trim();
       if (!prompt || !model) { $('imsg').className = 'msg err'; $('imsg').textContent = 'Describe the image first.'; return; }
@@ -1610,7 +1623,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       try {
         const r = await fetch(base() + '/v1/images/generations', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth()),
           // stable-diffusion.cpp's OpenAI endpoint: engine options ride inside the prompt as <sd_cpp_extra_args>{...}</sd_cpp_extra_args>
-          body: JSON.stringify({ model: model.packId, prompt: prompt + (seed ? ` <sd_cpp_extra_args>${JSON.stringify({ seed: +seed })}</sd_cpp_extra_args>` : ''),
+          body: JSON.stringify({ model: model.packId, prompt: prompt + extraArgs(Object.assign({}, model.request || {}, seed ? { seed: +seed } : {})),
             size: $('isize').value, n: +$('in').value, output_format: 'png' }) });
         if (!r.ok) throw new Error(explain(r, await r.text()));
         const j = await r.json(), secs = ((performance.now() - t0) / 1000).toFixed(1);

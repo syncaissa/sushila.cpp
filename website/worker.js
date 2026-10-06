@@ -1759,15 +1759,17 @@ const HOST_PACKS = [
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct', artifacts: [],
     files: [['weights/gguf/qwen2.5-coder-7b-instruct-q4_k_m.gguf', 'qwen2.5-coder-7b-instruct-q4_k_m.gguf', 'weights']],
     serve: { model: 'qwen2.5-coder-7b-instruct-q4_k_m.gguf', args: [] } },
-  // VideoGen (not released yet: hidden from the catalog until the author decides; SHOW_HIDDEN_PACKS=1 lists it)
-  { id: 'wan2.2-ti2v-5b', category: 'Video', kind: 'video', hidden: true, name: 'Wan 2.2 TI2V-5B (text or picture to video, 8-bit)', model: 'precomputed/wan2.2-ti2v-5b', minRamGB: 24,
+  // VideoGen (sushilaVideoGen.cpp, released 2026-10-06): Wan 2.2 TI2V-5B, text or a start picture to video
+  { id: 'wan2.2-ti2v-5b', category: 'Video', kind: 'video', name: 'Wan 2.2 TI2V-5B (text or picture to video, 8-bit)', model: 'precomputed/wan2.2-ti2v-5b', minRamGB: 24,
     description: 'Short videos (2-5 s, up to 720p, 24 fps) from a sentence, or from a starting picture. Needs a GPU with 12 GB+ for comfortable speed; minutes per clip.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B', artifacts: [],
     files: [['weights/diffusion/Wan2.2-TI2V-5B-Q8_0.gguf', 'Wan2.2-TI2V-5B-Q8_0.gguf', 'weights'],
       ['weights/text-encoder/umt5-xxl-encoder-Q8_0.gguf', 'umt5-xxl-encoder-Q8_0.gguf', 'text-encoder'],
       ['weights/vae/wan2.2_vae.safetensors', 'wan2.2_vae.safetensors', 'vae']],
     serve: { engine: 'image', model: 'Wan2.2-TI2V-5B-Q8_0.gguf',
-      args: ['--diffusion-model', '{pack}/Wan2.2-TI2V-5B-Q8_0.gguf', '--t5xxl', '{pack}/umt5-xxl-encoder-Q8_0.gguf', '--vae', '{pack}/wan2.2_vae.safetensors', '--diffusion-fa', '--offload-to-cpu'] } },
+      args: ['--diffusion-model', '{pack}/Wan2.2-TI2V-5B-Q8_0.gguf', '--t5xxl', '{pack}/umt5-xxl-encoder-Q8_0.gguf', '--vae', '{pack}/wan2.2_vae.safetensors', '--diffusion-fa', '--offload-to-cpu'],
+      // Accelerated: Sushila's precomputed cache plan for this model (EasyCache 0.2: 1.45x on held-out prompts, frame SSIM 0.91)
+      turboRequest: { cache_mode: 'easycache', cache_option: 'threshold=0.2' } } },
   { id: 'ace-step-15', category: 'Music', kind: 'music', name: 'ACE-Step 1.5 (songs from lyrics and a style)', model: 'precomputed/ace-step-15', minRamGB: 12,
     description: 'Full songs with vocals from your lyrics and a style description (stereo 48 kHz MP3), up to several minutes; 8-step turbo model with the 4B song-writing model. Runs on GPUs with 8 GB+, slower on CPU.',
     license: 'MIT', licenseUrl: 'https://huggingface.co/ACE-Step/Ace-Step1.5', artifacts: [],
@@ -1783,7 +1785,9 @@ const HOST_PACKS = [
       ['weights/vae/ae.safetensors', 'ae.safetensors', 'vae']],
     serve: { engine: 'image', model: 'z_image_turbo-Q4_K.gguf',
       args: ['--diffusion-model', '{pack}/z_image_turbo-Q4_K.gguf', '--llm', '{pack}/Qwen3-4B-Instruct-2507-Q4_K_M.gguf', '--vae', '{pack}/ae.safetensors',
-        '--cfg-scale', '1.0', '--steps', '8', '--diffusion-fa', '--offload-to-cpu'] } },
+        '--cfg-scale', '1.0', '--steps', '8', '--diffusion-fa', '--offload-to-cpu'],
+      // Accelerated: Sushila's precomputed cache plan for Z-Image (EasyCache 0.2: 1.10x on held-out prompts, SSIM 0.98)
+      turboRequest: { cache_mode: 'easycache', cache_option: 'threshold=0.2' } } },
   { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs (Accelerated: under 1 second)', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
     variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 7.5, maxCompute: 11.9 },
     description: 'Z-Image-Turbo with Nunchaku 4-bit kernels for NVIDIA RTX 20/30/40-series: a 768x768 image in about 0.8 s on an RTX 4090 (Accelerated: 6 steps), or the published 1024x1024 / 8 steps (Standard). Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
@@ -1834,7 +1838,9 @@ const HOST_PACKS = [
       ['weights/vae/ae.safetensors', 'ae.safetensors', 'vae']],
     serve: { engine: 'image', model: 'z_image_turbo-Q8_0.gguf',
       args: ['--diffusion-model', '{pack}/z_image_turbo-Q8_0.gguf', '--llm', '{pack}/Qwen3-4B-Instruct-2507-Q4_K_M.gguf', '--vae', '{pack}/ae.safetensors',
-        '--cfg-scale', '1.0', '--steps', '8', '--diffusion-fa', '--offload-to-cpu'] } },
+        '--cfg-scale', '1.0', '--steps', '8', '--diffusion-fa', '--offload-to-cpu'],
+      // Accelerated: the Z-Image cache plan (same model, 8-bit file)
+      turboRequest: { cache_mode: 'easycache', cache_option: 'threshold=0.2' } } },
   { id: 'qwen3-30b-a3b-q4km', category: 'Text (LLM)', name: 'Qwen3 30B-A3B (mixture of experts, 4-bit)', model: 'precomputed/qwen3-30b-a3b', minRamGB: 24, ollamaGguf: 'qwen3-30b-a3b-q4km.gguf',
     description: 'Fast for its size: only 3B parameters are active per token. The exact file measured in the paper.', license: 'Apache-2.0',
     licenseUrl: 'https://huggingface.co/Qwen/Qwen3-30B-A3B/blob/main/LICENSE', artifacts: [], serve: { model: 'qwen3-30b-a3b-q4km.gguf', args: [] } },
@@ -1993,6 +1999,7 @@ ${product('chatgen', 'sushilaChatGen.cpp', 'Sushila ChatGen', 'A private assista
 ${product('codegen', 'sushilaCodeGen.cpp', 'Sushila CodeGen', 'Write programs in many languages, locally: Qwen3-Coder 30B-A3B with 24 GB+ of memory (Qwen2.5-Coder 7B otherwise). Answers show code blocks with a Copy button.')}
 ${product('imagegen', 'sushilaImageGen.cpp', 'Sushila ImageGen', 'Pictures from a sentence: it installs Sushila.cpp and Z-Image-Turbo (the fast Accelerated pack on NVIDIA RTX cards: a 768x768 image in under a second on an RTX 4090), starts it, and makes a first image ("Two bears dancing in a forest near a river") with a Download button.')}
 ${product('musicgen', 'sushilaMusicGen.cpp', 'Sushila MusicGen', 'Songs from lyrics and a style: it installs Sushila.cpp and ACE-Step 1.5, starts it, and makes a first song. Then type <b>1. Lyrics</b> and <b>2. Style</b> and press <b>Generate</b>: a full song with vocals, with a Download button.')}
+${product('videogen', 'sushilaVideoGen.cpp', 'Sushila VideoGen', 'Short videos from a sentence or a start picture: it installs Sushila.cpp and Wan 2.2 TI2V-5B (Apache-2.0), starts it, and makes a first clip. A 5-second 832x480 video takes about 110 seconds on an RTX 4090 in Standard, and Accelerated (our precomputed cache plan) is about 1.45x faster; 24 GB+ of memory recommended. Every finished clip has a Download button, and long jobs can run in the background queue.')}
 
 <h2>Install, then four clicks</h2>
 <ol>

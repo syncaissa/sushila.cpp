@@ -1,6 +1,6 @@
 [package]
 name = "sushila-host-station"
-version = "0.1.0"
+version = "0.1.1"
 description = "Sushila Host Station: installs Sushila.cpp and model packs, and serves the local inference page"
 authors = ["Sushila, an open-source research project"]
 license = "MIT"
