@@ -1,5 +1,11 @@
 # Results
 
+**Summary (2026-10-06).** Sushila.cpp vs the usual local baseline: chat and coding models vs vanilla Ollama on one A100
+(160 unseen prompts): Llama-3.3-70B 3.95x, R1-Distill-Llama-70B 3.64x, Kimi-Dev-72B 3.56x, Qwen3-32B 3.14x,
+Qwen3-Coder-30B-A3B 1.80x, Qwen3-30B-A3B 1.65x, Gemma 3 27B 1.22x -> **average 2.71x (geometric mean 2.48x)**. With
+Qwen2.5-0.5B (landscape, CPU) 1.26x, Z-Image 1.10x, Wan 2.2 video 1.45x and ACE-Step music 1.27x: **average over all 11
+models 2.19x (geometric 1.94x)**. In progress: YuE 3.73x (exact runner). Out of scope: Qwen3-235B-A22B (heads slower).
+
 One folder per run, named `<UTC timestamp>_<model>_<mode>/`:
 
 | File | Contents |
@@ -22,6 +28,7 @@ Runs with `chunks` other than `all` are smoke tests and are not used in the pape
 | `gemma3-27b_20261005/` | Gemma 3 27B | 1.22x (1.19-1.24); SGLang 0.5.14 (0.5.21 breaks Gemma's EAGLE-3: `gemma3-27b-probe2_20261005/`); our head +9% over the community head |
 | `qwen3-coder-30b-a3b_20261006/` | Qwen3-Coder-30B-A3B (MoE; CodeGen's model) | 1.80x (1.70-1.89); our head +2% over lmsys's |
 | `kimi-dev-72b_20261006/` | Kimi-Dev-72B (coding, Qwen2.5-72B-based; no published head) | **3.56x** (3.50-3.62) unseen; our head +41% over the closest published head (AQ-MedAI's for Qwen2.5-VL-72B, regrouped 28 -> 32 heads) |
+| `yue_20261006/` | YuE v1 (long songs, Apache-2.0), RTX 4090 | 59 s song 1,213 s -> 325 s (**3.73x**, exact: KV-cached batched stage 2, batched guidance); 0.5B draft 53% accepted (slower in eager PyTorch) |
 | `qwen3-235b-a22b_20261005/` | Qwen3-235B-A22B (MoE, 2 GPUs; out of scope: too large for local machines) | SGLang alone 1.25x; any draft head is slower (ours 0.73x, best small tree 0.87x of SGLang) |
 
 Each holds `summary.md` (speeds, steps, bootstrap intervals, GSM8K accuracy, load test), `summary.json`, `run.log` and
