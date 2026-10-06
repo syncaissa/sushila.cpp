@@ -22,7 +22,8 @@ jobs:
           - { os: ubuntu-22.04, key: linux-x86_64, archive: tar.gz, exe: "", cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON" }
           # NVIDIA GPUs (RTX 20-series to 50-series, A100/H100): CUDA builds; the CUDA runtime libraries ship next to the programs
           - { os: windows-2022, key: windows-x86_64-cuda, archive: zip, exe: .exe, cuda: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON", cuda_arch: "75;80;86;89;90;120" }
-          - { os: ubuntu-22.04, key: linux-x86_64-cuda, archive: tar.gz, exe: "", cuda: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON", cuda_arch: "75;80;86;89;90;120" }
+          # linux-x86_64-cuda is built on a many-core RunPod CPU pod (scripts/hoststation/build_linux_cuda.sh): on GitHub's
+          # 4-core runner it exceeds the 6-hour job limit; publish it with scripts/hoststation/publish_engine.py --engine-file
           # AMD Radeon / Intel Arc and Iris GPUs: Vulkan builds (the Vulkan runtime comes with the graphics driver)
           - { os: windows-2022, key: windows-x86_64-vulkan, archive: zip, exe: .exe, vulkan: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_VULKAN=ON" }
           - { os: ubuntu-22.04, key: linux-x86_64-vulkan, archive: tar.gz, exe: "", vulkan: true, cmake: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_VULKAN=ON" }
