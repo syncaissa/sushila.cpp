@@ -16,7 +16,60 @@ pub const APP_JS: &str = include_str!("../web/sushila_page.js");
 const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sushila Inference</title></head><body><div id="app"></div><script src="/sushila.js"></script></body></html>"#;
 
 // ---------- local web server ----------
-pub struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>> }
+pub struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>>,
+                 sessions: std::sync::Mutex<HashMap<String, std::time::Instant>> }
+
+// ---------- the Admin tab: one password per computer
+// <data>/adminpassword holds an Argon2id hash of the admin password (not the password; it cannot be read back). It is
+// created the first time (in the terminal, or on the Admin tab from this computer only). Lost it? Delete the file and
+// restart: the server asks again, so the owner of the machine is never locked out. The sushila commands do not need it:
+// they run as the same user and prove it with <data>/admin-cli.token, a random file only that user can read.
+pub fn password_set(dir: &Path) -> bool { dir.join("adminpassword").exists() }
+pub fn set_password(dir: &Path, pw: &str) -> Result<(), String> {
+    use argon2::{password_hash::{PasswordHasher, SaltString}, Argon2};
+    if pw.chars().count() < 8 { return Err("the admin password needs at least 8 characters".into()); }
+    let mut salt = [0u8; 16]; getrandom::getrandom(&mut salt).map_err(|e| e.to_string())?;
+    let salt = SaltString::encode_b64(&salt).map_err(|e| e.to_string())?;
+    let hash = Argon2::default().hash_password(pw.as_bytes(), &salt).map_err(|e| e.to_string())?.to_string();
+    write_private(&dir.join("adminpassword"), &hash)
+}
+pub fn check_password(dir: &Path, pw: &str) -> bool {
+    use argon2::{password_hash::{PasswordHash, PasswordVerifier}, Argon2};
+    let Ok(h) = std::fs::read_to_string(dir.join("adminpassword")) else { return false };
+    let Ok(parsed) = PasswordHash::new(h.trim()) else { return false };
+    Argon2::default().verify_password(pw.as_bytes(), &parsed).is_ok()
+}
+/// A file only this user can read (Unix mode 600; on Windows the user's own AppData folder).
+pub fn write_private(p: &Path, content: &str) -> Result<(), String> {
+    std::fs::write(p, content).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    { use std::os::unix::fs::PermissionsExt; let _ = std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o600)); }
+    Ok(())
+}
+pub fn cli_token(dir: &Path) -> String {
+    let p = dir.join("admin-cli.token");
+    if let Ok(t) = std::fs::read_to_string(&p) { if t.trim().len() >= 32 { return t.trim().to_string(); } }
+    let mut b = [0u8; 24]; let _ = getrandom::getrandom(&mut b);
+    let t = hex::encode(b); let _ = write_private(&p, &t); t
+}
+fn local_host(headers: &axum::http::HeaderMap, port: u16) -> bool {
+    let host = headers.get("host").and_then(|h| h.to_str().ok()).unwrap_or("");
+    host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}")
+}
+/// Admin requests: from this computer (or from anywhere when share.remoteAdmin is on), with an Admin-tab session or
+/// the sushila commands' token.
+fn admin_ok(s: &Srv, headers: &axum::http::HeaderMap, st: &Value) -> bool {
+    if !host_ok(headers, s.port, st) { return false; }
+    let remote_ok = share(st).and_then(|sh| sh.get("remoteAdmin")).and_then(|v| v.as_bool()).unwrap_or(false);
+    if !local_host(headers, s.port) && !remote_ok { return false; }
+    let given = headers.get("x-sushila-admin").and_then(|h| h.to_str().ok()).unwrap_or("");
+    if given.len() < 32 { return false; }
+    if given == cli_token(&s.data_dir) { return true; }
+    let mut ss = s.sessions.lock().unwrap();
+    if !password_set(&s.data_dir) { ss.clear(); return false; }  // reset (file deleted): sessions of the old password end
+    ss.retain(|_, t| t.elapsed() < Duration::from_secs(12 * 3600));
+    ss.contains_key(given)
+}
 
 // Sharing (Settings -> Share on the network), read from state.json on every request:
 //   share.enabled        accept requests from other machines (the server then listens on share.bind, e.g. 0.0.0.0)
@@ -291,7 +344,7 @@ async fn srv_shutdown(axum::extract::State(s): axum::extract::State<Arc<Srv>>, h
     use axum::response::IntoResponse;
     let st = read_state(&s.data_dir);
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    if caller(&headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "only this computer can stop the server").into_response(); }
+    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required (Admin tab), or use the sushila command on this computer").into_response(); }
     let _ = std::fs::write(s.data_dir.join("shutdown-request.json"), "{}");
     (axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "ok": true }))).into_response()
 }
@@ -307,7 +360,7 @@ async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, re
     let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
     if parts.method == axum::http::Method::OPTIONS { return with_cors_for(axum::http::StatusCode::NO_CONTENT.into_response(), &st, origin.as_deref()); }
     if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    if caller(&parts.headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "only this computer can manage Sushila").into_response(); }
+    if !admin_ok(&s, &parts.headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required (Admin tab), or use the sushila command on this computer").into_response(); }
     let Ok(bytes) = axum::body::to_bytes(body, 65536).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let Ok(mut v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("");
@@ -327,7 +380,7 @@ async fn srv_logs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum:
     use axum::response::IntoResponse;
     let st = read_state(&s.data_dir);
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    if caller(&headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required (Admin tab), or use the sushila command on this computer").into_response(); }
     let data = std::fs::read(s.data_dir.join("logs").join("sushila.log")).unwrap_or_default();
     let since = q.get("since").and_then(|x| x.parse::<usize>().ok()).unwrap_or(0).min(data.len());
     let start = since.max(data.len().saturating_sub(256 << 10));  // at most the last 256 KB
@@ -338,7 +391,7 @@ async fn srv_logs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum:
 async fn srv_catalog(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
     let st = read_state(&s.data_dir);
-    if !host_ok(&headers, s.port, &st) || caller(&headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required").into_response(); }
     let v = std::fs::read_to_string(s.data_dir.join("catalog-cache.json")).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).unwrap_or(json!({ "packs": [] }));
     axum::Json(v).into_response()
 }
@@ -348,14 +401,55 @@ async fn srv_install_link(axum::extract::State(s): axum::extract::State<Arc<Srv>
     use axum::response::IntoResponse;
     if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     if !safe_id(&pack.replace('.', "_")) { return (axum::http::StatusCode::BAD_REQUEST, "bad pack").into_response(); }
-    axum::response::Redirect::to(&format!("/?install={pack}#packs")).into_response()
+    axum::response::Redirect::to(&format!("/?install={pack}#admin/packs")).into_response()
+}
+
+/// GET /api/admin: {passwordSet, loggedIn, local}: what the Admin tab should show.
+async fn srv_admin(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    let remote_ok = share(&st).and_then(|sh| sh.get("remoteAdmin")).and_then(|v| v.as_bool()).unwrap_or(false);
+    axum::Json(json!({ "passwordSet": password_set(&s.data_dir), "loggedIn": admin_ok(&s, &headers, &st), "allowed": local_host(&headers, s.port) || remote_ok })).into_response()
+}
+/// POST /api/login {password} -> {session}; POST /api/setup {password}: the first password, only from this computer
+/// and only while none is set; POST /api/logout.
+async fn srv_login(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(what): axum::extract::Path<String>, req: axum::extract::Request) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let (parts, body) = req.into_parts();
+    let st = read_state(&s.data_dir);
+    let remote_ok = share(&st).and_then(|sh| sh.get("remoteAdmin")).and_then(|v| v.as_bool()).unwrap_or(false);
+    if !host_ok(&parts.headers, s.port, &st) || !(local_host(&parts.headers, s.port) || remote_ok) { return (axum::http::StatusCode::FORBIDDEN, "admin is available on this computer only").into_response(); }
+    let Ok(bytes) = axum::body::to_bytes(body, 4096).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let pw = serde_json::from_slice::<Value>(&bytes).ok().and_then(|v| v.get("password").and_then(|p| p.as_str()).map(String::from)).unwrap_or_default();
+    let new_session = |s: &Srv| { let mut b = [0u8; 24]; let _ = getrandom::getrandom(&mut b); let id = hex::encode(b); s.sessions.lock().unwrap().insert(id.clone(), std::time::Instant::now()); id };
+    match what.as_str() {
+        "setup" => {
+            if password_set(&s.data_dir) { return (axum::http::StatusCode::CONFLICT, "a password is already set (delete the adminpassword file to start over)").into_response(); }
+            if !local_host(&parts.headers, s.port) { return (axum::http::StatusCode::FORBIDDEN, "the first password can only be set on this computer").into_response(); }
+            if let Err(e) = set_password(&s.data_dir, &pw) { return (axum::http::StatusCode::BAD_REQUEST, e).into_response(); }
+            axum::Json(json!({ "session": new_session(&s) })).into_response()
+        }
+        "login" => {
+            let dir = s.data_dir.clone(); let pw2 = pw.clone();
+            let ok = tokio::task::spawn_blocking(move || check_password(&dir, &pw2)).await.unwrap_or(false);
+            if !ok { tokio::time::sleep(Duration::from_secs(1)).await; return (axum::http::StatusCode::UNAUTHORIZED, "wrong password").into_response(); }
+            axum::Json(json!({ "session": new_session(&s) })).into_response()
+        }
+        "logout" => {
+            if let Some(t) = parts.headers.get("x-sushila-admin").and_then(|h| h.to_str().ok()) { s.sessions.lock().unwrap().remove(t); }
+            axum::Json(json!({ "ok": true })).into_response()
+        }
+        _ => (axum::http::StatusCode::NOT_FOUND, "not found").into_response(),
+    }
 }
 
 /// Starts the web server on bind:port. Returns its address and the stop signal.
 pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, oneshot::Sender<()>), String> {
     let ip: std::net::IpAddr = bind.parse().map_err(|_| format!("not an IP address: {bind}"))?;
     let listener = tokio::net::TcpListener::bind((ip, port)).await.map_err(|e| format!("port {port} is busy: {e}"))?;
-    let srv = Arc::new(Srv { port, data_dir, http: client()?, hits: std::sync::Mutex::new(HashMap::new()) });
+    let _ = cli_token(&data_dir);
+    let srv = Arc::new(Srv { port, data_dir, http: client()?, hits: std::sync::Mutex::new(HashMap::new()), sessions: std::sync::Mutex::new(HashMap::new()) });
     let app = axum::Router::new()
         .route("/", axum::routing::get(srv_page))
         .route("/sushila.js", axum::routing::get(srv_js))
@@ -365,6 +459,8 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/control", axum::routing::post(srv_control).options(srv_control))
         .route("/api/logs", axum::routing::get(srv_logs))
         .route("/api/catalog", axum::routing::get(srv_catalog))
+        .route("/api/admin", axum::routing::get(srv_admin))
+        .route("/api/admin/:what", axum::routing::post(srv_login))
         .route("/install/:pack", axum::routing::get(srv_install_link))
         .route("/api/queue", axum::routing::get(srv_queue).post(srv_queue_add).options(srv_queue_add))
         .route("/api/queue/:id/output", axum::routing::get(srv_queue_output))

@@ -102,6 +102,8 @@ enum Cmd {
     Keys { #[command(subcommand)] act: KeysCmd },
     /// Start `sushila serve` when the computer starts: `service install [--packs a,b] [--host 0.0.0.0]`, `service remove`
     Service { #[command(subcommand)] act: ServiceCmd },
+    /// The Admin tab's password: `sushila password` sets or changes it; `--reset` deletes it (asked again at the next start)
+    Password { #[arg(long)] reset: bool },
     /// End-to-end check: engine, the smallest model, one answer (exit code 0 = everything works)
     Selftest { #[arg(long, default_value = DEFAULT_MODEL)] pack: String },
 }
@@ -150,7 +152,7 @@ async fn owner_port(ctx: &Ctx) -> Option<u16> {
 async fn remote(ctx: &Ctx, port: u16, body: Value) -> Result<(), String> {
     let token = ctx.state["token"].as_str().unwrap_or("").to_string();
     let c = reqwest::Client::new();
-    let r = c.post(format!("http://127.0.0.1:{port}/api/control")).header("x-sushila-token", &token).json(&body).send().await.map_err(err)?;
+    let r = c.post(format!("http://127.0.0.1:{port}/api/control")).header("x-sushila-token", &token).header("x-sushila-admin", webserver::cli_token(&ctx.data)).json(&body).send().await.map_err(err)?;
     if !r.status().is_success() { return Err(format!("the server refused: {} {}", r.status(), r.text().await.unwrap_or_default())); }
     let id = r.json::<Value>().await.map_err(err)?["id"].as_str().unwrap_or("").to_string();
     if !ctx.quiet { eprintln!("sent to the running server ({}): task {id}", format!("http://127.0.0.1:{port}")); }
@@ -298,7 +300,7 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
         Cmd::Stop { pack: None } => {
             let port = ctx.setting("port").as_u64().unwrap_or(8765);
             let token = ctx.state["token"].as_str().unwrap_or("").to_string();
-            let r = reqwest::Client::new().post(format!("http://127.0.0.1:{port}/api/shutdown")).header("x-sushila-token", token).send().await;
+            let r = reqwest::Client::new().post(format!("http://127.0.0.1:{port}/api/shutdown")).header("x-sushila-token", token).header("x-sushila-admin", webserver::cli_token(&ctx.data)).send().await;
             match r { Ok(r) if r.status().is_success() => out(j, json!({ "ok": true }), || "stopping sushila serve".into()),
                       _ => { std::fs::write(ctx.data.join("shutdown-request.json"), "{}").map_err(err)?; out(j, json!({ "ok": true, "note": "no server answered; a stop request was left for it" }), || "no server answered on this computer".into()) } }
         }
@@ -309,6 +311,11 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             out(j, json!({ "url": u }), || u.clone());
         }
         Cmd::Keys { act } => keys(ctx, act, j)?,
+        Cmd::Password { reset } => {
+            let f = ctx.data.join("adminpassword");
+            if *reset { let _ = std::fs::remove_file(&f); out(j, json!({ "ok": true }), || format!("admin password removed ({}); it is asked again at the next start", f.display())); }
+            else { ask_password(ctx, true)?; out(j, json!({ "ok": true }), || "admin password saved (as an Argon2 hash in the adminpassword file)".into()); }
+        }
         Cmd::Service { act } => service(ctx, act, j)?,
         Cmd::Run { pack, prompt, out: file, standard, size, seed, lyrics, duration, frames, max_tokens } => {
             let p = ctx.packs().get(pack).cloned().ok_or(format!("{pack} is not installed: sushila install {pack}"))?;
@@ -436,6 +443,19 @@ fn service(ctx: &mut Ctx, act: &ServiceCmd, j: bool) -> Result<(), String> {
 
 // ---------- serve: the owner. One per computer: it alone changes state.json, runs models, downloads and the queue;
 // Host Station and the sushila commands ask it through /api/control. Every step goes to logs/sushila.log.
+/// Asks for the Admin tab's password in the terminal (twice, not shown) and saves its hash.
+fn ask_password(ctx: &Ctx, change: bool) -> Result<(), String> {
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) { return Err("no terminal to ask in: set it on the Admin tab of http://localhost:8765/ instead".into()); }
+    eprintln!("{} the admin password for the Admin tab of the web page (at least 8 characters).\nLost it later? Delete {} and restart: it is asked again.",
+        if change { "Choose" } else { "First start: choose" }, ctx.data.join("adminpassword").display());
+    for _ in 0..3 {
+        let a = rpassword::prompt_password("Admin password: ").map_err(err)?;
+        let b = rpassword::prompt_password("Again: ").map_err(err)?;
+        if a != b { eprintln!("The two do not match; try again."); continue; }
+        match webserver::set_password(&ctx.data, &a) { Ok(()) => return Ok(()), Err(e) => eprintln!("{e}") }
+    }
+    Err("no admin password set".into())
+}
 fn open_browser(url: &str) {
     let _ = if cfg!(windows) { std::process::Command::new("cmd").args(["/c", "start", "", url]).spawn() }
             else if cfg!(target_os = "macos") { std::process::Command::new("open").arg(url).spawn() }
@@ -567,6 +587,10 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     let (addr, stop_tx) = webserver::start(ctx.data.clone(), port, if bind == "localhost" { "127.0.0.1" } else { &bind }).await
         .map_err(|e| format!("{e} (is another server already running? `sushila status`)"))?;
     ctx.log(&format!("serving on {addr} (data {})", ctx.data.display()));
+    if !webserver::password_set(&ctx.data) {
+        if std::io::IsTerminal::is_terminal(&std::io::stdin()) { if let Err(e) = ask_password(ctx, false) { ctx.log(&format!("admin password: {e}")); } }
+        else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/#admin on this computer to set it")); }
+    }
     if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Done>();

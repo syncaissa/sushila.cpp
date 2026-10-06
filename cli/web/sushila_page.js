@@ -74,14 +74,18 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
   inferencePage();
 
   // ================================================================== 1. managing this computer's Sushila
-  // Tabs above the page: Use (the inference page below) and, on this computer only, Packs, Engine, Queue, Logs, Settings.
+  // Tabs above the page: Use (the inference page below) and, on this computer only, Admin (Packs, Engine, Queue, Logs,
+  // Settings) behind the admin password (set the first time; lost it? delete the adminpassword file and restart).
   // Every button sends a request to the server (POST /api/control) and the view follows /api/state: the server is the
   // one source of truth, and every step it takes is in logs/sushila.log (the Logs tab).
   function manager() {
     const token = window.SUSHILA_TOKEN || '';
     const local = !!token;  // the page carries this computer's token only when opened here (http://localhost:<port>/)
-    const api = (path, opts = {}) => fetch(path, Object.assign({}, opts, { headers: Object.assign({ 'x-sushila-token': token, 'content-type': 'application/json' }, opts.headers || {}) }));
-    const TABS = [['', 'Use'], ['packs', 'Packs'], ['engine', 'Engine'], ['queue', 'Queue'], ['logs', 'Logs'], ['settings', 'Settings']];
+    let session = ''; try { session = sessionStorage.getItem('sushila-admin') || ''; } catch (_) {}
+    const api = (path, opts = {}) => fetch(path, Object.assign({}, opts, { headers: Object.assign({ 'x-sushila-token': token, 'x-sushila-admin': session, 'content-type': 'application/json' }, opts.headers || {}) }));
+    const TABS = [['', 'Use'], ['admin', 'Admin']];
+    const SUB = [['packs', 'Packs'], ['engine', 'Engine'], ['queue', 'Queue'], ['logs', 'Logs'], ['settings', 'Settings']];
+    let admin = { passwordSet: true, loggedIn: false, allowed: false }, sub = 'packs';
     document.head.append(el('style', {}, `
 .snav{display:flex;gap:2px;align-items:center;padding:6px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
 .snav b{margin-right:12px}.snav a{padding:6px 12px;border-radius:8px;color:var(--mut);text-decoration:none;font-weight:600;font-size:14px}
@@ -90,7 +94,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .manage button{padding:5px 11px;font-size:13px}.task{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0;background:var(--card)}
 .task.failed{border-color:var(--err)}.logbox{background:var(--code);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;height:65vh;overflow:auto;white-space:pre-wrap;word-break:break-word}
 .manage label{display:block;font-weight:600;font-size:13px;margin:10px 0 4px}.manage .kv td:first-child{color:var(--mut);width:180px}`));
-    const nav = el('nav', { class: 'snav' }, el('b', {}, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)));
+    const nav = el('nav', { class: 'snav' }, el('b', {}, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
+      el('span', { style: 'flex:1' }), local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
     const box = el('div', { id: 'manage', class: 'manage hidden' });
     document.body.prepend(nav); document.body.append(box);
     let st = {}, catalog = null, logNext = 0, logText = '', view = '', note = '';
@@ -104,9 +109,31 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       } catch (e) { say('Could not send: ' + e.message); }
       setTimeout(poll, 600);
     }
+    function loginView() {
+      if (!admin.allowed) return [el('h2', {}, 'Admin'), el('p', { class: 'sub' }, 'Admin is available only on the computer that runs Sushila (http://localhost:<port>/).')];
+      const first = !admin.passwordSet;
+      const go = async () => {
+        const pw = $('apw').value, again = first ? $('apw2').value : pw;
+        if (first && pw !== again) { say('The two passwords do not match.'); return; }
+        const r = await api('/api/admin/' + (first ? 'setup' : 'login'), { method: 'POST', body: JSON.stringify({ password: pw }) }).catch(() => null);
+        if (!r || !r.ok) { say(r ? await r.text() : 'The server did not answer.'); return; }
+        session = (await r.json()).session; try { sessionStorage.setItem('sushila-admin', session); } catch (_) {}
+        note = ''; poll();
+      };
+      const key = (e) => { if (e.key === 'Enter') go(); };
+      return [el('h2', {}, first ? 'Create the admin password' : 'Admin login'),
+        el('p', { class: 'sub' }, first ? 'The first time: choose a password (at least 8 characters) for managing Sushila from this page. It is stored only as a one-way hash in the file adminpassword in the data folder. Lost it? Delete that file and restart Sushila: it is asked again.'
+          : 'Managing Sushila (packs, engine, queue, logs, settings) needs the admin password. Lost it? Delete the adminpassword file in the data folder and restart Sushila.'),
+        el('label', { for: 'apw' }, 'Password'), el('input', { id: 'apw', type: 'password', autocomplete: first ? 'new-password' : 'current-password', onkeydown: key }),
+        first ? [el('label', { for: 'apw2' }, 'Again'), el('input', { id: 'apw2', type: 'password', autocomplete: 'new-password', onkeydown: key })] : null,
+        el('div', { class: 'row' }, el('button', { onclick: go }, first ? 'Save the password' : 'Log in'))];
+    }
     async function poll() {
+      if (view === 'admin') { try { admin = await (await api('/api/admin')).json(); } catch (_) {} }
+      const lo = $('logout'); if (lo) lo.classList.toggle('hidden', !(view === 'admin' && admin.loggedIn));
+      if (view === 'admin' && !admin.loggedIn) { render(); return; }
       try { st = await (await fetch('/api/state')).json(); } catch (_) { st = {}; }
-      if (view === 'packs' && !catalog) { try { catalog = await (await api('/api/catalog')).json(); } catch (_) { catalog = { packs: [] }; } }
+      if (view === 'admin' && sub === 'packs' && !catalog) { try { catalog = await (await api('/api/catalog')).json(); } catch (_) { catalog = { packs: [] }; } }
       render();
     }
     function tasks() {
@@ -194,13 +221,20 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       for (const a of nav.querySelectorAll('a')) a.classList.toggle('on', a.dataset.tab === view);
       if (!view) { app.classList.remove('hidden'); box.classList.add('hidden'); return; }
       app.classList.add('hidden'); box.classList.remove('hidden');
-      if (['logs', 'settings', 'queue'].includes(view) && document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && view !== 'logs') return;  // do not redraw while typing
-      const body = view === 'packs' ? packsView() : view === 'engine' ? engineView() : view === 'queue' ? await queueView() : view === 'logs' ? await logsView() : settingsView();
+      if (document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && sub !== 'logs' && admin.loggedIn) return;  // do not redraw while typing
+      if (!admin.loggedIn) { if (!(document.activeElement && box.contains(document.activeElement))) box.replaceChildren(note ? el('div', { class: 'msg err' }, note) : '', ...[].concat(loginView()).flat().filter(Boolean)); else if (note && !box.querySelector('.msg')) box.prepend(el('div', { class: 'msg err' }, note)); return; }
+      const subnav = el('div', { class: 'snav', style: 'border:0;padding:6px 0' }, ...SUB.map(([h, t]) => el('a', { href: '#admin/' + h, class: h === sub ? 'on' : '' }, t)));
+      const body = sub === 'packs' ? packsView() : sub === 'engine' ? engineView() : sub === 'queue' ? await queueView() : sub === 'logs' ? await logsView() : settingsView();
       const focus = document.activeElement && document.activeElement.id, val = focus && $(focus) ? $(focus).value : null;
-      box.replaceChildren(note ? el('div', { class: 'msg ok' }, note) : '', tasks(), ...[].concat(body));
+      box.replaceChildren(subnav, note ? el('div', { class: 'msg ok' }, note) : '', tasks(), ...[].concat(body));
       if (focus && $(focus)) { $(focus).focus(); if (val != null && $(focus).value !== val) $(focus).value = val; }
     }
-    function route() { view = local ? location.hash.slice(1) : ''; note = ''; if (view && !TABS.some(([h]) => h === view)) view = ''; poll(); }
+    function route() {
+      const h = location.hash.slice(1).split('/');
+      view = local && h[0] === 'admin' ? 'admin' : ''; sub = SUB.some(([x]) => x === h[1]) ? h[1] : 'packs'; note = '';
+      if (sub === 'packs') catalog = null;
+      poll();
+    }
     window.addEventListener('hashchange', route);
     setInterval(() => { if (!document.hidden && view) poll(); }, 1500);
     route();
