@@ -72,16 +72,26 @@ const LISTED = [
   { name: 'Llama 3.1 70B Instruct', hf: 'https://huggingface.co/bartowski/Meta-Llama-3.1-70B-Instruct-GGUF', license: 'Llama 3.1 Community License' },
 ];
 
-// Measured speedups (paper, Table "Speed at a glance"); same output as the stock engine unless marked.
+// Measured results (paper, Table "Every model measured", 2026-10-06). Text: vanilla Ollama vs Sushila.cpp on the same
+// A100, 160 unseen prompts, greedy, 256 tokens; images/video/music: the reference engine vs Sushila on one RTX 4090.
+// [model, kind, baseline + hardware, baseline speed, Sushila speed, speedup, our precomputed part]
 const RESULTS = [
-  ['Llama 3.3 70B, 4-bit', 'A100, vs. vanilla Ollama', '21.6', '77.4', '3.58×', 'SGLang + precomputed draft head (4.0× on MT-Bench, HumanEval, GSM8K)'],
-  ['Llama 3.3 70B, 4-bit', 'A100, SGLang', '33.8', '77.4', '2.29×', 'precomputed draft head on EAGLE-3 trees'],
-  ['Llama 3.1 70B, 4-bit', 'A100, llama.cpp', '22.2', '44.9', '2.02×', '1B draft model, chosen for this model'],
-  ['Llama 3.1 70B, 4-bit', 'CPU, 30 threads', '2.73', '6.22', '2.28×', '1B draft model, chosen on day 0'],
-  ['Llama 3.1 8B, 16-bit', 'A100, SGLang', '89.5', '193', '2.29×', 'precomputed draft head on EAGLE-3 trees'],
-  ['Llama 3.1 8B, 4-bit', 'A100, llama.cpp', '153', '199', '1.30×', 'precomputed draft head, tree verification, kernel setting'],
-  ['Llama 3.1 8B, 4-bit', 'CPU, 30 threads', '19.9', '24.0', '1.21×', 'precomputed draft head with a landscape inside it'],
-  ['Qwen2.5 0.5B, 4-bit', 'CPU, 8 threads', '145.5', '183.3', '1.26×', 'output-layer landscape'],
+  ['Llama 3.3 70B', 'chat', 'Ollama 0.35.1, A100', '21.2 tok/s', '83.7 tok/s', '3.95×', 'draft head refitted to its answers: +7%'],
+  ['DeepSeek-R1 Distill Llama 70B', 'reasoning', 'Ollama 0.35.1, A100', '23.5 tok/s', '85.6 tok/s', '3.64×', 'draft head (none published): 2.30× over the engine'],
+  ['Kimi-Dev 72B', 'coding', 'Ollama 0.35.1, A100', '20.9 tok/s', '74.4 tok/s', '3.56×', 'draft head from the closest published one: +41%'],
+  ['Qwen3 32B', 'chat', 'Ollama 0.35.1, A100', '43.2 tok/s', '135.7 tok/s', '3.14×', 'draft head: +1%'],
+  ['Qwen3-Coder 30B-A3B', 'coding (MoE)', 'Ollama 0.35.1, A100', '146.3 tok/s', '262.8 tok/s', '1.80×', 'draft head: +2%'],
+  ['Qwen3 30B-A3B', 'chat (MoE)', 'Ollama 0.35.1, A100', '163.8 tok/s', '270.6 tok/s', '1.65×', 'draft head: +1%'],
+  ['Gemma 3 27B', 'chat', 'Ollama 0.35.1, A100', '46.5 tok/s', '56.6 tok/s', '1.22×', 'draft head over a community one: +9%'],
+  ['Qwen2.5 0.5B', 'chat (CPU)', 'llama.cpp, 8 CPU threads', '145.5 tok/s', '183.3 tok/s', '1.26×', 'output-layer landscape (exact)'],
+  ['Z-Image-Turbo', 'images', 'stable-diffusion.cpp, RTX 4090', '', '', '1.10×', 'cache plan (SSIM 0.98)'],
+  ['Wan 2.2 TI2V-5B', 'video', 'stable-diffusion.cpp, RTX 4090', '', '', '1.45×', 'cache plan (frame SSIM 0.91)'],
+  ['ACE-Step 1.5', 'music', 'acestep.cpp, RTX 4090', '5.16 s/song', '4.05 s/song', '1.27×', 'faster sampler (same distribution)'],
+];
+const RESULTS_AVG = [['Average, 7 text models', '2.71×', 'geometric mean 2.48×'], ['Average, all 11 models', '2.19×', 'geometric mean 1.94×']];
+const RESULTS_MORE = [
+  ['YuE (long songs, in progress)', 'music', 'official YuE code, RTX 4090', '1,213 s/song', '325 s/song', '3.73×', 'exact batched runner; draft model next'],
+  ['Qwen3 235B-A22B (out of scope)', 'chat (MoE)', 'Ollama, 2× A100', '', '', '0.73×', 'draft heads slow it; SGLang alone 1.25×'],
 ];
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -152,6 +162,7 @@ table{border-collapse:collapse;width:100%;font-size:15px}
 th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);font-weight:600}
 tr:last-child td{border-bottom:0}
+.avg td{border-top:2px solid var(--line, #ccc)}
 .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .act{white-space:nowrap;text-align:right}
 .sub{color:var(--mut);font-size:13px}
@@ -487,9 +498,12 @@ document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', asyn
 </script>`, user);
   }
 
-  const resultRows = RESULTS.map((r) => `
-    <tr><td>${r[0]}</td><td>${r[1]}</td><td class="num">${r[2]}</td><td class="num">${r[3]}</td>
-      <td class="num"><b>${r[4]}</b></td><td class="sub">${r[5]}</td></tr>`).join('');
+  const row = (r) => `
+    <tr><td><b>${esc(r[0])}</b><div class="sub">${esc(r[1])}</div></td><td class="sub">${esc(r[2])}</td><td class="num">${esc(r[3])}</td><td class="num">${esc(r[4])}</td>
+      <td class="num"><b>${esc(r[5])}</b></td><td class="sub">${esc(r[6])}</td></tr>`;
+  const resultRows = RESULTS.map(row).join('')
+    + RESULTS_AVG.map((a) => `<tr class="avg"><td colspan="4"><b>${esc(a[0])}</b></td><td></td><td class="num"><b>${esc(a[1])}</b></td><td class="sub">${esc(a[2])}</td></tr>`).join('').replace(/<td><\/td>/g, '')
+    + RESULTS_MORE.map(row).join('');
 
   return `<!doctype html>
 <html lang="en">
@@ -537,13 +551,38 @@ ${STYLE}</style>
 </section>
 
 <section id="results">
-  <h2>Measured speed</h2>
-  <p class="lead">Tokens per second, greedy decoding, compared with the stock engine on the same hardware and model file.</p>
+  <h2>Measured speed, every model</h2>
+  <p class="lead">Sushila.cpp against the usual way to run each model locally, on the same hardware. Text: vanilla Ollama on one A100,
+  160 unseen benchmark prompts, greedy decoding. Images, video and music: the reference engine on one RTX 4090.</p>
   <div class="tablewrap"><table>
-    <thead><tr><th>Model</th><th>Hardware, engine</th><th class="num">Stock</th><th class="num">Sushila</th><th class="num">Speedup</th><th>How</th></tr></thead>
+    <thead><tr><th>Model</th><th>Baseline</th><th class="num">Baseline</th><th class="num">Sushila</th><th class="num">Speedup</th><th>Our precomputed part</th></tr></thead>
     <tbody>${resultRows}</tbody>
   </table></div>
-  <p class="note">Same model file and exactly the stock output in every row except the Ollama comparison, where Ollama reads a different 4-bit file of the same model (Q4_K_M against AWQ; same GSM8K accuracy). The full method, scripts and raw logs are in the repository.</p>
+  <p class="note">The text models' output is the model's own, up to numerical near-ties (GSM8K accuracy unchanged). Ollama reads a different
+  4-bit file of the same model (GGUF Q4_K_M against AWQ or GPTQ), so its wording can differ. Image and video plans are measured by
+  similarity (SSIM) to the uncached output. Most of the text speedup comes from published methods that Sushila.cpp combines per model:
+  a faster engine with 4-bit kernels and EAGLE-3 speculative decoding. The last column is what our own once-per-model work adds.</p>
+
+  <h3 id="retest">Retest it yourself</h3>
+  <p>Every input is pinned so the numbers can be checked: software by version, model files by Hugging Face revision and SHA-256,
+  and our draft heads by SHA-256 in a signed index at <code>files.sushila.ai/public/precomputed/&lt;model&gt;/</code>. One command on one
+  80 GB NVIDIA GPU reruns a text model's comparison and prints the paper's numbers beside yours. It stops if a model tag now points to another file.</p>
+  <pre><code>git clone https://github.com/syncaissa/sushila.cpp.git &amp;&amp; cd sushila.cpp
+bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-distill-llama-70b, gemma3-27b, ...</code></pre>
+  <div class="tablewrap"><table style="margin-top:12px">
+    <thead><tr><th>Component</th><th>Exact version</th></tr></thead>
+    <tbody>
+      <tr><td>Ollama (baseline)</td><td>0.35.1</td></tr>
+      <tr><td>llama.cpp (base of Sushila.cpp)</td><td>b11232 (<code>6f767fe</code>), the version Ollama pins</td></tr>
+      <tr><td>SGLang</td><td>0.5.21 (Gemma 3: 0.5.14)</td></tr>
+      <tr><td>SpecForge (head refitting)</td><td><code>53398a8</code> + our patch</td></tr>
+      <tr><td>Speculative decoding</td><td>EAGLE-3, 4 steps, top-k 4, 16 draft tokens</td></tr>
+      <tr><td>stable-diffusion.cpp / acestep.cpp</td><td><code>3f8527a</code> / <code>694ef0f</code> + our patches</td></tr>
+      <tr><td>GPU</td><td>A100 80GB (text), RTX 4090 (images, video, music)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">The model revisions and checksums of every row are in the paper's appendix "Exact Versions, for Retesting".
+  A run counts as reproduced when the speedup is within 10% of ours. Absolute speeds follow the GPU, but all configurations run on the same one.</p>
 </section>
 
 

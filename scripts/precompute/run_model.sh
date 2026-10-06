@@ -14,6 +14,9 @@
 #   7b save      precomputed/<model>/ to B2 as soon as the head is chosen (b2_save.py), again after the summary
 #  10 summary    summary.json and summary.md (speeds, cumulative steps, bootstrap intervals, accuracy)
 # Usage:  W=/workspace/sushila bash run_model.sh models/qwen3-32b.env      (SMOKE=1 for a 15-minute check of every stage)
+#   RETEST=1: check the published results instead of building again: stages 5-7 are replaced by the published head
+#   (files.sushila.ai, checked against HEAD_SHA256); everything is downloaded at the revisions pinned in the .env file.
+#   scripts/reproduce/retest.sh wraps this and compares the numbers with the paper's.
 set -u
 ENV_FILE=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 source "$ENV_FILE"
@@ -57,16 +60,29 @@ if [ -n "${SGLANG_VERSION:-}" ] && [ "$SGLANG_VERSION" != "0.5.21" ]; then
   log "serving with SGLang $($SGPY -c 'import sglang; print(sglang.__version__)')"
 fi
 
+# ---------- pinned files: the exact revisions behind the published results (TARGET_REV, PUB_HEAD_REV in the .env) ----------
+export PUB_HEAD_REV=${PUB_HEAD_REV:-}
+if [ -n "${TARGET_REV:-}" ]; then
+  TARGET_REPO=$TARGET
+  TARGET=$(python3 -c "from huggingface_hub import snapshot_download as s; print(s('$TARGET_REPO', revision='$TARGET_REV'))" 2>> $D/download.log | tail -1)
+  [ -d "$TARGET" ] || { log "download of $TARGET_REPO at $TARGET_REV failed (see download.log)"; exit 1; }
+  log "model pinned: $TARGET_REPO at $TARGET_REV"
+fi
+{ echo "utc: $(date -u +%FT%TZ)"; echo "repo commit: $(git -C $P rev-parse HEAD 2>/dev/null)"; nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
+  echo "sglang: $($SGPY -c 'import sglang; print(sglang.__version__)' 2>&1)"; echo "torch: $($SGPY -c 'import torch; print(torch.__version__, torch.version.cuda)' 2>&1)"
+  echo "specforge: $(git -C $SF rev-parse HEAD 2>/dev/null)"; echo "ollama: $(ollama --version 2>&1 | tail -1)"
+  echo "target: ${TARGET_REPO:-$TARGET} ${TARGET_REV:-unpinned}"; echo "published head: $PUB_HEAD ${PUB_HEAD_REV:-unpinned}"; $SGPY -m pip freeze 2>/dev/null; } > $D/out/ENV.txt
+
 # ---------- 2 models and prompts ----------
 if [ ! -s $D/main.jsonl ] || [ ! -s $D/pub_head_serve/model.safetensors ] || [ ! -s $D/head_has_embed.txt ]; then
   $PY - "$TARGET" "$PUB_HEAD" $D <<'PYX'
 import sys, os, json, torch
 from huggingface_hub import snapshot_download
 target, head, d = sys.argv[1:4]
-td = snapshot_download(target)
+td = target if os.path.isdir(target) else snapshot_download(target)
 import json as _j
 open(d + '/target_dtype.txt', 'w').write(_j.load(open(td + '/config.json')).get('torch_dtype') or 'bfloat16')
-hd = snapshot_download(head, local_dir=d + '/pub_head')
+hd = snapshot_download(head, revision=os.environ.get('PUB_HEAD_REV') or None, local_dir=d + '/pub_head')
 # some published heads label themselves as plain Llama models; SGLang and SpecForge need the EAGLE-3 class
 c = json.load(open(hd + '/config.json'))
 if not any('Eagle3' in a for a in c.get('architectures') or []):
@@ -124,7 +140,7 @@ python3 - "$TARGET" <<'PYX'
 import glob, json, os, sys
 from huggingface_hub import snapshot_download
 from safetensors import safe_open
-d = snapshot_download(sys.argv[1])
+d = sys.argv[1] if os.path.isdir(sys.argv[1]) else snapshot_download(sys.argv[1])
 if not glob.glob(d + '/*.index.json') and os.path.exists(d + '/model.safetensors'):
     with safe_open(d + '/model.safetensors', 'pt') as f:
         keys = list(f.keys())
@@ -160,8 +176,19 @@ sglang_suite() {  # sglang_suite <prefix> [server args]: main, ood, temperature 
 sglang_suite base
 sglang_suite pub $S16 --speculative-draft-model-path $D/pub_head_serve
 
+# ---------- RETEST=1: the published precomputed head instead of stages 5-7 ----------
+if [ "${RETEST:-0}" = 1 ] && [ ! -s $D/chosen.txt ]; then
+  [ -n "${HEAD_SHA256:-}" ] || { log "no published head for $MODEL (HEAD_SHA256 not set): run without RETEST=1"; exit 1; }
+  H=$D/head_published; mkdir -p $H
+  for f in config.json model.safetensors; do
+    curl -fsSL -A sushila-retest -o $H/$f https://files.sushila.ai/public/precomputed/$MODEL/draft-head/$f || { log "head download failed: $f"; exit 1; }
+  done
+  { echo "$HEAD_SHA256  $H/model.safetensors"; echo "$HEAD_CONFIG_SHA256  $H/config.json"; } | sha256sum -c --quiet || { log "published head: sha256 mismatch"; exit 1; }
+  echo $H > $D/chosen.txt; log "retest: published head of $MODEL, sha256 $HEAD_SHA256 (verified)"
+fi
+
 # ---------- 5 the model's own answers ----------
-if [ ! -s $D/regen.jsonl ]; then
+if [ "${RETEST:-0}" != 1 ] && [ ! -s $D/regen.jsonl ]; then
   serve regen --max-running-requests 64 --cuda-graph-max-bs-decode 64 || exit 1
   python3 $P/regen.py --prompts $D/train.jsonl --tokenizer $TARGET --chat-kwargs "$CHAT_KWARGS" --template $SF_TEMPLATE \
     --system-turn $SYSTEM_TURN --n $NCONV --out $D/regen.jsonl > $D/regen.log 2>&1
@@ -212,7 +239,7 @@ else
   unset SF_EMBED_FROM                 # the head uses the model's embeddings
   sed -i 's/load_target_embedding: LOADEMB/load_target_embedding: true/' $D/train.yaml
 fi
-python3 - $D/regen.jsonl $CH $D ${PREFORMAT:-0} <<'PYX'
+[ "${RETEST:-0}" = 1 ] || python3 - $D/regen.jsonl $CH $D ${PREFORMAT:-0} <<'PYX'
 import json, sys
 rows = [l for l in open(sys.argv[1]) if l.strip()]; ch = int(sys.argv[2])
 for k in range(0, len(rows), ch):
@@ -224,7 +251,7 @@ print(len(rows))
 PYX
 PF=""; if [ "${PREFORMAT:-0}" = 1 ]; then PF=--is-preformatted; fi
 PREV=$D/pub_head; n=0
-CHUNKS=$(ls $D/chunk_*.jsonl | sort); [ -s $D/chosen.txt ] && [ -d "$(cat $D/chosen.txt)" ] && CHUNKS=""   # head chosen already (or restored from B2): no retraining
+CHUNKS=$(ls $D/chunk_*.jsonl 2>/dev/null | sort); [ -s $D/chosen.txt ] && [ -d "$(cat $D/chosen.txt)" ] && CHUNKS=""   # head chosen already (or restored from B2): no retraining
 for c in $CHUNKS; do
   k=$(basename $c .jsonl); out=$D/ckpt_$k
   if [ -z "$(ls -d $out/run-$k-step* 2>/dev/null)" ]; then
@@ -280,7 +307,8 @@ if [ ! -s $D/chosen.txt ]; then
 fi
 HB=$(cat $D/chosen.txt)
 save_b2() {  # precomputed artifacts are computed once and must never be lost: save them to B2 right away
-  if [ "$SMOKE" = 1 ]; then log "smoke run: B2 save skipped (it would write precomputed/$MODEL/ from a test head)"
+  if [ "${RETEST:-0}" = 1 ]; then log "retest: nothing to save"
+  elif [ "$SMOKE" = 1 ]; then log "smoke run: B2 save skipped (it would write precomputed/$MODEL/ from a test head)"
   elif [ -s $HOME/.b2_key ] || [ -n "${B2_KEY_ID:-}" ]; then
     python3 $P/b2_save.py precomputed $W $MODEL $ENV_FILE > $D/b2_save.log 2>&1 && { python3 $P/b2_index.py > $D/b2_index.log 2>&1 || true; } && log "saved to B2: $(grep -E '^precomputed|^verified' $D/b2_save.log | tr '\n' ' ')" \
       || log "B2 SAVE FAILED (see b2_save.log): precomputed artifacts are only on this machine"
@@ -316,7 +344,7 @@ if [ ! -s $D/out/ollama_gsm100.json ]; then
   if [ -n "${OLLAMA_GGUF:-}" ]; then  # no official Ollama tag: import a published GGUF (repo:file) with the model's chat template
     if ! ollama show $OLLAMA_TAG > /dev/null 2>&1; then
       mkdir -p $W/gguf
-      python3 -c "from huggingface_hub import hf_hub_download as d; print(d('${OLLAMA_GGUF%%:*}', '${OLLAMA_GGUF#*:}', local_dir='$W/gguf'))" > $D/ollama_gguf.log 2>&1 || { log "GGUF download failed"; exit 1; }
+      python3 -c "from huggingface_hub import hf_hub_download as d; print(d('${OLLAMA_GGUF%%:*}', '${OLLAMA_GGUF#*:}', revision='${OLLAMA_GGUF_REV:-main}', local_dir='$W/gguf'))" > $D/ollama_gguf.log 2>&1 || { log "GGUF download failed"; exit 1; }
       { echo "FROM $W/gguf/${OLLAMA_GGUF#*:}"; cat $P/modelfiles/${OLLAMA_TEMPLATE:-qwen2.5}.modelfile; } > $D/Modelfile
       ollama create $OLLAMA_TAG -f $D/Modelfile > $D/ollama_create.log 2>&1 || { log "ollama create failed"; tail -5 $D/ollama_create.log; exit 1; }
       rm -f $W/gguf/${OLLAMA_GGUF#*:}  # Ollama keeps its own copy (blob)
@@ -327,6 +355,11 @@ if [ ! -s $D/out/ollama_gsm100.json ]; then
   # tags can move to newer releases: log the GGUF's own model name next to the SGLang model, so a mismatch is visible
   python3 $P/gguf_name.py "$(ollama show --modelfile $OLLAMA_TAG | sed -n 's/^FROM \(\/.*\)/\1/p' | head -1)" > $D/out/ollama_model_name.txt 2>&1 || true
   log "Ollama $OLLAMA_TAG is \"$(cat $D/out/ollama_model_name.txt)\"; SGLang serves $TARGET (check they are the same model)"
+  blob=$(ollama show --modelfile $OLLAMA_TAG | sed -n 's/^FROM \(\/.*\)/\1/p' | head -1)
+  if [ -n "${OLLAMA_SHA256:-}" ] && [ "$(basename "$blob" | sed 's/^sha256-//')" != "$OLLAMA_SHA256" ]; then
+    log "Ollama $OLLAMA_TAG is now another file ($(basename "$blob")), not the measured one (sha256-$OLLAMA_SHA256)"
+    [ "${ALLOW_TAG_DRIFT:-0}" = 1 ] || { log "stopping: set ALLOW_TAG_DRIFT=1 to time the new file anyway"; exit 1; }
+  fi
   ob() { [ -s $D/out/$1.json ] && return 0
     python3 $BENCH/bench_ollama.py --threads $T --reps 1 --model $OLLAMA_TAG --out $D/out/$1.json "${@:2}" > $D/out/$1.log 2>&1 && log "$1: $(tail -1 $D/out/$1.log)" || log "$1 failed"; }
   ob ollama_main --prompts $D/main.jsonl

@@ -1,0 +1,232 @@
+{
+ "_note": "Measured numbers behind the paper (summary.json of each run). Speeds are tokens/s, single user, greedy, 256 tokens. retest.sh passes a set when the speed-up over Ollama (total) is within the tolerance; absolute tokens/s follow the GPU.",
+ "tolerance": 0.1,
+ "deepseek-r1-distill-llama-70b": {
+  "results": "results/deepseek-r1-distill-llama-70b_20261005",
+  "gpu": "1x A100 SXM 80GB",
+  "sets": {
+   "main": {
+    "tok_s": {
+     "ollama": 23.7,
+     "base": 37.4,
+     "pub": 29.6,
+     "ours": 83.7
+    },
+    "total": 3.53
+   },
+   "ood": {
+    "tok_s": {
+     "ollama": 23.5,
+     "base": 37.2,
+     "pub": 31.5,
+     "ours": 85.6
+    },
+    "total": 3.64
+   },
+   "mt_t07": {
+    "tok_s": {
+     "ollama": 23.6,
+     "base": 37.2,
+     "pub": 31.1,
+     "ours": 78.6
+    },
+    "total": 3.33
+   }
+  },
+  "gsm8k_pct": {
+   "ollama": 85.0,
+   "base": 82.5,
+   "ours": 85.0
+  }
+ },
+ "gemma3-27b": {
+  "results": "results/gemma3-27b_20261005",
+  "gpu": "1x A100 SXM 80GB",
+  "sets": {
+   "main": {
+    "tok_s": {
+     "ollama": 47.5,
+     "base": 44.6,
+     "pub": 46.2,
+     "ours": 51.0
+    },
+    "total": 1.07
+   },
+   "ood": {
+    "tok_s": {
+     "ollama": 46.5,
+     "base": 44.3,
+     "pub": 51.8,
+     "ours": 56.6
+    },
+    "total": 1.22
+   },
+   "mt_t07": {
+    "tok_s": {
+     "ollama": 47.1,
+     "base": 44.1,
+     "pub": 46.9,
+     "ours": 50.5
+    },
+    "total": 1.07
+   }
+  },
+  "gsm8k_pct": {
+   "ollama": 88.0,
+   "base": 91.0,
+   "ours": 93.0
+  }
+ },
+ "kimi-dev-72b": {
+  "results": "results/kimi-dev-72b_20261006",
+  "gpu": "1x A100 PCIe 80GB",
+  "sets": {
+   "main": {
+    "tok_s": {
+     "ollama": 21.1,
+     "base": 33.6,
+     "pub": 48.4,
+     "ours": 68.0
+    },
+    "total": 3.22
+   },
+   "ood": {
+    "tok_s": {
+     "ollama": 20.9,
+     "base": 33.4,
+     "pub": 52.8,
+     "ours": 74.4
+    },
+    "total": 3.56
+   },
+   "mt_t07": {
+    "tok_s": {
+     "ollama": 21.0,
+     "base": 33.3,
+     "pub": 50.5,
+     "ours": 69.5
+    },
+    "total": 3.32
+   }
+  },
+  "gsm8k_pct": {
+   "ollama": 73.0,
+   "base": 72.0,
+   "ours": 72.0
+  }
+ },
+ "qwen3-30b-a3b": {
+  "results": "results/qwen3_20261004/qwen3-30b-a3b",
+  "gpu": "1x A100 SXM 80GB",
+  "sets": {
+   "main": {
+    "tok_s": {
+     "ollama": 167.1,
+     "base": 198.5,
+     "pub": 205.6,
+     "ours": 217.3
+    },
+    "total": 1.3
+   },
+   "ood": {
+    "tok_s": {
+     "ollama": 163.8,
+     "base": 198.7,
+     "pub": 268.7,
+     "ours": 270.6
+    },
+    "total": 1.65
+   },
+   "mt_t07": {
+    "tok_s": {
+     "ollama": 167.8,
+     "base": 186.4,
+     "pub": 232.6,
+     "ours": 240.5
+    },
+    "total": 1.43
+   }
+  },
+  "gsm8k_pct": {
+   "ollama": 91.0,
+   "base": 90.0,
+   "ours": 91.0
+  }
+ },
+ "qwen3-32b": {
+  "results": "results/qwen3_20261004/qwen3-32b",
+  "gpu": "1x A100 SXM 80GB",
+  "sets": {
+   "main": {
+    "tok_s": {
+     "ollama": 43.6,
+     "base": 69.1,
+     "pub": 106.4,
+     "ours": 109.0
+    },
+    "total": 2.5
+   },
+   "ood": {
+    "tok_s": {
+     "ollama": 43.2,
+     "base": 68.7,
+     "pub": 134.0,
+     "ours": 135.7
+    },
+    "total": 3.14
+   },
+   "mt_t07": {
+    "tok_s": {
+     "ollama": 43.4,
+     "base": 67.9,
+     "pub": 115.4,
+     "ours": 113.3
+    },
+    "total": 2.61
+   }
+  },
+  "gsm8k_pct": {
+   "ollama": 92.0,
+   "base": 92.0,
+   "ours": 92.0
+  }
+ },
+ "qwen3-coder-30b-a3b": {
+  "results": "results/qwen3-coder-30b-a3b_20261006",
+  "gpu": "1x A100 80GB",
+  "sets": {
+   "main": {
+    "tok_s": {
+     "ollama": 130.3,
+     "base": 189.3,
+     "pub": 187.7,
+     "ours": 189.9
+    },
+    "total": 1.46
+   },
+   "ood": {
+    "tok_s": {
+     "ollama": 146.3,
+     "base": 188.9,
+     "pub": 258.4,
+     "ours": 262.8
+    },
+    "total": 1.8
+   },
+   "mt_t07": {
+    "tok_s": {
+     "ollama": 149.2,
+     "base": 178.5,
+     "pub": 205.6,
+     "ours": 207.5
+    },
+    "total": 1.39
+   }
+  },
+  "gsm8k_pct": {
+   "ollama": 82.0,
+   "base": 80.0,
+   "ours": 79.0
+  }
+ }
+}
