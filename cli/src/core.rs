@@ -76,8 +76,14 @@ impl Ctx {
         let engine = self.state.get("engine").filter(|e| e.is_object()).map(|e| json!({ "version": e["version"], "source": e["source"] })).unwrap_or(Value::Null);
         let tasks = self.state.get("tasks").cloned().unwrap_or(json!([]));
         let owner = self.state.get("owner").cloned().unwrap_or(Value::Null);
+        let packs: Vec<Value> = packs.into_iter().map(|mut p| { let id = p["id"].as_str().unwrap_or("").to_string(); p["bytes"] = self.state["packs"][&id]["bytes"].clone(); p }).collect();
+        let s = &self.state["settings"];
+        let settings = json!({ "port": s["port"], "enginePort": s["enginePort"], "threads": s["threads"], "contextSize": s["contextSize"], "gpuLayers": s["gpuLayers"], "parallel": s["parallel"] });
+        let sh = &self.state["share"];
+        let share = json!({ "enabled": sh["enabled"], "open": sh["open"], "keys": sh["keys"].as_array().map(|a| a.len()).unwrap_or(0) });
         self.state["public"] = json!({ "app": "sushila", "appVersion": env!("CARGO_PKG_VERSION"), "engine": engine, "running": running, "packs": packs,
-                                       "tasks": tasks, "owner": owner, "gpu": self.state["engine"]["key"].as_str().map(Self::gpu_label) });
+                                       "tasks": tasks, "owner": owner, "gpu": self.state["engine"]["key"].as_str().map(Self::gpu_label), "settings": settings, "share": share,
+                                       "engineKey": self.state["engine"]["key"], "fallback": self.state["engineFallback"] });
         let tmp = self.data.join("state.json.tmp");
         std::fs::write(&tmp, serde_json::to_string_pretty(&self.state).map_err(err)?).map_err(err)?;
         std::fs::rename(&tmp, self.data.join("state.json")).map_err(err)
@@ -100,6 +106,21 @@ impl Ctx {
     }
     fn catalog_pack(&self, id: &str) -> Option<Value> {
         self.catalog.as_ref()?.get("packs")?.as_array()?.iter().find(|p| p["id"] == id).cloned()
+    }
+
+    /// The catalog as the page shows it: every pack with size, kind, license, whether it fits and is installed.
+    pub async fn write_catalog_cache(&mut self) -> Result<(), String> {
+        self.load_catalog().await?;
+        let packs = self.catalog.as_ref().unwrap()["packs"].as_array().cloned().unwrap_or_default();
+        let mut rows = vec![];
+        for p in packs.iter().filter(|p| p["hidden"] != true) {
+            let fits = self.pack_fits(p).await;
+            let bytes: u64 = p["files"].as_array().map(|a| a.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum()).unwrap_or(0);
+            rows.push(json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "category": p["category"], "bytes": bytes, "fits": fits,
+                              "license": p["license"], "variantOf": p["variantOf"], "minRamGB": p["minRamGB"], "description": p["description"] }));
+        }
+        let v = json!({ "updated": now_iso(), "engineVersion": self.catalog.as_ref().unwrap()["engine"]["version"], "packs": rows });
+        std::fs::write(self.data.join("catalog-cache.json"), serde_json::to_string(&v).map_err(err)?).map_err(err)
     }
 
     // ---------- GPUs

@@ -522,6 +522,8 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
                 Ok(false)
             }
             "install-file" => { let p = PathBuf::from(r["path"].as_str().unwrap_or("")); let got = ctx.install_pack_file(&p).await?; ctx.log(&format!("{got} installed from {}", p.display())); Ok(true) }
+            "verify" => { let bad = ctx.verify_pack(&pack)?; if bad.is_empty() { Ok(true) } else { Err(format!("missing or changed: {}", bad.join(", "))) } }
+            "catalog" => { ctx.catalog = None; ctx.write_catalog_cache().await?; Ok(true) }
             "remove" => { if ctx.state["running"][&pack].is_object() { ctx.stop_model(&pack).await; } ctx.remove_pack(&pack)?; Ok(true) }
             "start" => { o.start(ctx, &pack, r["mode"].as_str(), Some(id.clone())).await?; Ok(ctx.state["running"][&pack]["ready"] == true) }
             "stop" => { ctx.stop_model(&pack).await; o.starting.remove(&pack); Ok(true) }
@@ -565,6 +567,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     let (addr, stop_tx) = webserver::start(ctx.data.clone(), port, if bind == "localhost" { "127.0.0.1" } else { &bind }).await
         .map_err(|e| format!("{e} (is another server already running? `sushila status`)"))?;
     ctx.log(&format!("serving on {addr} (data {})", ctx.data.display()));
+    if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Done>();
     let mut o = Owner { tasks: vec![], prog: Default::default(), tx, starting: Default::default() };

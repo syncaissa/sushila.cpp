@@ -311,7 +311,7 @@ async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, re
     let Ok(bytes) = axum::body::to_bytes(body, 65536).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let Ok(mut v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("");
-    if !["engine-install", "install", "install-file", "remove", "start", "stop", "settings"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
+    if !["engine-install", "install", "install-file", "remove", "start", "stop", "settings", "verify", "catalog"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
     let id = new_id().replacen("job-", "task-", 1);
     v["id"] = json!(id);
     let dir = s.data_dir.join("control-in");
@@ -334,6 +334,23 @@ async fn srv_logs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum:
     axum::Json(json!({ "next": data.len(), "text": String::from_utf8_lossy(&data[start..]) })).into_response()
 }
 
+/// GET /api/catalog: the model packs this computer can install (written by the owner to catalog-cache.json), this computer only.
+async fn srv_catalog(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) || caller(&headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    let v = std::fs::read_to_string(s.data_dir.join("catalog-cache.json")).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).unwrap_or(json!({ "packs": [] }));
+    axum::Json(v).into_response()
+}
+
+/// GET /install/<pack>: the "Install" buttons on sushila.ai link here; the page asks before installing anything.
+async fn srv_install_link(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(pack): axum::extract::Path<String>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    if !safe_id(&pack.replace('.', "_")) { return (axum::http::StatusCode::BAD_REQUEST, "bad pack").into_response(); }
+    axum::response::Redirect::to(&format!("/?install={pack}#packs")).into_response()
+}
+
 /// Starts the web server on bind:port. Returns its address and the stop signal.
 pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, oneshot::Sender<()>), String> {
     let ip: std::net::IpAddr = bind.parse().map_err(|_| format!("not an IP address: {bind}"))?;
@@ -347,6 +364,8 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/shutdown", axum::routing::post(srv_shutdown))
         .route("/api/control", axum::routing::post(srv_control).options(srv_control))
         .route("/api/logs", axum::routing::get(srv_logs))
+        .route("/api/catalog", axum::routing::get(srv_catalog))
+        .route("/install/:pack", axum::routing::get(srv_install_link))
         .route("/api/queue", axum::routing::get(srv_queue).post(srv_queue_add).options(srv_queue_add))
         .route("/api/queue/:id/output", axum::routing::get(srv_queue_output))
         .route("/api/queue/:id/:action", axum::routing::post(srv_queue_action).options(srv_queue_action))
