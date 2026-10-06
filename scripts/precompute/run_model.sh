@@ -89,7 +89,7 @@ save_file({k: (v.to(dt) if v.is_floating_point() else v).contiguous() for k, v i
 c = json.load(open(hd + '/config.json')); c['dtype'] = c['torch_dtype'] = name
 json.dump(c, open(d + '/pub_head_serve/config.json', 'w'), indent=2)
 PYX
-  python3 $P/make_prompts.py --tokenizer $TARGET --chat-kwargs "$CHAT_KWARGS" --out $D --train $((NCONV + 300)) > $D/prompts.log 2>&1 || { log "prompts failed"; exit 1; }
+  python3 $P/make_prompts.py --tokenizer $TARGET --chat-kwargs "$CHAT_KWARGS" --out $D --train $((NCONV + 300)) --train-source ${TRAIN_SOURCE:-dolly} > $D/prompts.log 2>&1 || { log "prompts failed"; exit 1; }
   if [ "$SMOKE" = 1 ]; then for f in main val ood mt40 gsm8k gsm40; do head -n 6 $D/$f.jsonl > $D/$f.tmp && mv $D/$f.tmp $D/$f.jsonl; done; fi
   log "models and prompts ready ($(tr '\n' ' ' < $D/prompts.log))"
 fi
@@ -288,7 +288,17 @@ done
 # ---------- 9 vanilla Ollama ----------
 if [ ! -s $D/out/ollama_gsm100.json ]; then
   pgrep -x ollama > /dev/null || { nohup ollama serve > $D/ollama_serve.log 2>&1 & sleep 10; }
-  ollama pull $OLLAMA_TAG > $D/ollama_pull.log 2>&1 || { log "ollama pull failed"; exit 1; }
+  if [ -n "${OLLAMA_GGUF:-}" ]; then  # no official Ollama tag: import a published GGUF (repo:file) with the model's chat template
+    if ! ollama show $OLLAMA_TAG > /dev/null 2>&1; then
+      mkdir -p $W/gguf
+      python3 -c "from huggingface_hub import hf_hub_download as d; print(d('${OLLAMA_GGUF%%:*}', '${OLLAMA_GGUF#*:}', local_dir='$W/gguf'))" > $D/ollama_gguf.log 2>&1 || { log "GGUF download failed"; exit 1; }
+      { echo "FROM $W/gguf/${OLLAMA_GGUF#*:}"; cat $P/modelfiles/${OLLAMA_TEMPLATE:-qwen2.5}.modelfile; } > $D/Modelfile
+      ollama create $OLLAMA_TAG -f $D/Modelfile > $D/ollama_create.log 2>&1 || { log "ollama create failed"; tail -5 $D/ollama_create.log; exit 1; }
+      rm -f $W/gguf/${OLLAMA_GGUF#*:}  # Ollama keeps its own copy (blob)
+    fi
+  else
+    ollama pull $OLLAMA_TAG > $D/ollama_pull.log 2>&1 || { log "ollama pull failed"; exit 1; }
+  fi
   # tags can move to newer releases: log the GGUF's own model name next to the SGLang model, so a mismatch is visible
   python3 $P/gguf_name.py "$(ollama show --modelfile $OLLAMA_TAG | sed -n 's/^FROM \(\/.*\)/\1/p' | head -1)" > $D/out/ollama_model_name.txt 2>&1 || true
   log "Ollama $OLLAMA_TAG is \"$(cat $D/out/ollama_model_name.txt)\"; SGLang serves $TARGET (check they are the same model)"

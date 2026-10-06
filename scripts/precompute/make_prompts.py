@@ -18,6 +18,8 @@ import os
 import urllib.request
 
 DOLLY = 'https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl'
+# coding models: training questions from Magicoder OSS-Instruct (MIT; decontaminated against HumanEval and others)
+MAGICODER = 'https://huggingface.co/datasets/ise-uiuc/Magicoder-OSS-Instruct-75K/resolve/main/data-oss_instruct-decontaminated.jsonl'
 MTBENCH = 'https://raw.githubusercontent.com/lm-sys/FastChat/main/fastchat/llm_judge/data/mt_bench/question.jsonl'
 OURS = ["Explain how a bill becomes a law in the United States, step by step.",
         "Write a Python function that merges two sorted lists into one sorted list, with comments.",
@@ -37,6 +39,8 @@ def main():
     ap.add_argument('--chat-kwargs', default='{}')
     ap.add_argument('--out', required=True)
     ap.add_argument('--train', type=int, default=2200)
+    ap.add_argument('--train-source', choices=['dolly', 'code', 'mix'], default='dolly',
+                    help='training questions: Dolly (default), Magicoder coding tasks, or half and half (coding models)')
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     from transformers import AutoTokenizer
@@ -51,6 +55,14 @@ def main():
         'mtbench': [(json.loads(l)['turns'][0], 'mtbench', json.loads(l)['category']) for l in get(MTBENCH).splitlines() if l.strip()],
         'train': [(dq(r), 'dolly', None) for r in dolly[:-40][:a.train]],
     }
+    if a.train_source != 'dolly':
+        import random
+        code = [json.loads(l)['problem'] for l in get(MAGICODER).splitlines() if l.strip()]
+        random.Random(0).shuffle(code)
+        n_code = a.train if a.train_source == 'code' else a.train // 2
+        train = [(q, 'magicoder', None) for q in code[:n_code]] + sets['train'][:a.train - n_code]
+        random.Random(1).shuffle(train)
+        sets['train'] = train
     from datasets import load_dataset
     he = load_dataset('openai/openai_humaneval', split='test').select(range(40))
     sets['humaneval'] = [('Complete the following Python function.\n\n```python\n' + r['prompt'] + '```', 'humaneval', r['task_id']) for r in he]
