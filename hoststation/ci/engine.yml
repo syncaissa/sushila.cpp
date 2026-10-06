@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version: { description: "engine version, e.g. 0.1.0", required: true }
+      publish: { description: "replace hoststation/engine/LATEST.json with this run's builds (off: publish with scripts/hoststation/publish_engine.py, which merges)", type: boolean, default: false }
 jobs:
   build:
     strategy:
@@ -102,6 +103,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: "${{ matrix.key }}", path: "${{ env.NAME }}" }
   publish:
+    if: ${{ inputs.publish }}
     needs: build
     runs-on: ubuntu-22.04
     steps:

@@ -1,0 +1,81 @@
+# Builds the Windows NVIDIA (CUDA) Sushila.cpp engine in parts: the text engine (llama.cpp), the image engine
+# (stable-diffusion.cpp) and the music engine (acestep.cpp + Sushila patches) compile in parallel jobs, each well under
+# GitHub's 6-hour job limit (one job for all three exceeded it), then one job packages them with the CUDA runtime and the
+# Microsoft C++ runtime, exactly as engine.yml does. Publish with:
+#   python3 scripts/hoststation/publish_engine.py <run id> <version> windows-x86_64-cuda    (merges into LATEST.json)
+# then sign: python3 scripts/precompute/sign_checksums.py sign hoststation/engine
+name: Sushila.cpp engine, Windows CUDA (parallel parts)
+on:
+  workflow_dispatch:
+    inputs:
+      version: { description: "engine version, e.g. 0.1.1", required: true }
+env:
+  CUDA_ARCH: "75;80;86;89;90;120"
+  CMAKE_FLAGS: "-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_CUDA=ON"
+jobs:
+  part:
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [text, image, music]
+    runs-on: windows-2022
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: CUDA toolkit
+        uses: Jimver/cuda-toolkit@v0.2.24
+        with: { cuda: "12.8.1", method: network, sub-packages: '["nvcc","cudart","cublas","cublas_dev","thrust","visual_studio_integration"]' }
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Use Ninja
+        shell: bash
+        run: echo "CMAKE_GENERATOR=Ninja" >> "$GITHUB_ENV"
+      - name: Build the text engine (llama.cpp in this repository)
+        if: matrix.part == 'text'
+        shell: bash
+        run: |
+          cmake -S llama.cpp -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_TESTS=OFF $CMAKE_FLAGS "-DCMAKE_CUDA_ARCHITECTURES=$CUDA_ARCH"
+          cmake --build build --config Release --target llama-server -j 4
+          mkdir -p out && cp "$(find build -name llama-server.exe -type f | head -1)" out/sushila-server.exe && cp llama.cpp/LICENSE out/LICENSE-llama.cpp
+      - name: Build the image engine (stable-diffusion.cpp sd-server, pinned)
+        if: matrix.part == 'image'
+        shell: bash
+        run: |
+          git clone --recursive https://github.com/leejet/stable-diffusion.cpp sdcpp && git -C sdcpp checkout 3f8527a46c54ecf4cb4ed6003da8e8982283c73c && git -C sdcpp submodule update --init --recursive
+          cmake -S sdcpp -B sdbuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSD_BUILD_EXAMPLES=ON -DSD_SERVER_BUILD_FRONTEND=OFF -DSD_CUDA=ON $CMAKE_FLAGS "-DCMAKE_CUDA_ARCHITECTURES=$CUDA_ARCH"
+          cmake --build sdbuild --config Release --target sd-server -j 4
+          mkdir -p out && cp "$(find sdbuild -name sd-server.exe -type f | head -1)" out/sushila-sd-server.exe && cp sdcpp/LICENSE out/LICENSE-stable-diffusion.cpp
+      - name: Build the music engine (acestep.cpp ace-server, pinned, with the Sushila patches)
+        if: matrix.part == 'music'
+        shell: bash
+        run: |
+          git clone --recursive https://github.com/ServeurpersoCom/acestep.cpp acecpp && git -C acecpp checkout 694ef0f2f7cbf1b8a45b061a1ff0a817f451420c && git -C acecpp submodule update --init --recursive
+          git -C acecpp -c user.email=build@sushila.ai -c user.name=sushila-build am --whitespace=nowarn "$GITHUB_WORKSPACE"/hoststation/patches/acestep/*.patch
+          cmake -S acecpp -B acebuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF $CMAKE_FLAGS "-DCMAKE_CUDA_ARCHITECTURES=$CUDA_ARCH"
+          cmake --build acebuild --config Release --target ace-server -j 4
+          mkdir -p out && cp "$(find acebuild -name ace-server.exe -type f | head -1)" out/sushila-ace-server.exe && (cp acecpp/LICENSE out/LICENSE-acestep.cpp 2>/dev/null || true)
+      - uses: actions/upload-artifact@v4
+        with: { name: "part-${{ matrix.part }}", path: out/* }
+  package:
+    needs: part
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: CUDA runtime libraries
+        uses: Jimver/cuda-toolkit@v0.2.24
+        with: { cuda: "12.8.1", method: network, sub-packages: '["cudart","cublas"]' }
+      - uses: actions/download-artifact@v4
+        with: { path: pkg, pattern: "part-*", merge-multiple: true }
+      - name: Package
+        shell: bash
+        run: |
+          for l in cudart64_12 cublas64_12 cublasLt64_12; do cp "$CUDA_PATH/bin/$l.dll" pkg/; done   # redistributable under the CUDA EULA
+          for l in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do cp "$SYSTEMROOT/System32/$l" pkg/; done   # app-local Microsoft C++ runtime
+          for l in msvcp140_1.dll msvcp140_2.dll msvcp140_codecvt_ids.dll; do [ -f "$SYSTEMROOT/System32/$l" ] && cp "$SYSTEMROOT/System32/$l" pkg/ || echo "no $l"; done
+          cp LICENSE pkg/ 2>/dev/null || true
+          ls -la pkg
+          for f in sushila-server.exe sushila-sd-server.exe sushila-ace-server.exe; do [ -f pkg/$f ] || { echo "missing $f"; exit 1; }; done
+          name="sushila-cpp-${{ inputs.version }}-windows-x86_64-cuda.zip"
+          (cd pkg && 7z a "../$name" . > /dev/null)
+          echo "NAME=$name" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with: { name: windows-x86_64-cuda, path: "${{ env.NAME }}" }
