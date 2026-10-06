@@ -1,0 +1,10 @@
+{
+ "train_songs": 1146,
+ "val_songs": 60,
+ "epochs": 3,
+ "steps": 3438,
+ "val_accept_before": 0.0002888437342288085,
+ "val_accept_best": 0.2421217544839633,
+ "minutes": 9.330514192581177,
+ "model": "/workspace/music/hf4b"
+}

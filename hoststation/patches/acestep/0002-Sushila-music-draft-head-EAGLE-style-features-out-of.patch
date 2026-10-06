@@ -1,0 +1,920 @@
+From 378c8a233b8afe961da36d5640a69865f371e011 Mon Sep 17 00:00:00 2001
+From: Ubuntu <ubuntu@ip-172-31-15-84.ec2.internal>
+Date: Tue, 6 Oct 2026 03:09:38 +0000
+Subject: [PATCH 2/5] Sushila: music draft head (EAGLE-style), features out of
+ prefill/verify, training dump, timing
+
+---
+ src/pipeline-lm.cpp      | 309 ++++++++++++++++++++++++++++++++++++++-
+ src/pipeline-lm.h        |   1 +
+ src/qwen3-lm.h           | 195 ++++++++++++++----------
+ src/sushila-music-head.h | 214 +++++++++++++++++++++++++++
+ tools/ace-server.cpp     |   3 +
+ 5 files changed, 639 insertions(+), 83 deletions(-)
+ create mode 100644 src/sushila-music-head.h
+
+diff --git a/src/pipeline-lm.cpp b/src/pipeline-lm.cpp
+index 29e036f..3ccd836 100644
+--- a/src/pipeline-lm.cpp
++++ b/src/pipeline-lm.cpp
+@@ -9,6 +9,7 @@
+ #include "model-store.h"
+ #include "prompt.h"
+ #include "qwen3-lm.h"
++#include "sushila-music-head.h"
+ #include "sampling.h"
+ #include "timer.h"
+ 
+@@ -284,6 +285,14 @@ static std::vector<std::string> generate_phase1_batch(Qwen3LM *
+     return results;
+ }
+ 
++#ifdef _WIN32
++#    include <process.h>
++static int getpid_portable() { return _getpid(); }
++#else
++#    include <unistd.h>
++static int getpid_portable() { return getpid(); }
++#endif
++
+ // Batched Phase 2: N sequences, one prompt and one seed per element.
+ // Identical prompts are detected and prefilled once with KV copies.
+ // Returns N code strings.
+@@ -554,6 +563,40 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *
+     double decode_ms = t_decode.ms();
+     fprintf(stderr, "[LM-Phase2] Decode %.0fms\n", decode_ms);
+ 
++    // Sushila: training data for the music draft head (prompt, uncond prompt and
++    // codes per song), written when SUSHILA_DUMP_DIR is set.
++    if (const char * dump = getenv("SUSHILA_DUMP_DIR")) {
++        static int n_dump = 0;
++        for (int i = 0; i < N; i++) {
++            char path[1024];
++            snprintf(path, sizeof(path), "%s/song-%d-%u-%d.json", dump, (int) getpid_portable(), seeds[i], n_dump++);
++            FILE * f = fopen(path, "w");
++            if (!f) {
++                continue;
++            }
++            auto list = [&](const char * key, const std::vector<int> & v, bool last) {
++                fprintf(f, "\"%s\":[", key);
++                for (size_t j = 0; j < v.size(); j++) {
++                    fprintf(f, "%s%d", j ? "," : "", v[j]);
++                }
++                fprintf(f, "]%s", last ? "" : ",");
++            };
++            std::vector<int> code_toks;
++            for (int c : seqs[i].audio_codes) {
++                code_toks.push_back(AUDIO_CODE_BASE + c);
++            }
++            if (seqs[i].done) {
++                code_toks.push_back(TOKEN_IM_END);
++            }
++            fprintf(f, "{\"cfg\":%.3f,\"temperature\":%.3f,\"top_p\":%.3f,", cfg_scale, temperature, top_p);
++            list("prompt", prompts[i], false);
++            list("uncond", use_cfg ? unconds[i] : std::vector<int>(), false);
++            list("codes", code_toks, true);
++            fprintf(f, "}\n");
++            fclose(f);
++        }
++    }
++
+     // Build results
+     std::vector<std::string> results(N);
+     for (int i = 0; i < N; i++) {
+@@ -691,6 +734,244 @@ static int spec_to_compact(int tok) {
+     return tok == TOKEN_IM_END ? 0 : tok - AUDIO_CODE_BASE + 1;
+ }
+ 
++// The music draft head, loaded once per main LM and kept.
++static MusicHead * spec_head_for(Qwen3LM * m, const char * path) {
++    static MusicHead * g_head = nullptr;
++    static Qwen3LM *   g_m    = nullptr;
++    static std::string g_path;
++    if (g_head && g_m == m && g_path == path) {
++        return g_head;
++    }
++    if (g_head) {
++        mhead_free(g_head);
++        delete g_head;
++        g_head = nullptr;
++    }
++    Timer       t;
++    MusicHead * h = new MusicHead();
++    if (!mhead_load(h, m, path)) {
++        fprintf(stderr, "[LM-Head] head load failed: %s (speculative decoding off)\n", path);
++        delete h;
++        return nullptr;
++    }
++    g_head = h;
++    g_m    = m;
++    g_path = path;
++    fprintf(stderr, "[LM-Head] music draft head loaded: %s, %.0f ms\n", path, t.ms());
++    return g_head;
++}
++
++// Phase 2 for N == 1 with the music draft head (EAGLE-style). Same prompts and
++// sampling as run_phase2_batch; the output follows the main LM's distribution.
++static std::vector<std::string> run_phase2_head(Qwen3LM *         m,
++                                                MusicHead *       hd,
++                                                int               spec_k,
++                                                BPETokenizer &    bpe,
++                                                const AcePrompt & a,
++                                                float             temperature,
++                                                float             top_p,
++                                                int               top_k,
++                                                uint32_t          seed,
++                                                float             cfg_scale,
++                                                const char *      negative_prompt,
++                                                bool (*cancel)(void *),
++                                                void * cancel_data) {
++    const int  V       = m->cfg.vocab_size;
++    const int  H       = m->cfg.hidden_size;
++    const bool use_cfg = cfg_scale > 1.0f;
++    const int  S       = use_cfg ? 2 : 1;
++    const int  CV      = AUDIO_CODE_COUNT + 1;
++    spec_k             = std::max(1, std::min(spec_k, 16));
++
++    std::string      cot = build_cot_yaml(a);
++    std::vector<int> pr[2];
++    pr[0] = build_lm_prompt_with_cot(bpe, a, cot);
++    if (use_cfg) {
++        pr[1] = build_lm_prompt_uncond_with_cot(bpe, negative_prompt);
++    }
++    int max_tokens = (int) (a.duration * 5) + 100;
++    fprintf(stderr, "[LM-Head] max_tokens: %d, CFG: %.2f, k=%d\n", max_tokens, cfg_scale, spec_k);
++
++    const SpecHead hm = spec_head(m);
++    Timer          t_prefill;
++    std::vector<float> lgp[2] = { std::vector<float>(V), std::vector<float>(V) };
++    std::vector<float> fpre[2];
++    for (int s = 0; s < S; s++) {
++        qw3lm_reset_kv(m, s);
++        hd->kv_pos[s] = 0;
++        fpre[s].resize((size_t) H * pr[s].size());
++        qw3lm_forward(m, pr[s].data(), (int) pr[s].size(), s, lgp[s].data(), fpre[s].data());
++    }
++    std::mt19937       rng(seed);
++    std::vector<float> cl(CV), pbuf(CV);
++    {
++        SpecHead full = { V, 0, 0, TOKEN_IM_END, AUDIO_CODE_BASE };
++        spec_compact(lgp[0].data(), lgp[use_cfg ? 1 : 0].data(), use_cfg, cfg_scale, full, cl.data());
++        spec_probs(cl.data(), CV, temperature, top_p, top_k, pbuf.data());
++    }
++    int              last = spec_to_token(spec_draw(pbuf.data(), CV, rng));
++    std::vector<int> codes;
++    bool             done = (last == TOKEN_IM_END);
++    if (!done) {
++        codes.push_back(last - AUDIO_CODE_BASE);
++    }
++    // head prefill: entry t = (f_t, x_{t+1}) over the prompt, x_P = the first code
++    std::vector<float> hlog((size_t) hm.out_V * S), g((size_t) H * S), gtmp;
++    for (int s = 0; s < S && !done; s++) {
++        int              P = (int) pr[s].size();
++        std::vector<int> nx(pr[s].begin() + 1, pr[s].end());
++        nx.push_back(last);
++        gtmp.resize((size_t) H * P);
++        mhead_forward(hd, s, fpre[s].data(), nx.data(), 1, P, P, P - 1, gtmp.data(), hlog.data() + (size_t) s * hm.out_V,
++                      hm.lm_offset, hm.lm_count);
++        std::copy(gtmp.begin() + (size_t) (P - 1) * H, gtmp.begin() + (size_t) P * H, g.begin() + (size_t) s * H);
++    }
++    fprintf(stderr, "[LM-Head] Prefill %.0fms (main + head)\n", t_prefill.ms());
++
++    const int          K1 = spec_k + 1;
++    std::vector<float> vlog((size_t) hm.out_V * S * K1), vfeat((size_t) H * S * K1), efeat((size_t) H * S * K1),
++        eout((size_t) H * S * K1);
++    std::vector<float> Q((size_t) CV * spec_k), P((size_t) CV * K1);
++    std::vector<int>   drafts(spec_k), vtok((size_t) S * K1), etok((size_t) S * K1), tok2(2);
++    std::uniform_real_distribution<float> U(0.0f, 1.0f);
++    long   rounds = 0, drafted = 0, accepted = 0;
++    double t_draft = 0, t_verify = 0, t_sample = 0, t_extend = 0;
++    Timer  t_decode;
++    while (!done && (int) codes.size() < max_tokens) {
++        if (cancel && cancel(cancel_data)) {
++            fprintf(stderr, "[LM-Head] Cancelled\n");
++            return {};
++        }
++        const int k = std::min(spec_k, max_tokens - (int) codes.size());
++        // 1. draft with the head; its first distribution came with the last extend
++        Timer td;
++        int   hbase[2] = { hd->kv_pos[0], hd->kv_pos[1] };
++        int   ke       = 0;
++        for (int j = 0; j < k; j++) {
++            if (j > 0) {
++                for (int s = 0; s < S; s++) {
++                    tok2[s] = drafts[j - 1];
++                }
++                std::vector<float> gin(g);
++                mhead_forward(hd, 0, gin.data(), tok2.data(), S, 1, 1, 0, g.data(), hlog.data(), hm.lm_offset,
++                              hm.lm_count);
++            }
++            spec_compact(hlog.data(), hlog.data() + (use_cfg ? hm.out_V : 0), use_cfg, cfg_scale, hm, cl.data());
++            float * q = Q.data() + (size_t) j * CV;
++            spec_probs(cl.data(), CV, temperature, top_p, top_k, q);
++            drafts[j] = spec_to_token(spec_draw(q, CV, rng));
++            ke        = j + 1;
++            if (drafts[j] == TOKEN_IM_END) {
++                break;
++            }
++        }
++        t_draft += td.ms();
++        // 2. verify [last, d1..dke] on the main LM (logits and features)
++        Timer     tv;
++        const int T        = ke + 1;
++        int       mbase[2] = { m->kv_pos[0], m->kv_pos[1] };
++        for (int s = 0; s < S; s++) {
++            vtok[(size_t) s * T] = last;
++            for (int j = 0; j < ke; j++) {
++                vtok[(size_t) s * T + 1 + j] = drafts[j];
++            }
++        }
++        qw3lm_forward_verify(m, vtok.data(), 0, S, T, vlog.data(), hm.lm_offset, hm.lm_count, vfeat.data());
++        t_verify += tv.ms();
++        // 3. accept / reject
++        Timer ts;
++        auto  target_probs = [&](int t) {
++            const float * lc = vlog.data() + (size_t) t * hm.out_V;
++            const float * lw = use_cfg ? vlog.data() + (size_t) (T + t) * hm.out_V : lc;
++            spec_compact(lc, lw, use_cfg, cfg_scale, hm, cl.data());
++            spec_probs(cl.data(), CV, temperature, top_p, top_k, P.data() + (size_t) t * CV);
++            return P.data() + (size_t) t * CV;
++        };
++        int acc = 0, next = -1;
++        for (int j = 0; j < ke; j++) {
++            const float * p = target_probs(j);
++            const float * q = Q.data() + (size_t) j * CV;
++            int           c = spec_to_compact(drafts[j]);
++            if (q[c] > 0.0f && U(rng) * q[c] <= p[c]) {
++                acc++;
++                continue;
++            }
++            double z = 0.0;
++            for (int i = 0; i < CV; i++) {
++                pbuf[i] = std::max(0.0f, p[i] - q[i]);
++                z += pbuf[i];
++            }
++            if (z <= 0.0) {
++                std::copy(p, p + CV, pbuf.begin());
++            } else {
++                for (int i = 0; i < CV; i++) {
++                    pbuf[i] = (float) (pbuf[i] / z);
++                }
++            }
++            next = spec_to_token(spec_draw(pbuf.data(), CV, rng));
++            break;
++        }
++        if (next < 0) {
++            next = spec_to_token(spec_draw(target_probs(ke), CV, rng));
++        }
++        t_sample += ts.ms();
++        rounds++;
++        drafted += ke;
++        accepted += acc;
++        for (int j = 0; j < acc && !done; j++) {
++            if (drafts[j] == TOKEN_IM_END) {
++                done = true;
++            } else {
++                codes.push_back(drafts[j] - AUDIO_CODE_BASE);
++            }
++        }
++        if (!done) {
++            if (next == TOKEN_IM_END) {
++                done = true;
++            } else if ((int) codes.size() < max_tokens) {
++                codes.push_back(next - AUDIO_CODE_BASE);
++            }
++        }
++        for (int s = 0; s < S; s++) {
++            m->kv_pos[s] = mbase[s] + 1 + acc;
++        }
++        last = next;
++        if (done) {
++            break;
++        }
++        // 4. head: drop its own drafts, extend with the main LM's features of the
++        // accepted positions (padded to k + 1 entries); the last one drafts next
++        Timer te;
++        for (int s = 0; s < S; s++) {
++            hd->kv_pos[s] = hbase[s];
++        }
++        const int TE = K1;
++        for (int s = 0; s < S; s++) {
++            for (int t = 0; t < TE; t++) {
++                int src = std::min(t, T - 1);
++                std::copy(vfeat.begin() + ((size_t) s * T + src) * H, vfeat.begin() + ((size_t) s * T + src + 1) * H,
++                          efeat.begin() + ((size_t) s * TE + t) * H);
++                etok[(size_t) s * TE + t] = t < acc ? drafts[t] : next;
++            }
++        }
++        mhead_forward(hd, 0, efeat.data(), etok.data(), S, TE, acc + 1, acc, eout.data(), hlog.data(), hm.lm_offset,
++                      hm.lm_count);
++        for (int s = 0; s < S; s++) {
++            std::copy(eout.begin() + ((size_t) s * TE + acc) * H, eout.begin() + ((size_t) s * TE + acc + 1) * H,
++                      g.begin() + (size_t) s * H);
++        }
++        t_extend += te.ms();
++    }
++    double ms = t_decode.ms();
++    fprintf(stderr,
++            "[LM-Head] Decode %.0fms, %zu codes, %.1f codes/s | rounds %ld, drafted %ld, accepted %ld (%.0f%%), "
++            "%.2f codes/round | draft %.0fms, verify %.0fms, accept/sample %.0fms, extend %.0fms\n",
++            ms, codes.size(), codes.size() / (ms / 1000.0), rounds, drafted, accepted,
++            drafted ? 100.0 * accepted / drafted : 0.0, rounds ? (double) codes.size() / rounds : 0.0, t_draft,
++            t_verify, t_sample, t_extend);
++    return { codes_to_string(codes) };
++}
++
+ // The draft LM, loaded once and kept (small: the 0.6B LM is ~0.7 GB in Q8_0).
+ static Qwen3LM * spec_draft(const char * path) {
+     static Qwen3LM *   g_draft = nullptr;
+@@ -800,7 +1081,7 @@ static std::vector<std::string> run_phase2_spec(Qwen3LM *         m,
+ 
+     long   rounds = 0, drafted = 0, accepted = 0;
+     Timer  t_decode;
+-    double t_draft = 0, t_verify = 0;
++    double t_draft = 0, t_verify = 0, t_sample = 0;
+     while (!done && (int) codes.size() < max_tokens) {
+         if (cancel && cancel(cancel_data)) {
+             fprintf(stderr, "[LM-Spec] Cancelled\n");
+@@ -845,17 +1126,20 @@ static std::vector<std::string> run_phase2_spec(Qwen3LM *         m,
+             }
+         }
+         qw3lm_forward_verify(m, vtok.data(), 0, S, T, vlog.data(), hm.lm_offset, hm.lm_count);
+-        for (int t = 0; t < T; t++) {
++        t_verify += tv.ms();
++        Timer ts;
++        // main LM's distribution at position t, computed only when needed
++        auto target_probs = [&](int t) {
+             const float * lc = vlog.data() + (size_t) t * hm.out_V;
+             const float * lw = use_cfg ? vlog.data() + (size_t) (T + t) * hm.out_V : lc;
+             spec_compact(lc, lw, use_cfg, cfg_scale, hm, cl.data());
+             spec_probs(cl.data(), CV, temperature, top_p, top_k, P.data() + (size_t) t * CV);
+-        }
+-        t_verify += tv.ms();
++            return P.data() + (size_t) t * CV;
++        };
+         // 3. accept / reject (speculative sampling)
+         int acc = 0, next = -1;
+         for (int j = 0; j < ke; j++) {
+-            const float * p  = P.data() + (size_t) j * CV;
++            const float * p  = target_probs(j);
+             const float * q  = Q.data() + (size_t) j * CV;
+             int           c  = spec_to_compact(drafts[j]);
+             float         pa = p[c], qa = q[c];
+@@ -881,8 +1165,9 @@ static std::vector<std::string> run_phase2_spec(Qwen3LM *         m,
+             break;
+         }
+         if (next < 0) {  // all accepted: bonus code from the last position
+-            next = spec_to_token(spec_draw(P.data() + (size_t) ke * CV, CV, rng));
++            next = spec_to_token(spec_draw(target_probs(ke), CV, rng));
+         }
++        t_sample += ts.ms();
+         rounds++;
+         drafted += ke;
+         accepted += acc;
+@@ -919,10 +1204,10 @@ static std::vector<std::string> run_phase2_spec(Qwen3LM *         m,
+     double ms = t_decode.ms();
+     fprintf(stderr,
+             "[LM-Spec] Decode %.0fms, %zu codes, %.1f codes/s | rounds %ld, drafted %ld, accepted %ld (%.0f%%), "
+-            "%.2f codes/round | draft %.0fms, verify+sample %.0fms\n",
++            "%.2f codes/round | draft %.0fms, verify %.0fms, accept/sample %.0fms\n",
+             ms, codes.size(), codes.size() / (ms / 1000.0), rounds, drafted, accepted,
+             drafted ? 100.0 * accepted / drafted : 0.0, rounds ? (double) (codes.size()) / rounds : 0.0, t_draft,
+-            t_verify);
++            t_verify, t_sample);
+     return { codes_to_string(codes) };
+ }
+ 
+@@ -937,6 +1222,7 @@ void ace_lm_default_params(AceLmParams * p) {
+     p->use_batch_cfg = true;
+     p->clamp_fp16    = false;
+     p->draft_path    = NULL;
++    p->head_path     = NULL;
+     p->spec_k        = 4;
+ }
+ 
+@@ -1248,6 +1534,13 @@ int ace_lm_generate(AceLm *            ctx,
+     if (skip_codes) {
+         fprintf(stderr, "[LM-Generate] %s mode, no audio code generation\n",
+                 mode == LM_MODE_INSPIRE ? "Inspire" : "Format");
++    } else if (!user_has_codes && N == 1 && ctx->params.head_path && spec_head_for(model, ctx->params.head_path)) {
++        batch_codes = run_phase2_head(model, spec_head_for(model, ctx->params.head_path), ctx->params.spec_k, *bpe,
++                                      aces[0], temperature, top_p, top_k, seeds[0], cfg_scale, neg_prompt, cancel,
++                                      cancel_data);
++        if (batch_codes.empty()) {
++            return -1;
++        }
+     } else if (!user_has_codes && N == 1 && ctx->params.draft_path && spec_draft(ctx->params.draft_path)) {
+         batch_codes = run_phase2_spec(model, spec_draft(ctx->params.draft_path), ctx->params.spec_k, *bpe, aces[0],
+                                       temperature, top_p, top_k, seeds[0], cfg_scale, neg_prompt, cancel, cancel_data);
+diff --git a/src/pipeline-lm.h b/src/pipeline-lm.h
+index 803ac2f..4334c97 100644
+--- a/src/pipeline-lm.h
++++ b/src/pipeline-lm.h
+@@ -23,6 +23,7 @@ struct AceLmParams {
+     // the same family drafts spec_k codes, the main LM verifies them in one
+     // pass; standard speculative sampling keeps the main LM's distribution.
+     const char * draft_path;     // draft LM GGUF, NULL = off
++    const char * head_path;      // music draft head GGUF (preferred over draft_path), NULL = off
+     int          spec_k;         // drafted codes per round
+ };
+ 
+diff --git a/src/qwen3-lm.h b/src/qwen3-lm.h
+index 5d6742f..6cdf63c 100644
+--- a/src/qwen3-lm.h
++++ b/src/qwen3-lm.h
+@@ -51,6 +51,7 @@ struct Qw3lmGraphCache {
+     struct ggml_tensor *  kv_rows       = nullptr;
+     struct ggml_tensor *  attn_mask     = nullptr;
+     struct ggml_tensor *  lgt           = nullptr;
++    struct ggml_tensor *  feat          = nullptr;  // Sushila: pre-norm last-layer features (verify graph)
+     StaticGraph           graph;
+     std::vector<int>      pos_data;
+     std::vector<int64_t>  rows_data;
+@@ -484,7 +485,8 @@ static struct ggml_tensor * qw3lm_build_attn(struct ggml_context * ctx,
+ 
+ // Forward pass: token_ids[n_tokens] -> logits[vocab_size] (last token only)
+ // kv_set: which KV cache set to use (0=conditional, 1=unconditional for CFG)
+-static void qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int kv_set, float * logits) {
++static void qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int kv_set, float * logits,
++                          float * feat_out = nullptr) {
+     if (m->batch_graph.graph.sched_allocated) {
+         static_graph_release(&m->batch_graph.graph, m->sched);
+         m->batch_graph.built = false;
+@@ -567,6 +569,13 @@ static void qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int
+         }
+     }
+ 
++    // Sushila: the pre-norm features of every position, for the music draft head
++    struct ggml_tensor * feat_all = nullptr;
++    if (feat_out) {
++        feat_all = hidden;
++        ggml_set_output(feat_all);
++    }
++
+     // Final norm
+     hidden = qwen3_rms_norm(ctx, hidden, m->final_norm, c.rms_norm_eps);
+ 
+@@ -625,6 +634,9 @@ static void qw3lm_forward(Qwen3LM * m, const int * token_ids, int n_tokens, int
+ 
+     // Read logits [V]
+     ggml_backend_tensor_get(lgt, logits, 0, c.vocab_size * sizeof(float));
++    if (feat_all) {
++        ggml_backend_tensor_get(feat_all, feat_out, 0, (size_t) H * n_tokens * sizeof(float));
++    }
+ 
+     // Advance KV position. The arena and the sched allocation persist
+     // into the next forward.
+@@ -909,6 +921,101 @@ static void qw3lm_forward_batch(Qwen3LM *   m,
+ }
+ 
+ 
++// Sushila: one Qwen3 decoder layer over N consecutive KV sets with T tokens each
++// (hidden [H, N*T], token order n*T + t), writing K/V at kv_rows and attending
++// over the padded window of the 4D cache. Shared by the verification forward and
++// the music draft head.
++static struct ggml_tensor * qw3lm_build_layer_multi(struct ggml_context * ctx,
++                                                    struct ggml_cgraph *  gf,
++                                                    const Qwen3LMConfig & c,
++                                                    Qwen3Layer *          ly,
++                                                    struct ggml_tensor *  hidden,
++                                                    struct ggml_tensor *  positions,
++                                                    struct ggml_tensor *  attn_mask,
++                                                    struct ggml_tensor *  kv_rows,
++                                                    struct ggml_tensor *  kv_k4,
++                                                    struct ggml_tensor *  kv_v4,
++                                                    int                   max_seq,
++                                                    int                   s0,
++                                                    int                   N,
++                                                    int                   T,
++                                                    int                   n_kv_pad,
++                                                    bool                  use_flash_attn,
++                                                    bool                  clamp_fp16) {
++    int       D   = c.head_dim;
++    int       Nh  = c.n_heads;
++    int       Nkv = c.n_kv_heads;
++    const int NT  = N * T;
++        struct ggml_tensor * norm = qwen3_rms_norm(ctx, hidden, ly->input_layernorm, c.rms_norm_eps);
++        struct ggml_tensor *q, *k, *v;
++        int                 q_dim  = Nh * D;
++        int                 kv_dim = Nkv * D;
++        if (ly->qkv) {
++            struct ggml_tensor * qkv = qwen3_linear(ctx, ly->qkv, norm);
++            q                        = ggml_cont(ctx, ggml_view_2d(ctx, qkv, q_dim, NT, qkv->nb[1], 0));
++            k = ggml_cont(ctx, ggml_view_2d(ctx, qkv, kv_dim, NT, qkv->nb[1], (size_t) q_dim * qkv->nb[0]));
++            v = ggml_cont(ctx,
++                          ggml_view_2d(ctx, qkv, kv_dim, NT, qkv->nb[1], (size_t) (q_dim + kv_dim) * qkv->nb[0]));
++        } else if (ly->qk) {
++            struct ggml_tensor * qk = qwen3_linear(ctx, ly->qk, norm);
++            q                       = ggml_cont(ctx, ggml_view_2d(ctx, qk, q_dim, NT, qk->nb[1], 0));
++            k = ggml_cont(ctx, ggml_view_2d(ctx, qk, kv_dim, NT, qk->nb[1], (size_t) q_dim * qk->nb[0]));
++            v = qwen3_linear(ctx, ly->v_proj, norm);
++        } else {
++            q = qwen3_linear(ctx, ly->q_proj, norm);
++            k = qwen3_linear(ctx, ly->k_proj, norm);
++            v = qwen3_linear(ctx, ly->v_proj, norm);
++        }
++        q = ggml_reshape_3d(ctx, q, D, Nh, NT);
++        k = ggml_reshape_3d(ctx, k, D, Nkv, NT);
++        v = ggml_reshape_3d(ctx, v, D, Nkv, NT);
++        q = ggml_rms_norm(ctx, q, c.rms_norm_eps);
++        q = ggml_mul(ctx, q, qwen3_f32(ctx, ly->q_norm));
++        k = ggml_rms_norm(ctx, k, c.rms_norm_eps);
++        k = ggml_mul(ctx, k, qwen3_f32(ctx, ly->k_norm));
++        q = ggml_rope_ext(ctx, q, positions, NULL, D, 2, 0, c.rope_theta, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
++        k = ggml_rope_ext(ctx, k, positions, NULL, D, 2, 0, c.rope_theta, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
++        if (clamp_fp16) {
++            v = ggml_clamp(ctx, v, -65504.0f, 65504.0f);
++        }
++        // [D, X, T*N] -> [D, X, T, N] -> [D, T, X, N]
++        q = ggml_cont(ctx, ggml_permute(ctx, ggml_reshape_4d(ctx, q, D, Nh, T, N), 0, 2, 1, 3));
++        k = ggml_cont(ctx, ggml_permute(ctx, ggml_reshape_4d(ctx, k, D, Nkv, T, N), 0, 2, 1, 3));
++        v = ggml_cont(ctx, ggml_permute(ctx, ggml_reshape_4d(ctx, v, D, Nkv, T, N), 0, 2, 1, 3));
++
++        size_t               off_s0 = (size_t) s0 * kv_k4->nb[3];
++        struct ggml_tensor * k_sets = ggml_view_4d(ctx, kv_k4, D, max_seq, Nkv, N, kv_k4->nb[1],
++                                                   kv_k4->nb[2], kv_k4->nb[3], off_s0);
++        struct ggml_tensor * v_sets = ggml_view_4d(ctx, kv_v4, D, max_seq, Nkv, N, kv_v4->nb[1],
++                                                   kv_v4->nb[2], kv_v4->nb[3], off_s0);
++        ggml_build_forward_expand(gf, ggml_set_rows(ctx, k_sets, k, kv_rows));
++        ggml_build_forward_expand(gf, ggml_set_rows(ctx, v_sets, v, kv_rows));
++
++        struct ggml_tensor * k_batch = ggml_view_4d(ctx, kv_k4, D, n_kv_pad, Nkv, N, kv_k4->nb[1],
++                                                    kv_k4->nb[2], kv_k4->nb[3], off_s0);
++        struct ggml_tensor * v_batch = ggml_view_4d(ctx, kv_v4, D, n_kv_pad, Nkv, N, kv_v4->nb[1],
++                                                    kv_v4->nb[2], kv_v4->nb[3], off_s0);
++        float                scale   = 1.0f / sqrtf((float) D);
++        struct ggml_tensor * attn_result =
++            use_flash_attn ? ggml_flash_attn_ext(ctx, q, k_batch, v_batch, attn_mask, scale, 0.0f, 0.0f) :
++                                qwen3_attn_f32(ctx, q, k_batch, v_batch, attn_mask, scale);
++        if (use_flash_attn) {
++            ggml_prec_set_acc(attn_result, GGML_PREC_F32);
++        }
++        // [D, Nh, T, N] -> [Nh*D, T*N] (token order n*T + t, same as hidden)
++        struct ggml_tensor * attn_cat = ggml_reshape_2d(ctx, attn_result, Nh * D, NT);
++        hidden                        = ggml_add(ctx, hidden, qwen3_linear(ctx, ly->o_proj, attn_cat));
++        if (clamp_fp16) {
++            hidden = ggml_clamp(ctx, hidden, -65504.0f, 65504.0f);
++        }
++        norm   = qwen3_rms_norm(ctx, hidden, ly->post_attn_layernorm, c.rms_norm_eps);
++        hidden = ggml_add(ctx, hidden, qwen3_build_mlp(ctx, ly, norm, NT));
++        if (clamp_fp16) {
++            hidden = ggml_clamp(ctx, hidden, -65504.0f, 65504.0f);
++        }
++    return hidden;
++}
++
+ // Sushila: speculative verification forward. N consecutive KV sets [s0..s0+N),
+ // T tokens each (token_ids[n*T + t]), all positions' logits out:
+ // logits[(n*T + t) * out_V]. Each set's T tokens are written at kv_pos[set]..+T-1
+@@ -921,12 +1028,10 @@ static void qw3lm_forward_verify(Qwen3LM *   m,
+                                  int         T,
+                                  float *     logits,
+                                  int         lm_offset = 0,
+-                                 int         lm_count  = 0) {
+-    const Qwen3LMConfig & c   = m->cfg;
+-    int                   D   = c.head_dim;
+-    int                   Nh  = c.n_heads;
+-    int                   Nkv = c.n_kv_heads;
+-    const int             NT  = N * T;
++                                 int         lm_count  = 0,
++                                 float *     feat_out  = nullptr) {
++    const Qwen3LMConfig & c  = m->cfg;
++    const int             NT = N * T;
+ 
+     int max_kv_len = 0;
+     for (int i = 0; i < N; i++) {
+@@ -971,75 +1076,12 @@ static void qw3lm_forward_verify(Qwen3LM *   m,
+ 
+         struct ggml_tensor * hidden = ggml_get_rows(ctx, m->embed_tokens, token_ids_t);  // [H, NT]
+         for (int l = 0; l < c.n_layers; l++) {
+-            Qwen3Layer *         ly   = &m->layers[l];
+-            struct ggml_tensor * norm = qwen3_rms_norm(ctx, hidden, ly->input_layernorm, c.rms_norm_eps);
+-            struct ggml_tensor *q, *k, *v;
+-            int                 q_dim  = Nh * D;
+-            int                 kv_dim = Nkv * D;
+-            if (ly->qkv) {
+-                struct ggml_tensor * qkv = qwen3_linear(ctx, ly->qkv, norm);
+-                q                        = ggml_cont(ctx, ggml_view_2d(ctx, qkv, q_dim, NT, qkv->nb[1], 0));
+-                k = ggml_cont(ctx, ggml_view_2d(ctx, qkv, kv_dim, NT, qkv->nb[1], (size_t) q_dim * qkv->nb[0]));
+-                v = ggml_cont(ctx,
+-                              ggml_view_2d(ctx, qkv, kv_dim, NT, qkv->nb[1], (size_t) (q_dim + kv_dim) * qkv->nb[0]));
+-            } else if (ly->qk) {
+-                struct ggml_tensor * qk = qwen3_linear(ctx, ly->qk, norm);
+-                q                       = ggml_cont(ctx, ggml_view_2d(ctx, qk, q_dim, NT, qk->nb[1], 0));
+-                k = ggml_cont(ctx, ggml_view_2d(ctx, qk, kv_dim, NT, qk->nb[1], (size_t) q_dim * qk->nb[0]));
+-                v = qwen3_linear(ctx, ly->v_proj, norm);
+-            } else {
+-                q = qwen3_linear(ctx, ly->q_proj, norm);
+-                k = qwen3_linear(ctx, ly->k_proj, norm);
+-                v = qwen3_linear(ctx, ly->v_proj, norm);
+-            }
+-            q = ggml_reshape_3d(ctx, q, D, Nh, NT);
+-            k = ggml_reshape_3d(ctx, k, D, Nkv, NT);
+-            v = ggml_reshape_3d(ctx, v, D, Nkv, NT);
+-            q = ggml_rms_norm(ctx, q, c.rms_norm_eps);
+-            q = ggml_mul(ctx, q, qwen3_f32(ctx, ly->q_norm));
+-            k = ggml_rms_norm(ctx, k, c.rms_norm_eps);
+-            k = ggml_mul(ctx, k, qwen3_f32(ctx, ly->k_norm));
+-            q = ggml_rope_ext(ctx, q, positions, NULL, D, 2, 0, c.rope_theta, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+-            k = ggml_rope_ext(ctx, k, positions, NULL, D, 2, 0, c.rope_theta, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+-            if (m->clamp_fp16) {
+-                v = ggml_clamp(ctx, v, -65504.0f, 65504.0f);
+-            }
+-            // [D, X, T*N] -> [D, X, T, N] -> [D, T, X, N]
+-            q = ggml_cont(ctx, ggml_permute(ctx, ggml_reshape_4d(ctx, q, D, Nh, T, N), 0, 2, 1, 3));
+-            k = ggml_cont(ctx, ggml_permute(ctx, ggml_reshape_4d(ctx, k, D, Nkv, T, N), 0, 2, 1, 3));
+-            v = ggml_cont(ctx, ggml_permute(ctx, ggml_reshape_4d(ctx, v, D, Nkv, T, N), 0, 2, 1, 3));
+-
+-            size_t               off_s0 = (size_t) s0 * m->kv_k4[l]->nb[3];
+-            struct ggml_tensor * k_sets = ggml_view_4d(ctx, m->kv_k4[l], D, c.max_seq_len, Nkv, N, m->kv_k4[l]->nb[1],
+-                                                       m->kv_k4[l]->nb[2], m->kv_k4[l]->nb[3], off_s0);
+-            struct ggml_tensor * v_sets = ggml_view_4d(ctx, m->kv_v4[l], D, c.max_seq_len, Nkv, N, m->kv_v4[l]->nb[1],
+-                                                       m->kv_v4[l]->nb[2], m->kv_v4[l]->nb[3], off_s0);
+-            ggml_build_forward_expand(gf, ggml_set_rows(ctx, k_sets, k, kv_rows));
+-            ggml_build_forward_expand(gf, ggml_set_rows(ctx, v_sets, v, kv_rows));
+-
+-            struct ggml_tensor * k_batch = ggml_view_4d(ctx, m->kv_k4[l], D, n_kv_pad, Nkv, N, m->kv_k4[l]->nb[1],
+-                                                        m->kv_k4[l]->nb[2], m->kv_k4[l]->nb[3], off_s0);
+-            struct ggml_tensor * v_batch = ggml_view_4d(ctx, m->kv_v4[l], D, n_kv_pad, Nkv, N, m->kv_v4[l]->nb[1],
+-                                                        m->kv_v4[l]->nb[2], m->kv_v4[l]->nb[3], off_s0);
+-            float                scale   = 1.0f / sqrtf((float) D);
+-            struct ggml_tensor * attn_result =
+-                m->use_flash_attn ? ggml_flash_attn_ext(ctx, q, k_batch, v_batch, attn_mask, scale, 0.0f, 0.0f) :
+-                                    qwen3_attn_f32(ctx, q, k_batch, v_batch, attn_mask, scale);
+-            if (m->use_flash_attn) {
+-                ggml_prec_set_acc(attn_result, GGML_PREC_F32);
+-            }
+-            // [D, Nh, T, N] -> [Nh*D, T*N] (token order n*T + t, same as hidden)
+-            struct ggml_tensor * attn_cat = ggml_reshape_2d(ctx, attn_result, Nh * D, NT);
+-            hidden                        = ggml_add(ctx, hidden, qwen3_linear(ctx, ly->o_proj, attn_cat));
+-            if (m->clamp_fp16) {
+-                hidden = ggml_clamp(ctx, hidden, -65504.0f, 65504.0f);
+-            }
+-            norm   = qwen3_rms_norm(ctx, hidden, ly->post_attn_layernorm, c.rms_norm_eps);
+-            hidden = ggml_add(ctx, hidden, qwen3_build_mlp(ctx, ly, norm, NT));
+-            if (m->clamp_fp16) {
+-                hidden = ggml_clamp(ctx, hidden, -65504.0f, 65504.0f);
+-            }
++            hidden = qw3lm_build_layer_multi(ctx, gf, c, &m->layers[l], hidden, positions, attn_mask, kv_rows, m->kv_k4[l],
++                                             m->kv_v4[l], c.max_seq_len, s0, N, T, n_kv_pad, m->use_flash_attn,
++                                             m->clamp_fp16);
+         }
++        G.feat = hidden;  // pre-norm features [H, NT]
++        ggml_set_output(G.feat);
+         hidden                         = qwen3_rms_norm(ctx, hidden, m->final_norm, c.rms_norm_eps);
+         int                  out_V     = (lm_count > 0) ? lm_count : c.vocab_size;
+         struct ggml_tensor * lm_weight = m->embed_tokens;
+@@ -1092,6 +1134,9 @@ static void qw3lm_forward_verify(Qwen3LM *   m,
+     ggml_backend_tensor_set(G.attn_mask, G.mask_data.data(), 0, G.mask_data.size() * sizeof(uint16_t));
+     static_graph_compute(&G.graph, m->backend, m->sched, G.gf);
+     ggml_backend_tensor_get(G.lgt, logits, 0, (size_t) G.out_V * NT * sizeof(float));
++    if (feat_out) {
++        ggml_backend_tensor_get(G.feat, feat_out, 0, (size_t) c.hidden_size * NT * sizeof(float));
++    }
+     for (int n = 0; n < N; n++) {
+         m->kv_pos[s0 + n] += T;
+     }
+diff --git a/src/sushila-music-head.h b/src/sushila-music-head.h
+new file mode 100644
+index 0000000..a4b4bd9
+--- /dev/null
++++ b/src/sushila-music-head.h
+@@ -0,0 +1,214 @@
++// sushila-music-head.h : Sushila draft head for the ACE-Step song-writing LM (GGML)
++//
++// One Qwen3 decoder layer on top of the main LM (EAGLE-style feature drafting):
++// entry t takes the main LM's pre-norm last-layer feature f_t and the embedding
++// of token x_{t+1}, and predicts f_{t+1}; the main LM's final norm and partial
++// (audio code) head turn the prediction into the distribution of x_{t+2}.
++// It runs on the main LM's backend and reuses its embedding, final norm and head;
++// its own KV cache has one set per CFG branch (0 cond, 1 uncond).
++// Trained once per model by scripts/music/train_music_head.py.
++#pragma once
++
++#include "qwen3-lm.h"
++
++struct MusicHead {
++    Qwen3LM *            m;  // main LM (not owned)
++    struct ggml_tensor * fc;  // [2H, H]
++    Qwen3Layer           layer;
++    WeightCtx            wctx;
++
++    struct ggml_context * kv_ctx;
++    ggml_backend_buffer_t kv_buf;
++    struct ggml_tensor *  kv_k4;  // [D, max_seq, Nkv, 2]
++    struct ggml_tensor *  kv_v4;
++    int                   kv_pos[2];
++    int                   max_seq;
++
++    // two replayed graphs: single-entry drafting (T = 1) and multi-entry extend
++    GraphArena      arena[2];
++    Qw3lmGraphCache g[2];
++    int             key_T[2];
++    int             key_s0[2];
++    ggml_tensor *   feat_in_t[2];
++    ggml_tensor *   pick_t[2];
++};
++
++static bool mhead_load(MusicHead * h, Qwen3LM * m, const char * path) {
++    *h      = {};
++    h->m    = m;
++    GGUFModel gf;
++    if (!gf_load(&gf, path)) {
++        fprintf(stderr, "[MusicHead] cannot load %s\n", path);
++        return false;
++    }
++    wctx_init(&h->wctx, 16);
++    h->fc = gf_load_tensor(&h->wctx, gf, "fc.weight");
++    qwen3_load_layer(&h->wctx, gf, &h->layer, "model.layers.0", 1);
++    wctx_alloc(&h->wctx, m->backend);
++    gf_close(&gf);
++    if (!h->fc || h->fc->ne[0] != 2 * m->cfg.hidden_size || h->fc->ne[1] != m->cfg.hidden_size) {
++        fprintf(stderr, "[MusicHead] %s does not match this LM (hidden %d)\n", path, m->cfg.hidden_size);
++        return false;
++    }
++
++    const Qwen3LMConfig & c = m->cfg;
++    h->max_seq              = c.max_seq_len;
++    struct ggml_init_params ip = { 4 * ggml_tensor_overhead(), NULL, true };
++    h->kv_ctx                  = ggml_init(ip);
++    h->kv_k4 = ggml_new_tensor_4d(h->kv_ctx, GGML_TYPE_F16, c.head_dim, h->max_seq, c.n_kv_heads, 2);
++    h->kv_v4 = ggml_new_tensor_4d(h->kv_ctx, GGML_TYPE_F16, c.head_dim, h->max_seq, c.n_kv_heads, 2);
++    h->kv_buf = ggml_backend_alloc_ctx_tensors(h->kv_ctx, m->backend);
++    if (!h->kv_buf) {
++        return false;
++    }
++    ggml_backend_buffer_clear(h->kv_buf, 0);
++    for (int i = 0; i < 2; i++) {
++        if (!graph_arena_init(&h->arena[i], 4096)) {
++            return false;
++        }
++    }
++    return true;
++}
++
++static void mhead_free(MusicHead * h) {
++    for (int i = 0; i < 2; i++) {
++        static_graph_release(&h->g[i].graph, h->m->sched);
++        graph_arena_free(&h->arena[i]);
++    }
++    if (h->kv_buf) {
++        ggml_backend_buffer_free(h->kv_buf);
++    }
++    if (h->kv_ctx) {
++        ggml_free(h->kv_ctx);
++    }
++    wctx_free(&h->wctx);
++    *h = {};
++}
++
++// Append T entries to each of the S branches: feats[(s*T + t) * H] (main LM
++// features or the head's own predictions) and tokens[s*T + t] (the token after
++// each feature's position). Writes the head's predicted features feat_out[(s*T + t) * H]
++// and, for entry `row` of every branch, the head-window logits into
++// logits[s * out_V]. Entries past `used` are padding (written, then rolled back).
++static void mhead_forward(MusicHead *   h,
++                          int           s0,
++                          const float * feats,
++                          const int *   tokens,
++                          int           S,
++                          int           T,
++                          int           used,
++                          int           row,
++                          float *       feat_out,
++                          float *       logits,
++                          int           lm_offset,
++                          int           lm_count) {
++    Qwen3LM *             m  = h->m;
++    const Qwen3LMConfig & c  = m->cfg;
++    const int             H  = c.hidden_size;
++    const int             NT = S * T;
++    const int             gi = T == 1 ? 0 : 1;
++
++    int max_kv_len = 0;
++    for (int s = s0; s < s0 + S; s++) {
++        int kl = h->kv_pos[s] + T;
++        if (kl > h->max_seq) {
++            fprintf(stderr, "[MusicHead] FATAL: kv_len %d > max_seq %d\n", kl, h->max_seq);
++            exit(1);
++        }
++        max_kv_len = kl > max_kv_len ? kl : max_kv_len;
++    }
++    const int kv_pad_raw = (int) GGML_PAD(max_kv_len, 256);
++    const int n_kv_pad   = kv_pad_raw < h->max_seq ? kv_pad_raw : h->max_seq;
++
++    // the main LM's replayed graphs keep their own allocators; only a scheduler
++    // fallback shares state, and the main LM releases those itself
++    Qw3lmGraphCache & G = h->g[gi];
++    const bool need_build = !G.built || G.key_n_kv_pad != n_kv_pad || G.key_N != S || h->key_T[gi] != T || h->key_s0[gi] != s0 ||
++                            G.key_lm_offset != lm_offset || G.key_lm_count != lm_count;
++    if (need_build) {
++        static_graph_release(&G.graph, m->sched);
++        G.built                   = false;
++        struct ggml_context * ctx = graph_arena_begin(&h->arena[gi]);
++        struct ggml_cgraph *  gf  = ggml_new_graph_custom(ctx, 4096, false);
++
++        struct ggml_tensor * feat_in = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, H, NT);
++        ggml_set_name(feat_in, "head_feat_in");
++        ggml_set_input(feat_in);
++        struct ggml_tensor * token_ids_t = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, NT);
++        ggml_set_input(token_ids_t);
++        struct ggml_tensor * positions = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, NT);
++        ggml_set_input(positions);
++        struct ggml_tensor * attn_mask = ggml_new_tensor_4d(ctx, GGML_TYPE_F16, n_kv_pad, T, 1, S);
++        ggml_set_input(attn_mask);
++        struct ggml_tensor * kv_rows = ggml_new_tensor_3d(ctx, GGML_TYPE_I64, T, 1, S);
++        ggml_set_input(kv_rows);
++        // the entry row whose logits are read: [1] index into NT, per branch
++        struct ggml_tensor * pick = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, S);
++        ggml_set_input(pick);
++
++        struct ggml_tensor * emb = ggml_get_rows(ctx, m->embed_tokens, token_ids_t);  // [H, NT]
++        struct ggml_tensor * x   = ggml_mul_mat(ctx, h->fc, ggml_concat(ctx, feat_in, emb, 0));
++        x = qw3lm_build_layer_multi(ctx, gf, c, &h->layer, x, positions, attn_mask, kv_rows, h->kv_k4, h->kv_v4,
++                                    h->max_seq, s0, S, T, n_kv_pad, m->use_flash_attn, m->clamp_fp16);
++        G.feat = x;  // predicted features [H, NT]
++        ggml_set_output(G.feat);
++        struct ggml_tensor * xs = ggml_get_rows(ctx, x, pick);  // [H, S]
++        xs                      = qwen3_rms_norm(ctx, xs, m->final_norm, c.rms_norm_eps);
++        struct ggml_tensor * lm_weight = (lm_count > 0 && m->lm_head_phase2) ? m->lm_head_phase2 : m->embed_tokens;
++        G.out_V                        = (lm_count > 0 && m->lm_head_phase2) ? lm_count : c.vocab_size;
++        G.lgt                          = ggml_mul_mat(ctx, lm_weight, xs);  // [out_V, S]
++        ggml_set_output(G.lgt);
++        ggml_build_forward_expand(gf, G.feat);
++        ggml_build_forward_expand(gf, G.lgt);
++        if (!static_graph_alloc(&G.graph, m->backend, m->sched, gf)) {
++            fprintf(stderr, "[MusicHead] FATAL: graph allocation failed (S=%d, T=%d)\n", S, T);
++            exit(1);
++        }
++        G.gf            = gf;
++        G.token_ids_t   = token_ids_t;
++        G.positions     = positions;
++        G.kv_rows       = kv_rows;
++        G.attn_mask     = attn_mask;
++        G.key_n_kv_pad  = n_kv_pad;
++        G.key_N         = S;
++        G.key_s0        = 0;
++        G.key_lm_offset = lm_offset;
++        G.key_lm_count  = lm_count;
++        h->key_T[gi]    = T;
++        h->key_s0[gi]   = s0;
++        h->feat_in_t[gi] = feat_in;
++        h->pick_t[gi]    = pick;
++        G.pos_data.resize((size_t) NT);
++        G.rows_data.resize((size_t) NT);
++        G.mask_data.resize((size_t) n_kv_pad * NT);
++        G.built = true;
++    }
++
++    ggml_backend_tensor_set(h->feat_in_t[gi], feats, 0, (size_t) H * NT * sizeof(float));
++    ggml_backend_tensor_set(G.token_ids_t, tokens, 0, (size_t) NT * sizeof(int));
++    std::vector<int> pick(S);
++    for (int s = 0; s < S; s++) {
++        int p0  = h->kv_pos[s0 + s];
++        pick[s] = s * T + row;
++        for (int t = 0; t < T; t++) {
++            G.pos_data[(size_t) s * T + t]  = p0 + t;
++            G.rows_data[(size_t) s * T + t] = (int64_t) (p0 + t);
++            uint16_t * mrow                 = G.mask_data.data() + ((size_t) s * T + t) * n_kv_pad;
++            for (int j = 0; j < n_kv_pad; j++) {
++                mrow[j] = ggml_fp32_to_fp16((j <= p0 + t) ? 0.0f : -INFINITY);
++            }
++        }
++    }
++    ggml_backend_tensor_set(G.positions, G.pos_data.data(), 0, (size_t) NT * sizeof(int));
++    ggml_backend_tensor_set(G.kv_rows, G.rows_data.data(), 0, (size_t) NT * sizeof(int64_t));
++    ggml_backend_tensor_set(G.attn_mask, G.mask_data.data(), 0, G.mask_data.size() * sizeof(uint16_t));
++    ggml_backend_tensor_set(h->pick_t[gi], pick.data(), 0, (size_t) S * sizeof(int));
++    static_graph_compute(&G.graph, m->backend, m->sched, G.gf);
++    if (feat_out) {
++        ggml_backend_tensor_get(G.feat, feat_out, 0, (size_t) H * NT * sizeof(float));
++    }
++    ggml_backend_tensor_get(G.lgt, logits, 0, (size_t) G.out_V * S * sizeof(float));
++    for (int s = s0; s < s0 + S; s++) {
++        h->kv_pos[s] += used;
++    }
++}
+diff --git a/tools/ace-server.cpp b/tools/ace-server.cpp
+index c555c79..8a8818a 100644
+--- a/tools/ace-server.cpp
++++ b/tools/ace-server.cpp
+@@ -1618,6 +1618,7 @@ static void usage(const char * prog) {
+             "  --max-seq <N>           KV cache size (default: %d)\n"
+             "\n"
+             "Sushila speculative decoding (audio codes):\n"
++            "  --lm-head <gguf>        Sushila music draft head (trained for the LM)\n"
+             "  --lm-draft <gguf>       Small LM of the same family that drafts codes\n"
+             "  --spec-k <N>            Drafted codes per round (default: 4)\n"
+             "\n"
+@@ -1678,6 +1679,8 @@ int main(int argc, char ** argv) {
+             g_synth_params.use_batch_cfg = false;
+         } else if (!strcmp(argv[i], "--lm-draft") && i + 1 < argc) {
+             g_lm_params.draft_path = argv[++i];
++        } else if (!strcmp(argv[i], "--lm-head") && i + 1 < argc) {
++            g_lm_params.head_path = argv[++i];
+         } else if (!strcmp(argv[i], "--spec-k") && i + 1 < argc) {
+             g_lm_params.spec_k = atoi(argv[++i]);
+         } else if (!strcmp(argv[i], "--clamp-fp16")) {
+-- 
+2.34.1
+

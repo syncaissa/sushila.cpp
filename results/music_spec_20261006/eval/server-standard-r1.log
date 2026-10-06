@@ -1,0 +1,335 @@
+[Server] Scanning models in /workspace/music/pack
+[Registry] Qwen3-Embedding-0.6B-Q8_0.gguf -> Text-Enc
+[Registry] acestep-5Hz-lm-4B-Q8_0.gguf -> LM
+[Registry] acestep-v15-turbo-Q8_0.gguf -> DiT
+[Registry] vae-BF16.gguf -> VAE
+[Store] Created (policy=NEVER)
+[Server] acestep.cpp 1d1acc9 (2026-10-06)
+[Server] Listening on 127.0.0.1:8097
+[Server] Pipelines: /lm /synth /understand
+[Server] Models: 1 LM, 1 Text-Enc, 1 DiT, 1 VAE, 0 Adapter
+[Server] Job 87f916dd1b9c17a8 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 24080 MiB):
+  Device 0: NVIDIA GeForce RTX 4090, compute capability 8.9, VMM: yes, VRAM: 24080 MiB
+[Load] LM backend: CUDA0 (CPU threads: 32)
+[GGUF] /workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf: 398 tensors, data at offset 5346304
+[LM-Config] 36L, H=2560, V=217204, Nh=32, Nkv=8, D=128, tied=1
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[WeightCtx] Loaded 398 tensors, 4245.7 MB into backend
+[LM-KV] Allocated 2 sets x 36 layers (4D batched), 2304.0 MB
+[Store] Load LM: 13574 ms
+[LM] Partial head: 65559 rows (151645..217204), 170.1 MB
+[BPE] Loaded from GGUF: 151643 vocab, 151387 merges
+[FSM] Prefix trees: bpm=301, dur=601, key=106, lang=53, tsig=5 nodes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 85 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 208ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 115.3 tok/s
+[LM-Phase1] Decode 1438ms
+[LM-Phase1 Batch0] seed=1945869230, 169 tokens
+[fill Batch0] seed=1945869230:
+bpm:86
+caption: A gentle and whimsical folk ballad opens with a delicate, music-box-like
+  kalimba melody and a whistled tune, creating a fairytale atmosphere. A warm, clear
+  male vocal enters, narrating a story over a bed of softly strummed acoustic guitar
+  and a simple, melodic bassline. The arrangement is enriched by an expressive, lyrical
+  violin that weaves in and out of the vocal phrases and takes center stage during
+  an extended, emotional instrumental break. The song maintains a gentle, narrative
+  pace throughout, concluding with a final, contemplative instrumental section that
+  fades into silence.
+duration: 110
+keyscale:F# minor
+language:no
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 86
+caption: A gentle and whimsical folk ballad opens with a delicate, music-box-like
+  kalimba melody and a whistled tune, creating a fairytale atmosphere. A warm, clear
+  male vocal enters, narrating a story over a bed of softly strummed acoustic guitar
+  and a simple, melodic bassline. The arrangement is enriched by an expressive, lyrical
+  violin that weaves in and out of the vocal phrases and takes center stage during
+  an extended, emotional instrumental break. The song maintains a gentle, narrative
+  pace throughout, concluding with a final, contemplative instrumental section that
+  fades into silence.
+duration: 60
+keyscale: F# minor
+language: no
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 35ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 96.5 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 101.3 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 103.0 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 200, 1 active, 201 total codes, 102.8 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 102.9 tok/s
+[LM-Phase2] Decode 2816ms
+[LM-Phase2 Batch0] seed=1945869230, 297 codes
+[Ace-LM] Total 4506ms | N=1 seed=1000
+[Server] Job 87f916dd1b9c17a8 done (LM, 1 results)
+[Server] Job 5e45e5a4eef95b38 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 83 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 119.7 tok/s
+[LM-Phase1] Decode 1175ms
+[LM-Phase1 Batch0] seed=2802299469, 141 tokens
+[fill Batch0] seed=2802299469:
+bpm:88
+caption: An anthemic synth-pop track driven by powerful electronic drums with gated
+  reverb on the snare and soaring synthesizer pads creating an epic wall of sound.
+  A clear, strong female lead vocal delivers an uplifting melody over bright arpeggiated
+  synths and a driving bassline. The production is spacious and polished, using heavy
+  delay and cavernous reverb to enhance its grand scale. After a brief atmospheric
+  breakdown featuring filtered vocals, the song concludes abruptly after a final echoed
+  phrase fades into silence.
+duration: 32
+keyscale:C major
+language:fr
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 88
+caption: An anthemic synth-pop track driven by powerful electronic drums with gated
+  reverb on the snare and soaring synthesizer pads creating an epic wall of sound.
+  A clear, strong female lead vocal delivers an uplifting melody over bright arpeggiated
+  synths and a driving bassline. The production is spacious and polished, using heavy
+  delay and cavernous reverb to enhance its grand scale. After a brief atmospheric
+  breakdown featuring filtered vocals, the song concludes abruptly after a final echoed
+  phrase fades into silence.
+duration: 60
+keyscale: C major
+language: fr
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 30ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 90.1 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 93.9 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 96.2 tok/s
+[LM-Phase2] Step 200, 1 active, 201 total codes, 98.2 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 250, 1 active, 251 total codes, 98.0 tok/s
+[LM-Phase2] Decode 3018ms
+[LM-Phase2 Batch0] seed=2802299469, 296 codes
+[Ace-LM] Total 4245ms | N=1 seed=1001
+[Server] Job 5e45e5a4eef95b38 done (LM, 1 results)
+[Server] Job e1ef8c29790a982e created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 85 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 120.2 tok/s
+[LM-Phase1] Decode 1181ms
+[LM-Phase1 Batch0] seed=2655659556, 142 tokens
+[fill Batch0] seed=2655659556:
+bpm:81
+caption: An anthemic modern rock track driven by powerful, heavily distorted electric
+  guitars playing chunky power chords over a punchy acoustic drum kit and a solid
+  bassline. A clear male tenor vocal delivers an emotional melody with significant
+  grit, soaring into layered harmonies during the expansive chorus sections. The song
+  maintains high energy throughout its verse-chorus structure before transitioning
+  into a brief atmospheric breakdown where clean guitar arpeggios and subtle synth
+  pads create space for a more reflective moment that fades out abruptly.
+duration: 60
+keyscale:D major
+language:fr
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 81
+caption: An anthemic modern rock track driven by powerful, heavily distorted electric
+  guitars playing chunky power chords over a punchy acoustic drum kit and a solid
+  bassline. A clear male tenor vocal delivers an emotional melody with significant
+  grit, soaring into layered harmonies during the expansive chorus sections. The song
+  maintains high energy throughout its verse-chorus structure before transitioning
+  into a brief atmospheric breakdown where clean guitar arpeggios and subtle synth
+  pads create space for a more reflective moment that fades out abruptly.
+duration: 60
+keyscale: D major
+language: fr
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 30ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 97.1 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 102.4 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 101.3 tok/s
+[LM-Phase2] Step 200, 1 active, 201 total codes, 98.6 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 250, 1 active, 251 total codes, 98.4 tok/s
+[LM-Phase2] Decode 2971ms
+[LM-Phase2 Batch0] seed=2655659556, 296 codes
+[Ace-LM] Total 4202ms | N=1 seed=1002
+[Server] Job e1ef8c29790a982e done (LM, 1 results)
+[Server] Job 39706736a39a8203 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 86 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 11ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 118.6 tok/s
+[LM-Phase1] Decode 1211ms
+[LM-Phase1 Batch0] seed=4046043635, 144 tokens
+[fill Batch0] seed=4046043635:
+bpm:86
+caption: A gentle jazz ballad featuring an intimate female vocal performance over
+  a classic trio arrangement. The track is led by a warm acoustic piano playing thoughtful
+  chords and melodic fills with a touch of reverb for space. A subtle upright bass
+  provides a steady walking line while brushed drums create a soft, swinging rhythm
+  characteristic of lounge music. The vocalist's delivery is clear, breathy, and melancholic,
+  conveying a sense of quiet reflection before transitioning into brief, expressive
+  ad-libs that fade out at the end.
+duration: 39
+keyscale:C# minor
+language:fr
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 86
+caption: A gentle jazz ballad featuring an intimate female vocal performance over
+  a classic trio arrangement. The track is led by a warm acoustic piano playing thoughtful
+  chords and melodic fills with a touch of reverb for space. A subtle upright bass
+  provides a steady walking line while brushed drums create a soft, swinging rhythm
+  characteristic of lounge music. The vocalist's delivery is clear, breathy, and melancholic,
+  conveying a sense of quiet reflection before transitioning into brief, expressive
+  ad-libs that fade out at the end.
+duration: 60
+keyscale: C# minor
+language: fr
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 30ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 94.3 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 94.9 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 95.9 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 200, 1 active, 201 total codes, 97.2 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 97.5 tok/s
+[LM-Phase2] Step 300, 0 active, 300 total codes, 99.6 tok/s
+[LM-Phase2] Decode 3013ms
+[LM-Phase2 Batch0] seed=4046043635, 300 codes
+[Ace-LM] Total 4273ms | N=1 seed=1003
+[Server] Job 39706736a39a8203 done (LM, 1 results)
+[Server] Job ccb9b13b6a189871 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 83 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 120.5 tok/s
+[LM-Phase1] Decode 1414ms
+[LM-Phase1 Batch0] seed=4117222864, 171 tokens
+[fill Batch0] seed=4117222864:
+bpm:88
+caption: A classic reggae track built on a relaxed one-drop drum groove with prominent
+  rimshots soaked in spring reverb. A deep, melodic bassline anchors the song, while
+  an electric guitar plays clean, staccato 'skank' chords that echo through a dub-style
+  delay. The smooth male lead vocal has a gentle delivery, layered over subtle organ
+  pads. The chorus expands into harmonized group vocals for a communal feel before
+  transitioning to a brief section featuring a filtered, telephone-like vocal effect.
+  An instrumental break highlights more expressive guitar licks soaked in effects,
+  maintaining the laid-back, beachy vibe throughout its vintage-sounding production.
+duration: 66
+keyscale:A minor
+language:no
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 88
+caption: A classic reggae track built on a relaxed one-drop drum groove with prominent
+  rimshots soaked in spring reverb. A deep, melodic bassline anchors the song, while
+  an electric guitar plays clean, staccato 'skank' chords that echo through a dub-style
+  delay. The smooth male lead vocal has a gentle delivery, layered over subtle organ
+  pads. The chorus expands into harmonized group vocals for a communal feel before
+  transitioning to a brief section featuring a filtered, telephone-like vocal effect.
+  An instrumental break highlights more expressive guitar licks soaked in effects,
+  maintaining the laid-back, beachy vibe throughout its vintage-sounding production.
+duration: 60
+keyscale: A minor
+language: no
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 36ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 87.4 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 89.8 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 150, 1 active, 151 total codes, 90.8 tok/s
+[LM-Phase2] Step 200, 1 active, 201 total codes, 91.4 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 91.4 tok/s
+[LM-Phase2] Decode 3217ms
+[LM-Phase2 Batch0] seed=4117222864, 299 codes
+[Ace-LM] Total 4690ms | N=1 seed=1004
+[Server] Job ccb9b13b6a189871 done (LM, 1 results)
+[Server] Job 4fd58a597160ac6d created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 83 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 116.6 tok/s
+[LM-Phase1] Decode 1415ms
+[LM-Phase1 Batch0] seed=1536227039, 165 tokens
+[fill Batch0] seed=1536227039:
+bpm:88
+caption: A grand, cinematic orchestral piece that opens with delicate piano arpeggios
+  before swelling into a full symphonic arrangement featuring soaring string sections,
+  powerful brass fanfares, and thunderous percussion including timpani rolls and cymbal
+  crashes. The track builds through multiple dynamic peaks, incorporating an epic
+  choir for added scale and intensity during its climactic moments. A brief, reflective
+  interlude features a poignant solo violin melody over gentle strings before the
+  music surges back to a final, triumphant crescendo. The piece concludes by returning
+  to the initial quiet piano motif, fading out peacefully.
+duration: 255
+keyscale:C minor
+language:la
+timesignature:6
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 88
+caption: A grand, cinematic orchestral piece that opens with delicate piano arpeggios
+  before swelling into a full symphonic arrangement featuring soaring string sections,
+  powerful brass fanfares, and thunderous percussion including timpani rolls and cymbal
+  crashes. The track builds through multiple dynamic peaks, incorporating an epic
+  choir for added scale and intensity during its climactic moments. A brief, reflective
+  interlude features a poignant solo violin melody over gentle strings before the
+  music surges back to a final, triumphant crescendo. The piece concludes by returning
+  to the initial quiet piano motif, fading out peacefully.
+duration: 60
+keyscale: C minor
+language: la
+timesignature: 6
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 31ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 91.0 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 91.2 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 98.0 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 200, 1 active, 201 total codes, 99.5 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 100.6 tok/s
+[LM-Phase2] Decode 2930ms
+[LM-Phase2 Batch0] seed=1536227039, 296 codes
+[Ace-LM] Total 4396ms | N=1 seed=1005
+[Server] Job 4fd58a597160ac6d done (LM, 1 results)

@@ -1,0 +1,240 @@
+From cf0c9f05bcca0f04394dec4efa9055682a4f2102 Mon Sep 17 00:00:00 2001
+From: Ubuntu <ubuntu@ip-172-31-15-84.ec2.internal>
+Date: Tue, 6 Oct 2026 03:30:02 +0000
+Subject: [PATCH 3/5] Sushila: fast nucleus sampler (histogram boundary, same
+ distribution), --fast-sampler
+
+---
+ src/pipeline-lm.cpp  | 125 ++++++++++++++++++++++++++++++-------------
+ src/pipeline-lm.h    |   1 +
+ tools/ace-server.cpp |   6 ++-
+ 3 files changed, 93 insertions(+), 39 deletions(-)
+
+diff --git a/src/pipeline-lm.cpp b/src/pipeline-lm.cpp
+index 3ccd836..ce54477 100644
+--- a/src/pipeline-lm.cpp
++++ b/src/pipeline-lm.cpp
+@@ -293,6 +293,11 @@ static int getpid_portable() { return _getpid(); }
+ static int getpid_portable() { return getpid(); }
+ #endif
+ 
++// Sushila: fast sampler (same distribution, no full sort); defined below.
++static bool g_sushila_fast_sampler = false;
++static void spec_probs(float * logits, int V, float temperature, float top_p, int top_k, float * p);
++static int  spec_draw(const float * p, int V, std::mt19937 & rng);
++
+ // Batched Phase 2: N sequences, one prompt and one seed per element.
+ // Identical prompts are detected and prefilled once with KV copies.
+ // Returns N code strings.
+@@ -527,8 +532,16 @@ static std::vector<std::string> run_phase2_batch(Qwen3LM *
+             }
+ 
+             // CPU samples instantly because it only has to sort ~2049 items instead of 150,000+
+-            int compact_tok =
+-                sample_top_k_p(compact_logits.data(), compact_V, temperature, top_p, top_k, seqs[orig_i].rng);
++            int compact_tok;
++            if (g_sushila_fast_sampler) {
++                static thread_local std::vector<float> pf;
++                pf.resize(compact_V);
++                spec_probs(compact_logits.data(), compact_V, temperature, top_p, top_k, pf.data());
++                compact_tok = spec_draw(pf.data(), compact_V, seqs[orig_i].rng);
++            } else {
++                compact_tok =
++                    sample_top_k_p(compact_logits.data(), compact_V, temperature, top_p, top_k, seqs[orig_i].rng);
++            }
+ 
+             // Map the sampled index back to global vocabulary ID
+             int tok = (compact_tok == 0) ? TOKEN_IM_END : (AUDIO_CODE_BASE + compact_tok - 1);
+@@ -641,6 +654,9 @@ static void spec_compact(const float * lc, const float * lu, bool use_cfg, float
+ // The distribution sample_top_k_p draws from (temperature -> top_k -> top_p ->
+ // softmax), as probabilities: logits are modified in place, p[V] filled.
+ static void spec_probs(float * logits, int V, float temperature, float top_p, int top_k, float * p) {
++    // Same distribution as sample_top_k_p without sorting the vocabulary: one
++    // exp pass, a histogram of log-probabilities over the [max - 16, max] window
++    // locates the nucleus boundary, and only the boundary bin is sorted.
+     if (temperature <= 0.0f) {
+         int a = (int) (std::max_element(logits, logits + V) - logits);
+         std::fill(p, p + V, 0.0f);
+@@ -648,11 +664,8 @@ static void spec_probs(float * logits, int V, float temperature, float top_p, in
+         return;
+     }
+     static thread_local std::vector<float>     tmp_buf;
+-    static thread_local std::vector<TokenProb> sorted_buf;
++    static thread_local std::vector<TokenProb> bin_buf;
+     float                                      inv_temp = 1.0f / temperature;
+-    for (int i = 0; i < V; i++) {
+-        logits[i] *= inv_temp;
+-    }
+     if (top_k > 0 && top_k < V) {
+         tmp_buf.assign(logits, logits + V);
+         std::nth_element(tmp_buf.begin(), tmp_buf.begin() + (top_k - 1), tmp_buf.end(), std::greater<float>());
+@@ -663,48 +676,81 @@ static void spec_probs(float * logits, int V, float temperature, float top_p, in
+             }
+         }
+     }
+-    if (top_p > 0.0f && top_p < 1.0f) {
+-        float max_logit = -INFINITY;
++    float max_logit = -INFINITY;
++    for (int i = 0; i < V; i++) {
++        logits[i] *= inv_temp;
++        max_logit = std::max(max_logit, logits[i]);
++    }
++    const bool nucleus = top_p > 0.0f && top_p < 1.0f;
++    if (!nucleus) {
++        double sum = 0.0;
+         for (int i = 0; i < V; i++) {
+-            max_logit = std::max(max_logit, logits[i]);
++            p[i] = expf(logits[i] - max_logit);
++            sum += p[i];
+         }
+-        float sum_exp = 0.0f;
++        float inv = (float) (1.0 / sum);
+         for (int i = 0; i < V; i++) {
+-            sum_exp += expf(logits[i] - max_logit);
++            p[i] *= inv;
+         }
+-        float inv_sum = 1.0f / sum_exp;
+-        float cutoff  = max_logit - 16.0f;
+-        sorted_buf.clear();
+-        for (int i = 0; i < V; i++) {
+-            if (logits[i] >= cutoff) {
+-                sorted_buf.push_back({ i, expf(logits[i] - max_logit) * inv_sum });
+-            } else {
+-                logits[i] = -INFINITY;
+-            }
++        return;
++    }
++    // exp once; the cumsum is normalised over the full vocabulary (sample_top_k_p),
++    // and tokens below max - 16 never enter the nucleus
++    constexpr int NB = 2048;
++    double        bin_mass[NB] = {};
++    double        full         = 0.0;
++    const float   scale        = NB / 16.0f;
++    for (int i = 0; i < V; i++) {
++        float d = max_logit - logits[i];
++        float e = expf(-d);
++        full += e;
++        if (d <= 16.0f) {
++            int b = std::min(NB - 1, (int) (d * scale));
++            bin_mass[b] += e;
++            p[i] = e;
++        } else {
++            p[i] = 0.0f;
+         }
+-        int K = (int) sorted_buf.size();
+-        if (K > 0) {
+-            std::sort(sorted_buf.begin(), sorted_buf.end(),
+-                      [](const TokenProb & a, const TokenProb & b) { return a.prob > b.prob; });
+-            float cum = 0.0f;
+-            for (int i = 0; i < K; i++) {
+-                if (i > 0 && cum >= top_p) {
+-                    logits[sorted_buf[i].id] = -INFINITY;
+-                }
+-                cum += sorted_buf[i].prob;
+-            }
++    }
++    // boundary bin: the first bin whose inclusion reaches top_p
++    const double target = top_p * full;
++    double       cum    = 0.0;
++    int          bb     = NB - 1;
++    for (int b = 0; b < NB; b++) {
++        if (cum + bin_mass[b] >= target) {
++            bb = b;
++            break;
+         }
++        cum += bin_mass[b];
+     }
+-    float max_val = -INFINITY;
++    // bins above the boundary are in; inside the boundary bin, tokens in descending
++    // order while the mass before them is below top_p (always at least one token)
++    bin_buf.clear();
++    double kept = 0.0;
+     for (int i = 0; i < V; i++) {
+-        max_val = std::max(max_val, logits[i]);
++        if (p[i] == 0.0f) {
++            continue;
++        }
++        int b = std::min(NB - 1, (int) ((max_logit - logits[i]) * scale));
++        if (b < bb) {
++            kept += p[i];
++        } else if (b == bb) {
++            bin_buf.push_back({ i, p[i] });
++            p[i] = 0.0f;
++        } else {
++            p[i] = 0.0f;
++        }
+     }
+-    double sum = 0.0;
+-    for (int i = 0; i < V; i++) {
+-        p[i] = expf(logits[i] - max_val);
+-        sum += p[i];
++    std::sort(bin_buf.begin(), bin_buf.end(), [](const TokenProb & x, const TokenProb & y) { return x.prob > y.prob; });
++    for (size_t j = 0; j < bin_buf.size(); j++) {
++        if ((cum > 0.0 || j > 0) && cum >= target) {
++            break;
++        }
++        p[bin_buf[j].id] = bin_buf[j].prob;
++        kept += bin_buf[j].prob;
++        cum += bin_buf[j].prob;
+     }
+-    float inv = (float) (1.0 / sum);
++    float inv = (float) (1.0 / kept);
+     for (int i = 0; i < V; i++) {
+         p[i] *= inv;
+     }
+@@ -1223,6 +1269,7 @@ void ace_lm_default_params(AceLmParams * p) {
+     p->clamp_fp16    = false;
+     p->draft_path    = NULL;
+     p->head_path     = NULL;
++    p->fast_sampler  = false;
+     p->spec_k        = 4;
+ }
+ 
+@@ -1327,6 +1374,8 @@ int ace_lm_generate(AceLm *            ctx,
+         seeds[i] = (uint32_t) reqs[i].lm_seed;
+     }
+ 
++    g_sushila_fast_sampler = ctx->params.fast_sampler;
++
+     // Generation params: sampling configuration comes from the first request
+     // and applies to the whole batch.
+     float        temperature = first.lm_temperature;
+diff --git a/src/pipeline-lm.h b/src/pipeline-lm.h
+index 4334c97..18487fe 100644
+--- a/src/pipeline-lm.h
++++ b/src/pipeline-lm.h
+@@ -25,6 +25,7 @@ struct AceLmParams {
+     const char * draft_path;     // draft LM GGUF, NULL = off
+     const char * head_path;      // music draft head GGUF (preferred over draft_path), NULL = off
+     int          spec_k;         // drafted codes per round
++    bool         fast_sampler;   // nucleus sampling without a full sort (same distribution)
+ };
+ 
+ void ace_lm_default_params(AceLmParams * p);
+diff --git a/tools/ace-server.cpp b/tools/ace-server.cpp
+index 8a8818a..00bafb6 100644
+--- a/tools/ace-server.cpp
++++ b/tools/ace-server.cpp
+@@ -1619,6 +1619,7 @@ static void usage(const char * prog) {
+             "\n"
+             "Sushila speculative decoding (audio codes):\n"
+             "  --lm-head <gguf>        Sushila music draft head (trained for the LM)\n"
++            "  --fast-sampler          Nucleus sampling without a full sort (same distribution)\n"
+             "  --lm-draft <gguf>       Small LM of the same family that drafts codes\n"
+             "  --spec-k <N>            Drafted codes per round (default: 4)\n"
+             "\n"
+@@ -1680,7 +1681,10 @@ int main(int argc, char ** argv) {
+         } else if (!strcmp(argv[i], "--lm-draft") && i + 1 < argc) {
+             g_lm_params.draft_path = argv[++i];
+         } else if (!strcmp(argv[i], "--lm-head") && i + 1 < argc) {
+-            g_lm_params.head_path = argv[++i];
++            g_lm_params.head_path    = argv[++i];
++            g_lm_params.fast_sampler = true;
++        } else if (!strcmp(argv[i], "--fast-sampler")) {
++            g_lm_params.fast_sampler = true;
+         } else if (!strcmp(argv[i], "--spec-k") && i + 1 < argc) {
+             g_lm_params.spec_k = atoi(argv[++i]);
+         } else if (!strcmp(argv[i], "--clamp-fp16")) {
+-- 
+2.34.1
+

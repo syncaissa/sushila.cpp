@@ -2,7 +2,7 @@
 # Build the Linux NVIDIA (CUDA) engine on a many-core RunPod CPU pod instead of GitHub's 4-core runner (6 h -> ~30 min).
 # Same sources, flags and packaging as ci/engine.yml's linux-x86_64-cuda job: Ubuntu 22.04 (glibc 2.35), CUDA 12.8,
 # GPU generations 75;80;86;89;90;120, static llama.cpp / stable-diffusion.cpp / acestep.cpp, CUDA runtime next to the programs.
-# Usage on the pod: V=0.1.0 SRC=/workspace/src bash build_linux_cuda.sh    (SRC = this repository's llama.cpp/ and LICENSE)
+# Usage on the pod: V=0.1.0 SRC=/workspace/src bash build_linux_cuda.sh    (SRC = this repository's llama.cpp/, hoststation/patches/ and LICENSE)
 # Output: /workspace/out/sushila-cpp-$V-linux-x86_64-cuda.tar.gz
 set -euo pipefail
 V=${V:-0.1.0}; SRC=${SRC:-/workspace/src}; B=/workspace/b; OUT=/workspace/out; mkdir -p $B $OUT
@@ -23,7 +23,7 @@ log "llama-server built"
 cmake -S $B/sdcpp -B $B/sdbuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSD_BUILD_EXAMPLES=ON -DSD_SERVER_BUILD_FRONTEND=OFF -DSD_CUDA=ON $CM > $B/cmake2.log
 cmake --build $B/sdbuild --config Release --target sd-server -j $J > $B/build2.log 2>&1
 log "sd-server built"
-[ -d $B/acecpp ] || { git clone -q --recursive https://github.com/ServeurpersoCom/acestep.cpp $B/acecpp && git -C $B/acecpp checkout -q 694ef0f2f7cbf1b8a45b061a1ff0a817f451420c && git -C $B/acecpp submodule update -q --init --recursive; }
+[ -d $B/acecpp ] || { git clone -q --recursive https://github.com/ServeurpersoCom/acestep.cpp $B/acecpp && git -C $B/acecpp checkout -q 694ef0f2f7cbf1b8a45b061a1ff0a817f451420c && git -C $B/acecpp submodule update -q --init --recursive && git -C $B/acecpp -c user.email=build@sushila.ai -c user.name=sushila-build am -q --whitespace=nowarn $SRC/hoststation/patches/acestep/*.patch; }
 cmake -S $B/acecpp -B $B/acebuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF $CM > $B/cmake3.log
 cmake --build $B/acebuild --config Release --target ace-server -j $J > $B/build3.log 2>&1
 log "ace-server built"

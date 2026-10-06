@@ -1,0 +1,609 @@
+[Server] Scanning models in /workspace/music/pack
+[Registry] Qwen3-Embedding-0.6B-Q8_0.gguf -> Text-Enc
+[Registry] acestep-5Hz-lm-4B-Q8_0.gguf -> LM
+[Registry] acestep-v15-turbo-Q8_0.gguf -> DiT
+[Registry] vae-BF16.gguf -> VAE
+[Store] Created (policy=NEVER)
+[Server] acestep.cpp 1d1acc9 (2026-10-06)
+[Server] Listening on 127.0.0.1:8097
+[Server] Pipelines: /lm /synth /understand
+[Server] Models: 1 LM, 1 Text-Enc, 1 DiT, 1 VAE, 0 Adapter
+[Server] Job b0876573f7e52894 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 24080 MiB):
+  Device 0: NVIDIA GeForce RTX 4090, compute capability 8.9, VMM: yes, VRAM: 24080 MiB
+[Load] LM backend: CUDA0 (CPU threads: 32)
+[GGUF] /workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf: 398 tensors, data at offset 5346304
+[LM-Config] 36L, H=2560, V=217204, Nh=32, Nkv=8, D=128, tied=1
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[WeightCtx] Loaded 398 tensors, 4245.7 MB into backend
+[LM-KV] Allocated 2 sets x 36 layers (4D batched), 2304.0 MB
+[Store] Load LM: 1248 ms
+[LM] Partial head: 65559 rows (151645..217204), 170.1 MB
+[BPE] Loaded from GGUF: 151643 vocab, 151387 merges
+[FSM] Prefix trees: bpm=301, dur=601, key=106, lang=53, tsig=5 nodes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 85 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 42ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 118.6 tok/s
+[LM-Phase1] Decode 1339ms
+[LM-Phase1 Batch0] seed=3927704798, 160 tokens
+[fill Batch0] seed=3927704798:
+bpm:88
+caption: A cheerful and whimsical folk tune driven by a bright, strummed ukulele and
+  a friendly male vocal. The arrangement is simple and acoustic, featuring a walking
+  acoustic bassline and light, shuffling percussion that establishes a gentle, danceable
+  rhythm. The song has a playful, story-like quality, highlighted by a lively fiddle
+  that enters for a melodic instrumental break, adding a touch of bluegrass or old-time
+  charm. The production is clean and direct, creating an intimate and warm atmosphere
+  perfect for a children's story or a lighthearted folk song.
+duration: 54
+keyscale:C major
+language:no
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 88
+caption: A cheerful and whimsical folk tune driven by a bright, strummed ukulele and
+  a friendly male vocal. The arrangement is simple and acoustic, featuring a walking
+  acoustic bassline and light, shuffling percussion that establishes a gentle, danceable
+  rhythm. The song has a playful, story-like quality, highlighted by a lively fiddle
+  that enters for a melodic instrumental break, adding a touch of bluegrass or old-time
+  charm. The production is clean and direct, creating an intimate and warm atmosphere
+  perfect for a children's story or a lighthearted folk song.
+duration: 60
+keyscale: C major
+language: no
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 37ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 138.7 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 143.3 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 145.3 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 200, 1 active, 201 total codes, 145.5 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 146.2 tok/s
+[LM-Phase2] Decode 2031ms
+[LM-Phase2 Batch0] seed=3927704798, 298 codes
+[Ace-LM] Total 3462ms | N=1 seed=1000
+[Server] Job b0876573f7e52894 done (LM, 1 results)
+[Server] Job 0ac9e3ba20856ee8 created (1 requests)
+[Server] Loading synth: DiT=acestep-v15-turbo-Q8_0.gguf VAE=vae-BF16.gguf
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[Synth-Load] Ready: turbo=yes, fa=yes, batch_cfg=yes
+[Resolve-Params] max audio codes across batch: 298 (59.6s @ 5Hz)
+[Resolve-T] T=1490, S=745
+[Resolve-T] seed=1000, steps=8, guidance=1.0, shift=3.0, duration=60.0s
+[BPE] Loaded from GGUF: 151643 vocab, 151387 merges
+[Load] TextEncoder backend: CUDA0 (shared)
+[GGUF] /workspace/music/pack/Qwen3-Embedding-0.6B-Q8_0.gguf: 310 tensors, data at offset 5337664
+[Load] TextEncoder: 28L, H=1024, Nh=16/8
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[WeightCtx] Loaded 310 tensors, 742.7 MB into backend
+[Store] Load TextEnc: 203 ms
+[Load] CondEncoder backend: CUDA0 (shared)
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[Load] LyricEncoder: 8L
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[Load] TimbreEncoder: 4L
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[WeightCtx] Loaded 140 tensors, 616.6 MB into backend
+[Load] CondEncoder: lyric(8L), timbre(4L), text_proj, null_cond
+[Store] Load CondEnc: 148 ms
+[CondEnc] Lyric sliding mask: 42x42, window=128
+[CondEnc] Timbre sliding mask: 1x1, window=128
+[Encode] Packed: lyric=42 + timbre=1 + text=170 = 213 tokens
+[Encode-Text Batch0] 170+42 tokens -> enc_S=213, 18.2 ms
+[Load] Detokenizer backend: CUDA0 (shared)
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[WeightCtx] Loaded 30 tensors, 106.5 MB into backend
+[Load] Detokenizer: FSQ(6->2048) + 2L encoder(S=5, 2048->64)
+[Store] Load FSQ-Detok: 31 ms
+CUDA Graph id 14 reused
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+CUDA Graph id 14 reused
+[Context] Decoded: 298 codes -> 1490 frames (59.6s @ 25Hz)
+[Build-Context Batch0] Detokenizer: 82.7 ms, 298 codes
+[Init-Noise Batch0] Philox noise seed=1000, [1490, 64] solver=euler
+[Init-Noise] Starting: T=1490, S=745, enc_S=213, steps=8, batch=1 (cover)
+[Load] DiT backend: CUDA0 (shared)
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[DiT] Self-attn: Q+K+V fused
+[DiT] Cross-attn: Q+K+V fused
+[DiT] MLP: gate+up fused
+[Load] null_condition_emb found (CFG available)
+[WeightCtx] Loaded 478 tensors, 1600.7 MB into backend
+[Load] DiT: 24 layers, H=2048, Nh=16/8, D=128
+[Store] Load DiT: 396 ms
+[DiT] Batch N=1, T=1490, S=745, enc_S=213
+[DiT] Graph: 1937 nodes
+[DiT] Solver: ODE Euler (1 NFE/step, order 1)
+[DiT] Step 1/8 t=1.000
+[Dedup] Previous line repeated 296 times total
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[DiT] Step 2/8 t=0.955
+[DiT] Step 3/8 t=0.900
+[DiT] Step 4/8 t=0.833
+[DiT] Step 5/8 t=0.750
+[DiT] Step 6/8 t=0.643
+[DiT] Step 7/8 t=0.500
+[DiT] Step 8/8 t=0.300
+[DiT-Generate] Total: 257.1 ms (257.1 ms/sample)
+[GGUF] /workspace/music/pack/vae-BF16.gguf: 365 tensors, data at offset 30048
+[Load] VAE backend: CUDA0 (shared)
+[VAE] Backend: CUDA0, Weight buffer: 161.1 MB
+[VAE] Loaded: 5 blocks, upsample=1920x, F32 activations
+[Store] Load VAE-Dec: 1277 ms
+[VAE] Tiled decode: 2 tiles (chunk=1024, overlap=64, stride=896)
+[VAE] Graph: 479 nodes, T_latent=960
+[VAE] Upsample factor: 1920.00 (expected ~1920)
+[VAE] Graph: 479 nodes, T_latent=658
+[VAE] Tiled decode done: 2 tiles -> T_audio=2860800 (59.60s @ 48kHz)
+[VAE-Decode Batch0] Decode: 497.6 ms
+[MP3] Encoding 59.6s @ 128 kbps, 48000 Hz stereo
+[MP3] 953856 bytes (12.0:1), 1694 ms (35.19x realtime), 29 threads
+[Server] Job 0ac9e3ba20856ee8 done (1 tracks)
+[Server] Job ec9db28b5c7e0686 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 83 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 116.4 tok/s
+[LM-Phase1] Decode 1305ms
+[LM-Phase1 Batch0] seed=533014425, 153 tokens
+[fill Batch0] seed=533014425:
+bpm:81
+caption: A dreamy synth-pop soundscape built on a foundation of a steady, clean drum
+  machine beat and a melodic synth bassline. Shimmering synth pads and arpeggiated
+  melodies create a spacious, atmospheric texture, enhanced by generous reverb. A
+  breathy, ethereal female lead vocal floats through the mix, supported by airy, layered
+  background harmonies that add to the track's nostalgic and introspective mood. The
+  song maintains a consistent mid-tempo groove, evoking a feeling of late-night driving
+  through a neon-lit city.
+duration: 62
+keyscale:F major
+language:fr
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 81
+caption: A dreamy synth-pop soundscape built on a foundation of a steady, clean drum
+  machine beat and a melodic synth bassline. Shimmering synth pads and arpeggiated
+  melodies create a spacious, atmospheric texture, enhanced by generous reverb. A
+  breathy, ethereal female lead vocal floats through the mix, supported by airy, layered
+  background harmonies that add to the track's nostalgic and introspective mood. The
+  song maintains a consistent mid-tempo groove, evoking a feeling of late-night driving
+  through a neon-lit city.
+duration: 60
+keyscale: F major
+language: fr
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 31ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 148.7 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 150.2 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 150.7 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 200, 1 active, 201 total codes, 149.8 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 149.6 tok/s
+[LM-Phase2] Decode 1895ms
+[LM-Phase2 Batch0] seed=533014425, 284 codes
+[Ace-LM] Total 3253ms | N=1 seed=1001
+[Server] Job ec9db28b5c7e0686 done (LM, 1 results)
+[Server] Job 7a6e4bd773fb7a9b created (1 requests)
+[Server] Loading synth: DiT=acestep-v15-turbo-Q8_0.gguf VAE=vae-BF16.gguf
+[Synth-Load] Ready: turbo=yes, fa=yes, batch_cfg=yes
+[Resolve-Params] max audio codes across batch: 284 (56.8s @ 5Hz)
+[Resolve-T] T=1420, S=710
+[Resolve-T] seed=1001, steps=8, guidance=1.0, shift=3.0, duration=60.0s
+[CondEnc] Lyric sliding mask: 43x43, window=128
+[CondEnc] Timbre sliding mask: 1x1, window=128
+[Encode] Packed: lyric=43 + timbre=1 + text=163 = 207 tokens
+[Encode-Text Batch0] 163+43 tokens -> enc_S=207, 2.9 ms
+CUDA Graph id 32 reused
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+CUDA Graph id 32 reused
+[Context] Decoded: 284 codes -> 1420 frames (56.8s @ 25Hz)
+[Build-Context Batch0] Detokenizer: 64.5 ms, 284 codes
+[Init-Noise Batch0] Philox noise seed=1001, [1420, 64] solver=euler
+[Init-Noise] Starting: T=1420, S=710, enc_S=207, steps=8, batch=1 (cover)
+[DiT] Batch N=1, T=1420, S=710, enc_S=207
+[DiT] Graph: 1937 nodes
+[DiT] Solver: ODE Euler (1 NFE/step, order 1)
+[DiT] Step 1/8 t=1.000
+[Dedup] Previous line repeated 282 times total
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[DiT] Step 2/8 t=0.955
+[DiT] Step 3/8 t=0.900
+[DiT] Step 4/8 t=0.833
+[DiT] Step 5/8 t=0.750
+[DiT] Step 6/8 t=0.643
+[DiT] Step 7/8 t=0.500
+[DiT] Step 8/8 t=0.300
+[DiT-Generate] Total: 162.3 ms (162.3 ms/sample)
+[VAE] Tiled decode: 2 tiles (chunk=1024, overlap=64, stride=896)
+[VAE] Graph: 479 nodes, T_latent=960
+[VAE] Upsample factor: 1920.00 (expected ~1920)
+[VAE] Graph: 479 nodes, T_latent=588
+[VAE] Tiled decode done: 2 tiles -> T_audio=2726400 (56.80s @ 48kHz)
+[VAE-Decode Batch0] Decode: 417.1 ms
+[MP3] Encoding 56.8s @ 128 kbps, 48000 Hz stereo
+[MP3] 908928 bytes (12.0:1), 1715 ms (33.12x realtime), 28 threads
+[Server] Job 7a6e4bd773fb7a9b done (1 tracks)
+[Server] Job f67963e253ffe982 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 85 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 14ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 118.0 tok/s
+[LM-Phase1] Decode 1047ms
+[LM-Phase1 Batch0] seed=2272001669, 124 tokens
+[fill Batch0] seed=2272001669:
+bpm:83
+caption: An explosive burst of modern metalcore kicks off with heavily distorted,
+  chugging guitars playing tight, syncopated riffs over rapid-fire double-kick drumming.
+  A high-pitched, strained male vocal enters immediately, delivering an anthemic scream-singing
+  melody that cuts through the dense instrumental wall. The production is polished
+  yet aggressive, creating a powerful wall-of-sound characteristic of contemporary
+  post-hardcore or melodic metal.
+duration: 31
+keyscale:A major
+language:fr
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 83
+caption: An explosive burst of modern metalcore kicks off with heavily distorted,
+  chugging guitars playing tight, syncopated riffs over rapid-fire double-kick drumming.
+  A high-pitched, strained male vocal enters immediately, delivering an anthemic scream-singing
+  melody that cuts through the dense instrumental wall. The production is polished
+  yet aggressive, creating a powerful wall-of-sound characteristic of contemporary
+  post-hardcore or melodic metal.
+duration: 60
+keyscale: A major
+language: fr
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 28ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 150.4 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 151.9 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 152.3 tok/s
+[LM-Phase2] Step 200, 1 active, 201 total codes, 152.5 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 250, 1 active, 251 total codes, 151.8 tok/s
+[LM-Phase2] Decode 1970ms
+[LM-Phase2 Batch0] seed=2272001669, 299 codes
+[Ace-LM] Total 3070ms | N=1 seed=1002
+[Server] Job f67963e253ffe982 done (LM, 1 results)
+[Server] Job 5418a52f20cc8f1b created (1 requests)
+[Server] Loading synth: DiT=acestep-v15-turbo-Q8_0.gguf VAE=vae-BF16.gguf
+[Synth-Load] Ready: turbo=yes, fa=yes, batch_cfg=yes
+[Resolve-Params] max audio codes across batch: 299 (59.8s @ 5Hz)
+[Resolve-T] T=1496, S=748
+[Resolve-T] seed=1002, steps=8, guidance=1.0, shift=3.0, duration=60.0s
+[CondEnc] Lyric sliding mask: 43x43, window=128
+[CondEnc] Timbre sliding mask: 1x1, window=128
+[Encode] Packed: lyric=43 + timbre=1 + text=138 = 182 tokens
+[Encode-Text Batch0] 138+43 tokens -> enc_S=182, 2.4 ms
+CUDA Graph id 50 reused
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+CUDA Graph id 50 reused
+[Context] Decoded: 299 codes -> 1495 frames (59.8s @ 25Hz)
+[Build-Context Batch0] Detokenizer: 67.0 ms, 299 codes
+[Init-Noise Batch0] Philox noise seed=1002, [1496, 64] solver=euler
+[Init-Noise] Starting: T=1496, S=748, enc_S=182, steps=8, batch=1 (cover)
+[DiT] Batch N=1, T=1496, S=748, enc_S=182
+[DiT] Graph: 1937 nodes
+[DiT] Solver: ODE Euler (1 NFE/step, order 1)
+[DiT] Step 1/8 t=1.000
+[Dedup] Previous line repeated 297 times total
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[DiT] Step 2/8 t=0.955
+[DiT] Step 3/8 t=0.900
+[DiT] Step 4/8 t=0.833
+[DiT] Step 5/8 t=0.750
+[DiT] Step 6/8 t=0.643
+[DiT] Step 7/8 t=0.500
+[DiT] Step 8/8 t=0.300
+[DiT-Generate] Total: 163.9 ms (163.9 ms/sample)
+[VAE] Tiled decode: 2 tiles (chunk=1024, overlap=64, stride=896)
+[VAE] Graph: 479 nodes, T_latent=960
+[VAE] Upsample factor: 1920.00 (expected ~1920)
+[VAE] Graph: 479 nodes, T_latent=664
+[VAE] Tiled decode done: 2 tiles -> T_audio=2872320 (59.84s @ 48kHz)
+[VAE-Decode Batch0] Decode: 439.0 ms
+[MP3] Encoding 59.8s @ 128 kbps, 48000 Hz stereo
+[MP3] 957696 bytes (12.0:1), 1353 ms (44.23x realtime), 29 threads
+[Server] Job 5418a52f20cc8f1b done (1 tracks)
+[Server] Job 2d3241e296819001 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 86 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 16ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 114.5 tok/s
+[LM-Phase1] Decode 1374ms
+[LM-Phase1 Batch0] seed=619743968, 159 tokens
+[fill Batch0] seed=619743968:
+bpm:81
+caption: An intimate jazz ballad opens with gentle piano chords and an upright bass
+  providing a warm foundation. A female vocalist enters with a clear, breathy delivery
+  reminiscent of classic torch singers, her voice carrying a touch of melancholy over
+  subtle brushed drums that create a soft swing feel. The arrangement builds to an
+  expressive instrumental section led by a lyrical and emotive saxophone solo filled
+  with tasteful runs and vibrato. Following the solo, the song returns to its quiet,
+  introspective vocal theme before concluding with wordless humming vocals fading
+  out alongside the final piano notes.
+duration: 169
+keyscale:A♭ major
+language:fr
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 81
+caption: An intimate jazz ballad opens with gentle piano chords and an upright bass
+  providing a warm foundation. A female vocalist enters with a clear, breathy delivery
+  reminiscent of classic torch singers, her voice carrying a touch of melancholy over
+  subtle brushed drums that create a soft swing feel. The arrangement builds to an
+  expressive instrumental section led by a lyrical and emotive saxophone solo filled
+  with tasteful runs and vibrato. Following the solo, the song returns to its quiet,
+  introspective vocal theme before concluding with wordless humming vocals fading
+  out alongside the final piano notes.
+duration: 60
+keyscale: A♭ major
+language: fr
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 31ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 148.3 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 148.9 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 149.2 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 200, 1 active, 201 total codes, 148.6 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 148.5 tok/s
+[LM-Phase2] Decode 1992ms
+[LM-Phase2 Batch0] seed=619743968, 296 codes
+[Ace-LM] Total 3427ms | N=1 seed=1003
+[Server] Job 2d3241e296819001 done (LM, 1 results)
+[Server] Job b0411097e6e5ea77 created (1 requests)
+[Server] Loading synth: DiT=acestep-v15-turbo-Q8_0.gguf VAE=vae-BF16.gguf
+[Synth-Load] Ready: turbo=yes, fa=yes, batch_cfg=yes
+[Resolve-Params] max audio codes across batch: 296 (59.2s @ 5Hz)
+[Resolve-T] T=1480, S=740
+[Resolve-T] seed=1003, steps=8, guidance=1.0, shift=3.0, duration=60.0s
+[CondEnc] Lyric sliding mask: 44x44, window=128
+[CondEnc] Timbre sliding mask: 1x1, window=128
+[Encode] Packed: lyric=44 + timbre=1 + text=167 = 212 tokens
+[Encode-Text Batch0] 167+44 tokens -> enc_S=212, 3.0 ms
+CUDA Graph id 68 reused
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+CUDA Graph id 68 reused
+[Context] Decoded: 296 codes -> 1480 frames (59.2s @ 25Hz)
+[Build-Context Batch0] Detokenizer: 66.9 ms, 296 codes
+[Init-Noise Batch0] Philox noise seed=1003, [1480, 64] solver=euler
+[Init-Noise] Starting: T=1480, S=740, enc_S=212, steps=8, batch=1 (cover)
+[DiT] Batch N=1, T=1480, S=740, enc_S=212
+[DiT] Graph: 1937 nodes
+[DiT] Solver: ODE Euler (1 NFE/step, order 1)
+[DiT] Step 1/8 t=1.000
+[Dedup] Previous line repeated 294 times total
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[DiT] Step 2/8 t=0.955
+[DiT] Step 3/8 t=0.900
+[DiT] Step 4/8 t=0.833
+[DiT] Step 5/8 t=0.750
+[DiT] Step 6/8 t=0.643
+[DiT] Step 7/8 t=0.500
+[DiT] Step 8/8 t=0.300
+[DiT-Generate] Total: 164.2 ms (164.2 ms/sample)
+[VAE] Tiled decode: 2 tiles (chunk=1024, overlap=64, stride=896)
+[VAE] Graph: 479 nodes, T_latent=960
+[VAE] Upsample factor: 1920.00 (expected ~1920)
+[VAE] Graph: 479 nodes, T_latent=648
+[VAE] Tiled decode done: 2 tiles -> T_audio=2841600 (59.20s @ 48kHz)
+[VAE-Decode Batch0] Decode: 435.1 ms
+[MP3] Encoding 59.2s @ 128 kbps, 48000 Hz stereo
+[MP3] 947328 bytes (12.0:1), 1958 ms (30.24x realtime), 29 threads
+[Server] Job b0411097e6e5ea77 done (1 tracks)
+[Server] Job 0cf4195df0aff5c2 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 83 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 13ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 117.1 tok/s
+[LM-Phase1] Decode 1277ms
+[LM-Phase1 Batch0] seed=2992357469, 150 tokens
+[fill Batch0] seed=2992357469:
+bpm:88
+caption: A classic reggae track built on an infectious one-drop drum groove with prominent
+  rimshots soaked in spring reverb. A deep, melodic bassline anchors the song while
+  clean electric guitars play syncopated skank chords that bounce through a noticeable
+  delay effect. A bubbly organ provides harmonic texture throughout. The lead male
+  vocal is smooth and relaxed, delivering lyrics about a sunny day at the coast before
+  transitioning into a catchy 'na na na' scat section followed by harmonized backing
+  vocals chanting key phrases like 'Eazy now'.
+duration: 78
+keyscale:D major
+language:pa
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 88
+caption: A classic reggae track built on an infectious one-drop drum groove with prominent
+  rimshots soaked in spring reverb. A deep, melodic bassline anchors the song while
+  clean electric guitars play syncopated skank chords that bounce through a noticeable
+  delay effect. A bubbly organ provides harmonic texture throughout. The lead male
+  vocal is smooth and relaxed, delivering lyrics about a sunny day at the coast before
+  transitioning into a catchy 'na na na' scat section followed by harmonized backing
+  vocals chanting key phrases like 'Eazy now'.
+duration: 60
+keyscale: D major
+language: pa
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 30ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 148.1 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 149.7 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 150.2 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 200, 1 active, 201 total codes, 149.5 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 149.5 tok/s
+[LM-Phase2] Step 300, 0 active, 300 total codes, 149.5 tok/s
+[LM-Phase2] Decode 2006ms
+[LM-Phase2 Batch0] seed=2992357469, 300 codes
+[Ace-LM] Total 3340ms | N=1 seed=1004
+[Server] Job 0cf4195df0aff5c2 done (LM, 1 results)
+[Server] Job 28bce1728150067f created (1 requests)
+[Server] Loading synth: DiT=acestep-v15-turbo-Q8_0.gguf VAE=vae-BF16.gguf
+[Synth-Load] Ready: turbo=yes, fa=yes, batch_cfg=yes
+[Resolve-Params] max audio codes across batch: 300 (60.0s @ 5Hz)
+[Resolve-T] T=1500, S=750
+[Resolve-T] seed=1004, steps=8, guidance=1.0, shift=3.0, duration=60.0s
+[CondEnc] Lyric sliding mask: 42x42, window=128
+[CondEnc] Timbre sliding mask: 1x1, window=128
+[Encode] Packed: lyric=42 + timbre=1 + text=160 = 203 tokens
+[Encode-Text Batch0] 160+42 tokens -> enc_S=203, 2.4 ms
+CUDA Graph id 86 reused
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+CUDA Graph id 86 reused
+[Context] Decoded: 300 codes -> 1500 frames (60.0s @ 25Hz)
+[Build-Context Batch0] Detokenizer: 67.7 ms, 300 codes
+[Init-Noise Batch0] Philox noise seed=1004, [1500, 64] solver=euler
+[Init-Noise] Starting: T=1500, S=750, enc_S=203, steps=8, batch=1 (cover)
+[DiT] Batch N=1, T=1500, S=750, enc_S=203
+[DiT] Graph: 1937 nodes
+[DiT] Solver: ODE Euler (1 NFE/step, order 1)
+[DiT] Step 1/8 t=1.000
+[Dedup] Previous line repeated 298 times total
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[DiT] Step 2/8 t=0.955
+[DiT] Step 3/8 t=0.900
+[DiT] Step 4/8 t=0.833
+[DiT] Step 5/8 t=0.750
+[DiT] Step 6/8 t=0.643
+[DiT] Step 7/8 t=0.500
+[DiT] Step 8/8 t=0.300
+[DiT-Generate] Total: 166.0 ms (166.0 ms/sample)
+[VAE] Tiled decode: 2 tiles (chunk=1024, overlap=64, stride=896)
+[VAE] Graph: 479 nodes, T_latent=960
+[VAE] Upsample factor: 1920.00 (expected ~1920)
+[VAE] Graph: 479 nodes, T_latent=668
+[VAE] Tiled decode done: 2 tiles -> T_audio=2880000 (60.00s @ 48kHz)
+[VAE-Decode Batch0] Decode: 441.2 ms
+[MP3] Encoding 60.0s @ 128 kbps, 48000 Hz stereo
+[MP3] 960000 bytes (12.0:1), 2156 ms (27.83x realtime), 29 threads
+[Server] Job 28bce1728150067f done (1 tracks)
+[Server] Job f472cb0621a25752 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=/workspace/music/pack/acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+[LM-Generate] mode=fill lyrics=keep metas=fill gaps | 83 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 15ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase1] Step 100, 1 active, 116.6 tok/s
+[LM-Phase1] Decode 1313ms
+[LM-Phase1 Batch0] seed=920862146, 154 tokens
+[fill Batch0] seed=920862146:
+bpm:81
+caption: An epic cinematic piece beginning with delicate piano arpeggios that establish
+  an emotional foundation. Lush string sections swell underneath, building tension
+  alongside powerful orchestral percussion including timpani rolls and cymbal crashes.
+  A soaring female operatic vocal enters, performing wordless vocalese ('oohs' and
+  'aahs') drenched in cavernous reverb. The arrangement reaches several dramatic climaxes
+  where layered choral vocals join the full orchestra for a massive wall of sound
+  before receding into quieter passages led by the initial piano motif.
+duration: 245
+keyscale:D major
+language:la
+timesignature:4
+</think>
+[LM-Phase2] N=1, CoT[0]:
+bpm: 81
+caption: An epic cinematic piece beginning with delicate piano arpeggios that establish
+  an emotional foundation. Lush string sections swell underneath, building tension
+  alongside powerful orchestral percussion including timpani rolls and cymbal crashes.
+  A soaring female operatic vocal enters, performing wordless vocalese ('oohs' and
+  'aahs') drenched in cavernous reverb. The arrangement reaches several dramatic climaxes
+  where layered choral vocals join the full orchestra for a massive wall of sound
+  before receding into quieter passages led by the initial piano motif.
+duration: 60
+keyscale: D major
+language: la
+timesignature: 4
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 30ms (shared, 1 cond + 1 uncond)
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 50, 1 active, 51 total codes, 148.2 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 149.9 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 150.8 tok/s
+ggml_backend_cuda_graph_compute: CUDA graph warmup reset
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[LM-Phase2] Step 200, 1 active, 201 total codes, 150.3 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 150.1 tok/s
+[LM-Phase2] Decode 1991ms
+[LM-Phase2 Batch0] seed=920862146, 299 codes
+[Ace-LM] Total 3360ms | N=1 seed=1005
+[Server] Job f472cb0621a25752 done (LM, 1 results)
+[Server] Job 2c61c13ab4f5213a created (1 requests)
+[Server] Loading synth: DiT=acestep-v15-turbo-Q8_0.gguf VAE=vae-BF16.gguf
+[Synth-Load] Ready: turbo=yes, fa=yes, batch_cfg=yes
+[Resolve-Params] max audio codes across batch: 299 (59.8s @ 5Hz)
+[Resolve-T] T=1496, S=748
+[Resolve-T] seed=1005, steps=8, guidance=1.0, shift=3.0, duration=60.0s
+[CondEnc] Lyric sliding mask: 41x41, window=128
+[CondEnc] Timbre sliding mask: 1x1, window=128
+[Encode] Packed: lyric=41 + timbre=1 + text=164 = 206 tokens
+[Encode-Text Batch0] 164+41 tokens -> enc_S=206, 2.4 ms
+CUDA Graph id 104 reused
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+CUDA Graph id 104 reused
+[Context] Decoded: 299 codes -> 1495 frames (59.8s @ 25Hz)
+[Build-Context Batch0] Detokenizer: 67.4 ms, 299 codes
+[Init-Noise Batch0] Philox noise seed=1005, [1496, 64] solver=euler
+[Init-Noise] Starting: T=1496, S=748, enc_S=206, steps=8, batch=1 (cover)
+[DiT] Batch N=1, T=1496, S=748, enc_S=206
+[DiT] Graph: 1937 nodes
+[DiT] Solver: ODE Euler (1 NFE/step, order 1)
+[DiT] Step 1/8 t=1.000
+[Dedup] Previous line repeated 297 times total
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[DiT] Step 2/8 t=0.955
+[DiT] Step 3/8 t=0.900
+[DiT] Step 4/8 t=0.833
+[DiT] Step 5/8 t=0.750
+[DiT] Step 6/8 t=0.643
+[DiT] Step 7/8 t=0.500
+[DiT] Step 8/8 t=0.300
+[DiT-Generate] Total: 164.3 ms (164.3 ms/sample)
+[VAE] Tiled decode: 2 tiles (chunk=1024, overlap=64, stride=896)
+[VAE] Graph: 479 nodes, T_latent=960
+[VAE] Upsample factor: 1920.00 (expected ~1920)
+[VAE] Graph: 479 nodes, T_latent=664
+[VAE] Tiled decode done: 2 tiles -> T_audio=2872320 (59.84s @ 48kHz)
+[VAE-Decode Batch0] Decode: 439.4 ms
+[MP3] Encoding 59.8s @ 128 kbps, 48000 Hz stereo
+[MP3] 957696 bytes (12.0:1), 1938 ms (30.87x realtime), 29 threads
+[Server] Job 2c61c13ab4f5213a done (1 tracks)

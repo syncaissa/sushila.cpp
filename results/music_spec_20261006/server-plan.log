@@ -1,0 +1,90 @@
+[Server] Scanning models in /workspace/music/pack
+[Registry] Qwen3-Embedding-0.6B-Q8_0.gguf -> Text-Enc
+[Registry] acestep-5Hz-lm-4B-Q8_0.gguf -> LM
+[Registry] acestep-v15-turbo-Q8_0.gguf -> DiT
+[Registry] vae-BF16.gguf -> VAE
+[Store] Created (policy=NEVER)
+[Server] acestep.cpp a887764 (2026-10-06)
+[Server] Listening on 127.0.0.1:8097
+[Server] Pipelines: /lm /synth /understand
+[Server] Models: 1 LM, 1 Text-Enc, 1 DiT, 1 VAE, 0 Adapter
+[Server] Job 8ca4b7af1886fcbc created (1 requests)
+[Server] Loading synth: DiT=acestep-v15-turbo-Q8_0.gguf VAE=vae-BF16.gguf
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[Synth-Load] Ready: turbo=yes, fa=yes, batch_cfg=yes
+[Resolve-Params] max audio codes across batch: 300 (60.0s @ 5Hz)
+[Resolve-T] T=1500, S=750
+[Resolve-T] seed=1000, steps=8, guidance=1.0, shift=3.0, duration=60.0s
+[BPE] Loaded from GGUF: 151643 vocab, 151387 merges
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 24080 MiB):
+  Device 0: NVIDIA GeForce RTX 4090, compute capability 8.9, VMM: yes, VRAM: 24080 MiB
+[Load] TextEncoder backend: CUDA0 (CPU threads: 32)
+[GGUF] /workspace/music/pack/Qwen3-Embedding-0.6B-Q8_0.gguf: 310 tensors, data at offset 5337664
+[Load] TextEncoder: 28L, H=1024, Nh=16/8
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[WeightCtx] Loaded 310 tensors, 742.7 MB into backend
+[Store] Load TextEnc: 493 ms
+[Load] CondEncoder backend: CUDA0 (shared)
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[Load] LyricEncoder: 8L
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[Load] TimbreEncoder: 4L
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[WeightCtx] Loaded 140 tensors, 616.6 MB into backend
+[Load] CondEncoder: lyric(8L), timbre(4L), text_proj, null_cond
+[Store] Load CondEnc: 153 ms
+[CondEnc] Lyric sliding mask: 42x42, window=128
+[CondEnc] Timbre sliding mask: 1x1, window=128
+[Encode] Packed: lyric=42 + timbre=1 + text=142 = 185 tokens
+[Encode-Text Batch0] 142+42 tokens -> enc_S=185, 97.3 ms
+[Load] Detokenizer backend: CUDA0 (shared)
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[WeightCtx] Loaded 30 tensors, 106.5 MB into backend
+[Load] Detokenizer: FSQ(6->2048) + 2L encoder(S=5, 2048->64)
+[Store] Load FSQ-Detok: 44 ms
+CUDA Graph id 8 reused
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+CUDA Graph id 8 reused
+[Context] Decoded: 300 codes -> 1500 frames (60.0s @ 25Hz)
+[Build-Context Batch0] Detokenizer: 145.1 ms, 300 codes
+[Init-Noise Batch0] Philox noise seed=1000, [1500, 64] solver=euler
+[Init-Noise] Starting: T=1500, S=750, enc_S=185, steps=8, batch=1 (cover)
+[Load] DiT backend: CUDA0 (shared)
+[GGUF] /workspace/music/pack/acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[DiT] Self-attn: Q+K+V fused
+[DiT] Cross-attn: Q+K+V fused
+[DiT] MLP: gate+up fused
+[Load] null_condition_emb found (CFG available)
+[WeightCtx] Loaded 478 tensors, 1600.7 MB into backend
+[Load] DiT: 24 layers, H=2048, Nh=16/8, D=128
+[Store] Load DiT: 388 ms
+[DiT] Batch N=1, T=1500, S=750, enc_S=185
+[DiT] Graph: 1937 nodes
+[DiT] Solver: ODE Euler (1 NFE/step, order 1)
+[DiT] Step 1/8 t=1.000
+[Dedup] Previous line repeated 298 times total
+ggml_backend_cuda_graph_compute: CUDA graph warmup complete
+[DiT] Step 2/8 t=0.955
+[DiT] Step 3/8 t=0.900
+[DiT] Step 4/8 t=0.833
+[DiT] Step 5/8 t=0.750
+[DiT] Step 6/8 t=0.643
+[DiT] Step 7/8 t=0.500
+[DiT] Step 8/8 t=0.300
+[DiT-Generate] Total: 264.2 ms (264.2 ms/sample)
+[GGUF] /workspace/music/pack/vae-BF16.gguf: 365 tensors, data at offset 30048
+[Load] VAE backend: CUDA0 (shared)
+[VAE] Backend: CUDA0, Weight buffer: 161.1 MB
+[VAE] Loaded: 5 blocks, upsample=1920x, F32 activations
+[Store] Load VAE-Dec: 1205 ms
+[VAE] Tiled decode: 2 tiles (chunk=1024, overlap=64, stride=896)
+[VAE] Graph: 479 nodes, T_latent=960
+[VAE] Upsample factor: 1920.00 (expected ~1920)
+[VAE] Graph: 479 nodes, T_latent=668
+[VAE] Tiled decode done: 2 tiles -> T_audio=2880000 (60.00s @ 48kHz)
+[VAE-Decode Batch0] Decode: 500.8 ms
+[Server] Job 8ca4b7af1886fcbc done (1 tracks)

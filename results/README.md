@@ -37,5 +37,6 @@ Each holds `summary.md` (speeds, steps, bootstrap intervals, GSM8K accuracy, loa
 | `cache_plan_zimage_20261006/` | **ours**: precomputed cache plan for Z-Image (sd.cpp, every computer) | held-out 1.10x, SSIM 0.978 |
 | `video_wan22_ti2v5b_20261006.json` | Wan 2.2 TI2V-5B video on an RTX 4090 (VideoGen, not released) | 480p 2 s 53 s; 480p 5 s 108 s; 720p 5 s 561 s (VAE decode 313 s) |
 | `cache_plan_wan_20261006/` | **ours**: precomputed cache plan for Wan 2.2 video | held-out 1.45x, frame SSIM 0.91 (slightly softer; uncached runs identical) |
+| `music_spec_20261006/` | **MusicGen Accelerated**: Sushila fast sampler in acestep.cpp (exact); draft LMs, music draft head, DiT reuse (all measured, off) | 60 s song 5.16 -> 4.05 s (1.27x); code decode 1.52x; head 24% acceptance (not used) |
 | `music_acestep_split_20261006/` | ACE-Step 1.5 (MusicGen) time split, RTX 4090 | 60 s song 7.5 s; its 4B LM is 60% (draft head / landscape could apply) |
 | `turbo_text_draft_20261006/` | small draft models for Accelerated text in sushila.cpp | slower for every pack except Qwen3-32B on GPU (1.30x): Accelerated stays off |

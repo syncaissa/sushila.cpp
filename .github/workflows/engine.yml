@@ -68,10 +68,11 @@ jobs:
           arch=""; [ -n "${{ matrix.cuda_arch }}" ] && arch="-DCMAKE_CUDA_ARCHITECTURES=${{ matrix.cuda_arch }}"
           cmake -S sdcpp -B sdbuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSD_BUILD_EXAMPLES=ON -DSD_SERVER_BUILD_FRONTEND=OFF $metal $extra ${arch:+"$arch"}
           cmake --build sdbuild --config Release --target sd-server -j 4
-      - name: Build the music engine (acestep.cpp ace-server, pinned)
+      - name: Build the music engine (acestep.cpp ace-server, pinned, with the Sushila patches)
         shell: bash
         run: |
           git clone --recursive https://github.com/ServeurpersoCom/acestep.cpp acecpp && git -C acecpp checkout 694ef0f2f7cbf1b8a45b061a1ff0a817f451420c && git -C acecpp submodule update --init --recursive
+          git -C acecpp -c user.email=build@sushila.ai -c user.name=sushila-build am --whitespace=nowarn "$GITHUB_WORKSPACE"/hoststation/patches/acestep/*.patch
           arch=""; [ -n "${{ matrix.cuda_arch }}" ] && arch="-DCMAKE_CUDA_ARCHITECTURES=${{ matrix.cuda_arch }}"
           cmake -S acecpp -B acebuild -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF ${{ matrix.cmake }} ${arch:+"$arch"}
           cmake --build acebuild --config Release --target ace-server -j 4

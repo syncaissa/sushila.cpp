@@ -1773,7 +1773,8 @@ const HOST_PACKS = [
     license: 'MIT', licenseUrl: 'https://huggingface.co/ACE-Step/Ace-Step1.5', artifacts: [],
     files: [['weights/acestep-v15-turbo-Q8_0.gguf', 'acestep-v15-turbo-Q8_0.gguf', 'weights'], ['weights/acestep-5Hz-lm-4B-Q8_0.gguf', 'acestep-5Hz-lm-4B-Q8_0.gguf', 'lm'],
       ['weights/Qwen3-Embedding-0.6B-Q8_0.gguf', 'Qwen3-Embedding-0.6B-Q8_0.gguf', 'text-encoder'], ['weights/vae-BF16.gguf', 'vae-BF16.gguf', 'vae']],
-    serve: { engine: 'music', model: 'acestep-v15-turbo-Q8_0.gguf', args: [] } },
+    // Accelerated: the Sushila fast sampler (same sampling distribution, song writing 1.34x faster on an RTX 4090; needs engine >= 0.1.1)
+    serve: { engine: 'music', model: 'acestep-v15-turbo-Q8_0.gguf', args: [], turboArgs: ['--fast-sampler'] } },
   { id: 'z-image-turbo', category: 'Images', kind: 'image', name: 'Z-Image-Turbo (image generation, 4-bit)', model: 'precomputed/z-image-turbo', minRamGB: 12,
     description: 'Photorealistic images from a text prompt in 8 steps (#1 open-weight image model on Artificial Analysis at release); English and Chinese text in images. Runs on most GPUs with 6 GB+, slower on CPU.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: [],

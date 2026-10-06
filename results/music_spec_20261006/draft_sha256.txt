@@ -1,0 +1,2 @@
+bdaf9e292d4470f31c19cafeaca1b74936a114667e3a85e5d33b65247e9908ec  /workspace/music/draft/acestep-5Hz-lm-0.6B-Q8_0.gguf
+726f99a82f050b32ebc5c5e36acaa9d7acd06bfe5e579a62b00e0d0d6d0b7ec6  /workspace/music/draft/acestep-5Hz-lm-1.7B-Q8_0.gguf

@@ -675,8 +675,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     // as Ollama or stock llama.cpp would run it (SUSHILA=0 turns the lookup off). Packs without precomputed files run Standard.
     // NVIDIA image packs: Accelerated is 768x768 in 6 steps (under a second on an RTX 4090); Standard the published 1024x1024, 8 steps.
     // Text packs: Accelerated = the output-layer landscape and/or a precomputed draft model (turboArgs, e.g. -md {pack}/draft.gguf),
-    // offered only where it was measured faster than Standard.
-    function canTurbo(p) { return p.engine === 'image-nunchaku' || ((p.engine || 'text') === 'text' && ((p.artifacts || []).length > 0 || (p.turboArgs || []).length > 0)); }
+    // offered only where it was measured faster than Standard. Music packs: Accelerated = the engine's fast sampler (turboArgs).
+    function canTurbo(p) { return p.engine === 'image-nunchaku' || (p.engine === 'music' && (p.turboArgs || []).length > 0) || ((p.engine || 'text') === 'text' && ((p.artifacts || []).length > 0 || (p.turboArgs || []).length > 0)); }
     async function setMode(id, mode) {
       const p = HOST.state.packs[id]; if (!p) return;
       if (mode === 'turbo' && !canTurbo(p)) throw new Error(`${p.name} has no precomputed files yet: Accelerated is not available.`);

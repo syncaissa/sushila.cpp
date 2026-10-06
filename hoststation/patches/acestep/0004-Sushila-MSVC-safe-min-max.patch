@@ -1,0 +1,106 @@
+From 487a6d3aa29ba82c10b853010468fe24e52e7ac3 Mon Sep 17 00:00:00 2001
+From: Ubuntu <ubuntu@ip-172-31-15-84.ec2.internal>
+Date: Tue, 6 Oct 2026 03:40:16 +0000
+Subject: [PATCH 4/5] Sushila: MSVC-safe min/max
+
+---
+ src/pipeline-lm.cpp | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/src/pipeline-lm.cpp b/src/pipeline-lm.cpp
+index ce54477..bdc3c52 100644
+--- a/src/pipeline-lm.cpp
++++ b/src/pipeline-lm.cpp
+@@ -679,7 +679,7 @@ static void spec_probs(float * logits, int V, float temperature, float top_p, in
+     float max_logit = -INFINITY;
+     for (int i = 0; i < V; i++) {
+         logits[i] *= inv_temp;
+-        max_logit = std::max(max_logit, logits[i]);
++        max_logit = (std::max)(max_logit, logits[i]);
+     }
+     const bool nucleus = top_p > 0.0f && top_p < 1.0f;
+     if (!nucleus) {
+@@ -705,7 +705,7 @@ static void spec_probs(float * logits, int V, float temperature, float top_p, in
+         float e = expf(-d);
+         full += e;
+         if (d <= 16.0f) {
+-            int b = std::min(NB - 1, (int) (d * scale));
++            int b = (std::min)(NB - 1, (int) (d * scale));
+             bin_mass[b] += e;
+             p[i] = e;
+         } else {
+@@ -731,7 +731,7 @@ static void spec_probs(float * logits, int V, float temperature, float top_p, in
+         if (p[i] == 0.0f) {
+             continue;
+         }
+-        int b = std::min(NB - 1, (int) ((max_logit - logits[i]) * scale));
++        int b = (std::min)(NB - 1, (int) ((max_logit - logits[i]) * scale));
+         if (b < bb) {
+             kept += p[i];
+         } else if (b == bb) {
+@@ -827,7 +827,7 @@ static std::vector<std::string> run_phase2_head(Qwen3LM *         m,
+     const bool use_cfg = cfg_scale > 1.0f;
+     const int  S       = use_cfg ? 2 : 1;
+     const int  CV      = AUDIO_CODE_COUNT + 1;
+-    spec_k             = std::max(1, std::min(spec_k, 16));
++    spec_k             = (std::max)(1, (std::min)(spec_k, 16));
+ 
+     std::string      cot = build_cot_yaml(a);
+     std::vector<int> pr[2];
+@@ -888,7 +888,7 @@ static std::vector<std::string> run_phase2_head(Qwen3LM *         m,
+             fprintf(stderr, "[LM-Head] Cancelled\n");
+             return {};
+         }
+-        const int k = std::min(spec_k, max_tokens - (int) codes.size());
++        const int k = (std::min)(spec_k, max_tokens - (int) codes.size());
+         // 1. draft with the head; its first distribution came with the last extend
+         Timer td;
+         int   hbase[2] = { hd->kv_pos[0], hd->kv_pos[1] };
+@@ -944,7 +944,7 @@ static std::vector<std::string> run_phase2_head(Qwen3LM *         m,
+             }
+             double z = 0.0;
+             for (int i = 0; i < CV; i++) {
+-                pbuf[i] = std::max(0.0f, p[i] - q[i]);
++                pbuf[i] = (std::max)(0.0f, p[i] - q[i]);
+                 z += pbuf[i];
+             }
+             if (z <= 0.0) {
+@@ -994,7 +994,7 @@ static std::vector<std::string> run_phase2_head(Qwen3LM *         m,
+         const int TE = K1;
+         for (int s = 0; s < S; s++) {
+             for (int t = 0; t < TE; t++) {
+-                int src = std::min(t, T - 1);
++                int src = (std::min)(t, T - 1);
+                 std::copy(vfeat.begin() + ((size_t) s * T + src) * H, vfeat.begin() + ((size_t) s * T + src + 1) * H,
+                           efeat.begin() + ((size_t) s * TE + t) * H);
+                 etok[(size_t) s * TE + t] = t < acc ? drafts[t] : next;
+@@ -1134,7 +1134,7 @@ static std::vector<std::string> run_phase2_spec(Qwen3LM *         m,
+             return {};
+         }
+         int remaining = max_tokens - (int) codes.size();
+-        int k         = std::min(spec_k, remaining);
++        int k         = (std::min)(spec_k, remaining);
+         // 1. draft k codes
+         Timer td;
+         int   dbase[2] = { d->kv_pos[0], d->kv_pos[1] };
+@@ -1196,7 +1196,7 @@ static std::vector<std::string> run_phase2_spec(Qwen3LM *         m,
+             // rejected: draw from the residual max(0, p - q)
+             double z = 0.0;
+             for (int i = 0; i < CV; i++) {
+-                pbuf[i] = std::max(0.0f, p[i] - q[i]);
++                pbuf[i] = (std::max)(0.0f, p[i] - q[i]);
+                 z += pbuf[i];
+             }
+             if (z <= 0.0) {
+@@ -1238,7 +1238,7 @@ static std::vector<std::string> run_phase2_spec(Qwen3LM *         m,
+             m->kv_pos[1] = ubase + 1 + acc;
+         }
+         for (int s = 0; s < S; s++) {
+-            d->kv_pos[s] = dbase[s] + (int) dpend.size() + std::min(acc, ke - 1);
++            d->kv_pos[s] = dbase[s] + (int) dpend.size() + (std::min)(acc, ke - 1);
+         }
+         last = next;
+         if (acc == ke) {
+-- 
+2.34.1
+

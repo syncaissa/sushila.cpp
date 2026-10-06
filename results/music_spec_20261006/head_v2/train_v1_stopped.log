@@ -1,0 +1,28 @@
+1146 training songs, 60 validation songs
+head layer initialised from the model's last layer; not in it: []
+  [check] mean probability of the drawn code under the model: 0.0736 (uniform would be 0.000015)
+before training: expected acceptance 0.000
+epoch 0 step 100 loss 1658.4482 0.24 s/step
+epoch 0 step 200 loss 1578.1707 0.20 s/step
+epoch 0 step 300 loss 1255.9705 0.18 s/step
+epoch 0 step 400 loss 1356.8110 0.17 s/step
+epoch 0 step 500 loss 1242.4214 0.17 s/step
+epoch 0 step 600 loss 1327.0446 0.16 s/step
+epoch 0 step 700 loss 1366.5059 0.16 s/step
+epoch 0 step 800 loss 1064.0437 0.16 s/step
+epoch 0 step 900 loss 1203.5405 0.16 s/step
+epoch 0 step 1000 loss 1408.6915 0.16 s/step
+  [check] mean probability of the drawn code under the model: 0.0736 (uniform would be 0.000015)
+step 1000: expected acceptance 0.185
+epoch 0 step 1100 loss 1022.4366 0.17 s/step
+epoch 1 step 1200 loss 1268.7051 0.16 s/step
+epoch 1 step 1300 loss 767.7874 0.16 s/step
+epoch 1 step 1400 loss 1314.7521 0.16 s/step
+epoch 1 step 1500 loss 1292.2729 0.16 s/step
+epoch 1 step 1600 loss 1292.8983 0.16 s/step
+epoch 1 step 1700 loss 1237.6625 0.16 s/step
+epoch 1 step 1800 loss 1117.4452 0.16 s/step
+epoch 1 step 1900 loss 1239.5717 0.16 s/step
+epoch 1 step 2000 loss 1124.1702 0.16 s/step
+  [check] mean probability of the drawn code under the model: 0.0736 (uniform would be 0.000015)
+step 2000: expected acceptance 0.214

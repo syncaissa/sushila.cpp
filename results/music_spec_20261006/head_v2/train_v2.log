@@ -1,0 +1,48 @@
+1146 training songs, 60 validation songs
+head layer initialised from the model's last layer; not in it: []
+  [check] mean probability of the drawn code under the model: 0.0736 (uniform would be 0.000015)
+before training: expected acceptance 0.000
+epoch 0 step 100 loss 21.8269 0.24 s/step
+epoch 0 step 200 loss 20.6692 0.20 s/step
+epoch 0 step 300 loss 21.3221 0.18 s/step
+epoch 0 step 400 loss 20.0649 0.17 s/step
+epoch 0 step 500 loss 20.8346 0.17 s/step
+epoch 0 step 600 loss 21.0285 0.16 s/step
+epoch 0 step 700 loss 19.7099 0.16 s/step
+epoch 0 step 800 loss 19.8228 0.16 s/step
+epoch 0 step 900 loss 21.1597 0.16 s/step
+epoch 0 step 1000 loss 20.5048 0.16 s/step
+  [check] mean probability of the drawn code under the model: 0.0736 (uniform would be 0.000015)
+step 1000: expected acceptance 0.215
+epoch 0 step 1100 loss 20.1235 0.17 s/step
+epoch 1 step 1200 loss 20.7354 0.16 s/step
+epoch 1 step 1300 loss 15.0621 0.16 s/step
+epoch 1 step 1400 loss 20.7056 0.16 s/step
+epoch 1 step 1500 loss 20.7695 0.16 s/step
+epoch 1 step 1600 loss 20.3728 0.16 s/step
+epoch 1 step 1700 loss 19.5121 0.16 s/step
+epoch 1 step 1800 loss 18.4402 0.16 s/step
+epoch 1 step 1900 loss 19.5750 0.16 s/step
+epoch 1 step 2000 loss 20.5167 0.16 s/step
+  [check] mean probability of the drawn code under the model: 0.0736 (uniform would be 0.000015)
+step 2000: expected acceptance 0.236
+epoch 1 step 2100 loss 19.9532 0.16 s/step
+epoch 1 step 2200 loss 19.9508 0.16 s/step
+epoch 2 step 2300 loss 19.5088 0.16 s/step
+epoch 2 step 2400 loss 17.4447 0.16 s/step
+epoch 2 step 2500 loss 17.8985 0.16 s/step
+epoch 2 step 2600 loss 16.9085 0.16 s/step
+epoch 2 step 2700 loss 18.4801 0.16 s/step
+epoch 2 step 2800 loss 16.1184 0.16 s/step
+epoch 2 step 2900 loss 19.3348 0.16 s/step
+epoch 2 step 3000 loss 17.8026 0.16 s/step
+  [check] mean probability of the drawn code under the model: 0.0736 (uniform would be 0.000015)
+step 3000: expected acceptance 0.242
+epoch 2 step 3100 loss 20.0114 0.16 s/step
+epoch 2 step 3200 loss 19.6533 0.16 s/step
+epoch 2 step 3300 loss 19.9275 0.16 s/step
+epoch 2 step 3400 loss 19.5098 0.16 s/step
+  [check] mean probability of the drawn code under the model: 0.0736 (uniform would be 0.000015)
+step 3438: expected acceptance 0.242
+  head.load_state_dict(torch.load(f'{a.out}/head.pt'))
+TRAIN_DONE best expected acceptance 0.242

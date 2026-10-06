@@ -1,0 +1,130 @@
+== server-fastsampler-r1.log
+[LM-Phase2] Decode 2012ms
+[Ace-LM] Total 3272ms | N=1 seed=1000
+[LM-Phase2] Decode 1989ms
+[Ace-LM] Total 3198ms | N=1 seed=1001
+[LM-Phase2] Decode 1990ms
+[Ace-LM] Total 3178ms | N=1 seed=1002
+[LM-Phase2] Decode 1986ms
+[Ace-LM] Total 3325ms | N=1 seed=1003
+[LM-Phase2] Decode 1962ms
+[Ace-LM] Total 3216ms | N=1 seed=1004
+[LM-Phase2] Decode 1970ms
+[Ace-LM] Total 3105ms | N=1 seed=1005
+== server-fastsampler-r2.log
+[LM-Phase2] Decode 2013ms
+[Ace-LM] Total 3322ms | N=1 seed=1000
+[LM-Phase2] Decode 1982ms
+[Ace-LM] Total 3301ms | N=1 seed=1001
+[LM-Phase2] Decode 1953ms
+[Ace-LM] Total 3027ms | N=1 seed=1002
+[LM-Phase2] Decode 2010ms
+[Ace-LM] Total 3147ms | N=1 seed=1003
+[LM-Phase2] Decode 1998ms
+[Ace-LM] Total 3362ms | N=1 seed=1004
+[LM-Phase2] Decode 1990ms
+[Ace-LM] Total 3554ms | N=1 seed=1005
+== server-head-k2-r1.log
+[LM-Head] Decode 2476ms, 299 codes, 120.8 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 131ms, verify 1888ms, accept/sample 216ms, extend 241ms
+[Ace-LM] Total 4301ms | N=1 seed=1000
+[LM-Head] Decode 2380ms, 296 codes, 124.4 codes/s | rounds 296, drafted 296, accepted 0 (0%), 1.00 codes/round | draft 133ms, verify 1849ms, accept/sample 204ms, extend 194ms
+[Ace-LM] Total 3604ms | N=1 seed=1001
+[LM-Head] Decode 2428ms, 299 codes, 123.2 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 140ms, verify 1882ms, accept/sample 209ms, extend 197ms
+[Ace-LM] Total 3785ms | N=1 seed=1002
+[LM-Head] Decode 2387ms, 299 codes, 125.3 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 132ms, verify 1859ms, accept/sample 203ms, extend 193ms
+[Ace-LM] Total 3434ms | N=1 seed=1003
+[LM-Head] Decode 2366ms, 296 codes, 125.1 codes/s | rounds 296, drafted 296, accepted 0 (0%), 1.00 codes/round | draft 132ms, verify 1846ms, accept/sample 195ms, extend 193ms
+[Ace-LM] Total 3530ms | N=1 seed=1004
+[LM-Head] Decode 2367ms, 298 codes, 125.9 codes/s | rounds 298, drafted 298, accepted 0 (0%), 1.00 codes/round | draft 128ms, verify 1856ms, accept/sample 189ms, extend 193ms
+[Ace-LM] Total 3635ms | N=1 seed=1005
+== server-head-k2-r2.log
+[LM-Head] Decode 2419ms, 300 codes, 124.0 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 122ms, verify 1889ms, accept/sample 205ms, extend 204ms
+[Ace-LM] Total 3683ms | N=1 seed=1000
+[LM-Head] Decode 2390ms, 296 codes, 123.8 codes/s | rounds 296, drafted 296, accepted 0 (0%), 1.00 codes/round | draft 126ms, verify 1858ms, accept/sample 211ms, extend 195ms
+[Ace-LM] Total 3691ms | N=1 seed=1001
+[LM-Head] Decode 2399ms, 297 codes, 123.8 codes/s | rounds 297, drafted 297, accepted 0 (0%), 1.00 codes/round | draft 128ms, verify 1865ms, accept/sample 211ms, extend 195ms
+[Ace-LM] Total 3563ms | N=1 seed=1002
+[LM-Head] Decode 2434ms, 299 codes, 122.8 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 134ms, verify 1878ms, accept/sample 224ms, extend 198ms
+[Ace-LM] Total 3672ms | N=1 seed=1003
+[LM-Head] Decode 2374ms, 299 codes, 125.9 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 119ms, verify 1863ms, accept/sample 199ms, extend 193ms
+[Ace-LM] Total 3666ms | N=1 seed=1004
+[LM-Head] Decode 2399ms, 300 codes, 125.1 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 126ms, verify 1878ms, accept/sample 197ms, extend 198ms
+[Ace-LM] Total 3761ms | N=1 seed=1005
+== server-head-k3-r1.log
+[LM-Head] Decode 2426ms, 298 codes, 122.8 codes/s | rounds 298, drafted 298, accepted 0 (0%), 1.00 codes/round | draft 123ms, verify 1873ms, accept/sample 208ms, extend 222ms
+[Ace-LM] Total 3770ms | N=1 seed=1000
+[LM-Head] Decode 2398ms, 299 codes, 124.7 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 122ms, verify 1872ms, accept/sample 205ms, extend 199ms
+[Ace-LM] Total 3690ms | N=1 seed=1001
+[LM-Head] Decode 2376ms, 299 codes, 125.9 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 117ms, verify 1860ms, accept/sample 201ms, extend 197ms
+[Ace-LM] Total 3458ms | N=1 seed=1002
+[LM-Head] Decode 2374ms, 300 codes, 126.4 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 115ms, verify 1864ms, accept/sample 197ms, extend 197ms
+[Ace-LM] Total 3463ms | N=1 seed=1003
+[LM-Head] Decode 2386ms, 300 codes, 125.7 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 115ms, verify 1876ms, accept/sample 198ms, extend 198ms
+[Ace-LM] Total 3891ms | N=1 seed=1004
+[LM-Head] Decode 2374ms, 296 codes, 124.7 codes/s | rounds 296, drafted 296, accepted 0 (0%), 1.00 codes/round | draft 121ms, verify 1857ms, accept/sample 198ms, extend 198ms
+[Ace-LM] Total 3923ms | N=1 seed=1005
+== server-head-k3-r2.log
+[LM-Head] Decode 2427ms, 300 codes, 123.6 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 132ms, verify 1882ms, accept/sample 203ms, extend 209ms
+[Ace-LM] Total 3858ms | N=1 seed=1000
+[LM-Head] Decode 2400ms, 299 codes, 124.6 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 136ms, verify 1862ms, accept/sample 203ms, extend 199ms
+[Ace-LM] Total 3528ms | N=1 seed=1001
+[LM-Head] Decode 2406ms, 300 codes, 124.7 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 136ms, verify 1870ms, accept/sample 201ms, extend 199ms
+[Ace-LM] Total 3501ms | N=1 seed=1002
+[LM-Head] Decode 2458ms, 300 codes, 122.0 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 140ms, verify 1894ms, accept/sample 219ms, extend 205ms
+[Ace-LM] Total 3646ms | N=1 seed=1003
+[LM-Head] Decode 2450ms, 300 codes, 122.4 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 138ms, verify 1893ms, accept/sample 218ms, extend 201ms
+[Ace-LM] Total 3859ms | N=1 seed=1004
+[LM-Head] Decode 2371ms, 296 codes, 124.9 codes/s | rounds 296, drafted 296, accepted 0 (0%), 1.00 codes/round | draft 131ms, verify 1851ms, accept/sample 194ms, extend 195ms
+[Ace-LM] Total 3995ms | N=1 seed=1005
+== server-head-k4-r1.log
+[LM-Head] Decode 2496ms, 300 codes, 120.2 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 127ms, verify 1904ms, accept/sample 217ms, extend 248ms
+[Ace-LM] Total 4097ms | N=1 seed=1000
+[LM-Head] Decode 2398ms, 297 codes, 123.9 codes/s | rounds 297, drafted 297, accepted 0 (0%), 1.00 codes/round | draft 125ms, verify 1865ms, accept/sample 207ms, extend 201ms
+[Ace-LM] Total 3755ms | N=1 seed=1001
+[LM-Head] Decode 2426ms, 300 codes, 123.7 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 126ms, verify 1881ms, accept/sample 214ms, extend 205ms
+[Ace-LM] Total 3615ms | N=1 seed=1002
+[LM-Head] Decode 2414ms, 299 codes, 123.9 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 119ms, verify 1880ms, accept/sample 212ms, extend 203ms
+[Ace-LM] Total 3945ms | N=1 seed=1003
+[LM-Head] Decode 2375ms, 300 codes, 126.3 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 112ms, verify 1865ms, accept/sample 198ms, extend 201ms
+[Ace-LM] Total 3633ms | N=1 seed=1004
+[LM-Head] Decode 2368ms, 296 codes, 125.0 codes/s | rounds 296, drafted 296, accepted 0 (0%), 1.00 codes/round | draft 123ms, verify 1847ms, accept/sample 199ms, extend 199ms
+[Ace-LM] Total 3713ms | N=1 seed=1005
+== server-head-k4-r2.log
+[LM-Head] Decode 2439ms, 299 codes, 122.6 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 126ms, verify 1887ms, accept/sample 208ms, extend 217ms
+[Ace-LM] Total 4030ms | N=1 seed=1000
+[LM-Head] Decode 2371ms, 299 codes, 126.1 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 120ms, verify 1860ms, accept/sample 190ms, extend 200ms
+[Ace-LM] Total 3568ms | N=1 seed=1001
+[LM-Head] Decode 2406ms, 299 codes, 124.3 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 128ms, verify 1866ms, accept/sample 210ms, extend 202ms
+[Ace-LM] Total 3421ms | N=1 seed=1002
+[LM-Head] Decode 2424ms, 300 codes, 123.7 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 128ms, verify 1879ms, accept/sample 213ms, extend 204ms
+[Ace-LM] Total 3742ms | N=1 seed=1003
+[LM-Head] Decode 2423ms, 300 codes, 123.8 codes/s | rounds 300, drafted 300, accepted 0 (0%), 1.00 codes/round | draft 128ms, verify 1877ms, accept/sample 215ms, extend 204ms
+[Ace-LM] Total 3755ms | N=1 seed=1004
+[LM-Head] Decode 2381ms, 299 codes, 125.6 codes/s | rounds 299, drafted 299, accepted 0 (0%), 1.00 codes/round | draft 120ms, verify 1862ms, accept/sample 198ms, extend 202ms
+[Ace-LM] Total 3538ms | N=1 seed=1005
+== server-standard-r1.log
+[LM-Phase2] Decode 2816ms
+[Ace-LM] Total 4506ms | N=1 seed=1000
+[LM-Phase2] Decode 3018ms
+[Ace-LM] Total 4245ms | N=1 seed=1001
+[LM-Phase2] Decode 2971ms
+[Ace-LM] Total 4202ms | N=1 seed=1002
+[LM-Phase2] Decode 3013ms
+[Ace-LM] Total 4273ms | N=1 seed=1003
+[LM-Phase2] Decode 3217ms
+[Ace-LM] Total 4690ms | N=1 seed=1004
+[LM-Phase2] Decode 2930ms
+[Ace-LM] Total 4396ms | N=1 seed=1005
+== server-standard-r2.log
+[LM-Phase2] Decode 3060ms
+[Ace-LM] Total 4404ms | N=1 seed=1000
+[LM-Phase2] Decode 3044ms
+[Ace-LM] Total 4080ms | N=1 seed=1001
+[LM-Phase2] Decode 3125ms
+[Ace-LM] Total 4159ms | N=1 seed=1002
+[LM-Phase2] Decode 3034ms
+[Ace-LM] Total 4358ms | N=1 seed=1003
+[LM-Phase2] Decode 3027ms
+[Ace-LM] Total 4444ms | N=1 seed=1004
+[LM-Phase2] Decode 2930ms
+[Ace-LM] Total 4444ms | N=1 seed=1005

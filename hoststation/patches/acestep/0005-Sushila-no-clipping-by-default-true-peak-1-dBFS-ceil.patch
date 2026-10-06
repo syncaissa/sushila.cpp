@@ -1,0 +1,54 @@
+From 92caa120a5dfafa5710daacd1bfe18c02c8717a7 Mon Sep 17 00:00:00 2001
+From: Ubuntu <ubuntu@ip-172-31-15-84.ec2.internal>
+Date: Tue, 6 Oct 2026 04:16:48 +0000
+Subject: [PATCH 5/5] Sushila: no clipping by default (true peak, -1 dBFS
+ ceiling)
+
+---
+ src/audio-io.h  | 14 ++++++++------
+ src/request.cpp |  2 +-
+ 2 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/src/audio-io.h b/src/audio-io.h
+index 5f59b76..bbd38d2 100644
+--- a/src/audio-io.h
++++ b/src/audio-io.h
+@@ -339,14 +339,16 @@ static void audio_normalize(float * audio, int n_total, int peak_clip = 10) {
+         return;
+     }
+ 
+-    // scale so the target percentile hits 1.0, hard clip the rest
+-    float gain = 1.0f / ref;
++    // Sushila: scale so the target percentile hits -1 dBFS (headroom for MP3
++    // encoding, whose reconstruction overshoots full-scale peaks), clip the rest there
++    const float ceiling = 0.891f;
++    float       gain    = ceiling / ref;
+     for (int i = 0; i < n_total; i++) {
+         float v = audio[i] * gain;
+-        if (v > 1.0f) {
+-            v = 1.0f;
+-        } else if (v < -1.0f) {
+-            v = -1.0f;
++        if (v > ceiling) {
++            v = ceiling;
++        } else if (v < -ceiling) {
++            v = -ceiling;
+         }
+         audio[i] = v;
+     }
+diff --git a/src/request.cpp b/src/request.cpp
+index aad34b9..0945711 100644
+--- a/src/request.cpp
++++ b/src/request.cpp
+@@ -62,7 +62,7 @@ void request_init(AceRequest * r) {
+     r->adapter              = "";
+     r->adapter_scale        = 1.0f;
+     r->vae                  = "";
+-    r->peak_clip            = 10;
++    r->peak_clip            = 0;  // Sushila: true peak, no clipping (upstream 10)
+     r->mp3_bitrate          = 128;
+ }
+ 
+-- 
+2.34.1
+

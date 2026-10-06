@@ -1,0 +1,250 @@
+== /workspace/music/res/server-base.log
+[LM-Phase1] Prefill 226ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1500957884, 130 tokens
+[LM-Phase2] Decode 3078ms
+[Ace-LM] Total 4472ms | N=1 seed=1000
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2875252815, 138 tokens
+[LM-Phase2] Decode 3019ms
+[Ace-LM] Total 4227ms | N=1 seed=1001
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2346635747, 142 tokens
+[LM-Phase2] Decode 2928ms
+[Ace-LM] Total 4164ms | N=1 seed=1002
+[LM-Phase1] Prefill 11ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1523053533, 142 tokens
+[LM-Phase2] Decode 3051ms
+[Ace-LM] Total 4290ms | N=1 seed=1003
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=4170986936, 148 tokens
+[LM-Phase2] Decode 3223ms
+[Ace-LM] Total 4513ms | N=1 seed=1004
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=130137250, 174 tokens
+[LM-Phase2] Decode 3024ms
+[Ace-LM] Total 4519ms | N=1 seed=1005
+== /workspace/music/res/server-d0.6B-k2.log
+[LM-Phase1] Prefill 185ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=4210386347, 148 tokens
+[LM-Spec] Decode 5639ms, 299 codes, 53.0 codes/s | rounds 181, drafted 360, accepted 119 (33%), 1.65 codes/round | draft 2378ms, verify+sample 3244ms
+[Ace-LM] Total 7438ms | N=1 seed=1000
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2817549971, 194 tokens
+[LM-Spec] Decode 5384ms, 300 codes, 55.7 codes/s | rounds 180, drafted 359, accepted 121 (34%), 1.67 codes/round | draft 2182ms, verify+sample 3184ms
+[Ace-LM] Total 7065ms | N=1 seed=1001
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=343096649, 110 tokens
+[LM-Spec] Decode 5523ms, 298 codes, 54.0 codes/s | rounds 188, drafted 376, accepted 110 (29%), 1.59 codes/round | draft 2261ms, verify+sample 3244ms
+[Ace-LM] Total 6497ms | N=1 seed=1002
+[LM-Phase1] Prefill 12ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1657159824, 165 tokens
+[LM-Spec] Decode 5973ms, 300 codes, 50.2 codes/s | rounds 192, drafted 384, accepted 108 (28%), 1.56 codes/round | draft 2458ms, verify+sample 3497ms
+[Ace-LM] Total 7398ms | N=1 seed=1003
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1393141609, 156 tokens
+[LM-Spec] Decode 5116ms, 300 codes, 58.6 codes/s | rounds 177, drafted 352, accepted 124 (35%), 1.69 codes/round | draft 2009ms, verify+sample 3090ms
+[Ace-LM] Total 6487ms | N=1 seed=1004
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=851537913, 172 tokens
+[LM-Spec] Decode 4955ms, 298 codes, 60.1 codes/s | rounds 169, drafted 338, accepted 130 (38%), 1.76 codes/round | draft 2020ms, verify+sample 2919ms
+[Ace-LM] Total 6447ms | N=1 seed=1005
+== /workspace/music/res/server-d0.6B-k3.log
+[LM-Phase1] Prefill 221ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2309446473, 141 tokens
+[LM-Spec] Decode 6471ms, 300 codes, 46.4 codes/s | rounds 157, drafted 469, accepted 144 (31%), 1.91 codes/round | draft 2978ms, verify+sample 3476ms
+[Ace-LM] Total 8264ms | N=1 seed=1000
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1503859263, 149 tokens
+[LM-Spec] Decode 6315ms, 296 codes, 46.9 codes/s | rounds 171, drafted 512, accepted 126 (25%), 1.73 codes/round | draft 2992ms, verify+sample 3307ms
+[Ace-LM] Total 7612ms | N=1 seed=1001
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=794864928, 139 tokens
+[LM-Spec] Decode 6229ms, 299 codes, 48.0 codes/s | rounds 150, drafted 448, accepted 150 (33%), 1.99 codes/round | draft 2819ms, verify+sample 3394ms
+[Ace-LM] Total 7452ms | N=1 seed=1002
+[LM-Phase1] Prefill 12ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1610126812, 149 tokens
+[LM-Spec] Decode 7377ms, 300 codes, 40.7 codes/s | rounds 174, drafted 520, accepted 127 (24%), 1.72 codes/round | draft 3385ms, verify+sample 3973ms
+[Ace-LM] Total 8675ms | N=1 seed=1003
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=181087159, 132 tokens
+[LM-Spec] Decode 7584ms, 300 codes, 39.6 codes/s | rounds 177, drafted 526, accepted 124 (24%), 1.69 codes/round | draft 3480ms, verify+sample 4086ms
+[Ace-LM] Total 8737ms | N=1 seed=1004
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=3202322795, 176 tokens
+[LM-Spec] Decode 6899ms, 300 codes, 43.5 codes/s | rounds 163, drafted 480, accepted 138 (29%), 1.84 codes/round | draft 3088ms, verify+sample 3792ms
+[Ace-LM] Total 8429ms | N=1 seed=1005
+== /workspace/music/res/server-d0.6B-k4.log
+[LM-Phase1] Prefill 215ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=3464238039, 134 tokens
+[LM-Spec] Decode 8493ms, 299 codes, 35.2 codes/s | rounds 161, drafted 641, accepted 138 (22%), 1.86 codes/round | draft 4049ms, verify+sample 4427ms
+[Ace-LM] Total 10211ms | N=1 seed=1000
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1704567036, 100 tokens
+[LM-Spec] Decode 6881ms, 300 codes, 43.6 codes/s | rounds 160, drafted 633, accepted 141 (22%), 1.88 codes/round | draft 3330ms, verify+sample 3535ms
+[Ace-LM] Total 7771ms | N=1 seed=1001
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=4085637147, 125 tokens
+[LM-Spec] Decode 7866ms, 300 codes, 38.1 codes/s | rounds 144, drafted 575, accepted 157 (27%), 2.08 codes/round | draft 3718ms, verify+sample 4132ms
+[Ace-LM] Total 8960ms | N=1 seed=1002
+[LM-Phase1] Prefill 12ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=3430450104, 147 tokens
+[LM-Spec] Decode 9665ms, 300 codes, 31.0 codes/s | rounds 170, drafted 680, accepted 131 (19%), 1.76 codes/round | draft 4478ms, verify+sample 5166ms
+[Ace-LM] Total 10943ms | N=1 seed=1003
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=4160853161, 169 tokens
+[LM-Spec] Decode 10246ms, 299 codes, 29.2 codes/s | rounds 189, drafted 753, accepted 111 (15%), 1.58 codes/round | draft 4928ms, verify+sample 5298ms
+[Ace-LM] Total 11705ms | N=1 seed=1004
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2966462624, 156 tokens
+[LM-Spec] Decode 8007ms, 300 codes, 37.5 codes/s | rounds 167, drafted 667, accepted 134 (20%), 1.80 codes/round | draft 3841ms, verify+sample 4149ms
+[Ace-LM] Total 9356ms | N=1 seed=1005
+== /workspace/music/res/server-d0.6B-k6.log
+[LM-Phase1] Prefill 172ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=667214050, 148 tokens
+[LM-Spec] Decode 13776ms, 296 codes, 21.5 codes/s | rounds 192, drafted 1146, accepted 105 (9%), 1.54 codes/round | draft 7350ms, verify+sample 6404ms
+[Ace-LM] Total 15572ms | N=1 seed=1000
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=526796707, 80 tokens
+[LM-Spec] Decode 12501ms, 297 codes, 23.8 codes/s | rounds 172, drafted 1027, accepted 126 (12%), 1.73 codes/round | draft 6388ms, verify+sample 6094ms
+[Ace-LM] Total 13231ms | N=1 seed=1001
+[LM-Phase1] Prefill 12ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1752791338, 166 tokens
+[LM-Spec] Decode 11206ms, 297 codes, 26.5 codes/s | rounds 161, drafted 956, accepted 137 (14%), 1.84 codes/round | draft 5800ms, verify+sample 5387ms
+[Ace-LM] Total 12653ms | N=1 seed=1002
+[LM-Phase1] Prefill 12ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=113123412, 156 tokens
+[LM-Spec] Decode 12355ms, 263 codes, 21.3 codes/s | rounds 156, drafted 936, accepted 107 (11%), 1.69 codes/round | draft 6192ms, verify+sample 6143ms
+[Ace-LM] Total 13714ms | N=1 seed=1003
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=3518970915, 155 tokens
+[LM-Spec] Decode 13014ms, 298 codes, 22.9 codes/s | rounds 180, drafted 1068, accepted 119 (11%), 1.66 codes/round | draft 6624ms, verify+sample 6369ms
+[Ace-LM] Total 14362ms | N=1 seed=1004
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=4174586647, 199 tokens
+[LM-Spec] Decode 7926ms, 300 codes, 37.8 codes/s | rounds 124, drafted 732, accepted 177 (24%), 2.42 codes/round | draft 4085ms, verify+sample 3828ms
+[Ace-LM] Total 9650ms | N=1 seed=1005
+== /workspace/music/res/server-d1.7B-k2.log
+[LM-Phase1] Prefill 189ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1575368004, 149 tokens
+[LM-Spec] Decode 6698ms, 299 codes, 44.6 codes/s | rounds 201, drafted 402, accepted 98 (24%), 1.49 codes/round | draft 3080ms, verify+sample 3597ms
+[Ace-LM] Total 8822ms | N=1 seed=1000
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1867682201, 142 tokens
+[LM-Spec] Decode 4620ms, 296 codes, 64.1 codes/s | rounds 151, drafted 301, accepted 146 (49%), 1.96 codes/round | draft 2131ms, verify+sample 2476ms
+[Ace-LM] Total 5874ms | N=1 seed=1001
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=811787418, 156 tokens
+[LM-Spec] Decode 5851ms, 300 codes, 51.3 codes/s | rounds 175, drafted 349, accepted 126 (36%), 1.71 codes/round | draft 2589ms, verify+sample 3244ms
+[Ace-LM] Total 7216ms | N=1 seed=1002
+[LM-Phase1] Prefill 11ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=712971510, 117 tokens
+[LM-Spec] Decode 7195ms, 300 codes, 41.7 codes/s | rounds 199, drafted 397, accepted 102 (26%), 1.51 codes/round | draft 3148ms, verify+sample 4025ms
+[Ace-LM] Total 8235ms | N=1 seed=1003
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1991434581, 148 tokens
+[LM-Spec] Decode 6307ms, 299 codes, 47.4 codes/s | rounds 181, drafted 361, accepted 119 (33%), 1.65 codes/round | draft 2829ms, verify+sample 3459ms
+[Ace-LM] Total 7615ms | N=1 seed=1004
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=942361878, 139 tokens
+[LM-Spec] Decode 5525ms, 296 codes, 53.6 codes/s | rounds 181, drafted 361, accepted 116 (32%), 1.64 codes/round | draft 2483ms, verify+sample 3025ms
+[Ace-LM] Total 6749ms | N=1 seed=1005
+== /workspace/music/res/server-d1.7B-k3.log
+[LM-Phase1] Prefill 213ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=931915135, 143 tokens
+[LM-Spec] Decode 8843ms, 300 codes, 33.9 codes/s | rounds 191, drafted 571, accepted 110 (19%), 1.57 codes/round | draft 4283ms, verify+sample 4538ms
+[Ace-LM] Total 10933ms | N=1 seed=1000
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2830124792, 119 tokens
+[LM-Spec] Decode 7401ms, 299 codes, 40.4 codes/s | rounds 168, drafted 503, accepted 131 (26%), 1.78 codes/round | draft 3637ms, verify+sample 3746ms
+[Ace-LM] Total 8449ms | N=1 seed=1001
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2142082350, 89 tokens
+[LM-Spec] Decode 7273ms, 300 codes, 41.2 codes/s | rounds 170, drafted 509, accepted 131 (26%), 1.76 codes/round | draft 3602ms, verify+sample 3654ms
+[Ace-LM] Total 8070ms | N=1 seed=1002
+[LM-Phase1] Prefill 12ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1992733392, 155 tokens
+[LM-Spec] Decode 9519ms, 299 codes, 31.4 codes/s | rounds 201, drafted 601, accepted 99 (16%), 1.49 codes/round | draft 4649ms, verify+sample 4845ms
+[Ace-LM] Total 10874ms | N=1 seed=1003
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2386076347, 148 tokens
+[LM-Spec] Decode 7974ms, 298 codes, 37.4 codes/s | rounds 176, drafted 528, accepted 122 (23%), 1.69 codes/round | draft 3962ms, verify+sample 3993ms
+[Ace-LM] Total 9269ms | N=1 seed=1004
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=3103415561, 132 tokens
+[LM-Spec] Decode 7257ms, 297 codes, 40.9 codes/s | rounds 178, drafted 534, accepted 119 (22%), 1.67 codes/round | draft 3551ms, verify+sample 3686ms
+[Ace-LM] Total 8413ms | N=1 seed=1005
+== /workspace/music/res/server-d1.7B-k4.log
+[LM-Phase1] Prefill 229ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=4244585747, 129 tokens
+[LM-Spec] Decode 10041ms, 299 codes, 29.8 codes/s | rounds 168, drafted 669, accepted 132 (20%), 1.78 codes/round | draft 5002ms, verify+sample 5020ms
+[Ace-LM] Total 12057ms | N=1 seed=1000
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1146005492, 183 tokens
+[LM-Spec] Decode 8765ms, 300 codes, 34.2 codes/s | rounds 153, drafted 607, accepted 148 (24%), 1.96 codes/round | draft 4482ms, verify+sample 4266ms
+[Ace-LM] Total 10363ms | N=1 seed=1001
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1189414823, 126 tokens
+[LM-Spec] Decode 7711ms, 297 codes, 38.5 codes/s | rounds 159, drafted 633, accepted 139 (22%), 1.87 codes/round | draft 4202ms, verify+sample 3493ms
+[Ace-LM] Total 8829ms | N=1 seed=1002
+[LM-Phase1] Prefill 11ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=3198911391, 189 tokens
+[LM-Spec] Decode 10511ms, 300 codes, 28.5 codes/s | rounds 173, drafted 687, accepted 128 (19%), 1.73 codes/round | draft 5286ms, verify+sample 5202ms
+[Ace-LM] Total 12165ms | N=1 seed=1003
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2183850112, 143 tokens
+[LM-Spec] Decode 8500ms, 298 codes, 35.1 codes/s | rounds 151, drafted 600, accepted 148 (25%), 1.97 codes/round | draft 4325ms, verify+sample 4159ms
+[Ace-LM] Total 9764ms | N=1 seed=1004
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=80467037, 194 tokens
+[LM-Spec] Decode 7527ms, 299 codes, 39.7 codes/s | rounds 144, drafted 575, accepted 155 (27%), 2.08 codes/round | draft 3795ms, verify+sample 3715ms
+[Ace-LM] Total 9231ms | N=1 seed=1005
+== /workspace/music/res/server-d1.7B-k6.log
+[LM-Phase1] Prefill 194ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=98456901, 120 tokens
+[LM-Spec] Decode 15754ms, 300 codes, 19.0 codes/s | rounds 191, drafted 1122, accepted 110 (10%), 1.57 codes/round | draft 8378ms, verify+sample 7352ms
+[Ace-LM] Total 17633ms | N=1 seed=1000
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=843268137, 138 tokens
+[LM-Spec] Decode 12285ms, 296 codes, 24.1 codes/s | rounds 168, drafted 1007, accepted 128 (13%), 1.76 codes/round | draft 6745ms, verify+sample 5521ms
+[Ace-LM] Total 13509ms | N=1 seed=1001
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1600777462, 107 tokens
+[LM-Spec] Decode 11807ms, 297 codes, 25.2 codes/s | rounds 164, drafted 980, accepted 134 (14%), 1.81 codes/round | draft 6461ms, verify+sample 5328ms
+[Ace-LM] Total 12763ms | N=1 seed=1002
+[LM-Phase1] Prefill 11ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=692417563, 121 tokens
+[LM-Spec] Decode 14936ms, 300 codes, 20.1 codes/s | rounds 188, drafted 1107, accepted 113 (10%), 1.60 codes/round | draft 8101ms, verify+sample 6814ms
+[Ace-LM] Total 16007ms | N=1 seed=1003
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=392838802, 152 tokens
+[LM-Spec] Decode 14301ms, 299 codes, 20.9 codes/s | rounds 165, drafted 989, accepted 135 (14%), 1.81 codes/round | draft 7649ms, verify+sample 6632ms
+[Ace-LM] Total 15640ms | N=1 seed=1004
+[LM-Phase1] Prefill 12ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=3687958737, 193 tokens
+[LM-Spec] Decode 12861ms, 300 codes, 23.3 codes/s | rounds 167, drafted 990, accepted 134 (14%), 1.80 codes/round | draft 6929ms, verify+sample 5909ms
+[Ace-LM] Total 14552ms | N=1 seed=1005
+== /workspace/music/res/server-self-k4.log
+[LM-Phase1] Prefill 211ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1693388811, 113 tokens
+[LM-Spec] Decode 4657ms, 299 codes, 64.2 codes/s | rounds 64, drafted 256, accepted 235 (92%), 4.67 codes/round | draft 2902ms, verify+sample 1752ms
+[Ace-LM] Total 6970ms | N=1 seed=1000
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2079486921, 148 tokens
+[LM-Spec] Decode 4357ms, 300 codes, 68.8 codes/s | rounds 65, drafted 259, accepted 236 (91%), 4.62 codes/round | draft 2764ms, verify+sample 1590ms
+[Ace-LM] Total 5670ms | N=1 seed=1001
+[LM-Phase1] Prefill 11ms, 85 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=2055743698, 152 tokens
+[LM-Spec] Decode 4450ms, 298 codes, 67.0 codes/s | rounds 64, drafted 253, accepted 235 (93%), 4.66 codes/round | draft 2794ms, verify+sample 1653ms
+[Ace-LM] Total 5795ms | N=1 seed=1002
+[LM-Phase1] Prefill 11ms, 86 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=3589057305, 162 tokens
+[LM-Spec] Decode 4611ms, 300 codes, 65.1 codes/s | rounds 65, drafted 259, accepted 236 (91%), 4.62 codes/round | draft 2889ms, verify+sample 1718ms
+[Ace-LM] Total 6034ms | N=1 seed=1003
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1798960989, 166 tokens
+[LM-Spec] Decode 5096ms, 298 codes, 58.5 codes/s | rounds 64, drafted 256, accepted 234 (91%), 4.66 codes/round | draft 3102ms, verify+sample 1990ms
+[Ace-LM] Total 6553ms | N=1 seed=1004
+[LM-Phase1] Prefill 11ms, 83 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1 Batch0] seed=1037587730, 134 tokens
+[LM-Spec] Decode 4166ms, 299 codes, 71.8 codes/s | rounds 64, drafted 253, accepted 236 (93%), 4.67 codes/round | draft 2667ms, verify+sample 1497ms
+[Ace-LM] Total 5363ms | N=1 seed=1005
