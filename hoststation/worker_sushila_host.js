@@ -857,6 +857,12 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           const u = new URL(raw);
           if (u.protocol !== 'sushila:') continue;
           const parts = (u.host + u.pathname).split('/').filter(Boolean);
+          if (parts[0] === 'install-product') {  // e.g. sushila://install-product/chatgen: the product's model pack and its tab
+            const p = PRESETS[parts[1] || ''];
+            if (!p) { say('The link from the website was not valid; nothing was installed.', 'err'); continue; }
+            await act(() => installProduct(p), `${p.product} is ready.`);
+            continue;
+          }
           if (parts[0] !== 'install-pack') { say('Sushila Host Station is open.', 'ok'); continue; }
           m = parts[1] || u.searchParams.get('id') || '';
         } catch (_) { continue; }
@@ -907,12 +913,99 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       await invoke('open_url', { url });
     }
 
+    // ---------- inference tabs: Chat, Code, Images, Music, Video. One inference page (the same as "Here on the app" and the
+    // browser page) shows the model chosen in the tab; each model keeps its conversation and results when tabs change.
+    const KIND_TABS = [['chat', 'Chat', 'chatgen', 'text'], ['code', 'Code', 'codegen', 'text'], ['images', 'Images', 'imagegen', 'image'], ['music', 'Music', 'musicgen', 'music'], ['video', 'Video', 'videogen', 'video']];
+    const PRODUCT_TAB = { chatgen: 'chat', codegen: 'code', imagegen: 'images', musicgen: 'music', videogen: 'video' };
+    function packsForTab(k) {
+      const [, , product, kind] = KIND_TABS.find((x) => x[0] === k), pref = (PRESETS[product] && PRESETS[product].models) || [];
+      const rank = (p) => (pref.includes(p.id) ? pref.indexOf(p.id) : 99);
+      return Object.values(HOST.state.packs).filter((p) => (p.kind || 'text') === kind || (kind === 'image' && p.engine === 'image-nunchaku')).sort((a, b) => rank(a) - rank(b));
+    }
+    function inferPage() {
+      if (!HOST.infer) {
+        const box = el('div', { class: 'inferbox' });
+        const page = inferencePage({ container: box, title: '', base: `http://127.0.0.1:${HOST.state.settings.port}`, token: HOST.state.token,
+          onBrowser: (id) => act(() => runInference(id || '')),
+          setMode: async (id, mode) => { HOST.busy = true; try { await setMode(id, mode); } finally { HOST.busy = false; } } });
+        HOST.infer = { box, page };
+      }
+      return HOST.infer;
+    }
+    async function showInTab(k, id) {
+      HOST.state.tabModels = Object.assign({}, HOST.state.tabModels, { [k]: id }); await saveState();
+      if (!HOST.state.running[id]) await startModel(id);
+      tab = k; render();
+      await inferPage().page.select(id);
+    }
+    async function installProduct(p) {  // a product (ChatGen, …) is its model pack plus its tab here
+      if (!HOST.state.engine) await installEngine();
+      if (!HOST.catalog || !(HOST.catalog.packs || []).length) await loadCatalog();
+      const id = await presetModel(p);
+      if (!HOST.state.packs[id]) {
+        const pack = (HOST.catalog.packs || []).find((x) => x.id === id);
+        if (!pack) throw new Error(`${id} is not in the catalog right now; check your internet connection and try again.`);
+        await installPack(pack);
+      }
+      const k = PRODUCT_TAB[p.key] || 'chat';
+      HOST.state.tabModels = Object.assign({}, HOST.state.tabModels, { [k]: id }); await saveState();
+      tab = k; render();
+    }
+    function productInstalled(p) { return ((p.models && p.models.length ? p.models : [p.defaultModel]) || []).some((id) => HOST.state.packs[id]); }
+    function inferScreen(k) {
+      const [, label, product] = KIND_TABS.find((x) => x[0] === k), pre = PRESETS[product], list = packsForTab(k), s = HOST.state;
+      if (!list.length) {
+        return el('div', { class: 'card' }, el('h2', {}, label),
+          el('div', { class: 'sub' }, `No ${label === 'Code' ? 'coding' : label.toLowerCase()} model is installed on this computer yet.`),
+          el('div', { class: 'row' }, pre ? el('button', { class: 'big', disabled: HOST.busy, onclick: () => act(() => installProduct(pre), `${pre.product} is ready.`) }, `Install ${pre.product.replace(/^Sushila /, '')}`) : null,
+            el('button', { class: 'ghost', onclick: () => { tab = 'packs'; render(); } }, 'Browse model packs')));
+      }
+      const want = (s.tabModels || {})[k], cur = list.find((p) => p.id === want) ? want : list[0].id, r = s.running[cur], p = s.packs[cur];
+      const sel = el('select', { id: 'tabmodel', 'aria-label': 'Model' }, list.map((x) => el('option', { value: x.id, selected: x.id === cur }, x.name + (s.running[x.id] ? ' · running' : ''))));
+      sel.addEventListener('change', () => act(() => showInTab(k, sel.value)));
+      const inf = inferPage();
+      if (r && r.ready && inf.page.current() !== cur) inf.page.select(cur);
+      return el('div', {},
+        el('div', { class: 'card' }, el('div', { class: 'row', style: 'margin:0;align-items:center' }, el('b', {}, 'Model'), sel,
+          r ? el('span', { class: 'pill on' }, r.ready ? (r.mode === 'turbo' ? 'running · Accelerated' : 'running · Standard') : 'starting…') : el('span', { class: 'pill' }, 'stopped'),
+          el('span', { class: 'sp' }),
+          r ? el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(() => stopModel(cur), `${p.name} stopped.`) }, 'Stop')
+            : el('button', { class: 'big', disabled: HOST.busy || !s.engine, onclick: () => act(() => showInTab(k, cur), `${p.name} is running.`) }, 'Start'),
+          el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => runInference(cur), `${p.name}: the page is open in your browser.`) }, 'Open in browser'))),
+        r ? inf.box : el('div', { class: 'sub', style: 'margin-top:12px' }, `Press Start to load ${p.name}; it uses the GPU when this computer has one.`));
+    }
+    // ---------- one place to install: the products (each is a model pack with a ready-made tab) and every model pack
+    function installPicker() {
+      const s = HOST.state, list = (HOST.catalog && HOST.catalog.packs) || [], ram = HOST.info.memory_bytes || 0;
+      const order = ['chatgen', 'codegen', 'imagegen', 'musicgen', 'videogen'];
+      const prods = order.map((k) => PRESETS[k]).filter(Boolean);
+      const opt = (value, text, off) => el('option', { value, disabled: !!off }, text + (off ? ` (${off})` : ''));
+      const packOff = (p) => (s.packs[p.id] ? 'already installed locally' : (HOST.fit && HOST.fit[p.id] === false) ? 'not for this computer' : (p.minRamGB && ram && ram < p.minRamGB * 1e9) ? 'needs more memory' : '');
+      const cats = [...new Set(list.map((p) => p.category || 'Other'))];
+      const sel = el('select', { id: 'installpick', 'aria-label': 'What to install', style: 'flex:1;min-width:260px' },
+        el('option', { value: '' }, 'Choose an app or a model pack…'),
+        prods.length ? el('optgroup', { label: 'Apps: a model pack with its own tab' }, prods.map((p) => opt('product:' + p.key, p.product.replace(/^Sushila /, '') + ` (${p.file})`, productInstalled(p) ? 'already installed locally' : ''))) : null,
+        cats.map((c) => el('optgroup', { label: c }, list.filter((p) => (p.category || 'Other') === c).map((p) => opt('pack:' + p.id, p.name, packOff(p))))));
+      const go = () => {
+        const v = sel.value; if (!v) return;
+        if (v.startsWith('product:')) { const p = PRESETS[v.slice(8)]; act(() => installProduct(p), `${p.product} is ready.`); return; }
+        const p = list.find((x) => x.id === v.slice(5)); if (!p) return;
+        const total = p.files.reduce((a, f) => a + (f.bytes || 0), 0);
+        if (!confirm(`Install ${p.name} (${gb(total)})?\n\nBy installing you accept its license: ${p.license}.`)) return;
+        act(async () => { if (!s.engine) await installEngine(); await installPack(p); }, `${p.name} is installed.`);
+      };
+      return el('div', { class: 'card', style: 'margin-bottom:14px' }, el('h2', {}, 'Install'),
+        el('div', { class: 'sub' }, 'Apps (ChatGen, CodeGen, ImageGen, MusicGen, VideoGen) are model packs with a ready-made tab here; Sushila.cpp comes with the first one. Installed items are grayed out.'),
+        el('div', { class: 'row' }, sel, el('button', { disabled: HOST.busy, onclick: go }, 'Install')));
+    }
+
     // ---------- screens
     let tab = 'home';
     function render() {
       if (HOST.studio) return;  // in "Here on the app" the page stays; ◀ Host Station comes back
       const app = $('app');
-      app.replaceChildren(top(), tabs(), el('main', {}, el('div', { id: 'msg', class: 'msg ' + msg.kind }, msg.text), installedBanner(), screen()), downloadsPanel());
+      const scr = screen(), parked = HOST.infer && !KIND_TABS.some(([k]) => k === tab) ? el('div', { style: 'display:none' }, HOST.infer.box) : null;
+      app.replaceChildren(top(), tabs(), el('main', {}, el('div', { id: 'msg', class: 'msg ' + msg.kind }, msg.text), installedBanner(), scr, parked), downloadsPanel());
     }
     function top() {
       const n = Object.keys(HOST.state.running).length;
@@ -927,7 +1020,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     }
     function tabs() {
       const ready = HOST.queue.jobs.filter((j) => j.status === 'ready' && !j.seen).length, busy = HOST.queue.jobs.filter((j) => ['queued', 'running'].includes(j.status)).length;
-      const t = [['home', 'Home'], ['queue', 'Queue' + (busy ? ` (${busy})` : '') + (ready ? ` · ${ready} ready` : '')], ['engine', 'Engine'], ['packs', 'Model Packs'], ['run', 'Run & Logs'], ['settings', 'Settings']];
+      const t = [['home', 'Home'], ...KIND_TABS.map(([k, label]) => [k, label]), ['queue', 'Queue' + (busy ? ` (${busy})` : '') + (ready ? ` · ${ready} ready` : '')], ['engine', 'Engine'], ['packs', 'Model Packs'], ['run', 'Run & Logs'], ['settings', 'Settings']];
       return el('div', { class: 'tabs', role: 'tablist' }, t.map(([k, label]) => el('button', { class: 'tab', role: 'tab', 'aria-selected': String(tab === k), onclick: () => { tab = k; render(); } }, label)));
     }
     const dlText = (d) => {
@@ -962,6 +1055,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('div', { class: 'sub', style: 'margin-top:8px' }, 'Paused downloads keep what they have; Resume continues from there. Every file is checked by sha256 when it finishes.'));
     }
     function screen() {
+      if (KIND_TABS.some(([k]) => k === tab)) return inferScreen(tab);
       if (tab === 'home') return homeScreen();
       if (tab === 'engine') return engineScreen();
       if (tab === 'queue') return queueScreen();
@@ -1014,7 +1108,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           ['queued', 'running'].includes(j.status) ? el('button', { class: 'ghost', onclick: act2('pause', j.id) }, 'Pause') : null,
           ['paused', 'failed', 'cancelled'].includes(j.status) ? el('button', { onclick: act2('resume', j.id) }, 'Continue') : null,
           ['queued', 'running', 'paused'].includes(j.status) ? el('button', { class: 'ghost', onclick: act2('cancel', j.id) }, 'Cancel') : null,
-          j.status === 'ready' ? el('button', { onclick: show(j) }, 'Show') : null,
+          j.status === 'ready' ? el('button', { onclick: show(j) }, 'Show output') : null,
           j.status === 'ready' ? el('button', { class: 'ghost', onclick: () => act(() => launchPage(null, '', { queue: true })) }, 'Download in browser') : null,
           j.status !== 'running' ? el('button', { class: 'danger', onclick: () => { if (confirm('Remove this job and its output?')) act2('remove', j.id)(); } }, 'Remove') : null),
         el('div', { id: 'qprev-' + j.id, style: 'margin-top:8px' })));
@@ -1036,6 +1130,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           el('div', { class: 'sub' }, 'The engine that runs models on this computer. A small default model is installed with it, so you can try it right away.'),
           el('div', { class: 'row' }, el('button', { class: 'big', disabled: HOST.busy, onclick: () => act(installEngine, 'Sushila.cpp and the default model are installed. Press Run inference.') }, 'Install Sushila.cpp'),
             el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(async () => { if (!(await detectEngine())) throw new Error('No Sushila.cpp found on this computer.'); await ensureDefaultModel(); }, 'Found Sushila.cpp.') }, 'Find an existing installation'))),
+        installPicker(),
         el('div', { class: 'card' }, el('h2', {}, 'Your models'),
           el('div', { class: 'sub' }, 'Start a model\'s server, then Run inference: a chat page (or a music page) opens in your browser, served by this computer.'),
           modelsTable(),
@@ -1085,6 +1180,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       });
       const local = Object.values(s.packs).filter((p) => !list.find((x) => x.id === p.id));
       return el('div', {},
+        installPicker(),
         el('div', { class: 'card' }, el('h2', {}, 'Model packs'),
           el('div', { class: 'sub' }, 'Each pack is a model file plus its precomputed landscape and draft-head files. Every file is checked by sha256 before use.'),
           HOST.catalogError ? el('div', { class: 'msg err' }, HOST.catalogError) : null,
@@ -1242,7 +1338,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .modesw.turbo::before{transform:translateX(100%)}.modesw.none::before{opacity:0}
 .modesw button{position:relative;z-index:1;border:0;border-radius:99px;background:transparent;color:var(--mut);padding:5px 14px;font-size:13px;font-weight:600}
 .modesw button.on{color:#fff;background:transparent}.modesw button:disabled{opacity:.4}
-.maxed .top,.maxed #remote,.maxed .chat>.bar2{display:none}.maxed .chat{max-width:none;margin:0;padding:12px 18px}.maxed #log{min-height:calc(100vh - 170px)}
+.maxed .top,.maxed #remote,.maxed .chat>.bar2{display:none}.maxed .chat{max-width:none;margin:0;padding:12px 18px}.maxed #chatlog{min-height:calc(100vh - 170px)}
 .qpanel{max-width:900px;margin:10px auto 30px;padding:10px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}.qpanel summary{cursor:pointer}
 .qjob{border-top:1px solid var(--line);padding:8px 0}.qjob img,.qjob video{max-width:100%;border-radius:8px;margin-top:6px}.qjob .row{margin:6px 0 0}
 .restorebtn{position:fixed;top:10px;right:14px;z-index:9;display:none}.maxed .restorebtn{display:inline-block}
@@ -1267,13 +1363,15 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const base = () => server || opts.base || '';  // '' = same origin (the page served by Host Station)
     const auth = () => (!server && token ? { 'x-sushila-token': token } : keys[server] ? { authorization: 'Bearer ' + keys[server] } : {});
     const app = opts.container || document.getElementById('app');
+    // the page's controls are found inside its own container, so it keeps working while the app shows another tab
+    const $ = (id) => app.querySelector('#' + id) || document.getElementById(id);
 
     const serverSel = el('select', { id: 'srv', 'aria-label': 'Server' });
     const modelSel = el('select', { id: 'mdl', 'aria-label': 'Model' });
     const remoteBox = el('div', { class: 'bar2 hidden', id: 'remote' },
       el('input', { id: 'rurl', placeholder: 'https://ai.example.com', type: 'url' }), el('input', { id: 'rkey', placeholder: 'access key', type: 'password' }),
       el('button', { onclick: addRemote }, 'Connect'), el('button', { class: 'ghost', onclick: () => { $('remote').classList.add('hidden'); fillServers(); } }, 'Cancel'));
-    const head = el('div', { class: 'top' }, embedded ? el('button', { class: 'ghost', onclick: opts.onBack }, '◀ Host Station') : null, el('h1', {}, opts.title || 'Sushila'),
+    const head = el('div', { class: 'top' }, embedded && opts.onBack ? el('button', { class: 'ghost', onclick: opts.onBack }, '◀ Host Station') : null, opts.title === '' ? null : el('h1', {}, opts.title || 'Sushila'),
       el('div', { class: 'bar2' }, el('span', { class: 'sub' }, 'Server'), serverSel, el('span', { class: 'sub' }, 'Model'), modelSel,
         el('div', { class: 'modesw', id: 'modesw', role: 'group', 'aria-label': 'Speed mode' },
           el('button', { 'data-mode': 'regular', onclick: () => switchMode('regular') }, 'Standard'), el('button', { 'data-mode': 'turbo', onclick: () => switchMode('turbo') }, 'Accelerated'))),
@@ -1370,10 +1468,15 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         want = model.packId; await loadModels();
       } catch (e) { setStatus('Could not switch: ' + (e.message || e), 'off'); }
     }
+    const kept = {};  // pack id -> {nodes, msgs}: switching models (or tabs in the app) keeps each one's conversation and results
     function pickModel() {
-      model = models.find((m) => m.packId === modelSel.value) || null;
+      const next = models.find((m) => m.packId === modelSel.value) || null, prev = model;
+      if (prev && next && prev.packId === next.packId && main.childNodes.length) { model = next; showMode(); return; }  // same model (e.g. after a refresh)
+      if (prev && main.childNodes.length) kept[prev.packId] = { nodes: [...main.childNodes], msgs: msgs.slice() };
+      model = next;
       showMode();
       msgs.length = 0;
+      if (model && kept[model.packId]) { main.replaceChildren(...kept[model.packId].nodes); msgs.push(...kept[model.packId].msgs); return; }
       if (!model) { main.replaceChildren(el('div', { class: 'chat' }, el('div', { class: 'sub' }, server ? 'No model is running on that server.' : 'No model is running. In Sushila Host Station, press Start server (or Run inference) next to a model.'))); return; }
       (model.kind === 'music' ? musicScreen : model.kind === 'video' ? videoScreen : model.kind === 'image' ? imageScreen : chatScreen)();
     }
@@ -1417,14 +1520,14 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 
     // ---------- chat (text models)
     function chatScreen() {
-      main.replaceChildren(el('div', { class: 'chat' }, el('div', { id: 'log' }),
+      main.replaceChildren(el('div', { class: 'chat' }, el('div', { id: 'chatlog' }),
         el('div', { class: 'composer' }, el('textarea', { id: 'q', placeholder: 'Ask anything. ' + (server ? 'Runs on ' + server.replace(/^https?:\/\//, '') + '.' : 'Runs entirely on this computer.') }),
           el('div', {}, el('button', { id: 'send', onclick: send }, 'Submit'), el('button', { id: 'stop', class: 'ghost hidden', onclick: () => ctrl && ctrl.abort() }, 'Stop'),
             el('button', { class: 'ghost', title: 'Run it in the background and keep the answer in the Queue', onclick: () => { const q = $('q').value.trim(); if (q) { addToQueue('text', q, { prompt: q, max_tokens: +$('maxt').value, temperature: +$('temp').value }, $('qmsg')); $('q').value = ''; } } }, 'Add to queue'))),
         el('div', { class: 'msg', id: 'qmsg' }),
         el('div', { class: 'bar2 sub' }, 'Max tokens', el('select', { id: 'maxt' }, [256, 512, 1024, 2048].map((n) => el('option', { selected: n === 512 }, String(n)))),
           'Temperature', el('select', { id: 'temp' }, ['0', '0.3', '0.7', '1.0'].map((t) => el('option', { selected: t === '0.7' }, t))),
-          el('button', { class: 'ghost', onclick: () => { msgs.length = 0; $('log').replaceChildren(); } }, 'New chat')), keyHint()));
+          el('button', { class: 'ghost', onclick: () => { msgs.length = 0; $('chatlog').replaceChildren(); } }, 'New chat')), keyHint()));
       $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
       if (autoPrompt) { $('q').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; send(); } }
     }
@@ -1433,9 +1536,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (!q || ctrl || !model) return;
       $('q').value = '';
       msgs.push({ role: 'user', content: q });
-      $('log').append(el('div', { class: 'bubble user' }, q));
+      $('chatlog').append(el('div', { class: 'bubble user' }, q));
       const out = el('div', { class: 'bubble bot' }, '…'), meta = el('div', { class: 'meta' });
-      $('log').append(out, meta);
+      $('chatlog').append(out, meta);
       const follow = () => { if (meta.scrollIntoView) meta.scrollIntoView({ block: 'end' }); };
       follow();
       ctrl = new AbortController(); $('send').classList.add('hidden'); $('stop').classList.remove('hidden');
@@ -1640,5 +1743,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     loadModels();
     qpanel.addEventListener('toggle', () => { if (qpanel.open) refreshQueue(); });
     refreshQueue();
+    // the app's inference tabs show one model at a time on this page
+    return { select: (id) => { want = id; return loadModels(); }, current: () => (model && model.packId) || '' };
   }
 })();

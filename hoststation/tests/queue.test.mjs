@@ -80,7 +80,7 @@ ok(!job('job-a') && !fs.existsSync(path.join(DATA, 'outputs', 'job-a.png')), 'Re
 [...w.document.querySelectorAll('.tab')].find((b) => b.textContent.startsWith('Queue')).click(); await sleep(100);
 const txt = w.document.body.textContent;
 ok(/Queue/.test(txt) && /Continue the queue|Pause the queue/.test(txt) && w.document.querySelectorAll('.card').length >= 4, 'the Queue tab lists the jobs with their controls');
-ok([...w.document.querySelectorAll('button')].some((b) => b.textContent === 'Show'), 'a ready job can be shown in the app');
+ok([...w.document.querySelectorAll('button')].some((b) => b.textContent === 'Show output'), 'a ready job has "Show output" in the app');
 listeners['hidden-to-tray'] && listeners['hidden-to-tray']({ payload: null });
 fs.rmSync(DATA, { recursive: true, force: true });
 
