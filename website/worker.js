@@ -2053,7 +2053,7 @@ ${product('videogen', 'sushilaVideoGen.cpp', 'Sushila VideoGen', 'Short videos f
   <li>Packs contain <b>only data</b>: model weights (GGUF, safetensors) and the precomputed landscape and head files. Programs, scripts and pickle files are refused, and nothing from a pack is ever run.</li>
   <li>Everything stays inside the app's own folder, and the chat page and model server listen only on your own computer.</li>
 </ul>
-<p>The step-by-step guide: <a href="${REPO}/blob/main/archive/hoststation-desktop/HOW_TO_INSTALL.md">HOW_TO_INSTALL.md</a>. Sushila is an open-source research project; the software is provided as is, without warranty (<a href="/terms">terms</a>).</p>
+<p>The step-by-step guide: <a href="${REPO}/blob/main/deleteItIn2027/hoststation-desktop/HOW_TO_INSTALL.md">HOW_TO_INSTALL.md</a>. Sushila is an open-source research project; the software is provided as is, without warranty (<a href="/terms">terms</a>).</p>
 <script>
 document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; } catch (e) { prompt('sha256', b.dataset.copy); }
