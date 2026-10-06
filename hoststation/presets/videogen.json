@@ -1,0 +1,10 @@
+{
+ "key": "videogen",
+ "product": "Sushila VideoGen",
+ "binary": "sushila-videogen",
+ "file": "sushilaVideoGen.cpp",
+ "models": [
+  "wan2.2-ti2v-5b"
+ ],
+ "demoPrompt": "Two bears dancing in a forest near a river, slow camera pan, warm golden light"
+}

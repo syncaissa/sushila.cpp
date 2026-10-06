@@ -1759,6 +1759,15 @@ const HOST_PACKS = [
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct', artifacts: [],
     files: [['weights/gguf/qwen2.5-coder-7b-instruct-q4_k_m.gguf', 'qwen2.5-coder-7b-instruct-q4_k_m.gguf', 'weights']],
     serve: { model: 'qwen2.5-coder-7b-instruct-q4_k_m.gguf', args: [] } },
+  // VideoGen (not released yet: hidden from the catalog until the author decides; SHOW_HIDDEN_PACKS=1 lists it)
+  { id: 'wan2.2-ti2v-5b', category: 'Video', kind: 'video', hidden: true, name: 'Wan 2.2 TI2V-5B (text or picture to video, 8-bit)', model: 'precomputed/wan2.2-ti2v-5b', minRamGB: 24,
+    description: 'Short videos (2-5 s, up to 720p, 24 fps) from a sentence, or from a starting picture. Needs a GPU with 12 GB+ for comfortable speed; minutes per clip.',
+    license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B', artifacts: [],
+    files: [['weights/diffusion/Wan2.2-TI2V-5B-Q8_0.gguf', 'Wan2.2-TI2V-5B-Q8_0.gguf', 'weights'],
+      ['weights/text-encoder/umt5-xxl-encoder-Q8_0.gguf', 'umt5-xxl-encoder-Q8_0.gguf', 'text-encoder'],
+      ['weights/vae/wan2.2_vae.safetensors', 'wan2.2_vae.safetensors', 'vae']],
+    serve: { engine: 'image', model: 'Wan2.2-TI2V-5B-Q8_0.gguf',
+      args: ['--diffusion-model', '{pack}/Wan2.2-TI2V-5B-Q8_0.gguf', '--t5xxl', '{pack}/umt5-xxl-encoder-Q8_0.gguf', '--vae', '{pack}/wan2.2_vae.safetensors', '--diffusion-fa', '--offload-to-cpu'] } },
   { id: 'ace-step-15', category: 'Music', kind: 'music', name: 'ACE-Step 1.5 (songs from lyrics and a style)', model: 'precomputed/ace-step-15', minRamGB: 12,
     description: 'Full songs with vocals from your lyrics and a style description (stereo 48 kHz MP3), up to several minutes; 8-step turbo model with the 4B song-writing model. Runs on GPUs with 8 GB+, slower on CPU.',
     license: 'MIT', licenseUrl: 'https://huggingface.co/ACE-Step/Ace-Step1.5', artifacts: [],
@@ -1851,6 +1860,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
   const getJson = async (key) => { const t = await getText(key); return t ? JSON.parse(t) : null; };
   const packs = [];
   for (const p of HOST_PACKS) {
+    if (p.hidden && env.SHOW_HIDDEN_PACKS !== '1') continue;  // packs not released yet
     try {
       // the signed index travels with the pack: the app checks the signature, then every file against the index
       const text = await getText(`${p.model}/CHECKSUMS.json`), signature = await getText(`${p.model}/CHECKSUMS.json.sig`);
@@ -1871,7 +1881,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
         return { path, src, role, bytes: f.bytes, sha256: f.sha256, url: `${origin}/hoststation/get/${p.id}/${i}` };
       });
       if (files.some((f) => !f)) continue;  // a file is not in B2 (yet): do not offer a broken pack
-      const { model, files: _f, ollamaGguf, ...pub } = p;
+      const { model, files: _f, ollamaGguf, hidden, ...pub } = p;
       const packBytes = 512 + 0 + files.reduce((a, f) => a + 512 + f.bytes + pad512(f.bytes), 0) + 1024;  // approximate (+ metadata)
       packs.push({ ...pub, files, index: { text, signature: signature.trim() }, packUrl: `${origin}/hoststation/pack/${p.id}.sushilapack`, packBytes });
     } catch (e) { console.error('hoststation pack', p.id, e.message); }

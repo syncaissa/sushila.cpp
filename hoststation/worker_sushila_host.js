@@ -791,7 +791,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('tbody', {}, installed.map((p) => {
           const r = s.running[p.id];
           return el('tr', {},
-            el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, (p.kind === 'music' ? 'Music' : p.kind === 'image' ? 'Images' : 'Text (LLM)') + (p.id === DEFAULT_MODEL ? ' · default model' : '') + ((p.artifacts || []).length ? ' · precomputed: ' + p.artifacts.join(', ') : ''))),
+            el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, (p.kind === 'music' ? 'Music' : p.kind === 'video' ? 'Video' : p.kind === 'image' ? 'Images' : 'Text (LLM)') + (p.id === DEFAULT_MODEL ? ' · default model' : '') + ((p.artifacts || []).length ? ' · precomputed: ' + p.artifacts.join(', ') : ''))),
             el('td', {}, p.bytes ? gb(p.bytes) : ''),
             el('td', {}, r ? el('span', { class: 'pill on' }, (r.ready ? 'running' : 'starting') + ' · port ' + r.port) : el('span', { class: 'pill' }, 'stopped')),
             el('td', {}, el('div', { class: 'row', style: 'margin:0' },
@@ -1089,7 +1089,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const s = await r.json();
         models = s.running || [];
-        modelSel.replaceChildren(...(models.length ? models.map((m) => el('option', { value: m.packId }, m.name + (m.kind === 'music' ? ' (music)' : m.kind === 'image' ? ' (images)' : ''))) : [el('option', { value: '' }, 'No model running')]));
+        modelSel.replaceChildren(...(models.length ? models.map((m) => el('option', { value: m.packId }, m.name + (m.kind === 'music' ? ' (music)' : m.kind === 'video' ? ' (video)' : m.kind === 'image' ? ' (images)' : ''))) : [el('option', { value: '' }, 'No model running')]));
         if (want && models.find((m) => m.packId === want)) modelSel.value = want;
         want = '';
         setStatus(server ? 'Remote: ' + server.replace(/^https?:\/\//, '') : 'This computer', models.length ? 'on' : 'off');
@@ -1134,7 +1134,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       showMode();
       msgs.length = 0;
       if (!model) { main.replaceChildren(el('div', { class: 'chat' }, el('div', { class: 'sub' }, server ? 'No model is running on that server.' : 'No model is running. In Sushila Host Station, press Start server (or Run inference) next to a model.'))); return; }
-      (model.kind === 'music' ? musicScreen : model.kind === 'image' ? imageScreen : chatScreen)();
+      (model.kind === 'music' ? musicScreen : model.kind === 'video' ? videoScreen : model.kind === 'image' ? imageScreen : chatScreen)();
     }
     const keyHint = () => (server && !keys[server] ? el('div', { class: 'sub' }, 'This server needs an access key: choose "Add a remote server…" again with the key.') : null);
     const explain = (r, body) => r.status === 401 ? 'This server needs an access key (Server → Add a remote server…).' : r.status === 429 ? 'Too many requests for this key; wait a minute.' : (body || 'HTTP ' + r.status);
@@ -1191,6 +1191,64 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         if (text) msgs.push({ role: 'assistant', content: text });
         ctrl = null; $('send').classList.remove('hidden'); $('stop').classList.add('hidden');
       }
+    }
+
+    // ---------- video (video packs: stable-diffusion.cpp's server, native async API behind /v1/video/ -> /sdcpp/v1/)
+    // POST /v1/video/vid_gen returns a job; GET /v1/video/jobs/{id} until it completes with the whole WebM file (base64).
+    const WAN_NEGATIVE = '色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走';
+    let videoJob = null, startImage = null;
+    function videoScreen() {
+      startImage = null;
+      main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create a video'),
+        el('label', { for: 'vprompt' }, 'Describe the video'), el('textarea', { id: 'vprompt', rows: 4, placeholder: 'e.g. two bears dancing in a forest near a river, slow camera pan, golden light' }),
+        el('label', { for: 'vimg' }, 'Start from a picture (optional)'), el('input', { id: 'vimg', type: 'file', accept: 'image/png,image/jpeg,image/webp', onchange: pickStartImage }),
+        el('div', { class: 'bar2' },
+          el('label', {}, 'Shape ', el('select', { id: 'vsize' }, [['832x480', 'Landscape'], ['480x832', 'Portrait'], ['640x640', 'Square']].map(([v, t]) => el('option', { value: v }, t)))),
+          el('label', {}, 'Length ', el('select', { id: 'vlen' }, [[49, '2 seconds'], [73, '3 seconds'], [121, '5 seconds']].map(([v, t]) => el('option', { value: v }, t)))),
+          el('label', {}, 'Seed ', el('input', { id: 'vseed', type: 'number', placeholder: 'random', style: 'width:110px' }))),
+        el('div', { class: 'row' }, el('button', { id: 'vgo', class: 'big', onclick: makeVideo }, 'Generate'),
+          el('button', { id: 'vstop', class: 'ghost hidden', onclick: cancelVideo }, 'Cancel')),
+        el('div', { class: 'msg', id: 'vmsg' }), el('div', { class: 'sub' }, 'Videos take minutes, not seconds: a short clip is about 1-5 minutes on a fast NVIDIA GPU, much longer on smaller ones.'),
+        keyHint(), el('div', { id: 'vgallery' })));
+      if (autoPrompt) { $('vprompt').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeVideo(); } }
+    }
+    function pickStartImage(e) {
+      const f = e.target.files && e.target.files[0]; startImage = null; if (!f) return;
+      const r = new FileReader(); r.onload = () => { startImage = String(r.result); }; r.readAsDataURL(f);
+    }
+    async function makeVideo() {
+      const prompt = $('vprompt').value.trim();
+      if (!prompt || !model) { $('vmsg').className = 'msg err'; $('vmsg').textContent = 'Describe the video first.'; return; }
+      const [w, h] = $('vsize').value.split('x').map(Number), frames = +$('vlen').value, fps = 24, seed = $('vseed').value.trim();
+      $('vgo').disabled = true; $('vstop').classList.remove('hidden'); $('vmsg').className = 'msg';
+      const t0 = performance.now(), tick = () => { $('vmsg').textContent = `Making the video… ${Math.round((performance.now() - t0) / 1000)} s (the first one after starting also loads the model)`; };
+      tick();
+      const hdr = Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth());
+      try {
+        const r = await fetch(base() + '/v1/video/vid_gen', { method: 'POST', headers: hdr, body: JSON.stringify({
+          model: model.packId, prompt, negative_prompt: WAN_NEGATIVE, width: w, height: h, video_frames: frames, fps, seed: seed ? +seed : -1,
+          init_image: startImage, sample_params: { sample_method: 'euler', guidance: { txt_cfg: 6.0 }, flow_shift: 3.0 }, output_format: 'webm' }) });
+        if (!r.ok) throw new Error(explain(r, await r.text()));
+        videoJob = (await r.json()).id;
+        for (;;) {
+          await new Promise((res) => setTimeout(res, 2000)); tick();
+          const j = await (await fetch(base() + '/v1/video/jobs/' + encodeURIComponent(videoJob), { headers: hdr })).json();
+          if (j.status === 'completed') {
+            const res = j.result || {}, mime = res.mime_type || 'video/webm', src = `data:${mime};base64,${res.b64_json}`, secs = ((performance.now() - t0) / 1000).toFixed(0);
+            const ext = (res.output_format || 'webm') === 'webp' ? 'webp' : (res.output_format || 'webm');
+            $('vgallery').prepend(el('figure', { class: 'track' }, el('video', { src, controls: true, loop: true, autoplay: true, muted: true, playsinline: true, style: 'width:100%;border-radius:10px' }),
+              el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${res.frame_count || frames} frames · ${secs} s · `, el('a', { href: src, download: 'sushila-video.' + ext, class: 'dlbtn' }, '⬇ Download'))));
+            $('vmsg').textContent = `Done in ${secs} s.`;
+            break;
+          }
+          if (j.status === 'failed' || j.status === 'cancelled') throw new Error(j.status === 'cancelled' ? 'Cancelled.' : 'The video failed: ' + ((j.error && j.error.message) || 'unknown error'));
+        }
+      } catch (e) { $('vmsg').className = 'msg err'; $('vmsg').textContent = String(e.message || e); }
+      finally { videoJob = null; $('vgo').disabled = false; $('vstop').classList.add('hidden'); }
+    }
+    async function cancelVideo() {
+      if (!videoJob) return;
+      await fetch(base() + '/v1/video/jobs/' + encodeURIComponent(videoJob) + '/cancel', { method: 'POST', headers: Object.assign({ 'x-sushila-model': model.packId }, auth()) }).catch(() => {});
     }
 
     // ---------- music (music packs, acestep.cpp ace-server behind /v1/music/): 1. Lyrics, 2. Style, Generate.

@@ -575,7 +575,9 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         return deny(axum::http::StatusCode::SERVICE_UNAVAILABLE, if running.is_empty() { "no model is running: start one in Sushila Host Station" } else { "name a running model (\"model\" field); GET /v1/models lists them" });
     };
     let pq = parts.uri.path_and_query().map(|p| p.as_str().to_string()).unwrap_or(path.clone());
-    let upstream_path = pq.strip_prefix("/v1/music").map(|r| r.to_string()).unwrap_or(pq);  // music servers have their own paths
+    // music servers have their own paths; video uses stable-diffusion.cpp's native async API (/sdcpp/v1/vid_gen, /sdcpp/v1/jobs/..)
+    let upstream_path = if let Some(r) = pq.strip_prefix("/v1/video") { format!("/sdcpp/v1{r}") }
+        else { pq.strip_prefix("/v1/music").map(|r| r.to_string()).unwrap_or(pq) };
     let url = format!("http://127.0.0.1:{up}{upstream_path}");
     let method = reqwest::Method::from_bytes(parts.method.as_str().as_bytes()).unwrap_or(reqwest::Method::GET);
     let mut r = s.http.request(method, url).body(bytes.to_vec());
