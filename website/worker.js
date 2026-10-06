@@ -2493,7 +2493,15 @@ export default {
           const r = await fromGithub(env, d, request, d.file);
           if (r) return r;
         }
-        return new Response(null, { status: 302, headers: { location: d.url, 'cache-control': 'no-store', ...SEC } });
+        // streamed through sushila.ai from files.sushila.ai/public/ (every app version downloads from sushila.ai; Range passes
+        // through, so downloads resume)
+        const h = {}; if (request.headers.get('range')) h.range = request.headers.get('range');
+        const r = await fetch(d.url, { headers: h });
+        if (!(r.status === 200 || r.status === 206)) return new Response('Not available right now.', { status: 502, headers: SEC });
+        const out = new Headers({ 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="${String(d.file).replace(/"/g, '')}"`,
+          'accept-ranges': 'bytes', 'cache-control': 'no-store', ...SEC });
+        for (const k of ['content-length', 'content-range']) if (r.headers.get(k)) out.set(k, r.headers.get(k));
+        return new Response(r.body, { status: r.status, headers: out });
       }
       if (p.startsWith('/hoststation/download/')) {
         const rest = p.slice('/hoststation/download/'.length).split('/');

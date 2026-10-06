@@ -179,7 +179,7 @@ def _probs(lc, lu, g, seen, n_new, args):
 
 @torch.no_grad()
 def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, draft=None, k=4, seed=None,
-                    rp=1.1, top_p=0.93, temperature=1.0, block=(0, 32002), stats=None):
+                    rp=1.1, top_p=0.93, temperature=1.0, block=(0, 32002), stats=None, graphs=False):
     """Returns output_seq [1, L + new] like model.generate in infer.py. With draft, speculative sampling (Leviathan et
     al.): drafts of k tokens accepted with min(1, p/q), the first rejection replaced by a draw from max(0, p - q); the
     tokens follow the same distribution as without the draft."""
@@ -188,8 +188,9 @@ def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, d
     args = {'rp': rp, 'top_p': top_p, 'temperature': temperature, 'min_new': min_new, 'eoa': eoa, 'block_lo': block[0], 'block_hi': block[1]}
     V = model.config.vocab_size
     seen = torch.zeros(V, dtype=torch.bool, device=input_ids.device); seen[input_ids[0]] = True
-    T = _Pair(model, input_ids, pad_id)
-    D = _Pair(draft, input_ids, pad_id) if draft is not None else None
+    mk = (lambda m: _PairG(m, input_ids, pad_id, max_new + 2 * k + 8)) if graphs else (lambda m: _Pair(m, input_ids, pad_id))
+    T = mk(model)
+    D = mk(draft) if draft is not None else None
     out = []
     draw = lambda p: int(torch.multinomial(p, 1, generator=gen))
     pT = _probs(T.last[0], T.last[1], guidance, seen, 0, args)
@@ -251,3 +252,91 @@ def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, d
     if stats is not None:
         stats.update({'rounds': rounds, 'drafted': drafted, 'accepted': accepted, 'new_tokens': len(out)})
     return torch.cat([input_ids, torch.tensor([out], device=input_ids.device, dtype=input_ids.dtype)], 1)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# CUDA-graph versions: a static KV cache and a fixed-shape attention mask over the whole cache, so each decode (or
+# verify) shape is captured once and replayed (torch.compile mode reduce-overhead). Same computations as above.
+
+_STEP = {}
+
+
+def _compiled(model):
+    if id(model) not in _STEP:
+        _STEP[id(model)] = torch.compile(model.forward, mode='reduce-overhead', fullgraph=True)
+    return _STEP[id(model)]
+
+
+class StaticRows:
+    """R rows of left-padded sequences in a static cache; feed(ids [R, T]) advances every row by T tokens."""
+    def __init__(self, model, ids, mask, max_new):
+        from transformers import StaticCache
+        self.m, self.dev = model, ids.device
+        R, L = ids.shape
+        self.max_len = L + max_new + 16
+        self.cache = StaticCache(config=model.config, max_batch_size=R, max_cache_len=self.max_len, device=self.dev, dtype=model.dtype)
+        self.mask = torch.zeros((R, self.max_len), dtype=torch.long, device=self.dev); self.mask[:, :L] = mask
+        self.pos = ((mask.cumsum(-1) - 1).clamp_min(0))[:, -1:] + 1  # next position id per row [R, 1]
+        out = model(input_ids=ids, attention_mask=self.mask, position_ids=(mask.cumsum(-1) - 1).clamp_min(0),
+                    cache_position=torch.arange(L, device=self.dev), past_key_values=self.cache, use_cache=True)
+        self.last = out.logits[:, -1, :].float()
+        self.p = L  # next cache slot
+        self.step = _compiled(model)
+
+    def feed(self, ids):
+        R, T = ids.shape
+        self.mask[:, self.p:self.p + T] = 1
+        pos = self.pos + torch.arange(T, device=self.dev)[None]
+        o = self.step(input_ids=ids, attention_mask=self.mask, position_ids=pos, cache_position=torch.arange(self.p, self.p + T, device=self.dev),
+                      past_key_values=self.cache, use_cache=True)
+        self.p += T; self.pos = self.pos + T
+        return o.logits.float()
+
+    def rollback(self, n):
+        if n <= 0: return
+        self.p -= n; self.pos = self.pos - n; self.mask[:, self.p:self.p + n] = 0
+
+
+@torch.no_grad()
+def stage2_batched_graph(model, rows, prefix, suffix, block_lo, block_hi, pad_id):
+    """stage2_batched on CUDA graphs (same tokens, same layout)."""
+    import numpy as np
+    dev = next(model.parameters()).device
+    R, Fmax = len(rows), max(len(r) for r in rows)
+    L = [len(prefix) + len(r) + len(suffix) for r in rows]; Lmax = max(L)
+    ids = torch.full((R, Lmax), pad_id, dtype=torch.long, device=dev); mask = torch.zeros((R, Lmax), dtype=torch.long, device=dev)
+    for i, r in enumerate(rows):
+        ids[i, Lmax - L[i]:] = torch.as_tensor(np.concatenate([prefix, r, suffix]).astype(np.int64), device=dev); mask[i, Lmax - L[i]:] = 1
+    S = StaticRows(model, ids, mask, 8 * Fmax)
+    cb0 = torch.full((R, Fmax), pad_id, dtype=torch.long, device=dev)
+    for i, r in enumerate(rows):
+        cb0[i, :len(r)] = torch.as_tensor(r.astype(np.int64), device=dev)
+        if len(r) < Fmax: cb0[i, len(r):] = cb0[i, len(r) - 1]
+    out = torch.empty((R, 8 * Fmax), dtype=torch.long, device=dev)
+    for f in range(Fmax):
+        tok = cb0[:, f:f + 1]
+        out[:, 8 * f] = tok[:, 0]
+        for j in range(7):
+            logits = S.feed(tok)[:, -1]
+            logits[:, :block_lo] = -float('inf'); logits[:, block_hi:] = -float('inf')
+            tok = logits.argmax(-1, keepdim=True)
+            out[:, 8 * f + 1 + j] = tok[:, 0]
+        S.feed(tok)
+    o = out.cpu().numpy()
+    return [o[i, :8 * len(r)] for i, r in enumerate(rows)]
+
+
+class _PairG:
+    """_Pair (conditional + unconditional rows) on CUDA graphs."""
+    def __init__(self, model, input_ids, pad_id, max_new):
+        L = input_ids.shape[1]; dev = input_ids.device
+        ids = torch.full((2, L), pad_id, dtype=torch.long, device=dev); ids[0] = input_ids[0]; ids[1, -1] = input_ids[0, -1]
+        mask = torch.zeros((2, L), dtype=torch.long, device=dev); mask[0] = 1; mask[1, -1] = 1
+        self.S = StaticRows(model, ids, mask, max_new)
+        self.last = self.S.last
+
+    def feed(self, toks):
+        return self.S.feed(toks[None].expand(2, toks.shape[0]).contiguous())
+
+    def rollback(self, n):
+        self.S.rollback(n)

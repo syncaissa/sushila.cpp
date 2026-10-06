@@ -1,0 +1,14 @@
+{
+ "row_lengths": [
+  12,
+  7,
+  12,
+  3
+ ],
+ "identical_per_row": [
+  true,
+  true,
+  true,
+  true
+ ]
+}

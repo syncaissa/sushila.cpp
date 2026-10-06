@@ -1,0 +1,19 @@
+{
+ "dtype": "bfloat16",
+ "first_diff_after_prompt_per_row": [
+  52,
+  -1,
+  23,
+  182
+ ],
+ "frames": 40,
+ "rows": 4,
+ "official_s": 12.125728368759155,
+ "cached_s": 8.466753959655762,
+ "official_ms_per_frame": 303.1432092189789,
+ "cached_ms_per_frame": 211.66884899139404,
+ "speedup": 1.4321578761516485,
+ "tokens_identical": false,
+ "tokens_different": 453,
+ "tokens_compared": 2492
+}

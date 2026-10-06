@@ -1,0 +1,43 @@
+patched infer_fast.py
+[17:45:07] stage 1 batched (k=0), stage 2 batched
+TIMING {"start": 0.0, "stage1_done": 199.3, "stage2_start": 209.3, "stage2_done": 317.7, "end": 325.4}
+[17:50:38] stage 1 spec (k=4), stage 2 batched
+Traceback (most recent call last):
+RuntimeError: probability tensor contains either `inf`, `nan` or element < 0
+[17:50:54] stage 1 spec (k=6), stage 2 batched
+Traceback (most recent call last):
+RuntimeError: probability tensor contains either `inf`, `nan` or element < 0
+[17:51:08] YUE_FAST_DONE
+patched infer_fast.py
+[17:51:08] stage 1 spec (k=4), stage 2 batched
+Traceback (most recent call last):
+IndentationError: unexpected indent
+[17:51:22] stage 1 spec (k=6), stage 2 batched
+Traceback (most recent call last):
+IndentationError: unexpected indent
+[17:51:35] stage 1 spec (k=3), stage 2 batched
+Traceback (most recent call last):
+IndentationError: unexpected indent
+[17:51:48] YUE_FAST_DONE
+patched infer_fast.py
+[17:51:55] stage 1 spec (k=4), stage 2 batched
+Stage1 inference...:   0%|          | 0/3 [00:00<?, ?it/s]SPEC {'rounds': 1307, 'drafted': 5228, 'accepted': 1478, 'new_tokens': 2785}
+Stage1 inference...:  67%|██████▋   | 2/3 [03:15<01:37, 97.51s/it]SPEC {'rounds': 1424, 'drafted': 5695, 'accepted': 1576, 'new_tokens': 3000}
+TIMING {"start": 0.0, "stage1_done": 420.3, "stage2_start": 430.4, "stage2_done": 537.2, "end": 544.7}
+[18:01:06] stage 1 spec (k=6), stage 2 batched
+Stage1 inference...:   0%|          | 0/3 [00:00<?, ?it/s]SPEC {'rounds': 1236, 'drafted': 7414, 'accepted': 1765, 'new_tokens': 3001}
+Stage1 inference...:  67%|██████▋   | 2/3 [04:04<02:02, 122.29s/it]SPEC {'rounds': 1409, 'drafted': 8443, 'accepted': 1592, 'new_tokens': 3001}
+TIMING {"start": 0.0, "stage1_done": 524.9, "stage2_start": 535.2, "stage2_done": 643.4, "end": 651.1}
+[18:12:03] stage 1 spec (k=3), stage 2 batched
+Stage1 inference...:   0%|          | 0/3 [00:00<?, ?it/s]SPEC {'rounds': 1216, 'drafted': 3648, 'accepted': 1403, 'new_tokens': 2619}
+Stage1 inference...:  67%|██████▋   | 2/3 [02:41<01:20, 80.54s/it]SPEC {'rounds': 1250, 'drafted': 3750, 'accepted': 1369, 'new_tokens': 2619}
+TIMING {"start": 0.0, "stage1_done": 337.4, "stage2_start": 347.8, "stage2_done": 447.3, "end": 454.4}
+[18:19:45] YUE_FAST_DONE
+patched infer_fast.py
+[18:23:17] stage 1 batched (k=0), stage 2 batched
+TIMING {"start": 0.0, "stage1_done": 246.3, "stage2_start": 255.4, "stage2_done": 377.3, "end": 384.9}
+[18:29:53] stage 1 spec (k=4), stage 2 batched
+SPEC {'rounds': 1264, 'drafted': 5056, 'accepted': 1535, 'new_tokens': 2799}
+Stage1 inference...:  67%|██████▋   | 2/3 [03:35<01:47, 107.54s/it]SPEC {'rounds': 1447, 'drafted': 5784, 'accepted': 1553, 'new_tokens': 3000}
+TIMING {"start": 0.0, "stage1_done": 556.4, "stage2_start": 565.6, "stage2_done": 687.7, "end": 695.3}
+[18:41:44] YUE_FAST_DONE

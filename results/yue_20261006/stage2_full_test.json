@@ -1,0 +1,28 @@
+{
+ "rows": 20,
+ "frames_max": 300,
+ "seconds": 104.26301836967468,
+ "official_seconds": 823.8,
+ "itrack.npy": {
+  "shape_ours": [
+   8,
+   2945
+  ],
+  "shape_official": [
+   8,
+   2945
+  ]
+ },
+ "vtrack.npy": {
+  "shape_ours": [
+   8,
+   2945
+  ],
+  "shape_official": [
+   8,
+   2945
+  ]
+ },
+ "codes_identical_fraction": 0.47854414261460104,
+ "speedup": 7.901171603138678
+}

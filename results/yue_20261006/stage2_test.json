@@ -1,0 +1,12 @@
+{
+ "frames": 40,
+ "rows": 4,
+ "official_s": 12.125312328338623,
+ "cached_s": 8.180917024612427,
+ "official_ms_per_frame": 303.1328082084656,
+ "cached_ms_per_frame": 204.52292561531067,
+ "speedup": 1.4821458635822142,
+ "tokens_identical": false,
+ "tokens_different": 453,
+ "tokens_compared": 2492
+}

@@ -1,0 +1,28 @@
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards:  33%|███▎      | 1/3 [00:00<00:00,  6.59it/s]Loading checkpoint shards:  67%|██████▋   | 2/3 [00:00<00:00,  6.64it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00,  6.80it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00,  6.75it/s]
+/usr/local/lib/python3.11/dist-packages/torch/nn/utils/weight_norm.py:134: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+Stage1 inference...:   0%|          | 0/3 [00:00<?, ?it/s]SPEC {'rounds': 1236, 'drafted': 7414, 'accepted': 1765, 'new_tokens': 3001}
+Stage1 inference...:  67%|██████▋   | 2/3 [04:04<02:02, 122.29s/it]SPEC {'rounds': 1409, 'drafted': 8443, 'accepted': 1592, 'new_tokens': 3001}
+Stage1 inference...: 100%|██████████| 3/3 [08:37<00:00, 185.17s/it]Stage1 inference...: 100%|██████████| 3/3 [08:37<00:00, 172.59s/it]
+Stage 2 inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 215.36it/s]
+/workspace/yue/YuE/inference/xcodec_mini_infer/vocoder.py:21: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  vocal_decoder.load_state_dict(torch.load(vocal_decoder_path))
+/workspace/yue/YuE/inference/xcodec_mini_infer/vocoder.py:23: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  inst_decoder.load_state_dict(torch.load(inst_decoder_path))
+/workspace/yue/YuE/inference/xcodec_mini_infer/vocoder.py:45: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  compressed = torch.tensor(compressed).to(f"cuda:{args.cuda_idx}")
+['/workspace/yue/res/fast_spec_k6/stage2/inspiring-female-uplifting-pop-airy-vocal-electronic-bright-vocal-vocal_tp0@93_T1@0_rp1@1_maxtk3000_52b55d22-ae37-48bf-a592-3ef4da8f8c70_vtrack.npy', '/workspace/yue/res/fast_spec_k6/stage2/inspiring-female-uplifting-pop-airy-vocal-electronic-bright-vocal-vocal_tp0@93_T1@0_rp1@1_maxtk3000_52b55d22-ae37-48bf-a592-3ef4da8f8c70_itrack.npy']
+Stage 2 DONE.
+
+Processing /workspace/yue/res/fast_spec_k6/stage2/inspiring-female-uplifting-pop-airy-vocal-electronic-bright-vocal-vocal_tp0@93_T1@0_rp1@1_maxtk3000_52b55d22-ae37-48bf-a592-3ef4da8f8c70_vtrack.npy
+Compressed shape: (8, 3000)
+Decoded in 0.03s (2256.07x RTF)
+Saved: /workspace/yue/res/fast_spec_k6/vocoder/stems/vtrack.mp3
+Processing /workspace/yue/res/fast_spec_k6/stage2/inspiring-female-uplifting-pop-airy-vocal-electronic-bright-vocal-vocal_tp0@93_T1@0_rp1@1_maxtk3000_52b55d22-ae37-48bf-a592-3ef4da8f8c70_itrack.npy
+Compressed shape: (8, 3000)
+Decoded in 0.01s (4042.25x RTF)
+Saved: /workspace/yue/res/fast_spec_k6/vocoder/stems/itrack.mp3
+Created mix: /workspace/yue/res/fast_spec_k6/vocoder/mix/inspiring-female-uplifting-pop-airy-vocal-electronic-bright-vocal-vocal_tp0@93_T1@0_rp1@1_maxtk3000_52b55d22-ae37-48bf-a592-3ef4da8f8c70_mixed.mp3
+Successfully created 'inspiring-female-uplifting-pop-airy-vocal-electronic-bright-vocal-vocal_tp0@93_T1@0_rp1@1_maxtk3000_52b55d22-ae37-48bf-a592-3ef4da8f8c70_mixed.mp3' with matched low-frequency energy.
+TIMING {"start": 0.0, "stage1_done": 524.9, "stage2_start": 535.2, "stage2_done": 643.4, "end": 651.1}

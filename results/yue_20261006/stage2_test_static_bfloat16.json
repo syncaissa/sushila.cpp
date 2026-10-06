@@ -1,0 +1,20 @@
+{
+ "mode": "static",
+ "dtype": "bfloat16",
+ "first_diff_after_prompt_per_row": [
+  -1,
+  -1,
+  23,
+  20
+ ],
+ "frames": 40,
+ "rows": 4,
+ "official_s": 12.166932106018066,
+ "cached_s": 64.2255916595459,
+ "official_ms_per_frame": 304.17330265045166,
+ "cached_ms_per_frame": 1605.6397914886475,
+ "speedup": 0.1894405608672923,
+ "tokens_identical": false,
+ "tokens_different": 336,
+ "tokens_compared": 2492
+}

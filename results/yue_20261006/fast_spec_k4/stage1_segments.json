@@ -1,0 +1,18 @@
+[
+ {
+  "segment": 1,
+  "gen_end": 3245,
+  "new_tokens": 2785,
+  "guidance": 1.5,
+  "seconds": 195.00943803787231,
+  "prompt_len": 460
+ },
+ {
+  "segment": 2,
+  "gen_end": 6329,
+  "new_tokens": 3001,
+  "guidance": 1.2,
+  "seconds": 218.5542197227478,
+  "prompt_len": 83
+ }
+]

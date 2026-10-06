@@ -26,7 +26,8 @@ rep("""    with torch.no_grad():
         _st = {}
         output_seq = stage1_generate(getattr(model, '_orig_mod', model), input_ids, guidance_scale, max_new_tokens, 100, mmtokenizer.eoa, mmtokenizer.eoa,
                                      draft=globals().get('_DRAFT') if os.environ.get('SUSHILA_STAGE1') == 'spec' else None,
-                                     k=int(os.environ.get('SUSHILA_K', '4')), seed=args.seed * 1000 + i, stats=_st)
+                                     k=int(os.environ.get('SUSHILA_K', '4')), seed=args.seed * 1000 + i, stats=_st,
+                                     graphs=os.environ.get('SUSHILA_GRAPHS') == '1')
         if _st.get('rounds'): print('SPEC', json.dumps(_st) if 'json' in globals() else _st, flush=True); _SEG_STATS = globals().setdefault('_SPEC_STATS', []); _SEG_STATS.append(_st)
         if output_seq[0][-1].item() != mmtokenizer.eoa:
             output_seq = torch.cat((output_seq, torch.as_tensor([[mmtokenizer.eoa]]).to(model.device)), dim=1)
@@ -39,7 +40,8 @@ rep("""stage2_result = stage2_inference(model_stage2, stage1_output_set, stage2_
 """_S2 = {}
 if os.environ.get('SUSHILA_STAGE2') == 'batched':
     import sys as _sys; _sys.path.insert(0, os.environ.get('SUSHILA_YUE_DIR', '.'))
-    from yue_fast import stage2_batched, plan_stage2
+    from yue_fast import stage2_batched, stage2_batched_graph, plan_stage2
+    if os.environ.get('SUSHILA_GRAPHS') == '1': stage2_batched = stage2_batched_graph
     _calls = plan_stage2(stage1_output_set, args.stage2_batch_size)
     _rows, _owner = [], []
     for _ci, (_f, _a, _b, _n) in enumerate(_calls):
