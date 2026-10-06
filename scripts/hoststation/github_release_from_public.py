@@ -5,7 +5,7 @@ streamed from files.sushila.ai to GitHub's upload API (no local copy), so builds
 GitHub Actions. The release notes list every file with its sha256. Signed lists in B2 are not touched.
   python3 github_release_from_public.py 0.1.1 [--dry-run]
 Needs ~/.github_token (repository contents: write)."""
-import argparse, json, os, sys, urllib.parse, urllib.request
+import argparse, json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
 REPO = 'syncaissa/sushila.cpp'
 FILES = 'https://files.sushila.ai/public/'
@@ -33,6 +33,15 @@ def public_json(key):
     return json.loads(urllib.request.urlopen(urllib.request.Request(FILES + key, headers=UA), timeout=60).read())
 
 
+def delete_asset(aid):
+    for i in range(6):  # GitHub answers 500 now and then, then succeeds
+        try:
+            gh('DELETE', f'https://api.github.com/repos/{REPO}/releases/assets/{aid}'); return True
+        except (urllib.error.URLError, OSError):
+            time.sleep(15)
+    return False
+
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('version'); ap.add_argument('--dry-run', action='store_true')
     a = ap.parse_args(); v = a.version
@@ -53,14 +62,31 @@ def main():
     except urllib.error.HTTPError:
         rel = gh('POST', f'https://api.github.com/repos/{REPO}/releases', {'tag_name': f'v{v}', 'name': f'Sushila {v}', 'body': '\n'.join(notes)})
     gh('PATCH', f'https://api.github.com/repos/{REPO}/releases/{rel["id"]}', {'body': '\n'.join(notes)})
-    have = {x['name'] for x in gh('GET', f'https://api.github.com/repos/{REPO}/releases/{rel["id"]}/assets?per_page=100')}
+    have = set()
+    for x in gh('GET', f'https://api.github.com/repos/{REPO}/releases/{rel["id"]}/assets?per_page=100'):
+        if x.get('state') == 'uploaded' and x.get('size'):
+            have.add(x['name'])
+        else:  # an interrupted upload leaves a placeholder that blocks the name: remove it and upload again
+            print('removed incomplete' if delete_asset(x['id']) else 'could not remove', x['name'], flush=True)
     up = rel['upload_url'].split('{')[0]
     for key, name, size, sha, _, _ in assets:
         if name in have:
             print('already there:', name, flush=True); continue
-        src = urllib.request.urlopen(urllib.request.Request(FILES + key, headers=UA), timeout=3600)
-        gh('POST', f'{up}?name={urllib.parse.quote(name)}', src, {'Content-Type': 'application/octet-stream', 'Content-Length': str(size)})
-        print('uploaded', name, f'{size / 1e6:.0f} MB', flush=True)
+        for attempt in range(5):
+            try:
+                src = urllib.request.urlopen(urllib.request.Request(FILES + key, headers=UA), timeout=3600)
+                gh('POST', f'{up}?name={urllib.parse.quote(name)}', src, {'Content-Type': 'application/octet-stream', 'Content-Length': str(size)})
+                print('uploaded', name, f'{size / 1e6:.0f} MB', flush=True); break
+            except (urllib.error.URLError, OSError) as e:  # GitHub answers 500 or drops the connection now and then: wait, clear, retry
+                print('retry', name, getattr(e, 'code', '') or str(e)[:80], flush=True)
+                time.sleep(20 * (attempt + 1))
+                try:
+                    for x in gh('GET', f'https://api.github.com/repos/{REPO}/releases/{rel["id"]}/assets?per_page=100'):
+                        if x['name'] == name: delete_asset(x['id'])
+                except (urllib.error.URLError, OSError):
+                    pass
+        else:
+            print('FAILED', name, flush=True)
     print('release:', rel['html_url'])
 
 
