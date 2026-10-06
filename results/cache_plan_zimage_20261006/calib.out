@@ -1,0 +1,42 @@
+uncached: 5.29 s/image (median, calibration prompts)
+/usr/local/lib/python3.11/dist-packages/skimage/metrics/simple_metrics.py:171: RuntimeWarning: divide by zero encountered in scalar divide
+  return 10 * np.log10((data_range**2) / err)
+easycache-0.1                5.32 s  0.99x  SSIM 0.998  PSNR inf
+easycache-0.2                4.32 s  1.22x  SSIM 0.969  PSNR inf
+easycache-0.3                4.32 s  1.22x  SSIM 0.942  PSNR 32.2
+easycache-0.4                4.32 s  1.23x  SSIM 0.943  PSNR 32.3
+dbcache-0.08                 5.34 s  0.99x  SSIM 0.988  PSNR inf
+dbcache-0.15                 4.83 s  1.10x  SSIM 0.938  PSNR 29.6
+dbcache-0.25                 3.81 s  1.39x  SSIM 0.904  PSNR 27.0
+taylorseer                   5.34 s  0.99x  SSIM 0.988  PSNR inf
+cache-dit                    5.33 s  0.99x  SSIM 0.988  PSNR inf
+spectrum-w2                  3.81 s  1.39x  SSIM 0.906  PSNR 26.8
+spectrum-w3                  3.30 s  1.61x  SSIM 0.852  PSNR 23.9
+mask-11011111                5.34 s  0.99x  SSIM 0.988  PSNR inf
+mask-11101111                5.34 s  0.99x  SSIM 0.988  PSNR inf
+mask-11110111                5.34 s  0.99x  SSIM 0.988  PSNR inf
+mask-11111011                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11111101                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11001111                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11010111                5.34 s  0.99x  SSIM 0.988  PSNR inf
+mask-11011011                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11011101                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11100111                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11101011                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11101101                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11110011                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11110101                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11111001                5.34 s  0.99x  SSIM 0.988  PSNR inf
+mask-11000111                5.34 s  0.99x  SSIM 0.988  PSNR inf
+mask-11001011                5.32 s  0.99x  SSIM 0.988  PSNR inf
+mask-11001101                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11010011                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11010101                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11011001                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11100011                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11100101                5.33 s  0.99x  SSIM 0.988  PSNR inf
+mask-11101001                5.32 s  0.99x  SSIM 0.988  PSNR inf
+mask-11110001                5.33 s  0.99x  SSIM 0.988  PSNR inf
+CHOSEN easycache-0.2: calibration 1.22x SSIM 0.969; held-out 1.10x SSIM 0.978 PSNR inf
+CALIBRATION_DONE
+CACHE_ALL_DONE

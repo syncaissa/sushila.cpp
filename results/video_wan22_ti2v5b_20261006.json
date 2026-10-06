@@ -1,0 +1,26 @@
+[
+ {
+  "run": "480p_2s",
+  "width": 832,
+  "height": 480,
+  "frames": 49,
+  "seconds": 53.0,
+  "bytes": 4014792
+ },
+ {
+  "run": "480p_5s",
+  "width": 832,
+  "height": 480,
+  "frames": 121,
+  "seconds": 108.2,
+  "bytes": 9947952
+ },
+ {
+  "run": "720p_5s",
+  "width": 1280,
+  "height": 704,
+  "frames": 121,
+  "seconds": 561.5,
+  "bytes": 19776726
+ }
+]

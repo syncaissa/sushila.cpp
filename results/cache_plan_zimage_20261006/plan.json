@@ -1,0 +1,64 @@
+{
+ "model_steps": 8,
+ "size": 1024,
+ "min_ssim": 0.95,
+ "uncached_s_calib": 5.2923842668533325,
+ "chosen": {
+  "name": "easycache-0.2",
+  "mode": "easycache",
+  "option": "threshold=0.2",
+  "s": 4.322923064231873,
+  "ssim": 0.9691499386557734,
+  "psnr": Infinity,
+  "speedup": 1.2242605728153806
+ },
+ "test": {
+  "speedup": 1.1029077519391144,
+  "ssim": 0.9781529354514419,
+  "psnr": Infinity,
+  "runs": [
+   {
+    "prompt": "Two bears dancing in a forest near a river",
+    "s": 5.3388283252716064,
+    "uncached_s": 5.278232574462891,
+    "ssim": 1.0,
+    "psnr": Infinity
+   },
+   {
+    "prompt": "portrait of an elderly woman with silver hair, natural window light, 85mm",
+    "s": 4.3200483322143555,
+    "uncached_s": 5.389863967895508,
+    "ssim": 0.9586335174225952,
+    "psnr": 35.34651827646904
+   },
+   {
+    "prompt": "a futuristic city skyline at night with neon signs, rain on the street",
+    "s": 5.3338141441345215,
+    "uncached_s": 5.295452117919922,
+    "ssim": 1.0,
+    "psnr": Infinity
+   },
+   {
+    "prompt": "a golden retriever puppy playing with a ball in a garden",
+    "s": 4.308034420013428,
+    "uncached_s": 5.288318157196045,
+    "ssim": 0.9591686243293993,
+    "psnr": 32.88629826075512
+   },
+   {
+    "prompt": "a mountain lake reflecting snowy peaks, early morning mist",
+    "s": 4.307339906692505,
+    "uncached_s": 5.348832368850708,
+    "ssim": 0.951115470956657,
+    "psnr": 32.95288326097831
+   },
+   {
+    "prompt": "an old library with tall wooden shelves and a rolling ladder, dust in the light",
+    "s": 5.331062078475952,
+    "uncached_s": 5.356820821762085,
+    "ssim": 1.0,
+    "psnr": Infinity
+   }
+  ]
+ }
+}
