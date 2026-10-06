@@ -1,6 +1,6 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-06T01:41Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-06T01:55Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
@@ -13,7 +13,7 @@ Generated 2026-10-06T01:41Z by `scripts/precompute/b2_index.py`. Everything here
 | `qwen3-30b-a3b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (17) | 36.2 GB | yes | 2026-10-04 |
 | `qwen3-32b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (20) | 42.7 GB | yes | 2026-10-04 |
 | `qwen3-4b-instruct-2507` | weights (1) | 2.5 GB | yes | 2026-10-05 |
-| `qwen3-coder-30b-a3b` | draft-head (2), checkpoints (2), training-data (2), config.env (1), weights (1) | 19.3 GB | yes | 2026-10-06 |
+| `qwen3-coder-30b-a3b` | draft-head (2), checkpoints (2), training-data (2), config.env (1), weights (23) | 54.7 GB | yes | 2026-10-06 |
 | `wan2.2-ti2v-5b` | weights (3) | 12.9 GB | yes | 2026-10-06 |
 | `z-image-turbo` | weights (3) | 6.7 GB | yes | 2026-10-05 |
 | `z-image-turbo-nvidia` | weights (16) | 12.2 GB | yes | 2026-10-05 |
@@ -147,7 +147,7 @@ EAGLE-3 draft head refitted to Qwen3-32B's own answers (warm start thoughtworks/
   - `checkpoints/` (2 files, 0.37 GB): every other trained head checkpoint (for re-selection or further training)
   - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
   - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
-  - `weights/` (1 files, 18.56 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+  - `weights/` (23 files, 53.94 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
 ### `wan2.2-ti2v-5b`
 

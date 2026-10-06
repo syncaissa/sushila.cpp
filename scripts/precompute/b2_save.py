@@ -243,7 +243,10 @@ def save_weights(model, ollama_dir):
     p = os.path.join(ollama_dir, rel)
     b2.put_file(p, f'{pre}/weights/ollama/{rel}')
     files.append({'path': f'weights/ollama/{rel}', 'bytes': os.path.getsize(p), 'sha256': digest(p, 'sha256')})
-    checks['files'] = [f for f in checks['files'] if not f['path'].startswith('weights/')] + files
+    # replace only what this step mirrors (weights/sglang/, weights/ollama/); other weights in the folder stay listed,
+    # e.g. a Host Station pack's GGUF in weights/gguf/ (dropping it would hide the pack from the catalog)
+    mine = ('weights/sglang/', 'weights/ollama/')
+    checks['files'] = [f for f in checks['files'] if not f['path'].startswith(mine)] + files
     checks['weights'] = {'sglang': f'weights/sglang/ = {t["repo"]} at revision {t.get("revision")}',
                          'ollama': f'weights/ollama/ = Ollama models folder for {tag} (copy into OLLAMA_MODELS)',
                          'saved_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()),
