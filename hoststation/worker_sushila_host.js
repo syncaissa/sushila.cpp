@@ -35,7 +35,7 @@
   const PRESETS = (typeof window !== 'undefined' && window.SUSHILA_PRESETS && typeof window.SUSHILA_PRESETS === 'object') ? window.SUSHILA_PRESETS : {};
   const DEFAULT_MODEL = (PRESET && ((PRESET.models || [])[0] || PRESET.defaultModel)) || 'qwen2.5-0.5b-q4km';
   // all products share one app id, data folder and port (one engine, one model store); a preset may still set ports
-  const DEFAULTS = { catalogUrl: CATALOG_URL, port: (PRESET && PRESET.port) || 8765, enginePort: (PRESET && PRESET.enginePort) || 8766, threads: 0, contextSize: 4096, gpuLayers: 99, scope: 'user', parallel: 1, keepCopy: true };
+  const DEFAULTS = { catalogUrl: CATALOG_URL, port: (PRESET && PRESET.port) || 8765, enginePort: (PRESET && PRESET.enginePort) || 8766, threads: 0, contextSize: 4096, gpuLayers: -1, scope: 'user', parallel: 1, keepCopy: true };
   const SHARE_DEFAULTS = { enabled: false, bind: '0.0.0.0', hosts: [], keys: [], perMinute: 30 };
   // Sushila signing keys (Ed25519, base64). Every pack and engine build must come with an index signed by one of these;
   // the private key never leaves the signing machine (scripts/precompute/sign_checksums.py). Add a new key here
@@ -124,6 +124,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const raw = await invoke('read_text', { path: statePath });
       let s = raw ? JSON.parse(raw) : {};
       s.settings = Object.assign({}, DEFAULTS, s.settings || {});
+      if (s.settings.gpuLayers === 99) s.settings.gpuLayers = -1;  // the old "all layers" default: now auto (as many as fit, never a failed start)
       s.packs = s.packs || {};
       s.share = Object.assign({}, SHARE_DEFAULTS, s.share || {});
       s.token = s.token || randomToken();
@@ -732,6 +733,15 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (/^macos-aarch64/.test(key || '')) return 'Apple GPU (Metal)';
       return 'CPU';
     }
+    // Is there GPU memory for a whole image/video model? NVIDIA: its VRAM against the pack (+ working memory); Apple silicon:
+    // unified memory. Other GPUs (AMD/Intel via Vulkan) keep the safe offloading.
+    async function gpuRoomFor(p) {
+      const key = (HOST.state.engine && HOST.state.engine.key) || platformKey();
+      if (/^macos-aarch64/.test(key)) return (HOST.info.memory_bytes || 0) >= (p.bytes || 0) * 1.5 + 6e9;
+      if (!/-cuda$/.test(key)) return false;
+      const g = await nvidiaGpu();
+      return !!(g && g.memoryGB && g.memoryGB * 1e9 >= (p.bytes || 0) * 1.25 + 3e9);
+    }
     async function startModelOnce(id, mode) {
       const p = HOST.state.packs[id], s = HOST.state.settings;
       mode = mode || (canTurbo(p) ? 'turbo' : 'regular');
@@ -739,7 +749,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (HOST.state.running[id]) return;
       const port = freePort();
       const threads = s.threads || Math.max(1, Math.min(16, HOST.info.cpus - 1));
-      const packArgs = [...(p.args || []), ...(mode === 'turbo' ? p.turboArgs || [] : [])].map((a) => (a.startsWith('{pack}/') ? join(p.dir, ...a.slice(7).split('/')) : a));
+      let packArgs = [...(p.args || []), ...(mode === 'turbo' ? p.turboArgs || [] : [])].map((a) => (a.startsWith('{pack}/') ? join(p.dir, ...a.slice(7).split('/')) : a));
+      if (p.engine === 'image' && packArgs.includes('--offload-to-cpu') && (await gpuRoomFor(p))) {
+        packArgs = packArgs.filter((a) => a !== '--offload-to-cpu');  // the whole model stays on the GPU: faster
+        log(`${p.name}: the GPU has room for the whole model, so it stays on the GPU`);
+      }
       const nunchaku = p.engine === 'image-nunchaku', rt = nunchaku && HOST.state.runtimes && HOST.state.runtimes['image-nunchaku'];
       if (nunchaku && !rt) throw new Error(`${p.name} needs the NVIDIA image runtime: install the pack again to set it up.`);
       const image = p.engine === 'image', music = p.engine === 'music';
@@ -752,7 +766,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         : image
         ? ['--listen-ip', '127.0.0.1', '--listen-port', String(port), '-t', String(threads), ...packArgs]  // stable-diffusion.cpp sd-server
         : ['-m', join(p.dir, ...p.model.split('/')), '--host', '127.0.0.1', '--port', String(port),
-           '-t', String(threads), '-c', String(s.contextSize * Math.max(1, s.parallel)), '-np', String(Math.max(1, s.parallel)), '-ngl', String(s.gpuLayers), ...packArgs];
+           '-t', String(threads), '-c', String(s.contextSize * Math.max(1, s.parallel)), '-np', String(Math.max(1, s.parallel)), '-ngl', s.gpuLayers < 0 ? 'auto' : String(s.gpuLayers), ...packArgs];
       log(`starting ${p.name} on port ${port}: ${program} ${args.join(' ')}`);
       const env = {};
       if (HOST.info.os === 'linux' && HOST.state.engine.dir) env.LD_LIBRARY_PATH = HOST.state.engine.dir;  // bundled CUDA runtime
@@ -1072,7 +1086,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           return el('tr', {},
             el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, (p.kind === 'music' ? 'Music' : p.kind === 'video' ? 'Video' : p.kind === 'image' ? 'Images' : 'Text (LLM)') + (p.id === DEFAULT_MODEL ? ' · default model' : '') + ((p.artifacts || []).length ? ' · precomputed: ' + p.artifacts.join(', ') : ''))),
             el('td', {}, p.bytes ? gb(p.bytes) : ''),
-            el('td', {}, r ? el('span', { class: 'pill on' }, (r.ready ? 'running' : 'starting') + ' · port ' + r.port) : el('span', { class: 'pill' }, 'stopped')),
+            el('td', {}, r ? el('span', { class: 'pill on' }, (r.ready ? 'running' : 'starting') + ' · port ' + r.port) : el('span', { class: 'pill' }, 'stopped'),
+              r && r.gpu ? el('div', { class: 'sub' }, r.gpu) : r ? el('div', { class: 'sub' }, gpuLabel((s.engine && s.engine.key) || platformKey())) : null),
             el('td', {}, el('div', { class: 'row', style: 'margin:0' },
               r ? el('button', { class: 'ghost', disabled: HOST.busy, onclick: () => act(() => stopModel(p.id), `${p.name} stopped.`) }, 'Stop server')
                 : el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => startModel(p.id), `${p.name} is running.`) }, 'Start server'),
@@ -1209,14 +1224,15 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         field('catalogUrl', 'Catalog address', 'text', 'Where the list of model packs and engine builds comes from.'),
         field('port', 'Inference page port', 'number'), field('enginePort', 'Engine port', 'number'),
         field('threads', 'CPU threads (0 = automatic)', 'number'), field('contextSize', 'Context length (tokens)', 'number'),
-        field('gpuLayers', 'Layers on the GPU (0 = CPU only)', 'number'),
+        field('gpuLayers', 'Layers on the GPU (-1 = as many as fit, the fastest; 0 = CPU only)', 'number'),
         el('label', { class: 'f' }, el('input', { type: 'checkbox', id: 'set-keepCopy', checked: s.keepCopy }), ' Keep a copy of downloaded packs (.sushilapack) in my Downloads folder'),
         el('div', { class: 'sub' }, 'Handy for installing on another computer or reinstalling offline; uses the pack\'s size again on disk.'),
         el('div', { class: 'row' }, el('button', { onclick: () => act(async () => {
           const cu = $('set-catalogUrl').value.trim();
           if (!ALLOWED_SOURCE(cu)) throw new Error('The catalog must come from sushila.ai (or another allowed source).');
           s.catalogUrl = cu;
-          for (const k of ['port', 'enginePort', 'threads', 'contextSize', 'gpuLayers']) s[k] = Math.max(0, parseInt($('set-' + k).value, 10) || 0);
+          for (const k of ['port', 'enginePort', 'threads', 'contextSize']) s[k] = Math.max(0, parseInt($('set-' + k).value, 10) || 0);
+          { const g = parseInt($('set-gpuLayers').value, 10); s.gpuLayers = Number.isFinite(g) ? Math.max(-1, g) : -1; }
           s.scope = $('set-scope').value; s.keepCopy = $('set-keepCopy').checked;
           await saveState(); await loadCatalog();
         }, 'Saved. A new inference-page port takes effect after a restart.') }, 'Save')),
@@ -1271,7 +1287,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         document.querySelectorAll('#dlb-' + safe).forEach((b) => { b.style.width = (d.total ? 100 * d.done / d.total : 0).toFixed(1) + '%'; });
         document.querySelectorAll('#dlt-' + safe).forEach((t) => { t.textContent = dlText(d); });
       });
-      listen('proc-log', (p) => log(p.line));
+      listen('proc-log', (p) => {
+        log(p.line);
+        const m = /offloaded (\d+)\/(\d+) layers to GPU/.exec(p.line || ''), id = String(p.id || '').replace(/^engine:/, '');
+        if (m && HOST.state.running[id]) { HOST.state.running[id].gpu = `${m[1]}/${m[2]} layers on the GPU`; render(); }
+      });
       listen('proc-exit', async (p) => {
         if (!String(p.id).startsWith('engine:')) return;
         const id = p.id.slice(7);
