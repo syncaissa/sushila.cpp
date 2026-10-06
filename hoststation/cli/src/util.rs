@@ -53,7 +53,13 @@ pub async fn http_text(url: &str, timeout_s: u64) -> Result<String, String> {
 
 /// Downloads url to dest: resumes a partial download (dest.part), shows progress on stderr, checks the sha256 over the
 /// whole file. Only from the sources Host Station allows (net.rs), on every redirect too.
+/// Progress of a background action, shared with the server loop: {label, done, total}.
+pub type Prog = std::sync::Arc<std::sync::Mutex<Value>>;
+
 pub async fn download(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool) -> Result<String, String> {
+    download_p(url, dest, sha256, bytes, label, quiet, None).await
+}
+pub async fn download_p(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool, prog: Option<&Prog>) -> Result<String, String> {
     let url = check_url(url, false)?.to_string();
     if let Some(d) = dest.parent() { tokio::fs::create_dir_all(d).await.map_err(err)?; }
     let part = PathBuf::from(format!("{}.part", dest.display()));
@@ -80,6 +86,7 @@ pub async fn download(url: &str, dest: &Path, sha256: Option<&str>, bytes: Optio
         file.write_all(&chunk).await.map_err(err)?;
         hasher.update(&chunk);
         done += chunk.len() as u64;
+        if let Some(p) = prog { if let Ok(mut g) = p.lock() { *g = json!({ "label": label, "done": done, "total": total }); } }
         if !quiet && last.elapsed() > Duration::from_millis(if tty { 300 } else { 15000 }) {
             let rate = (done - start) as f64 / t0.elapsed().as_secs_f64().max(0.1);
             let pct = if total > 0 { format!("{:5.1}%", 100.0 * done as f64 / total as f64) } else { String::new() };

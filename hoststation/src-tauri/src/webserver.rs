@@ -2,6 +2,7 @@
 //   /                         the inference page (Chat, Code, Images, Music, Video, Queue), the same JS file as the app
 //   /api/state                the public part of state.json (installed packs, running models)
 //   /api/mode, /api/queue...  mode switches and the background queue (request files in data_dir, applied by the owner)
+//   /api/control, /api/logs   install, remove, start, stop... and the shared log (this computer only; applied by sushila serve)
 //   /api/shutdown             asks the owner to stop (this computer only; the sushila command honours it)
 //   /v1/*, /health            forwarded to the running Sushila.cpp server for the named model (OpenAI-compatible)
 // Only this computer may call it unless sharing is on (state.json "share"): then the listed host names and access keys.
@@ -44,16 +45,27 @@ fn caller(headers: &axum::http::HeaderMap, st: &Value) -> Option<String> {
     let given = headers.get("x-sushila-token").and_then(|h| h.to_str().ok()).unwrap_or("");
     if !token.is_empty() && given == token { return Some("local".into()); }
     let sh = share(st)?;
-    let key = headers.get("authorization").and_then(|h| h.to_str().ok())?.strip_prefix("Bearer ")?.trim();
-    if key.len() < 20 { return None; }
-    let h = hex::encode(Sha256::digest(key.as_bytes()));
-    sh.get("keys")?.as_array()?.iter().find(|k| k.get("sha256").and_then(|x| x.as_str()) == Some(h.as_str())).map(|_| h)
+    let keyed = headers.get("authorization").and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(|k| k.trim())
+        .filter(|k| k.len() >= 20).map(|k| hex::encode(Sha256::digest(k.as_bytes())))
+        .filter(|h| sh.get("keys").and_then(|k| k.as_array()).map(|a| a.iter().any(|k| k.get("sha256").and_then(|x| x.as_str()) == Some(h.as_str()))).unwrap_or(false));
+    // share.open (sushila serve --open, a trusted network): anyone who can reach the port may chat and generate, without a
+    // key (one shared rate-limit bucket); managing Sushila stays this computer's only
+    keyed.or_else(|| sh.get("open").and_then(|o| o.as_bool()).filter(|o| *o).map(|_| "open".to_string()))
 }
 
 async fn srv_page(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
-    if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    ([("content-type", "text/html; charset=utf-8"), ("cache-control", "no-store")], PAGE_HTML).into_response()
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    // Opened on this computer (http://localhost:<port>/ or 127.0.0.1): the page carries this computer's token, so the
+    // address alone is enough. Other sites cannot read this page (no CORS on /), and it may not be framed.
+    let host = headers.get("host").and_then(|h| h.to_str().ok()).unwrap_or("");
+    let local = host == format!("127.0.0.1:{}", s.port) || host == format!("localhost:{}", s.port);
+    let html = match (local, st.get("token").and_then(|t| t.as_str())) {
+        (true, Some(t)) => PAGE_HTML.replace("<div id=\"app\"></div>", &format!("<div id=\"app\"></div><script>window.SUSHILA_TOKEN={};</script>", Value::String(t.to_string()))),
+        _ => PAGE_HTML.to_string(),
+    };
+    ([("content-type", "text/html; charset=utf-8"), ("cache-control", "no-store"), ("x-frame-options", "DENY"), ("referrer-policy", "no-referrer")], html).into_response()
 }
 
 async fn srv_js(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
@@ -284,6 +296,44 @@ async fn srv_shutdown(axum::extract::State(s): axum::extract::State<Arc<Srv>>, h
     (axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "ok": true }))).into_response()
 }
 
+/// POST /api/control {"action": ..., ...}: this computer asks the owner of the server (sushila serve) to install, remove,
+/// start or stop something. Written to control-in/<id>.json; the owner applies it, reports progress in /api/state
+/// (public.tasks[id]) and writes every step to logs/sushila.log. Actions: engine-install {build?}, install {pack},
+/// remove {pack}, start {pack, mode?}, stop {pack}, settings {values}.
+async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let (parts, body) = req.into_parts();
+    let st = read_state(&s.data_dir);
+    let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
+    if parts.method == axum::http::Method::OPTIONS { return with_cors_for(axum::http::StatusCode::NO_CONTENT.into_response(), &st, origin.as_deref()); }
+    if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    if caller(&parts.headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "only this computer can manage Sushila").into_response(); }
+    let Ok(bytes) = axum::body::to_bytes(body, 65536).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let Ok(mut v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("");
+    if !["engine-install", "install", "install-file", "remove", "start", "stop", "settings"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
+    let id = new_id().replacen("job-", "task-", 1);
+    v["id"] = json!(id);
+    let dir = s.data_dir.join("control-in");
+    if std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(dir.join(format!("{id}.json")), v.to_string())).is_err() {
+        return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not queue the request").into_response();
+    }
+    with_cors_for((axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "id": id }))).into_response(), &st, origin.as_deref())
+}
+
+/// GET /api/logs?since=<byte offset>: the shared log (logs/sushila.log) from that offset, for this computer only.
+async fn srv_logs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>,
+                  headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    if caller(&headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    let data = std::fs::read(s.data_dir.join("logs").join("sushila.log")).unwrap_or_default();
+    let since = q.get("since").and_then(|x| x.parse::<usize>().ok()).unwrap_or(0).min(data.len());
+    let start = since.max(data.len().saturating_sub(256 << 10));  // at most the last 256 KB
+    axum::Json(json!({ "next": data.len(), "text": String::from_utf8_lossy(&data[start..]) })).into_response()
+}
+
 /// Starts the web server on bind:port. Returns its address and the stop signal.
 pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, oneshot::Sender<()>), String> {
     let ip: std::net::IpAddr = bind.parse().map_err(|_| format!("not an IP address: {bind}"))?;
@@ -295,6 +345,8 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/state", axum::routing::get(srv_state))
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
         .route("/api/shutdown", axum::routing::post(srv_shutdown))
+        .route("/api/control", axum::routing::post(srv_control).options(srv_control))
+        .route("/api/logs", axum::routing::get(srv_logs))
         .route("/api/queue", axum::routing::get(srv_queue).post(srv_queue_add).options(srv_queue_add))
         .route("/api/queue/:id/output", axum::routing::get(srv_queue_output))
         .route("/api/queue/:id/:action", axum::routing::post(srv_queue_action).options(srv_queue_action))

@@ -28,7 +28,18 @@ pub struct Ctx {
     pub procs: Arc<Mutex<HashMap<String, tokio::process::Child>>>,
 }
 
-pub fn log(quiet: bool, line: &str) { if !quiet { eprintln!("[{}] {line}", &now_iso()[11..19]); } }
+/// Every action, from any client, goes to one file: <data>/logs/sushila.log ("<time> [source] message").
+pub static LOG_FILE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+pub static SOURCE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+pub fn log(quiet: bool, line: &str) {
+    if !quiet { eprintln!("[{}] {line}", &now_iso()[11..19]); }
+    if let Some(p) = LOG_FILE.get() {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p) {
+            let _ = writeln!(f, "{} [{}] {}", now_iso(), SOURCE.get().map(|s| s.as_str()).unwrap_or("cli"), line.replace('\n', " | "));
+        }
+    }
+}
 
 impl Ctx {
     pub fn load(data: PathBuf, quiet: bool) -> Result<Ctx, String> {
@@ -46,6 +57,7 @@ impl Ctx {
         if !s["share"].is_object() { s["share"] = json!({ "enabled": false, "bind": "0.0.0.0", "hosts": [], "keys": [], "perMinute": 30 }); }
         if s["token"].as_str().map(|t| t.is_empty()).unwrap_or(true) { s["token"] = json!(random_token()); }
         if !s["running"].is_object() { s["running"] = json!({}); }
+        let _ = std::fs::create_dir_all(data.join("logs")); let _ = LOG_FILE.set(data.join("logs").join("sushila.log"));
         Ok(Ctx { data, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())) })
     }
     pub fn log(&self, line: &str) { log(self.quiet, line) }
@@ -62,7 +74,10 @@ impl Ctx {
         }).collect()).unwrap_or_default();
         let packs: Vec<Value> = self.packs().values().map(|p| json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "turbo": can_turbo(p) })).collect();
         let engine = self.state.get("engine").filter(|e| e.is_object()).map(|e| json!({ "version": e["version"], "source": e["source"] })).unwrap_or(Value::Null);
-        self.state["public"] = json!({ "app": "sushila (command line)", "appVersion": env!("CARGO_PKG_VERSION"), "engine": engine, "running": running, "packs": packs });
+        let tasks = self.state.get("tasks").cloned().unwrap_or(json!([]));
+        let owner = self.state.get("owner").cloned().unwrap_or(Value::Null);
+        self.state["public"] = json!({ "app": "sushila", "appVersion": env!("CARGO_PKG_VERSION"), "engine": engine, "running": running, "packs": packs,
+                                       "tasks": tasks, "owner": owner, "gpu": self.state["engine"]["key"].as_str().map(Self::gpu_label) });
         let tmp = self.data.join("state.json.tmp");
         std::fs::write(&tmp, serde_json::to_string_pretty(&self.state).map_err(err)?).map_err(err)?;
         std::fs::rename(&tmp, self.data.join("state.json")).map_err(err)
@@ -151,8 +166,8 @@ impl Ctx {
     pub fn engine_ok(&self) -> bool {
         self.state["engine"]["server"].as_str().map(|s| Path::new(s).exists()).unwrap_or(false)
     }
-    /// Installs Sushila.cpp for this computer (or the given build, e.g. linux-x86_64 for the CPU build).
-    pub async fn install_engine(&mut self, force: Option<String>) -> Result<(), String> {
+    /// Checks the signed build list and returns what to download (None: already installed).
+    pub async fn prepare_engine(&mut self, force: Option<String>) -> Result<Option<EnginePlan>, String> {
         self.load_catalog().await?;
         let key = match force { Some(k) => k, None => self.engine_key().await };
         let builds = self.builds();
@@ -162,28 +177,40 @@ impl Ctx {
         let v = index["version"].as_str().unwrap_or("").to_string();
         let r = &index["builds"][&key];
         if r.is_null() || r["sha256"] != build["sha256"] || build["sha256"].as_str().unwrap_or("").is_empty() { return Err("This build does not match the signed list of Sushila.cpp builds; refusing to install it.".into()); }
-        let server_rel = build["server"].as_str().unwrap_or("");
-        let url = build["url"].as_str().unwrap_or("");
-        if !safe_rel_path(server_rel) || !crate::net::allowed_url(&reqwest::Url::parse(url).map_err(err)?, false) { return Err("The build entry is not valid or not from an allowed source.".into()); }
+        let server_rel = build["server"].as_str().unwrap_or("").to_string();
+        let url = build["url"].as_str().unwrap_or("").to_string();
+        if !safe_rel_path(&server_rel) || !crate::net::allowed_url(&reqwest::Url::parse(&url).map_err(err)?, false) { return Err("The build entry is not valid or not from an allowed source.".into()); }
         if self.state["engine"]["version"] == v.as_str() && self.state["engine"]["key"] == key.as_str() && self.engine_ok() {
-            self.log(&format!("Sushila.cpp {v} ({key}) is already installed")); return Ok(());
+            self.log(&format!("Sushila.cpp {v} ({key}) is already installed")); return Ok(None);
         }
-        let staging = self.data.join("downloads").join(format!("sushila-cpp-{v}-{key}.{}", build["archive"].as_str().unwrap_or("zip")));
-        self.log(&format!("installing Sushila.cpp {v} for {} ({key})", Self::gpu_label(&key)));
-        download(url, &staging, build["sha256"].as_str(), build["bytes"].as_u64(), &format!("Sushila.cpp {v}"), self.quiet).await?;
-        let dir = self.data.join("engine").join(&v);
-        extract_archive(&staging, &dir).await?;
-        std::fs::write(dir.join("sushila-engine.json"), json!({ "version": v, "key": key, "sha256": build["sha256"], "server": server_rel, "servers": build["servers"] }).to_string()).map_err(err)?;
-        let server = join_rel(&dir, server_rel);
+        Ok(Some(EnginePlan { staging: self.data.join("downloads").join(format!("sushila-cpp-{v}-{key}.{}", build["archive"].as_str().unwrap_or("zip"))),
+            dir: self.data.join("engine").join(&v), key, version: v, url, build, server_rel, quiet: self.quiet }))
+    }
+    /// Downloads and unpacks (no state is touched: safe to run in the background).
+    pub async fn fetch_engine(p: &EnginePlan, prog: Option<&Prog>) -> Result<(), String> {
+        log(p.quiet, &format!("installing Sushila.cpp {} for {} ({})", p.version, Self::gpu_label(&p.key), p.key));
+        download_p(&p.url, &p.staging, p.build["sha256"].as_str(), p.build["bytes"].as_u64(), &format!("Sushila.cpp {}", p.version), p.quiet, prog).await?;
+        extract_archive(&p.staging, &p.dir).await?;
+        std::fs::write(p.dir.join("sushila-engine.json"), json!({ "version": p.version, "key": p.key, "sha256": p.build["sha256"], "server": p.server_rel, "servers": p.build["servers"] }).to_string()).map_err(err)?;
+        let _ = std::fs::remove_file(&p.staging);
+        Ok(())
+    }
+    /// Records the installed engine in state.json.
+    pub fn apply_engine(&mut self, p: &EnginePlan) -> Result<(), String> {
+        let server = join_rel(&p.dir, &p.server_rel);
         set_executable(&server);
         let mut servers = json!({ "text": server.to_string_lossy() });
         for k in ["image", "music"] {
-            if let Some(rel) = build["servers"][k].as_str().filter(|r| safe_rel_path(r)) { let p = join_rel(&dir, rel); set_executable(&p); servers[k] = json!(p.to_string_lossy()); }
+            if let Some(rel) = p.build["servers"][k].as_str().filter(|r| safe_rel_path(r)) { let x = join_rel(&p.dir, rel); set_executable(&x); servers[k] = json!(x.to_string_lossy()); }
         }
-        self.state["engine"] = json!({ "version": v, "key": key, "server": server.to_string_lossy(), "servers": servers, "dir": dir.to_string_lossy(), "source": "installed by the sushila command", "installedAt": now_iso() });
-        let _ = std::fs::remove_file(&staging);
+        self.state["engine"] = json!({ "version": p.version, "key": p.key, "server": server.to_string_lossy(), "servers": servers, "dir": p.dir.to_string_lossy(), "source": "installed by sushila", "installedAt": now_iso() });
         self.save()?;
-        self.log(&format!("Sushila.cpp {v} installed in {}", dir.display()));
+        self.log(&format!("Sushila.cpp {} ({}) installed in {}", p.version, Self::gpu_label(&p.key), p.dir.display()));
+        Ok(())
+    }
+    /// Installs Sushila.cpp for this computer (or the given build, e.g. linux-x86_64 for the CPU build).
+    pub async fn install_engine(&mut self, force: Option<String>) -> Result<(), String> {
+        if let Some(p) = self.prepare_engine(force).await? { Self::fetch_engine(&p, None).await?; self.apply_engine(&p)?; }
         Ok(())
     }
 
@@ -243,30 +270,42 @@ impl Ctx {
         if let Some(s) = source { r["source"] = json!(s); }
         r
     }
-    /// Installs a pack from the catalog (download straight into the data folder, every file checked).
-    pub async fn install_pack(&mut self, id: &str) -> Result<(), String> {
-        if !self.engine_ok() { self.install_engine(None).await?; }
-        if self.packs().contains_key(id) { self.log(&format!("{id} is already installed")); return Ok(()); }
+    /// Checks a catalog pack against its signed index and this computer; returns what to download (None: installed).
+    pub async fn prepare_pack(&mut self, id: &str) -> Result<Option<PackPlan>, String> {
+        if self.packs().contains_key(id) { self.log(&format!("{id} is already installed")); return Ok(None); }
         self.load_catalog().await?;
         let pack = self.catalog_pack(id).ok_or_else(|| format!("{id} is not in the catalog (sushila packs lists them)"))?;
         self.check_pack(&pack)?;
         if !self.pack_fits(&pack).await { return Err(format!("{} needs a matching NVIDIA GPU; install {} instead.", pack["name"].as_str().unwrap_or(id), pack["variantOf"].as_str().unwrap_or("another pack"))); }
-        if pack["serve"]["engine"] == "image-nunchaku" && !self.state["runtimes"]["image-nunchaku"].is_object() { self.install_runtime("image-nunchaku").await?; }
-        let dir = self.data.join("packs").join(id);
-        let files = pack["files"].as_array().cloned().unwrap_or_default();
+        Ok(Some(PackPlan { id: id.to_string(), dir: self.data.join("packs").join(id), pack, quiet: self.quiet }))
+    }
+    /// Downloads every file of the pack, each checked against its sha256 (no state touched).
+    pub async fn fetch_pack(p: &PackPlan, prog: Option<&Prog>) -> Result<(), String> {
+        let files = p.pack["files"].as_array().cloned().unwrap_or_default();
         let total: u64 = files.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum();
-        self.log(&format!("installing {} ({}, {} files)", pack["name"].as_str().unwrap_or(id), human(total), files.len()));
+        log(p.quiet, &format!("installing {} ({}, {} files)", p.pack["name"].as_str().unwrap_or(&p.id), human(total), files.len()));
         for (i, f) in files.iter().enumerate() {
-            let dest = join_rel(&dir, f["path"].as_str().unwrap_or(""));
+            let dest = join_rel(&p.dir, f["path"].as_str().unwrap_or(""));
             if dest.exists() && file_sha256(&dest).await.ok().as_deref() == f["sha256"].as_str() { continue; }
-            let label = format!("file {} of {} ({})", i + 1, files.len(), f["path"].as_str().unwrap_or("").rsplit('/').next().unwrap_or(""));
-            download(f["url"].as_str().unwrap_or(""), &dest, f["sha256"].as_str(), f["bytes"].as_u64(), &label, self.quiet).await?;
+            let label = format!("{}: file {} of {} ({})", p.id, i + 1, files.len(), f["path"].as_str().unwrap_or("").rsplit('/').next().unwrap_or(""));
+            download_p(f["url"].as_str().unwrap_or(""), &dest, f["sha256"].as_str(), f["bytes"].as_u64(), &label, p.quiet, prog).await?;
         }
-        let rec = self.pack_record(&pack, &dir, None);
-        self.state["packs"][id] = rec;
-        self.save()?;
-        self.log(&format!("{} installed", pack["name"].as_str().unwrap_or(id)));
         Ok(())
+    }
+    pub fn apply_pack(&mut self, p: &PackPlan) -> Result<(), String> {
+        let rec = self.pack_record(&p.pack, &p.dir, None);
+        self.state["packs"][&p.id] = rec;
+        self.save()?;
+        self.log(&format!("{} installed", p.pack["name"].as_str().unwrap_or(&p.id)));
+        Ok(())
+    }
+    /// Installs a pack from the catalog (download straight into the data folder, every file checked).
+    pub async fn install_pack(&mut self, id: &str) -> Result<(), String> {
+        if !self.engine_ok() { self.install_engine(None).await?; }
+        let Some(p) = self.prepare_pack(id).await? else { return Ok(()) };
+        if p.pack["serve"]["engine"] == "image-nunchaku" && !self.state["runtimes"]["image-nunchaku"].is_object() { self.install_runtime("image-nunchaku").await?; }
+        Self::fetch_pack(&p, None).await?;
+        self.apply_pack(&p)
     }
     /// Installs a .sushilapack file (from a USB drive, another computer, the website): signed index and every sha256 checked.
     pub async fn install_pack_file(&mut self, path: &Path) -> Result<String, String> {
@@ -386,29 +425,50 @@ impl Ctx {
         if !key.ends_with("-cuda") { return false; }
         self.nvidia_gpu().await.map(|g| g["memoryGB"].as_f64().unwrap_or(0.0) * 1e9 >= bytes * 1.25 + 3e9).unwrap_or(false)
     }
-    /// Starts a model on its own port (GPU first; if the GPU engine cannot load it, the next build: CUDA -> Vulkan -> CPU).
+    /// Starts a model and waits until it answers (GPU first; if the GPU engine cannot load it, the next build:
+    /// CUDA -> Vulkan -> CPU).
     pub async fn start_model(&mut self, id: &str, mode: Option<&str>) -> Result<u16, String> {
-        match self.start_model_once(id, mode).await {
+        let r = match self.spawn_model(id, mode).await {
+            Ok(s) if s.already => return Ok(s.port),
+            Ok(s) => match wait_ready(self.procs.clone(), &s).await { Ok(()) => { self.model_ready(id)?; Ok(s.port) } Err(e) => { self.model_failed(id).await; Err(e) } },
+            Err(e) => Err(e),
+        };
+        match r {
             Ok(p) => Ok(p),
             Err(e) => {
-                let key = self.state["engine"]["key"].as_str().unwrap_or("").to_string();
-                let engine = self.packs().get(id).map(|p| p["engine"].clone()).unwrap_or(Value::Null);
-                if !e.contains("stopped while loading") || engine == "image-nunchaku" { return Err(e); }
-                let _ = self.load_catalog().await;
-                let Some(next) = self.fallback_key(&key) else { return Err(e) };
-                self.log(&format!("{id} could not start on the {} engine ({e}); switching to the {} engine", Self::gpu_label(&key), Self::gpu_label(&next)));
-                self.stop_model(id).await;
-                self.install_engine(Some(next.clone())).await?;
-                self.state["engineFallback"] = json!({ "from": key, "to": next, "model": id, "at": now_iso() });
-                self.save()?;
+                let Some(next) = self.fallback_for(id, &e).await else { return Err(e) };
+                self.install_engine(Some(next)).await?;
                 Box::pin(self.start_model(id, mode)).await
             }
         }
     }
-    async fn start_model_once(&mut self, id: &str, mode: Option<&str>) -> Result<u16, String> {
+    /// After a model stopped while loading on a GPU engine: the next build to try (and records the switch), else None.
+    pub async fn fallback_for(&mut self, id: &str, e: &str) -> Option<String> {
+        let key = self.state["engine"]["key"].as_str().unwrap_or("").to_string();
+        let engine = self.packs().get(id).map(|p| p["engine"].clone()).unwrap_or(Value::Null);
+        if !e.contains("stopped while loading") || engine == "image-nunchaku" { return None; }
+        let _ = self.load_catalog().await;
+        let next = self.fallback_key(&key)?;
+        self.log(&format!("{id} could not start on the {} engine; switching to the {} engine", Self::gpu_label(&key), Self::gpu_label(&next)));
+        self.state["engineFallback"] = json!({ "from": key, "to": next, "model": id, "at": now_iso() });
+        let _ = self.save();
+        Some(next)
+    }
+    pub fn model_ready(&mut self, id: &str) -> Result<(), String> {
+        if self.state["running"][id].is_object() { self.state["running"][id]["ready"] = json!(true); self.save()?; }
+        self.log(&format!("{id} is ready on port {}", self.state["running"][id]["port"]));
+        Ok(())
+    }
+    pub async fn model_failed(&mut self, id: &str) {
+        self.procs.lock().await.remove(id);
+        if let Some(m) = self.state["running"].as_object_mut() { m.remove(id); }
+        let _ = self.save();
+    }
+    /// Starts the model's engine process and records it as running (not yet ready). Returns how to check readiness.
+    pub async fn spawn_model(&mut self, id: &str, mode: Option<&str>) -> Result<Spawned, String> {
         if !self.engine_ok() { return Err("Sushila.cpp is not installed: run `sushila engine install`".into()); }
         let p = self.packs().get(id).cloned().ok_or(format!("{id} is not installed: run `sushila install {id}`"))?;
-        if let Some(port) = self.state["running"][id]["port"].as_u64() { return Ok(port as u16); }
+        if let Some(port) = self.state["running"][id]["port"].as_u64() { return Ok(Spawned { id: id.into(), port: port as u16, health: String::new(), log: PathBuf::new(), already: true }); }
         let mode = mode.map(String::from).unwrap_or_else(|| if can_turbo(&p) { "turbo".into() } else { "regular".into() });
         let port = self.free_port();
         let cpus = self.info["cpus"].as_u64().unwrap_or(2);
@@ -463,23 +523,7 @@ impl Ctx {
         self.state["running"][id] = json!({ "port": port, "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "startedAt": now_iso(), "ready": false, "mode": mode, "pid": std::process::id() });
         self.save()?;
         let health = format!("http://127.0.0.1:{port}{}", if engine == "image" { "/" } else { "/health" });
-        for _ in 0..600 {
-            if http_text(&health, 3).await.is_ok() {
-                self.state["running"][id]["ready"] = json!(true); self.save()?;
-                self.log(&format!("{id} is ready on port {port}"));
-                return Ok(port);
-            }
-            let exited = { let mut g = self.procs.lock().await; g.get_mut(id).map(|c| c.try_wait().ok().flatten().is_some()).unwrap_or(true) };
-            if exited {
-                self.procs.lock().await.remove(id);
-                self.state["running"].as_object_mut().unwrap().remove(id); self.save()?;
-                let tail = std::fs::read_to_string(logs.join(format!("{id}.log"))).unwrap_or_default();
-                let tail: Vec<&str> = tail.lines().rev().take(8).collect();
-                return Err(format!("{id} stopped while loading; last lines of {}:\n  {}", logs.join(format!("{id}.log")).display(), tail.into_iter().rev().collect::<Vec<_>>().join("\n  ")));
-            }
-            tokio::time::sleep(Duration::from_millis(500)).await;
-        }
-        Err(format!("{id} did not become ready within 5 minutes; see {}", logs.join(format!("{id}.log")).display()))
+        Ok(Spawned { id: id.to_string(), port, health, log: logs.join(format!("{id}.log")), already: false })
     }
     pub async fn stop_model(&mut self, id: &str) {
         if let Some(mut c) = self.procs.lock().await.remove(id) { let _ = c.kill().await; }
@@ -493,6 +537,26 @@ impl Ctx {
         let _ = self.save();
     }
 }
+
+pub struct EnginePlan { pub key: String, pub version: String, pub url: String, pub build: Value, pub server_rel: String, pub staging: PathBuf, pub dir: PathBuf, pub quiet: bool }
+pub struct Spawned { pub id: String, pub port: u16, pub health: String, pub log: PathBuf, pub already: bool }
+
+/// Waits until a started model answers (up to 5 minutes), or reports why it stopped (the last lines of its log).
+pub async fn wait_ready(procs: Arc<Mutex<HashMap<String, tokio::process::Child>>>, s: &Spawned) -> Result<(), String> {
+    for _ in 0..600 {
+        if http_text(&s.health, 3).await.is_ok() { return Ok(()); }
+        let exited = { let mut g = procs.lock().await; g.get_mut(&s.id).map(|c| c.try_wait().ok().flatten().is_some()).unwrap_or(true) };
+        if exited {
+            let tail = std::fs::read_to_string(&s.log).unwrap_or_default();
+            let tail: Vec<&str> = tail.lines().rev().take(8).collect();
+            return Err(format!("{} stopped while loading; last lines of {}:\n  {}", s.id, s.log.display(), tail.into_iter().rev().collect::<Vec<_>>().join("\n  ")));
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    Err(format!("{} did not become ready within 5 minutes; see {}", s.id, s.log.display()))
+}
+
+pub struct PackPlan { pub id: String, pub dir: PathBuf, pub pack: Value, pub quiet: bool }
 
 pub fn safe_id_dots(id: &str) -> bool { !id.is_empty() && id.len() <= 80 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_') }
 

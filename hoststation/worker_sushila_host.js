@@ -1369,7 +1369,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const qs = embedded ? new URLSearchParams() : new URLSearchParams(location.search);
     const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
     if (qs.get('t')) { try { sessionStorage.setItem('sushila-token', qs.get('t')); } catch (_) {} }
-    let token = opts.token || ''; if (!embedded) try { token = sessionStorage.getItem('sushila-token') || ''; } catch (_) {}
+    let token = opts.token || ''; if (!embedded) try { token = window.SUSHILA_TOKEN || sessionStorage.getItem('sushila-token') || ''; } catch (_) { token = window.SUSHILA_TOKEN || ''; }
     let want = opts.model || qs.get('model') || '';
     let autoPrompt = (opts.prompt || qs.get('prompt') || '').slice(0, 2000), autoRun = !!opts.run || qs.get('run') === '1';  // e.g. the first-start demo
     let autoLyrics = (opts.lyrics || qs.get('lyrics') || '').slice(0, 4000);
@@ -1452,6 +1452,15 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         if (want && models.find((m) => m.packId === want)) modelSel.value = want;
         want = '';
         setStatus(server ? 'Remote: ' + server.replace(/^https?:\/\//, '') : 'This computer', models.length ? 'on' : 'off');
+        // opened from another machine (http://<server>:<port>/): the server may need an access key; ask once, keep it in this browser
+        if (!server && !token && !embedded && models.length) {
+          const t = await fetch(base() + '/v1/models', { headers: auth() }).catch(() => null);
+          if (t && t.status === 401) {
+            const k = (window.prompt('This Sushila server needs an access key (ask its owner: sushila keys add <name>).') || '').trim();
+            if (k) { keys[''] = k; store.set('sushila-keys', keys); }
+          }
+          if (t && t.ok) setStatus('Server: ' + location.host, 'on');
+        }
       } catch (e) {
         models = []; modelSel.replaceChildren(el('option', { value: '' }, '—'));
         setStatus(server ? 'Cannot reach ' + server + ' (is sharing on, and this address allowed there?)' : 'Sushila Host Station is not running', 'off');
