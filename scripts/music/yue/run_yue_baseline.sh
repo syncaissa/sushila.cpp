@@ -5,9 +5,9 @@ set -uo pipefail
 W=${W:-/workspace/yue}; HERE=$(cd "$(dirname "$0")" && pwd); mkdir -p $W/res
 log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a $W/res/run.log; }
 command -v git-lfs > /dev/null || { apt-get update -qq > /dev/null; apt-get install -y -qq git-lfs > /dev/null; git lfs install > /dev/null; }
-[ -d $W/YuE ] || git clone -q -b YuE-v1 https://github.com/multimodal-art-projection/YuE.git $W/YuE
+[ -d $W/YuE ] || { git clone -q -b YuE-v1 https://github.com/multimodal-art-projection/YuE.git $W/YuE && git -C $W/YuE checkout -q ${YUE_COMMIT:-6d4f0b1f8ce6a55fb2392e959394c46e07ee334d}; }
 cd $W/YuE/inference
-[ -f xcodec_mini_infer/final_ckpt/ckpt_00360000.pth ] || { rm -rf xcodec_mini_infer; git clone -q https://huggingface.co/m-a-p/xcodec_mini_infer; }
+[ -f xcodec_mini_infer/final_ckpt/ckpt_00360000.pth ] || { rm -rf xcodec_mini_infer; git clone -q https://huggingface.co/m-a-p/xcodec_mini_infer && git -C xcodec_mini_infer checkout -q ${XCODEC_COMMIT:-fe781a67815ab47b4a3a5fce1e8d0a692da7e4e5}; }
 git -C $W/YuE log -1 --format=%H > $W/res/yue_commit.txt; git -C xcodec_mini_infer log -1 --format=%H > $W/res/xcodec_commit.txt
 pip install -q -r ../requirements.txt "transformers==4.48.3" > $W/res/pip.log 2>&1 || log "pip warnings (see pip.log)"
 python3 -c "from huggingface_hub import snapshot_download as s

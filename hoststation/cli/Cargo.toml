@@ -1,0 +1,36 @@
+[package]
+name = "sushila"
+version = "0.1.1"
+description = "sushila: Sushila.cpp from the command line. Installs the engine and model packs, serves the inference page and an OpenAI-compatible API, runs jobs; the same commands on Windows, macOS and Linux"
+authors = ["Sushila, an open-source research project"]
+license = "MIT"
+edition = "2021"
+
+[[bin]]
+name = "sushila"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls", "json"] }
+futures-util = "0.3"
+sha2 = "0.10"
+hex = "0.4"
+zip = "2"
+flate2 = "1"
+tar = "0.4"
+axum = "0.7"
+sysinfo = "0.32"
+ed25519-dalek = "2"
+base64 = "0.22"
+dirs = "5"
+getrandom = "0.2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
