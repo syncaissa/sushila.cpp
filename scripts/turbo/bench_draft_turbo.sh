@@ -3,7 +3,8 @@
 # faster than Standard for each Host Station text pack? Same prompts, greedy, 256 new tokens; Standard vs Turbo with
 # --draft-max 8 and 16; GPU (all layers on the GPU) and CPU (-ngl 0, 8 threads like a desktop) for the smaller packs. Outputs must be identical
 # (greedy speculative decoding changes speed, not text). Writes $W/turbo.jsonl, one line per run.
-# llama.cpp in this repository names the draft options --spec-draft-n-max/-min (--draft-max was removed). 8 threads
+# llama.cpp in this repository names the draft options --spec-draft-n-max/-min (--draft-max was removed) and needs
+# --spec-type draft-simple (default: none, i.e. a loaded draft model is otherwise not used). 8 threads
 # everywhere (like a desktop CPU; GPU runs need few).
 # Usage on a GPU pod (needs ~/.b2_key; the repository's llama.cpp/ copied to $W/llama.cpp):
 #   W=/workspace/turbo bash bench_draft_turbo.sh
@@ -88,13 +89,13 @@ log "drafts: $(cat $W/draft_sha256.txt | tr '\n' ' ')"
 for spec in "coder7b:$Q7:$D25" "qwen3_4b:$Q4:$D3" "coder30b:$QC:$D3" "qwen3_30b:$QA:$D3" "qwen3_32b:$Q32:$D3"; do
   IFS=: read name model draft <<< "$spec"
   run ${name}_gpu_std $model 99
-  run ${name}_gpu_turbo16 $model 99 -md $draft -ngld 99 --spec-draft-n-max 16 --spec-draft-n-min 1
-  run ${name}_gpu_turbo8 $model 99 -md $draft -ngld 99 --spec-draft-n-max 8 --spec-draft-n-min 1
+  run ${name}_gpu_turbo16 $model 99 --spec-type draft-simple -md $draft -ngld 99 --spec-draft-n-max 16 --spec-draft-n-min 1
+  run ${name}_gpu_turbo8 $model 99 --spec-type draft-simple -md $draft -ngld 99 --spec-draft-n-max 8 --spec-draft-n-min 1
 done
 for spec in "coder7b:$Q7:$D25" "qwen3_4b:$Q4:$D3" "coder30b:$QC:$D3"; do
   IFS=: read name model draft <<< "$spec"
   run ${name}_cpu_std $model 0
-  run ${name}_cpu_turbo8 $model 0 -md $draft -ngld 0 --spec-draft-n-max 8 --spec-draft-n-min 1
+  run ${name}_cpu_turbo8 $model 0 --spec-type draft-simple -md $draft -ngld 0 --spec-draft-n-max 8 --spec-draft-n-min 1
 done
 pkill -f "build/bin/llama-server"
 log TURBO_DONE

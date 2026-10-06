@@ -72,10 +72,10 @@ specs=("coder7b:$M/qwen2.5-coder-7b-instruct-q4_k_m.gguf:$M/qwen2.5-coder-0.5b-i
 for spec in "${specs[@]}"; do
   IFS=: read -r name model draft <<< "$spec"
   run "${name}_metal_std" "$model" 99
-  run "${name}_metal_draft8" "$model" 99 -md "$draft" -ngld 99 --spec-draft-n-max 8 --spec-draft-n-min 1
-  run "${name}_metal_draft16" "$model" 99 -md "$draft" -ngld 99 --spec-draft-n-max 16 --spec-draft-n-min 1
+  run "${name}_metal_draft8" "$model" 99 --spec-type draft-simple -md "$draft" -ngld 99 --spec-draft-n-max 8 --spec-draft-n-min 1
+  run "${name}_metal_draft16" "$model" 99 --spec-type draft-simple -md "$draft" -ngld 99 --spec-draft-n-max 16 --spec-draft-n-min 1
   run "${name}_cpu_std" "$model" 0
-  run "${name}_cpu_draft8" "$model" 0 -md "$draft" -ngld 0 --spec-draft-n-max 8 --spec-draft-n-min 1
+  run "${name}_cpu_draft8" "$model" 0 --spec-type draft-simple -md "$draft" -ngld 0 --spec-draft-n-max 8 --spec-draft-n-min 1
 done
 pkill -f "llama-build/bin/llama-server" 2>/dev/null
 log "TEXT_DONE"
