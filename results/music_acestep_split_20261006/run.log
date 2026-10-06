@@ -1,0 +1,15 @@
+{"duration_s": 30, "lm_s": 4.5, "synth_s": 3.5, "lm_share": 0.56, "mp3_bytes": 672189}
+{"duration_s": 60, "lm_s": 4.5, "synth_s": 3.0, "lm_share": 0.6, "mp3_bytes": 1344189}
+[LM-Phase1 Batch0] seed=583616947, 144 tokens
+[LM-Phase2] max_tokens: 400, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Step 50, 1 active, 51 total codes, 87.6 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 92.3 tok/s
+[LM-Phase2] Step 150, 1 active, 151 total codes, 93.8 tok/s
+[LM-Phase2] Step 200, 1 active, 201 total codes, 95.4 tok/s
+[LM-Phase2] Step 250, 1 active, 251 total codes, 94.7 tok/s
+[LM-Phase2] Step 300, 0 active, 300 total codes, 96.6 tok/s
+[Resolve-T] seed=42, steps=8, guidance=1.0, shift=3.0, duration=60.0s
+[Encode] Packed: lyric=42 + timbre=1 + text=153 = 196 tokens
+[Encode-Text Batch0] 153+42 tokens -> enc_S=196, 2.5 ms
+[Init-Noise] Starting: T=1500, S=750, enc_S=196, steps=8, batch=1 (cover)
+MUSIC_DONE
