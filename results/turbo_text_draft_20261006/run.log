@@ -1,0 +1,19 @@
+[19:34:04] llama-server built
+[21:23:54] models ready: 61G
+[21:24:28] drafts: e1a77721fa97d412f121878223eec81fb4ae6f271e18f922d746711f67b344d1  /workspace/turbo/models/qwen2.5-coder-0.5b-instruct-q8_0.gguf e150ed544dfe6016930c026a93913a5e3184181ebfe6ab2223ae01dd0491784c  /workspace/turbo/models/Qwen3-0.6B-Q8_0.gguf 
+[22:34:29] llama-server built
+[22:34:29] models ready: 62G
+[22:35:01] drafts: e1a77721fa97d412f121878223eec81fb4ae6f271e18f922d746711f67b344d1  /workspace/turbo/models/qwen2.5-coder-0.5b-instruct-q8_0.gguf e150ed544dfe6016930c026a93913a5e3184181ebfe6ab2223ae01dd0491784c  /workspace/turbo/models/Qwen3-0.6B-Q8_0.gguf 
+[22:42:17] coder7b_gpu_turbo16: server did not start
+[22:48:24] coder7b_gpu_turbo8: server did not start
+[22:57:21] qwen3_4b_gpu_turbo16: server did not start
+[23:03:48] qwen3_4b_gpu_turbo8: server did not start
+[23:14:20] coder30b_gpu_turbo16: server did not start
+[23:20:34] coder30b_gpu_turbo8: server did not start
+[23:22:14] llama-server built
+[23:22:14] models ready: 62G
+[00:17:57] drafts: e1a77721fa97d412f121878223eec81fb4ae6f271e18f922d746711f67b344d1  /workspace/turbo/models/qwen2.5-coder-0.5b-instruct-q8_0.gguf e150ed544dfe6016930c026a93913a5e3184181ebfe6ab2223ae01dd0491784c  /workspace/turbo/models/Qwen3-0.6B-Q8_0.gguf 
+[00:20:56] llama-server built
+[00:20:56] models ready: 62G
+[00:21:02] drafts: e1a77721fa97d412f121878223eec81fb4ae6f271e18f922d746711f67b344d1  /workspace/turbo/models/qwen2.5-coder-0.5b-instruct-q8_0.gguf e150ed544dfe6016930c026a93913a5e3184181ebfe6ab2223ae01dd0491784c  /workspace/turbo/models/Qwen3-0.6B-Q8_0.gguf 
+[00:47:18] TURBO_DONE

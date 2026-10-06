@@ -1,0 +1,2 @@
+e1a77721fa97d412f121878223eec81fb4ae6f271e18f922d746711f67b344d1  /workspace/turbo/models/qwen2.5-coder-0.5b-instruct-q8_0.gguf
+e150ed544dfe6016930c026a93913a5e3184181ebfe6ab2223ae01dd0491784c  /workspace/turbo/models/Qwen3-0.6B-Q8_0.gguf
