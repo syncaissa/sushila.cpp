@@ -68,6 +68,7 @@ One per system; the apps pick the right one for your graphics card by themselves
 | System | File | Size | sha256 |
 |---|---|---:|---|
 | Linux (CPU) | [sushila.cpp-0.1.0-linux-x86_64.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-linux-x86_64.tar.gz) | 27 MB | `b391393369a3421b678f60a55abca28c8435c173db11bf142570a13a54a8ac3a` |
+| Linux, NVIDIA GPU (CUDA) | [sushila.cpp-0.1.0-linux-x86_64-cuda.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-linux-x86_64-cuda.tar.gz) | 1078 MB | `4e838b698655f624068bfeb688f51c5a8f26425def437a2abdf2a8cd4ec3dfdf` |
 | Linux, AMD / Intel GPU (Vulkan) | [sushila.cpp-0.1.0-linux-x86_64-vulkan.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-linux-x86_64-vulkan.tar.gz) | 69 MB | `69d25cbfe83a37b34c44c368f37abbbda13f9666365e8c7de151c528565beb12` |
 | Mac, Apple M1-M4 (Metal) | [sushila.cpp-0.1.0-macos-aarch64.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-macos-aarch64.tar.gz) | 27 MB | `f473730312a5a0147febbd8c7fb582c3b55166adef785f02fef1856ca10c089b` |
 | Mac (Intel) | [sushila.cpp-0.1.0-macos-x86_64.tar.gz](https://github.com/syncaissa/sushila.cpp/releases/download/v0.1.0/sushila.cpp-0.1.0-macos-x86_64.tar.gz) | 27 MB | `ef93cec1767574f5454339847679df7e338ba0f0a8bd964300392a3421f62420` |
