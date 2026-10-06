@@ -76,6 +76,31 @@ if 'max_position_embeddings' not in c:  # without it SGLang assumes 2,048 tokens
 json.dump(c, open(hd + '/config.json', 'w'), indent=2)
 f = hd + '/pytorch_model.bin'
 sd = torch.load(f, map_location='cpu') if os.path.exists(f) else __import__('safetensors.torch', fromlist=['load_file']).load_file(hd + '/model.safetensors')
+# Heads built for a related model (e.g. AQ-MedAI's for Qwen2.5-VL-72B, used to warm-start Kimi-Dev-72B) can have
+# attention narrower than the hidden size (28 heads x 128 < 8,192), which newer transformers refuse (hidden size must be
+# a multiple of the head count). Regroup the heads into the smallest valid count: same heads per KV group plus
+# zero-weight slots (zero query rows and zero output columns contribute nothing), so the head computes the same function.
+# Vision-language heads also declare multimodal RoPE; for text all three position ids are equal, i.e. plain RoPE.
+H, nh, nkv = c['hidden_size'], c['num_attention_heads'], c['num_key_value_heads']
+hdim = c.get('head_dim') or H // nh
+if H % nh:
+    new = next(n for n in range(nh, 4 * nh) if n % nkv == 0 and H % n == 0)
+    g_old, g_new = nh // nkv, new // nkv
+    q, o = sd['midlayer.self_attn.q_proj.weight'], sd['midlayer.self_attn.o_proj.weight']
+    q2 = q.new_zeros(new * hdim, q.shape[1]); o2 = o.new_zeros(o.shape[0], new * hdim)
+    for i in range(nh):
+        j = (i // g_old) * g_new + i % g_old  # same KV group, first g_old slots of it
+        q2[j * hdim:(j + 1) * hdim] = q[i * hdim:(i + 1) * hdim]; o2[:, j * hdim:(j + 1) * hdim] = o[:, i * hdim:(i + 1) * hdim]
+    sd['midlayer.self_attn.q_proj.weight'], sd['midlayer.self_attn.o_proj.weight'] = q2, o2
+    c['num_attention_heads'], c['head_dim'] = new, hdim
+    print(f'head attention regrouped: {nh} -> {new} heads (zero slots), head_dim {hdim}')
+if (c.get('rope_scaling') or {}).get('rope_type', (c.get('rope_scaling') or {}).get('type')) == 'mrope':
+    c['rope_scaling'] = None; print('multimodal RoPE -> plain RoPE (identical for text)')
+c.pop('target_model_type', None)
+json.dump(c, open(hd + '/config.json', 'w'), indent=2)
+if os.path.exists(hd + '/model.safetensors') and 'q2' in dir():
+    os.replace(hd + '/model.safetensors', hd + '/model.published.safetensors')
+    __import__('safetensors.torch', fromlist=['save_file']).save_file({k: v.contiguous() for k, v in sd.items()}, hd + '/model.safetensors')
 torch.save({'d2t': sd['d2t'], 't2d': sd['t2d']}, d + '/vocab_mapping.pt')
 print('head tensors:', sorted(sd)[:12])
 # heads either carry their own token embeddings (e.g. a head narrower than the model) or use the model's
