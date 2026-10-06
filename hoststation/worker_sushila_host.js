@@ -49,7 +49,7 @@
     let u; try { u = new URL(url); } catch (_) { return false; }
     const h = u.hostname.toLowerCase(), under = (d) => h === d || h.endsWith('.' + d);
     return u.protocol === 'https:' && (h === 'sushila.ai' || h === 'www.sushila.ai'
-      || (h.endsWith('.backblazeb2.com') && u.pathname.startsWith('/file/sushila-ai/'))
+      || (h === 'files.sushila.ai' && u.pathname.startsWith('/public/'))  // the public folder of Sushila's storage (files.sushila.ai Worker)
       || under('huggingface.co') || under('hf.co') || h === 'registry.ollama.ai' || h === 'ollama.com' || h === 'registry.ollama.com');
   };
   const SYSTEM_DIRS = { windows: 'C:\\Program Files\\Sushila', macos: '/Library/Application Support/Sushila', linux: '/opt/sushila' };

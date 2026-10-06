@@ -36,7 +36,7 @@ fn err<E: std::fmt::Display>(e: E) -> String { e.to_string() }
 
 /// Where Host Station may download from, checked here (not in the page) for the first request and every redirect:
 ///   https://sushila.ai                         the catalog
-///   https://f<NNN>.backblazeb2.com/file/sushila-ai/...   our own B2 bucket, and only that bucket
+///   https://files.sushila.ai/public/...      the public folder of Sushila's storage, and only that folder
 ///   https://huggingface.co, *.huggingface.co, *.hf.co    Hugging Face and its file CDNs
 ///   https://registry.ollama.ai, ollama.com, and Ollama's registry storage (one Cloudflare R2 bucket, /ollama/)
 ///   http://127.0.0.1, localhost                this computer's own model servers (http_text only)
@@ -48,7 +48,7 @@ fn allowed_url(u: &reqwest::Url, local_ok: bool) -> bool {
     if u.scheme() != "https" { return false; }
     let under = |d: &str| host == d || host.ends_with(&format!(".{d}"));
     host == "sushila.ai" || host == "www.sushila.ai"
-        || (host.ends_with(".backblazeb2.com") && u.path().starts_with("/file/sushila-ai/"))
+        || (host == "files.sushila.ai" && u.path().starts_with("/public/"))
         || under("huggingface.co") || under("hf.co")
         || host == "registry.ollama.ai" || host == "ollama.com" || host == "registry.ollama.com"
         || (host == OLLAMA_STORAGE && u.path().starts_with("/ollama/"))
@@ -56,7 +56,7 @@ fn allowed_url(u: &reqwest::Url, local_ok: bool) -> bool {
 fn check_url(url: &str, local_ok: bool) -> Result<reqwest::Url, String> {
     let u = reqwest::Url::parse(url).map_err(|_| format!("not a valid address: {url}"))?;
     if allowed_url(&u, local_ok) { Ok(u) } else {
-        Err(format!("Host Station only downloads from sushila.ai, the Sushila B2 bucket, Hugging Face and Ollama; refusing {}", u.host_str().unwrap_or("?")))
+        Err(format!("Host Station only downloads from sushila.ai, files.sushila.ai, Hugging Face and Ollama; refusing {}", u.host_str().unwrap_or("?")))
     }
 }
 

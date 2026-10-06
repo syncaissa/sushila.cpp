@@ -9,12 +9,12 @@ IMAGE="runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04"   # CUDA 12.4 t
 
 KEY="$(cat ~/.ssh/id_ed25519.pub)"   # public key only: lets this machine ssh into the pod
 body="$(jq -n --arg gpu "$GPU" --argjson n "$COUNT" --arg img "$IMAGE" --arg key "$KEY" '{
-    name: "mc-inference",
+    name: ($ENV.POD_NAME // "mc-inference"),
     imageName: $img,
     gpuTypeIds: [$gpu],
     gpuCount: $n,
     cloudType: "SECURE",
-    containerDiskInGb: 40,
+    containerDiskInGb: ($ENV.DISK_GB // "40" | tonumber),
     volumeInGb: 60,
     volumeMountPath: "/workspace",
     ports: ["22/tcp", "8888/http"],

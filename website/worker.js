@@ -1853,6 +1853,11 @@ const HOST_PACKS = [
     serve: { model: 'deepseek-r1-distill-llama-70b-q4km.gguf', args: [] } },
 ];
 let hostCatalogCache = null;  // per isolate, 10 minutes (links stay valid for 24 hours)
+// Every file users download is served from the bucket's public/ folder through files.sushila.ai (a Cloudflare Worker
+// that lets nothing else out of the private bucket; Bandwidth Alliance: no B2 egress). Copies are made with
+// scripts/b2_publish_public.py; links never show the storage provider and need no tokens.
+const FILES_BASE = 'https://files.sushila.ai/public/';
+const publicUrl = (key) => FILES_BASE + key.split('/').map(encodeURIComponent).join('/');
 async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
   if (hostCatalogCache && hostCatalogCache.until > Date.now() && hostCatalogCache.origin === origin) return hostCatalogCache.body;
   const direct = {};  // "<pack id>/<file index>" or "engine/<system>" -> B2 link (24 h)
@@ -1873,7 +1878,6 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
       const text = await getText(`${p.model}/CHECKSUMS.json`), signature = await getText(`${p.model}/CHECKSUMS.json.sig`);
       if (!text || !signature) continue;  // unsigned packs are never offered
       const c = JSON.parse(text);
-      const tok = await grant(p.model + '/');
       const byPath = Object.fromEntries((c.files || []).map((f) => [f.path, f]));
       let map = p.files || [];
       if (p.ollamaGguf) {  // the Ollama file measured in the paper, mirrored in B2 (weights/ollama/blobs/)
@@ -1884,8 +1888,8 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
       const files = map.map(([src, path, role], i) => {
         const f = byPath[src];
         if (!f) return null;
-        direct[`${p.id}/${i}`] = { url: `${b2.fileUrl(a.downloadUrl, `${p.model}/${src}`)}?Authorization=${encodeURIComponent(tok)}`, file: path.split('/').pop(), bytes: f.bytes };
-        return { path, src, role, bytes: f.bytes, sha256: f.sha256, url: `${origin}/hoststation/get/${p.id}/${i}` };
+        direct[`${p.id}/${i}`] = { url: publicUrl(`${p.model}/${src}`), file: path.split('/').pop(), bytes: f.bytes };
+        return { path, src, role, bytes: f.bytes, sha256: f.sha256, url: `${origin}/hoststation/get/${p.id}/${i}` };  // counted, then -> files.sushila.ai
       });
       if (files.some((f) => !f)) continue;  // a file is not in B2 (yet): do not offer a broken pack
       const { model, files: _f, ollamaGguf, hidden, ...pub } = p;
@@ -1898,9 +1902,8 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
     const ltext = await getText('hoststation/engine/LATEST.json'), lsig = await getText('hoststation/engine/LATEST.json.sig');
     const latest = ltext && lsig ? JSON.parse(ltext) : null;
     if (latest && latest.version && latest.builds) {
-      const tok = await grant(`hoststation/engine/${latest.version}/`);
       engine = { version: latest.version, index: { text: ltext, signature: lsig.trim() }, builds: Object.fromEntries(Object.entries(latest.builds).map(([k, b]) => {
-        direct[`engine/${k}`] = { url: `${b2.fileUrl(a.downloadUrl, `hoststation/engine/${latest.version}/${b.file}`)}?Authorization=${encodeURIComponent(tok)}`, file: b.file, bytes: b.bytes, github: b.github, githubAsset: b.githubAsset };
+        direct[`engine/${k}`] = { url: publicUrl(`hoststation/engine/${latest.version}/${b.file}`), file: b.file, bytes: b.bytes, github: b.github, githubAsset: b.githubAsset };
         return [k, { ...b, url: `${origin}/hoststation/get/engine/${k}` }];
       })) };
     }
@@ -1912,9 +1915,9 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
       const ltext = await getText(`hoststation/runtime/${name}/LATEST.json`), lsig = await getText(`hoststation/runtime/${name}/LATEST.json.sig`);
       const latest = ltext && lsig ? JSON.parse(ltext) : null;
       if (!latest || !latest.version || !latest.builds) continue;
-      const pre = `hoststation/runtime/${name}/${latest.version}/`, tok = await grant(pre);
+      const pre = `hoststation/runtime/${name}/${latest.version}/`;
       const link = (key, i, f) => {
-        direct[`runtime/${name}/${key}/${i}`] = { url: `${b2.fileUrl(a.downloadUrl, pre + f.path)}?Authorization=${encodeURIComponent(tok)}`, file: f.path.split('/').pop(), bytes: f.bytes };
+        direct[`runtime/${name}/${key}/${i}`] = { url: publicUrl(pre + f.path), file: f.path.split('/').pop(), bytes: f.bytes };
         return { ...f, url: `${origin}/hoststation/get/runtime/${name}/${key}/${i}` };
       };
       runtimes[name] = { version: latest.version, index: { text: ltext, signature: lsig.trim() }, builds: Object.fromEntries(Object.entries(latest.builds).map(([key, b]) => {
@@ -1924,7 +1927,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
       })) };
     } catch (e) { console.error('hoststation runtime', name, e.message); }
   }
-  const body = { version: 1, generated: new Date().toISOString(), linksValidHours: 24, engine, runtimes, packs };
+  const body = { version: 1, generated: new Date().toISOString(), filesBase: FILES_BASE, engine, runtimes, packs };
   hostCatalogCache = { body, direct, origin, until: Date.now() + 10 * 60 * 1000 };
   return body;
 }
@@ -1965,11 +1968,7 @@ async function hostApp(env, b2) {
   const r = await fetch(b2.fileUrl(a.downloadUrl, 'hoststation/app/LATEST.json'), { headers: { authorization: a.token } });
   if (!r.ok) return null;
   const latest = await r.json();
-  const g = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
-    body: JSON.stringify({ bucketId: a.bucketId, fileNamePrefix: `hoststation/app/${latest.version}/`, validDurationInSeconds: 24 * 3600 }) });
-  if (!g.ok) return null;
-  const tok = (await g.json()).authorizationToken;
-  latest.files = (latest.files || []).map((f) => ({ ...f, url: `${b2.fileUrl(a.downloadUrl, `hoststation/app/${latest.version}/${f.file}`)}?Authorization=${encodeURIComponent(tok)}` }));
+  latest.files = (latest.files || []).map((f) => ({ ...f, url: publicUrl(`hoststation/app/${latest.version}/${f.file}`) }));
   return latest;
 }
 
@@ -2482,7 +2481,7 @@ export default {
         if (!b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
         return await servePack(request, env, b2, db, ctx, url.origin, decodeURIComponent(p.slice('/hoststation/pack/'.length, -'.sushilapack'.length)));
       }
-      if (p.startsWith('/hoststation/get/')) {  // a pack file, engine build or runtime file: count it, then hand over to B2
+      if (p.startsWith('/hoststation/get/')) {  // a pack file, engine build or runtime file: count it, then hand over to files.sushila.ai/public/
         if (!b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
         await hostCatalog(env, b2, url.origin);
         const key = decodeURIComponent(p.slice('/hoststation/get/'.length));

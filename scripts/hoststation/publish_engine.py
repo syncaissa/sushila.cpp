@@ -83,7 +83,7 @@ def main():
     latest.update({'built_utc': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime()), 'commit': meta.get('head_sha', ''), 'run': int(run)})
     b2.put('hoststation/engine/LATEST.json', json.dumps(latest, indent=1).encode())
     print('builds now listed:', ', '.join(sorted(latest['builds'])))
-    print('next: python3 scripts/precompute/sign_checksums.py sign hoststation/engine')
+    print('next: python3 scripts/precompute/sign_checksums.py sign hoststation/engine; then python3 scripts/b2_publish_public.py hoststation/ (users download only from files.sushila.ai/public/)')
 
 
 if __name__ == '__main__':
