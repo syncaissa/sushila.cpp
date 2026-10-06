@@ -68,10 +68,10 @@ if [ -n "${TARGET_REV:-}" ]; then
   [ -d "$TARGET" ] || { log "download of $TARGET_REPO at $TARGET_REV failed (see download.log)"; exit 1; }
   log "model pinned: $TARGET_REPO at $TARGET_REV"
 fi
-{ echo "utc: $(date -u +%FT%TZ)"; echo "repo commit: $(git -C $P rev-parse HEAD 2>/dev/null)"; nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
+{ echo "utc: $(date -u +%FT%TZ)"; echo "repo commit: $(git -C $P rev-parse HEAD 2>/dev/null || echo none)"; nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
   echo "sglang: $($SGPY -c 'import sglang; print(sglang.__version__)' 2>&1)"; echo "torch: $($SGPY -c 'import torch; print(torch.__version__, torch.version.cuda)' 2>&1)"
-  echo "specforge: $(git -C $SF rev-parse HEAD 2>/dev/null)"; echo "ollama: $(ollama --version 2>&1 | tail -1)"
-  echo "target: ${TARGET_REPO:-$TARGET} ${TARGET_REV:-unpinned}"; echo "published head: $PUB_HEAD ${PUB_HEAD_REV:-unpinned}"; $SGPY -m pip freeze 2>/dev/null; } > $D/out/ENV.txt
+  echo "specforge: $(git -C $SF rev-parse HEAD 2>/dev/null || echo none)"; echo "ollama: $(ollama --version 2>&1 | tail -1)"
+  echo "target: ${TARGET_REPO:-$TARGET} ${TARGET_REV:-unpinned}"; echo "published head: $PUB_HEAD ${PUB_HEAD_REV:-unpinned}"; $SGPY -m pip freeze 2>/dev/null || true; } > $D/out/ENV.txt || true
 
 # ---------- 2 models and prompts ----------
 if [ ! -s $D/main.jsonl ] || [ ! -s $D/pub_head_serve/model.safetensors ] || [ ! -s $D/head_has_embed.txt ]; then

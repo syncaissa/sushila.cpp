@@ -255,46 +255,74 @@ def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, d
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-# CUDA-graph versions: a static KV cache and a fixed-shape attention mask over the whole cache, so each decode (or
-# verify) shape is captured once and replayed (torch.compile mode reduce-overhead). Same computations as above.
-
-_STEP = {}
-
-
-def _compiled(model):
-    if id(model) not in _STEP:
-        _STEP[id(model)] = torch.compile(model.forward, mode='reduce-overhead', fullgraph=True)
-    return _STEP[id(model)]
+# CUDA-graph versions: a static KV cache, fixed-shape input buffers and a prebuilt 4-D attention mask, so each decode
+# (or verify) shape is captured once with torch.cuda.CUDAGraph and then replayed. Same computations as above. (An
+# earlier version used torch.compile(mode='reduce-overhead') on model.forward; end to end it was slower than eager,
+# 556 s against 199 s for stage 1, because the 2-D mask path and changing inputs defeated graph reuse.)
 
 
 class StaticRows:
-    """R rows of left-padded sequences in a static cache; feed(ids [R, T]) advances every row by T tokens."""
+    """R rows of left-padded sequences in a static cache; feed(ids [R, T]) advances every row by T tokens and returns
+    logits [R, T, V] (float32). One CUDA graph per T, captured on first use."""
     def __init__(self, model, ids, mask, max_new):
         from transformers import StaticCache
         self.m, self.dev = model, ids.device
         R, L = ids.shape
-        self.max_len = L + max_new + 16
+        self.R, self.max_len = R, L + max_new + 16
         self.cache = StaticCache(config=model.config, max_batch_size=R, max_cache_len=self.max_len, device=self.dev, dtype=model.dtype)
-        self.mask = torch.zeros((R, self.max_len), dtype=torch.long, device=self.dev); self.mask[:, :L] = mask
-        self.pos = ((mask.cumsum(-1) - 1).clamp_min(0))[:, -1:] + 1  # next position id per row [R, 1]
-        out = model(input_ids=ids, attention_mask=self.mask, position_ids=(mask.cumsum(-1) - 1).clamp_min(0),
+        self.valid = torch.zeros((R, self.max_len), dtype=torch.bool, device=self.dev); self.valid[:, :L] = mask.bool()
+        m2 = torch.zeros((R, self.max_len), dtype=torch.long, device=self.dev); m2[:, :L] = mask
+        out = model(input_ids=ids, attention_mask=m2, position_ids=(mask.cumsum(-1) - 1).clamp_min(0),
                     cache_position=torch.arange(L, device=self.dev), past_key_values=self.cache, use_cache=True)
         self.last = out.logits[:, -1, :].float()
+        self.pos = ((mask.cumsum(-1) - 1).clamp_min(0))[:, -1:] + 1  # next position id per row [R, 1]
         self.p = L  # next cache slot
-        self.step = _compiled(model)
+        self.minv = torch.finfo(model.dtype).min
+        self.slots = torch.arange(self.max_len, device=self.dev)
+        self.g = {}
+
+    def _graph(self, T):
+        if T in self.g: return self.g[T]
+        b = {'ids': torch.zeros((self.R, T), dtype=torch.long, device=self.dev),
+             'pos': torch.zeros((self.R, T), dtype=torch.long, device=self.dev),
+             'cp': torch.zeros((T,), dtype=torch.long, device=self.dev),
+             'm4': torch.zeros((self.R, 1, T, self.max_len), dtype=self.m.dtype, device=self.dev)}
+        # warm up on a side stream at slots that the next real feed overwrites (masked, so nothing reads them)
+        self._fill(b, torch.zeros((self.R, T), dtype=torch.long, device=self.dev))
+        run = lambda: self.m(input_ids=b['ids'], position_ids=b['pos'], cache_position=b['cp'], attention_mask=b['m4'],
+                             past_key_values=self.cache, use_cache=True).logits
+        s = torch.cuda.Stream(); s.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s):
+            for _ in range(2): run()
+        torch.cuda.current_stream().wait_stream(s)
+        g = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(g):
+            b['out'] = run()
+        self.g[T] = (g, b)
+        return self.g[T]
+
+    def _fill(self, b, ids):
+        T = ids.shape[1]
+        b['ids'].copy_(ids)
+        b['pos'].copy_(self.pos + torch.arange(T, device=self.dev)[None])
+        b['cp'].copy_(torch.arange(self.p, self.p + T, device=self.dev))
+        valid = self.valid.clone(); valid[:, self.p:self.p + T] = True
+        causal = self.slots[None, :] <= (self.p + torch.arange(T, device=self.dev))[:, None]  # [T, max_len]
+        allowed = valid[:, None, None, :] & causal[None, None]
+        b['m4'].copy_(torch.where(allowed, 0.0, self.minv).to(self.m.dtype))
 
     def feed(self, ids):
         R, T = ids.shape
-        self.mask[:, self.p:self.p + T] = 1
-        pos = self.pos + torch.arange(T, device=self.dev)[None]
-        o = self.step(input_ids=ids, attention_mask=self.mask, position_ids=pos, cache_position=torch.arange(self.p, self.p + T, device=self.dev),
-                      past_key_values=self.cache, use_cache=True)
+        g, b = self._graph(T)
+        self._fill(b, ids)
+        g.replay()
+        self.valid[:, self.p:self.p + T] = True
         self.p += T; self.pos = self.pos + T
-        return o.logits.float()
+        return b['out'].float()
 
     def rollback(self, n):
         if n <= 0: return
-        self.p -= n; self.pos = self.pos - n; self.mask[:, self.p:self.p + n] = 0
+        self.p -= n; self.pos = self.pos - n; self.valid[:, self.p:self.p + n] = False
 
 
 @torch.no_grad()
