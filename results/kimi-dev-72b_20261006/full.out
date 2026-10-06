@@ -1,0 +1,30 @@
+[10:46:21] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[10:53:31] base_main: 5772 tokens in 171.9 s = 33.6 tok/s (median per prompt 33.7)
+[11:13:45] base_ood: 39834 tokens in 1191.5 s = 33.4 tok/s (median per prompt 33.5)
+[11:18:52] base_mt_t07: 9454 tokens in 283.6 s = 33.3 tok/s (median per prompt 33.4)
+[11:36:47] base_gsm100: 35195 tokens in 1048.7 s = 33.6 tok/s (median per prompt 33.6)
+[11:43:26] pub_main: 5908 tokens in 122.1 s = 48.4 tok/s (median per prompt 49.8)
+[11:56:13] pub_ood: 39635 tokens in 751.3 s = 52.8 tok/s (median per prompt 54.1)
+[11:59:41] pub_mt_t07: 9736 tokens in 192.7 s = 50.5 tok/s (median per prompt 49.4)
+[12:32:27] answers: 2000 conversations from 2300 prompts -> /workspace/sushila/kimi-dev-72b/regen.jsonl
+[13:00:38] chunk_00: capture 960 s, train 731 s, 'acc_0': 0.623781681060791
+[13:28:10] chunk_01: capture 955 s, train 697 s, 'acc_0': 0.7529183030128479
+[13:34:25] val_ckpt_chunk_00: 3971 tokens in 58.6 s = 67.8 tok/s (median per prompt 67.5)
+[13:40:47] val_ckpt_chunk_01: 3971 tokens in 56.7 s = 70.0 tok/s (median per prompt 69.8)
+[13:41:00] chosen on validation: head_ckpt_chunk_01 (69.99178027229127 tok/s)
+[13:42:08] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/kimi-dev-72b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/kimi-dev-72b/CHECKSUMS.json are in B2 
+[13:47:53] ours_main: 5865 tokens in 86.3 s = 68.0 tok/s (median per prompt 70.1)
+[13:56:58] ours_ood: 39714 tokens in 533.9 s = 74.4 tok/s (median per prompt 76.0)
+[13:59:31] ours_mt_t07: 9733 tokens in 140.0 s = 69.5 tok/s (median per prompt 70.4)
+[14:06:41] ours_gsm100: 35372 tokens in 419.4 s = 84.3 tok/s (median per prompt 84.2)
+[14:38:46] load base: concurrency 1: 33.4 tok/s total, 33.5 tok/s per user (median);concurrency 4: 123.5 tok/s total, 31.2 tok/s per user (median);concurrency 16: 395.2 tok/s total, 25.3 tok/s per user (median);concurrency 64: 810.2 tok/s total, 13.9 tok/s per user (median);
+[15:10:32] load pub: concurrency 1: 52.4 tok/s total, 53.7 tok/s per user (median);concurrency 4: 124.0 tok/s total, 31.6 tok/s per user (median);concurrency 16: 152.1 tok/s total, 9.7 tok/s per user (median);concurrency 64: 142.6 tok/s total, 2.3 tok/s per user (median);
+[15:34:34] load ours: concurrency 1: 74.2 tok/s total, 75.7 tok/s per user (median);concurrency 4: 174.0 tok/s total, 44.9 tok/s per user (median);concurrency 16: 213.6 tok/s total, 13.7 tok/s per user (median);concurrency 64: 210.1 tok/s total, 3.4 tok/s per user (median);
+[15:35:02] Ollama kimi-dev:72b is "name=Kimi Dev 72B"; SGLang serves QuantTrio/Kimi-Dev-72B-GPTQ-Int4 (check they are the same model)
+[15:40:53] ollama_main: 5909 tokens: 21.1 tok/s with prompt processing (280.4 s), 21.5 tok/s decode only
+[16:13:24] ollama_ood: 39955 tokens: 20.9 tok/s with prompt processing (1913.3 s), 21.5 tok/s decode only
+[16:21:57] ollama_mt_t07: 9995 tokens: 21.0 tok/s with prompt processing (476.7 s), 21.5 tok/s decode only
+[16:51:57] ollama_gsm100: 36807 tokens: 21.0 tok/s with prompt processing (1753.9 s), 21.5 tok/s decode only
+[16:55:08] summary: /workspace/sushila/kimi-dev-72b/summary.md
+[16:55:41] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/kimi-dev-72b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/kimi-dev-72b/CHECKSUMS.json are in B2 
+[16:55:41] DONE

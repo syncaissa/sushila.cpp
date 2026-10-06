@@ -21,6 +21,7 @@ Runs with `chunks` other than `all` are smoke tests and are not used in the pape
 | `deepseek-r1-distill-llama-70b_20261005/` | DeepSeek-R1-Distill-Llama-70B | 3.64x (3.53-3.73); no published head: the base model's slows it (0.85x), ours is 2.30x over SGLang alone |
 | `gemma3-27b_20261005/` | Gemma 3 27B | 1.22x (1.19-1.24); SGLang 0.5.14 (0.5.21 breaks Gemma's EAGLE-3: `gemma3-27b-probe2_20261005/`); our head +9% over the community head |
 | `qwen3-coder-30b-a3b_20261006/` | Qwen3-Coder-30B-A3B (MoE; CodeGen's model) | 1.80x (1.70-1.89); our head +2% over lmsys's |
+| `kimi-dev-72b_20261006/` | Kimi-Dev-72B (coding, Qwen2.5-72B-based; no published head) | **3.56x** (3.50-3.62) unseen; our head +41% over the closest published head (AQ-MedAI's for Qwen2.5-VL-72B, regrouped 28 -> 32 heads) |
 | `qwen3-235b-a22b_20261005/` | Qwen3-235B-A22B (MoE, 2 GPUs; out of scope: too large for local machines) | SGLang alone 1.25x; any draft head is slower (ours 0.73x, best small tree 0.87x of SGLang) |
 
 Each holds `summary.md` (speeds, steps, bootstrap intervals, GSM8K accuracy, load test), `summary.json`, `run.log` and
