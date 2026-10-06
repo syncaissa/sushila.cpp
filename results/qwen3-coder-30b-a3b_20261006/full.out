@@ -1,0 +1,33 @@
+Fetching 18 files:   0%|          | 0/18 [00:00<?, ?it/s]Fetching 18 files: 100%|██████████| 18/18 [00:00<00:00, 1519.52it/s]
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 9 files:  11%|█         | 1/9 [00:00<00:02,  3.80it/s]Fetching 9 files:  89%|████████▉ | 8/9 [00:00<00:00, 16.03it/s]Fetching 9 files: 100%|██████████| 9/9 [00:03<00:00,  3.00it/s]
+head tensors: ['d2t', 'fc.weight', 'lm_head.weight', 'midlayer.hidden_norm.weight', 'midlayer.input_layernorm.weight', 'midlayer.mlp.down_proj.weight', 'midlayer.mlp.gate_proj.weight', 'midlayer.mlp.up_proj.weight', 'midlayer.post_attention_layernorm.weight', 'midlayer.self_attn.k_proj.weight', 'midlayer.self_attn.o_proj.weight', 'midlayer.self_attn.q_proj.weight']
+[00:50:21] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+Fetching 18 files:   0%|          | 0/18 [00:00<?, ?it/s]Fetching 18 files: 100%|██████████| 18/18 [00:00<00:00, 1238.68it/s]
+[00:52:12] base_main: 4980 tokens in 26.3 s = 189.3 tok/s (median per prompt 191.0)
+[00:55:06] base_ood: 32104 tokens in 169.9 s = 188.9 tok/s (median per prompt 189.3)
+[00:55:55] base_mt_t07: 8218 tokens in 46.1 s = 178.5 tok/s (median per prompt 179.0)
+[00:57:58] base_gsm100: 22463 tokens in 120.2 s = 186.8 tok/s (median per prompt 188.1)
+[01:00:03] pub_main: 5042 tokens in 26.9 s = 187.7 tok/s (median per prompt 183.5)
+[01:02:10] pub_ood: 31785 tokens in 123.0 s = 258.4 tok/s (median per prompt 295.9)
+[01:02:52] pub_mt_t07: 8061 tokens in 39.2 s = 205.6 tok/s (median per prompt 195.9)
+[01:08:01] answers: 2000 conversations from 2300 prompts -> /workspace/sushila/qwen3-coder-30b-a3b/regen.jsonl
+2000
+[01:12:39] chunk_00: capture 140 s, train 138 s, 'acc_0': 0.0
+[01:17:13] chunk_01: capture 139 s, train 135 s, 'acc_0': 0.2857142984867096
+[01:19:11] val_ckpt_chunk_00: 3975 tokens in 20.4 s = 195.0 tok/s (median per prompt 190.0)
+[01:21:24] val_ckpt_chunk_01: 3983 tokens in 20.6 s = 193.5 tok/s (median per prompt 185.6)
+[01:21:40] chosen on validation: head_ckpt_chunk_00 (194.99624109316622 tok/s)
+[01:23:40] saved to B2: precomputed: 8 files -> b2://sushila-ai/precomputed/qwen3-coder-30b-a3b/ (CHECKSUMS.json) verified: all 8 files listed in precomputed/qwen3-coder-30b-a3b/CHECKSUMS.json are in B2 
+[01:25:31] ours_main: 5015 tokens in 26.4 s = 189.9 tok/s (median per prompt 184.4)
+[01:27:38] ours_ood: 32475 tokens in 123.6 s = 262.8 tok/s (median per prompt 303.4)
+[01:28:21] ours_mt_t07: 8094 tokens in 39.0 s = 207.5 tok/s (median per prompt 200.8)
+[01:29:36] ours_gsm100: 22181 tokens in 73.1 s = 303.6 tok/s (median per prompt 304.1)
+[01:30:01] Ollama qwen3-coder:30b is "finetune=Instruct name=Qwen3 Coder 30B A3B Instruct"; SGLang serves QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ (check they are the same model)
+[01:30:52] ollama_main: 5082 tokens: 130.3 tok/s with prompt processing (39.0 s), 156.2 tok/s decode only
+[01:34:53] ollama_ood: 34630 tokens: 146.3 tok/s with prompt processing (236.7 s), 155.9 tok/s decode only
+[01:35:56] ollama_mt_t07: 8628 tokens: 149.2 tok/s with prompt processing (57.8 s), 156.9 tok/s decode only
+[01:38:38] ollama_gsm100: 23268 tokens: 148.9 tok/s with prompt processing (156.2 s), 157.2 tok/s decode only
+[01:39:49] summary: /workspace/sushila/qwen3-coder-30b-a3b/summary.md
+[01:40:46] saved to B2: precomputed: 8 files -> b2://sushila-ai/precomputed/qwen3-coder-30b-a3b/ (CHECKSUMS.json) verified: all 8 files listed in precomputed/qwen3-coder-30b-a3b/CHECKSUMS.json are in B2 
+[01:40:46] DONE
