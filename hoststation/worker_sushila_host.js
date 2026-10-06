@@ -30,6 +30,8 @@
   const PRESET = (typeof window !== 'undefined' && window.SUSHILA_PRESET && typeof window.SUSHILA_PRESET === 'object') ? window.SUSHILA_PRESET : null;
   // every build carries all products (Host Station, ImageGen, MusicGen, ChatGen, CodeGen): they are one app with one
   // engine and one model store; each product only adds its model pack and opens its own screen
+  // Wan video models: the negative prompt their authors recommend (shared by the video page and the background queue)
+  const WAN_NEGATIVE_PROMPT = '色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走';
   const PRESETS = (typeof window !== 'undefined' && window.SUSHILA_PRESETS && typeof window.SUSHILA_PRESETS === 'object') ? window.SUSHILA_PRESETS : {};
   const DEFAULT_MODEL = (PRESET && ((PRESET.models || [])[0] || PRESET.defaultModel)) || 'qwen2.5-0.5b-q4km';
   // all products share one app id, data folder and port (one engine, one model store); a preset may still set ports
@@ -362,6 +364,145 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         HOST.state.presetsDone[p.key] = true; await saveState();
         await generateHere(id, first ? p.demoPrompt || '' : '', { lyrics: first ? p.demoLyrics || '' : '', title: p.product });
       }, `${p.product} is ready.`);
+    }
+
+    // ---------- background queue: one queue per computer, for this window and every browser page (local or shared)
+    // queue.json {paused, jobs:[{id, owner, kind, model, title, params, status, created, started, finished, progress, output, error}]}
+    // status: queued -> running -> ready | failed | cancelled; paused (waits; a paused running job starts over when continued).
+    // Pages add jobs and actions through the local server (/api/queue), which drops request files into queue-in/; this window
+    // runs the jobs one at a time, also while it is hidden in the tray, and keeps the outputs in outputs/.
+    const qPath = () => join(HOST.info.data_dir, 'queue.json'), qIn = () => join(HOST.info.data_dir, 'queue-in'), qOut = () => join(HOST.info.data_dir, 'outputs');
+    HOST.queue = { paused: false, jobs: [] };
+    let qRun = null;  // {job, ctrl, upstream: {port, id}}
+    async function loadQueue() {
+      try { const raw = await invoke('read_text', { path: qPath() }); if (raw) HOST.queue = Object.assign({ paused: false, jobs: [] }, JSON.parse(raw)); } catch (_) {}
+      for (const j of HOST.queue.jobs) if (j.status === 'running') { j.status = 'queued'; j.progress = 'continues after a restart'; }  // the app was closed mid-job
+      await saveQueue();
+    }
+    async function saveQueue() { await invoke('write_text', { path: qPath(), content: JSON.stringify(HOST.queue, null, 1) }).catch(() => {}); }
+    const qFind = (id) => HOST.queue.jobs.find((j) => j.id === id);
+    async function queueAction(action, id, owner = 'local') {
+      if (id === 'all') { HOST.queue.paused = action === 'pause'; await saveQueue(); return; }
+      const j = qFind(id); if (!j) return;
+      if (action === 'pause' && ['queued', 'running'].includes(j.status)) { if (qRun && qRun.job === j) { j.stopAs = 'paused'; stopRunning(); } else j.status = 'paused'; }
+      if (action === 'resume' && ['paused', 'failed', 'cancelled'].includes(j.status)) { j.status = 'queued'; j.error = ''; j.progress = ''; }
+      if (action === 'cancel' && ['queued', 'paused', 'running'].includes(j.status)) { if (qRun && qRun.job === j) { j.stopAs = 'cancelled'; stopRunning(); } else j.status = 'cancelled'; }
+      if (action === 'remove' && !(qRun && qRun.job === j)) {
+        if (j.output && j.output.file) await invoke('remove_path', { path: join(qOut(), j.output.file) }).catch(() => {});
+        HOST.queue.jobs = HOST.queue.jobs.filter((x) => x !== j);
+      }
+      await saveQueue();
+    }
+    function stopRunning() {
+      if (!qRun) return;
+      try { qRun.ctrl.abort(); } catch (_) {}
+      if (qRun.upstream) fetch(`http://127.0.0.1:${qRun.upstream.port}/sdcpp/v1/jobs/${encodeURIComponent(qRun.upstream.id)}/cancel`, { method: 'POST' }).catch(() => {});
+    }
+    async function queueAdd(kind, model, title, params, owner = 'local') {  // this window's own "Add to queue"
+      const id = 'job-' + randomToken().slice(0, 18);
+      HOST.queue.jobs.push({ id, owner, kind, model, title: String(title || '').slice(0, 200), params: params || {}, status: 'queued', created: new Date().toISOString(), progress: '' });
+      await saveQueue(); return id;
+    }
+    async function ingestQueue() {  // requests from pages: add / pause / resume / cancel / remove
+      const files = await invoke('list_dir', { path: qIn() }).catch(() => []);
+      let changed = false;
+      for (const f of files.filter((x) => !x.is_dir && x.name.endsWith('.json')).sort((a, b) => a.name.localeCompare(b.name))) {
+        const p = join(qIn(), f.name);
+        let r = null; try { r = JSON.parse((await invoke('read_text', { path: p })) || 'null'); } catch (_) {}
+        await invoke('remove_path', { path: p }).catch(() => {});
+        if (!r) continue;
+        if (r.action === 'add') {
+          if (!qFind(r.id)) HOST.queue.jobs.push({ id: r.id, owner: r.owner, kind: r.kind, model: r.model, title: r.title || '', params: r.params || {}, status: 'queued', created: new Date().toISOString(), progress: '' });
+          changed = true;
+        } else { await queueAction(r.action, r.id); changed = true; }
+      }
+      if (changed) { await saveQueue(); if (tab === 'queue' && !HOST.studio) render(); }
+    }
+    const b64Of = async (blob) => { const u = new Uint8Array(await blob.arrayBuffer()); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+    function multipartAudio(buf, ctype) {  // the first audio/* part of a multipart/mixed answer (acestep.cpp's synth result)
+      const m = /boundary="?([^";]+)"?/i.exec(ctype || ''); if (!m) return null;
+      const bytes = new Uint8Array(buf), text = new TextDecoder('latin1').decode(bytes), sep = '--' + m[1];
+      let at = text.indexOf(sep);
+      while (at >= 0) {
+        const start = at + sep.length; if (text.startsWith('--', start)) break;
+        const next = text.indexOf(sep, start); if (next < 0) break;
+        const headEnd = text.indexOf('\r\n\r\n', start), type = (/content-type:\s*([^\r\n;]+)/i.exec(text.slice(start, headEnd)) || [])[1] || '';
+        if (/^audio\//i.test(type)) { let end = next; if (text.slice(end - 2, end) === '\r\n') end -= 2; return new Blob([bytes.slice(headEnd + 4, end)], { type: type.trim() }); }
+        at = next;
+      }
+      return null;
+    }
+    async function runJob(job) {
+      const p = HOST.state.packs[job.model];
+      if (!p) throw new Error(`${job.model} is not installed on this computer.`);
+      if (!HOST.state.running[job.model]) { job.progress = 'starting the model…'; await saveQueue(); await startModel(job.model); }
+      const port = HOST.state.running[job.model].port, base = `http://127.0.0.1:${port}`, P = job.params || {}, sig = qRun.ctrl.signal;
+      const t0 = Date.now(), tick = (what) => { job.progress = `${what}… ${Math.round((Date.now() - t0) / 1000)} s`; };
+      const post = async (path, body) => { const r = await fetch(base + path, { method: 'POST', signal: sig, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 200)}`); return r; };
+      const save = async (ext, mime, b64) => { const file = `${job.id}.${ext}`; const bytes = await invoke('write_b64', { path: join(qOut(), file), data: b64 }); return { file, mime, bytes }; };
+      if (job.kind === 'text') {
+        tick('writing');
+        const j = await (await post('/v1/chat/completions', { messages: [{ role: 'user', content: String(P.prompt || '') }], max_tokens: Math.min(+P.max_tokens || 1024, 8192), temperature: P.temperature ?? 0.7, stream: false })).json();
+        const text = (((j.choices || [])[0] || {}).message || {}).content || '';
+        const file = `${job.id}.md`; await invoke('write_text', { path: join(qOut(), file), content: text });
+        return { file, mime: 'text/markdown; charset=utf-8', bytes: text.length };
+      }
+      if (job.kind === 'image') {
+        tick('drawing');
+        const prompt = String(P.prompt || '') + (P.seed != null && P.seed !== '' ? ` <sd_cpp_extra_args>${JSON.stringify({ seed: +P.seed })}</sd_cpp_extra_args>` : '');
+        const j = await (await post('/v1/images/generations', { model: job.model, prompt, size: P.size || '1024x1024', n: 1, output_format: 'png' })).json();
+        const d = (j.data || [])[0]; if (!d || !d.b64_json) throw new Error('the server returned no image');
+        return save('png', 'image/png', d.b64_json);
+      }
+      if (job.kind === 'video') {
+        const j = await (await post('/sdcpp/v1/vid_gen', Object.assign({ negative_prompt: WAN_NEGATIVE_PROMPT, fps: 24, seed: -1, output_format: 'webm',
+          sample_params: { sample_method: 'euler', guidance: { txt_cfg: 6.0 }, flow_shift: 3.0 } }, P))).json();
+        qRun.upstream = { port, id: j.id };
+        for (;;) {
+          await new Promise((r) => setTimeout(r, 2000)); if (sig.aborted) throw new DOMException('stopped', 'AbortError');
+          tick('filming'); const st = await (await fetch(`${base}/sdcpp/v1/jobs/${encodeURIComponent(j.id)}`, { signal: sig })).json();
+          if (st.status === 'completed') { const res = st.result || {}; return save(res.output_format || 'webm', res.mime_type || 'video/webm', res.b64_json); }
+          if (st.status === 'failed' || st.status === 'cancelled') throw new Error((st.error && st.error.message) || st.status);
+        }
+      }
+      if (job.kind === 'music') {
+        const job2 = async (path, body, label) => {
+          const { id } = await (await post(path, body)).json();
+          for (;;) {
+            await new Promise((r) => setTimeout(r, 1000)); if (sig.aborted) throw new DOMException('stopped', 'AbortError');
+            tick(label); const st = await (await fetch(`${base}/job?id=${encodeURIComponent(id)}`, { signal: sig })).json();
+            if (st.status === 'done') return fetch(`${base}/job?id=${encodeURIComponent(id)}&result=1`, { signal: sig });
+            if (st.status === 'failed' || st.status === 'cancelled') throw new Error(label + ' ' + st.status);
+          }
+        };
+        const lyrics = P.lyrics ? String(P.lyrics) : '[Instrumental]';
+        const planned = await (await job2('/lm', { caption: String(P.style || ''), lyrics: lyrics === '[auto]' ? '' : lyrics, duration: +P.duration || 60, seed: -1, output_format: 'mp3' }, 'writing the song')).json();
+        const r = await job2('/synth', (Array.isArray(planned) ? planned : [planned]).map((x) => Object.assign({}, x, { output_format: 'mp3' })), 'singing it');
+        const ct = r.headers.get('content-type') || '';
+        const blob = /^audio\//.test(ct) ? await r.blob() : multipartAudio(await r.arrayBuffer(), ct);
+        if (!blob) throw new Error('the server returned no audio');
+        return save('mp3', 'audio/mpeg', await b64Of(blob));
+      }
+      throw new Error('unknown kind ' + job.kind);
+    }
+    async function queueTick() {
+      if (qRun || HOST.queue.paused) return;
+      const job = HOST.queue.jobs.find((j) => j.status === 'queued');
+      if (!job) return;
+      qRun = { job, ctrl: new AbortController(), upstream: null };
+      job.status = 'running'; job.started = new Date().toISOString(); job.error = ''; job.stopAs = null; await saveQueue(); if (tab === 'queue' && !HOST.studio) render();
+      const saver = setInterval(saveQueue, 4000);
+      try {
+        job.output = await runJob(job);
+        job.status = 'ready'; job.progress = `ready in ${Math.round((Date.now() - Date.parse(job.started)) / 1000)} s`;
+        log(`queue: ${job.title || job.kind} is ready`);
+      } catch (e) {
+        if (job.stopAs) { job.status = job.stopAs; job.progress = job.stopAs === 'paused' ? 'paused: starts over when continued' : 'cancelled'; }
+        else { job.status = 'failed'; job.error = String(e && e.message || e).slice(0, 300); job.progress = ''; }
+      } finally {
+        clearInterval(saver); job.finished = new Date().toISOString(); job.stopAs = null; qRun = null;
+        await saveQueue(); if (tab === 'queue' && !HOST.studio) render();
+      }
     }
 
     // There is always a model to try: the default pack follows the engine (same signature and checksum checks).
@@ -718,9 +859,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (code !== 0) throw new Error('The firewall rule was not added (exit code ' + code + ').');
     }
 
-    async function launchPage(id, prompt) {
+    async function launchPage(id, prompt, opts = {}) {
       const url = `http://127.0.0.1:${HOST.state.settings.port}/?t=${HOST.state.token}` + (id ? '&model=' + encodeURIComponent(id) : '')
-        + (prompt ? '&prompt=' + encodeURIComponent(prompt) + '&run=1' : '');
+        + (prompt ? '&prompt=' + encodeURIComponent(prompt) + '&run=1' : '') + (opts.queue ? '&queue=1' : '');
       await invoke('open_url', { url });
     }
 
@@ -743,7 +884,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('button', { onclick: () => act(() => launchPage()), disabled: !n }, 'Open in browser'));
     }
     function tabs() {
-      const t = [['home', 'Home'], ['engine', 'Engine'], ['packs', 'Model Packs'], ['run', 'Run & Logs'], ['settings', 'Settings']];
+      const ready = HOST.queue.jobs.filter((j) => j.status === 'ready' && !j.seen).length, busy = HOST.queue.jobs.filter((j) => ['queued', 'running'].includes(j.status)).length;
+      const t = [['home', 'Home'], ['queue', 'Queue' + (busy ? ` (${busy})` : '') + (ready ? ` · ${ready} ready` : '')], ['engine', 'Engine'], ['packs', 'Model Packs'], ['run', 'Run & Logs'], ['settings', 'Settings']];
       return el('div', { class: 'tabs', role: 'tablist' }, t.map(([k, label]) => el('button', { class: 'tab', role: 'tab', 'aria-selected': String(tab === k), onclick: () => { tab = k; render(); } }, label)));
     }
     const dlText = (d) => {
@@ -780,6 +922,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     function screen() {
       if (tab === 'home') return homeScreen();
       if (tab === 'engine') return engineScreen();
+      if (tab === 'queue') return queueScreen();
       if (tab === 'packs') return packsScreen();
       if (tab === 'run') return runScreen();
       return settingsScreen();
@@ -801,6 +944,49 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
               el('button', { class: 'ghost', disabled: HOST.busy || !s.engine, onclick: () => act(() => runInference(p.id), `${p.name}: the page is open in your browser.`) }, 'Open in browser'))));
         })));
     }
+    // ---------- the Queue tab: every job of this computer (this window's and browser pages'), its status and output
+    function queueScreen() {
+      const q = HOST.queue, port = HOST.state.settings.port;
+      const name = (id) => (HOST.state.packs[id] || {}).name || id;
+      const pill = (st) => el('span', { class: 'pill ' + (st === 'ready' ? 'on' : st === 'failed' ? 'off' : '') }, { queued: 'waiting', running: 'running', paused: 'paused', ready: 'ready', failed: 'failed', cancelled: 'cancelled' }[st] || st);
+      const act2 = (a, id) => async () => { await queueAction(a, id); render(); };
+      const show = (j) => async () => {
+        const box = $('qprev-' + j.id); if (!box) return;
+        j.seen = true; saveQueue();
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/queue/${encodeURIComponent(j.id)}/output`, { headers: { 'x-sushila-token': HOST.state.token } });
+          if (!r.ok) throw new Error(await r.text());
+          const blob = await r.blob(), src = URL.createObjectURL(blob), m = (j.output && j.output.mime) || blob.type;
+          box.replaceChildren(/^image\//.test(m) ? el('img', { src, style: 'max-width:100%;border-radius:8px' })
+            : /^video\//.test(m) ? el('video', { src, controls: true, loop: true, style: 'max-width:100%;border-radius:8px' })
+            : /^audio\//.test(m) ? el('audio', { src, controls: true })
+            : el('pre', { style: 'white-space:pre-wrap;max-height:320px;overflow:auto' }, await blob.text()));
+        } catch (e) { box.textContent = 'Could not open the output: ' + (e.message || e); }
+      };
+      const rows = [...q.jobs].reverse().map((j) => el('div', { class: 'card', style: 'margin-top:10px' },
+        el('div', { class: 'row', style: 'margin:0;align-items:center' },
+          el('div', { style: 'flex:1;min-width:0' }, el('b', {}, j.title || `${j.kind} job`), el('div', { class: 'sub' }, `${j.kind} · ${name(j.model)} · added ${new Date(j.created).toLocaleString()}` + (j.owner && j.owner !== 'local' ? ' · from a shared user' : ''))),
+          pill(j.status)),
+        el('div', { class: 'sub', id: 'qprog-' + j.id }, j.error ? 'Error: ' + j.error : j.progress || ''),
+        el('div', { class: 'row', style: 'margin:6px 0 0' },
+          ['queued', 'running'].includes(j.status) ? el('button', { class: 'ghost', onclick: act2('pause', j.id) }, 'Pause') : null,
+          ['paused', 'failed', 'cancelled'].includes(j.status) ? el('button', { onclick: act2('resume', j.id) }, 'Continue') : null,
+          ['queued', 'running', 'paused'].includes(j.status) ? el('button', { class: 'ghost', onclick: act2('cancel', j.id) }, 'Cancel') : null,
+          j.status === 'ready' ? el('button', { onclick: show(j) }, 'Show') : null,
+          j.status === 'ready' ? el('button', { class: 'ghost', onclick: () => act(() => launchPage(null, '', { queue: true })) }, 'Download in browser') : null,
+          j.status !== 'running' ? el('button', { class: 'danger', onclick: () => { if (confirm('Remove this job and its output?')) act2('remove', j.id)(); } }, 'Remove') : null),
+        el('div', { id: 'qprev-' + j.id, style: 'margin-top:8px' })));
+      return el('div', {},
+        el('div', { class: 'card' }, el('h2', {}, 'Queue'),
+          el('div', { class: 'sub' }, 'Jobs from this window and from browser pages run here one at a time, in the background. Closing the window keeps Sushila running in the tray, so the queue goes on; come back any time to see the status and the results.'),
+          el('div', { class: 'row' }, q.paused
+            ? el('button', { class: 'big', onclick: act2('resume', 'all') }, '▶ Continue the queue')
+            : el('button', { class: 'ghost', onclick: act2('pause', 'all') }, '⏸ Pause the queue'),
+            el('span', { class: 'sub' }, q.paused ? 'Paused: no new job starts (a running one finishes).' : `${q.jobs.filter((j) => j.status === 'queued').length} waiting · ${q.jobs.filter((j) => j.status === 'running').length} running · ${q.jobs.filter((j) => j.status === 'ready').length} ready`)),
+          q.jobs.some((j) => ['ready', 'failed', 'cancelled'].includes(j.status)) ? el('button', { class: 'ghost', onclick: async () => { for (const j of HOST.queue.jobs.filter((x) => ['ready', 'failed', 'cancelled'].includes(x.status))) await queueAction('remove', j.id); render(); } }, 'Clear finished') : null),
+        q.jobs.length ? rows : el('div', { class: 'sub', style: 'margin-top:12px' }, 'Nothing queued. On an inference page, use "Add to queue" to let a job run while you do something else.'));
+    }
+
     function homeScreen() {
       const s = HOST.state;
       return el('div', {},
@@ -968,6 +1154,12 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         // an engine but no model yet (e.g. Sushila.cpp was already on this computer): install the default model now
         act(ensureDefaultModel, 'The default model is installed. Press Run inference to try it.');
       }
+      await loadQueue();
+      setInterval(async () => {  // the background queue (also while hidden in the tray)
+        await ingestQueue(); queueTick();
+        if (qRun && tab === 'queue' && !HOST.studio) { const e = $('qprog-' + qRun.job.id); if (e) e.textContent = qRun.job.progress || ''; }
+      }, 1500);
+      listen('hidden-to-tray', () => log('the window is hidden: Sushila keeps running in the tray (Quit is in the tray menu)'));
       listen('deep-link', () => handleLinks());
       // another Sushila product started while this window is open (e.g. ChatGen after ImageGen): add its part here
       listen('second-instance', (payload) => {
@@ -1006,6 +1198,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .modesw button{position:relative;z-index:1;border:0;border-radius:99px;background:transparent;color:var(--mut);padding:5px 14px;font-size:13px;font-weight:600}
 .modesw button.on{color:#fff;background:transparent}.modesw button:disabled{opacity:.4}
 .maxed .top,.maxed #remote,.maxed .chat>.bar2{display:none}.maxed .chat{max-width:none;margin:0;padding:12px 18px}.maxed #log{min-height:calc(100vh - 170px)}
+.qpanel{max-width:900px;margin:10px auto 30px;padding:10px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}.qpanel summary{cursor:pointer}
+.qjob{border-top:1px solid var(--line);padding:8px 0}.qjob img,.qjob video{max-width:100%;border-radius:8px;margin-top:6px}.qjob .row{margin:6px 0 0}
 .restorebtn{position:fixed;top:10px;right:14px;z-index:9;display:none}.maxed .restorebtn{display:inline-block}
 .bubble pre{position:relative;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow:auto;white-space:pre;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;margin:8px 0}
 .bubble pre .copy{position:absolute;top:6px;right:6px;font-size:12px;padding:3px 8px}.bubble .lang{font-size:11px;color:var(--mut);margin-bottom:4px}
@@ -1043,7 +1237,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       embedded && opts.onBrowser ? el('button', { class: 'ghost', onclick: () => opts.onBrowser(model && model.packId) }, 'Open in browser') : null);
     const main = el('div', { id: 'main' });
     const restore = el('button', { class: 'restorebtn', onclick: () => setMax(false) }, '⤡ Restore');
-    app.replaceChildren(head, el('div', { style: 'padding:0 22px' }, remoteBox), main, restore);
+    const qpanel = el('details', { id: 'qpanel', class: 'qpanel' }, el('summary', {}, el('b', { id: 'qsum' }, 'Queue')), el('div', { id: 'qlist', class: 'sub' }, 'Loading…'));
+    if (qs.get('queue') === '1') qpanel.open = true;
+    app.replaceChildren(head, el('div', { style: 'padding:0 22px' }, remoteBox), main, qpanel, restore);
     function setMax(on) { app.classList.toggle('maxed', on); if (on && $('q')) $('q').focus(); }
     // replies with ``` code blocks: shown as code, each with a Copy button (text only: nothing in a reply is run)
     function rich(text) {
@@ -1137,13 +1333,50 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       (model.kind === 'music' ? musicScreen : model.kind === 'video' ? videoScreen : model.kind === 'image' ? imageScreen : chatScreen)();
     }
     const keyHint = () => (server && !keys[server] ? el('div', { class: 'sub' }, 'This server needs an access key: choose "Add a remote server…" again with the key.') : null);
+    // ---------- the background queue (Host Station runs it; the same queue for the app window and every page)
+    const outUrl = (id, dl) => base() + '/api/queue/' + encodeURIComponent(id) + '/output?' + (server ? 'key=' + encodeURIComponent(keys[server] || '') : 't=' + encodeURIComponent(token)) + (dl ? '&download=1' : '');
+    async function addToQueue(kind, title, params, msgEl) {
+      if (!model) return;
+      try {
+        const r = await fetch(base() + '/api/queue', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, auth()), body: JSON.stringify({ kind, model: model.packId, title: title.slice(0, 200), params }) });
+        if (!r.ok) throw new Error(explain(r, await r.text()));
+        if (msgEl) { msgEl.className = 'msg'; msgEl.textContent = 'Added to the queue. It runs in the background: you can close this page and come back; the Queue below shows when it is ready.'; }
+        $('qpanel').open = true; refreshQueue();
+      } catch (e) { if (msgEl) { msgEl.className = 'msg err'; msgEl.textContent = String(e.message || e); } }
+    }
+    const qAct = (id, a) => async () => { await fetch(base() + '/api/queue/' + encodeURIComponent(id) + '/' + a, { method: 'POST', headers: auth() }).catch(() => {}); setTimeout(refreshQueue, 1600); };
+    let qShown = {};
+    async function refreshQueue() {
+      const list = $('qlist'); if (!list) return;
+      let q; try { const r = await fetch(base() + '/api/queue', { headers: auth() }); if (!r.ok) throw new Error(explain(r, await r.text())); q = await r.json(); }
+      catch (e) { $('qsum').textContent = 'Queue'; list.textContent = String(e.message || e); return; }
+      const jobs = [...(q.jobs || [])].reverse(), busy = jobs.filter((j) => ['queued', 'running'].includes(j.status)).length, ready = jobs.filter((j) => j.status === 'ready').length;
+      $('qsum').textContent = `Queue: ${busy} working, ${ready} ready` + (q.paused ? ' (paused)' : '');
+      if (!jobs.length) { list.textContent = 'Nothing queued yet. "Add to queue" lets a job run in the background while you do something else.'; return; }
+      list.replaceChildren(...jobs.map((j) => {
+        const out = j.status === 'ready' && j.output ? (/^image\//.test(j.output.mime) ? el('img', { src: outUrl(j.id), alt: j.title || '' })
+          : /^video\//.test(j.output.mime) ? el('video', { src: outUrl(j.id), controls: true, loop: true, muted: true })
+          : /^audio\//.test(j.output.mime) ? el('audio', { src: outUrl(j.id), controls: true })
+          : el('a', { href: outUrl(j.id), target: '_blank', rel: 'noopener' }, 'Open the text')) : null;
+        return el('div', { class: 'qjob' }, el('div', {}, el('b', {}, j.title || j.kind), ' ', el('span', { class: 'pill ' + (j.status === 'ready' ? 'on' : j.status === 'failed' ? 'off' : '') }, j.status === 'queued' ? 'waiting' : j.status)),
+          el('div', { class: 'sub' }, `${j.kind} · ${j.model}` + (j.progress ? ' · ' + j.progress : '') + (j.error ? ' · ' + j.error : '')), out,
+          el('div', { class: 'row' }, ['queued', 'running'].includes(j.status) ? el('button', { class: 'ghost', onclick: qAct(j.id, 'pause') }, 'Pause') : null,
+            ['paused', 'failed', 'cancelled'].includes(j.status) ? el('button', { onclick: qAct(j.id, 'resume') }, 'Continue') : null,
+            ['queued', 'running', 'paused'].includes(j.status) ? el('button', { class: 'ghost', onclick: qAct(j.id, 'cancel') }, 'Cancel') : null,
+            j.status === 'ready' ? el('a', { href: outUrl(j.id, true), class: 'dlbtn' }, '⬇ Download') : null,
+            j.status !== 'running' ? el('button', { class: 'ghost', onclick: qAct(j.id, 'remove') }, 'Remove') : null));
+      }));
+    }
+    setInterval(() => { if (!document.hidden && $('qpanel') && $('qpanel').open) refreshQueue(); }, 3000);
     const explain = (r, body) => r.status === 401 ? 'This server needs an access key (Server → Add a remote server…).' : r.status === 429 ? 'Too many requests for this key; wait a minute.' : (body || 'HTTP ' + r.status);
 
     // ---------- chat (text models)
     function chatScreen() {
       main.replaceChildren(el('div', { class: 'chat' }, el('div', { id: 'log' }),
         el('div', { class: 'composer' }, el('textarea', { id: 'q', placeholder: 'Ask anything. ' + (server ? 'Runs on ' + server.replace(/^https?:\/\//, '') + '.' : 'Runs entirely on this computer.') }),
-          el('div', {}, el('button', { id: 'send', onclick: send }, 'Submit'), el('button', { id: 'stop', class: 'ghost hidden', onclick: () => ctrl && ctrl.abort() }, 'Stop'))),
+          el('div', {}, el('button', { id: 'send', onclick: send }, 'Submit'), el('button', { id: 'stop', class: 'ghost hidden', onclick: () => ctrl && ctrl.abort() }, 'Stop'),
+            el('button', { class: 'ghost', title: 'Run it in the background and keep the answer in the Queue', onclick: () => { const q = $('q').value.trim(); if (q) { addToQueue('text', q, { prompt: q, max_tokens: +$('maxt').value, temperature: +$('temp').value }, $('qmsg')); $('q').value = ''; } } }, 'Add to queue'))),
+        el('div', { class: 'msg', id: 'qmsg' }),
         el('div', { class: 'bar2 sub' }, 'Max tokens', el('select', { id: 'maxt' }, [256, 512, 1024, 2048].map((n) => el('option', { selected: n === 512 }, String(n)))),
           'Temperature', el('select', { id: 'temp' }, ['0', '0.3', '0.7', '1.0'].map((t) => el('option', { selected: t === '0.7' }, t))),
           el('button', { class: 'ghost', onclick: () => { msgs.length = 0; $('log').replaceChildren(); } }, 'New chat')), keyHint()));
@@ -1195,7 +1428,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 
     // ---------- video (video packs: stable-diffusion.cpp's server, native async API behind /v1/video/ -> /sdcpp/v1/)
     // POST /v1/video/vid_gen returns a job; GET /v1/video/jobs/{id} until it completes with the whole WebM file (base64).
-    const WAN_NEGATIVE = '色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走';
+    const WAN_NEGATIVE = WAN_NEGATIVE_PROMPT;
     let videoJob = null, startImage = null;
     function videoScreen() {
       startImage = null;
@@ -1207,7 +1440,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           el('label', {}, 'Length ', el('select', { id: 'vlen' }, [[49, '2 seconds'], [73, '3 seconds'], [121, '5 seconds']].map(([v, t]) => el('option', { value: v }, t)))),
           el('label', {}, 'Seed ', el('input', { id: 'vseed', type: 'number', placeholder: 'random', style: 'width:110px' }))),
         el('div', { class: 'row' }, el('button', { id: 'vgo', class: 'big', onclick: makeVideo }, 'Generate'),
-          el('button', { id: 'vstop', class: 'ghost hidden', onclick: cancelVideo }, 'Cancel')),
+          el('button', { id: 'vstop', class: 'ghost hidden', onclick: cancelVideo }, 'Cancel'),
+          el('button', { class: 'ghost', onclick: () => { const p = $('vprompt').value.trim(); if (!p) return; const [w, h] = $('vsize').value.split('x').map(Number), seed = $('vseed').value.trim();
+            addToQueue('video', p, { prompt: p, width: w, height: h, video_frames: +$('vlen').value, fps: 24, seed: seed ? +seed : -1, init_image: startImage }, $('vmsg')); } }, 'Add to queue')),
         el('div', { class: 'msg', id: 'vmsg' }), el('div', { class: 'sub' }, 'Videos take minutes, not seconds: a short clip is about 1-5 minutes on a fast NVIDIA GPU, much longer on smaller ones.'),
         keyHint(), el('div', { id: 'vgallery' })));
       if (autoPrompt) { $('vprompt').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeVideo(); } }
@@ -1259,7 +1494,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('label', { for: 'mlyrics' }, '1. Lyrics'), el('textarea', { id: 'mlyrics', rows: 9, placeholder: '[verse]\nWrite your lyrics here…\n\n[chorus]\n…\n\n(leave empty for an instrumental, or let the model write them: type [auto])' }),
         el('label', { for: 'mstyle' }, '2. Style'), el('input', { id: 'mstyle', placeholder: 'e.g. upbeat acoustic folk, warm male vocals, guitar and fiddle, 110 bpm' }),
         el('div', { class: 'bar2', style: 'margin-top:10px' }, el('label', {}, 'Length ', el('select', { id: 'mdur' }, [30, 60, 90, 120, 180].map((d) => el('option', { value: d, selected: d === 60 }, d < 60 ? d + ' seconds' : (d / 60) + ' min'))))),
-        el('div', { class: 'row' }, el('button', { id: 'mgo', class: 'big', onclick: makeMusic }, 'Generate')),
+        el('div', { class: 'row' }, el('button', { id: 'mgo', class: 'big', onclick: makeMusic }, 'Generate'),
+          el('button', { class: 'ghost', onclick: () => { const style = $('mstyle').value.trim(); if (!style) return;
+            addToQueue('music', style, { style, lyrics: $('mlyrics').value.trim(), duration: +$('mdur').value }, $('mmsg')); } }, 'Add to queue')),
         el('div', { class: 'msg', id: 'mmsg' }), keyHint(), el('div', { id: 'tracks' })));
       if (autoLyrics) { $('mlyrics').value = autoLyrics; autoLyrics = ''; }
       if (autoPrompt) { $('mstyle').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeMusic(); } }
@@ -1324,7 +1561,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           el('label', {}, 'Size ', el('select', { id: 'isize' }, [['1024x1024', 'Square 1024'], ['768x768', 'Square 768 (fastest)'], ['768x1024', 'Portrait'], ['1024x768', 'Landscape']].map(([v, t]) => el('option', { value: v, selected: v === (model && model.mode === 'turbo' ? '768x768' : '1024x1024') }, t)))),
           el('label', {}, 'Images ', el('select', { id: 'in' }, [1, 2, 4].map((n) => el('option', { value: n }, String(n))))),
           el('label', {}, 'Seed ', el('input', { id: 'iseed', type: 'number', placeholder: 'random', style: 'width:110px' }))),
-        el('div', { class: 'row' }, el('button', { id: 'igo', class: 'big', onclick: makeImage }, 'Submit')),
+        el('div', { class: 'row' }, el('button', { id: 'igo', class: 'big', onclick: makeImage }, 'Submit'),
+          el('button', { class: 'ghost', onclick: () => { const p = $('iprompt').value.trim(); if (!p) return; const n = +$('in').value || 1, seed = $('iseed').value.trim();
+            for (let i = 0; i < n; i++) addToQueue('image', p, { prompt: p, size: $('isize').value, seed: seed ? +seed + i : '' }, $('imsg')); } }, 'Add to queue')),
         el('div', { class: 'msg', id: 'imsg' }), keyHint(), el('div', { id: 'gallery', class: 'gallery' })));
       $('iprompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) makeImage(); });
       if (autoPrompt) { $('iprompt').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeImage(); } }
@@ -1352,5 +1591,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 
     fillServers();
     loadModels();
+    qpanel.addEventListener('toggle', () => { if (qpanel.open) refreshQueue(); });
+    refreshQueue();
   }
 })();

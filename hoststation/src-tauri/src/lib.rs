@@ -616,6 +616,117 @@ async fn srv_mode(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: 
     with_cors_for((axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "ok": true }))).into_response(), &st, origin.as_deref())
 }
 
+// ---------- background queue ----------
+// The window owns the queue (data_dir/queue.json, outputs in data_dir/outputs/): it runs the jobs one at a time, also while
+// hidden in the tray. Pages (this computer's, or shared users with a key) add jobs and actions as request files in
+// data_dir/queue-in/, read the queue, and fetch finished outputs. Each caller sees only its own jobs; this computer sees all.
+fn read_queue(dir: &Path) -> Value {
+    std::fs::read_to_string(dir.join("queue.json")).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(json!({ "paused": false, "jobs": [] }))
+}
+fn queue_job(dir: &Path, id: &str) -> Option<Value> {
+    read_queue(dir).get("jobs")?.as_array()?.iter().find(|j| j.get("id").and_then(|x| x.as_str()) == Some(id)).cloned()
+}
+fn owns(who: &str, job: &Value) -> bool { who == "local" || job.get("owner").and_then(|o| o.as_str()) == Some(who) }
+fn safe_id(id: &str) -> bool { !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') }
+fn new_id() -> String {  // unique per call: time, process, a counter, hashed (no extra dependency)
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let h = Sha256::digest(format!("{t}-{}-{n}", std::process::id()).as_bytes());
+    format!("job-{}", &hex::encode(h)[..18])
+}
+async fn srv_queue(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    let origin = headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
+    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    let Some(who) = caller(&headers, &st) else { return with_cors_for((axum::http::StatusCode::UNAUTHORIZED, "a key or this computer's page is needed").into_response(), &st, origin.as_deref()) };
+    let q = read_queue(&s.data_dir);
+    let jobs: Vec<Value> = q.get("jobs").and_then(|j| j.as_array()).map(|a| a.iter().filter(|j| owns(&who, j)).map(|j| {
+        let mut j = j.clone();
+        if let Some(o) = j.as_object_mut() { o.remove("owner"); o.remove("params"); }  // the request itself (prompts, pictures) stays private
+        j
+    }).collect()).unwrap_or_default();
+    with_cors_for(axum::Json(json!({ "paused": q.get("paused").cloned().unwrap_or(json!(false)), "jobs": jobs })).into_response(), &st, origin.as_deref())
+}
+async fn srv_queue_add(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let (parts, body) = req.into_parts();
+    let st = read_state(&s.data_dir);
+    let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
+    if parts.method == axum::http::Method::OPTIONS { return with_cors_for(axum::http::StatusCode::NO_CONTENT.into_response(), &st, origin.as_deref()); }
+    if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    let Some(who) = caller(&parts.headers, &st) else { return with_cors_for((axum::http::StatusCode::UNAUTHORIZED, "a key or this computer's page is needed").into_response(), &st, origin.as_deref()) };
+    let Ok(bytes) = axum::body::to_bytes(body, 16 << 20).await else { return (axum::http::StatusCode::PAYLOAD_TOO_LARGE, "request too large").into_response() };
+    let Ok(v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let kind = v.get("kind").and_then(|k| k.as_str()).unwrap_or("");
+    let model = v.get("model").and_then(|m| m.as_str()).unwrap_or("");
+    if !["text", "image", "video", "music"].contains(&kind) || !safe_id(&model.replace('.', "_")) {
+        return with_cors_for((axum::http::StatusCode::BAD_REQUEST, "kind (text, image, video, music) and model are required").into_response(), &st, origin.as_deref());
+    }
+    let pending = std::fs::read_dir(s.data_dir.join("queue-in")).map(|d| d.count()).unwrap_or(0);
+    let queued = read_queue(&s.data_dir).get("jobs").and_then(|j| j.as_array()).map(|a| a.len()).unwrap_or(0);
+    if pending + queued > 500 { return with_cors_for((axum::http::StatusCode::TOO_MANY_REQUESTS, "the queue is full").into_response(), &st, origin.as_deref()); }
+    let id = new_id();
+    let item = json!({ "action": "add", "id": id, "owner": who, "kind": kind, "model": model,
+        "title": v.get("title").and_then(|t| t.as_str()).unwrap_or("").chars().take(200).collect::<String>(), "params": v.get("params").cloned().unwrap_or(json!({})) });
+    let dir = s.data_dir.join("queue-in");
+    if std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(dir.join(format!("{id}.json")), item.to_string())).is_err() {
+        return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not queue").into_response();
+    }
+    with_cors_for((axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "id": id, "status": "queued" }))).into_response(), &st, origin.as_deref())
+}
+async fn srv_queue_action(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path((id, action)): axum::extract::Path<(String, String)>,
+                          req: axum::extract::Request) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let (parts, _) = req.into_parts();
+    let st = read_state(&s.data_dir);
+    let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
+    if parts.method == axum::http::Method::OPTIONS { return with_cors_for(axum::http::StatusCode::NO_CONTENT.into_response(), &st, origin.as_deref()); }
+    if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    let Some(who) = caller(&parts.headers, &st) else { return (axum::http::StatusCode::UNAUTHORIZED, "unauthorized").into_response() };
+    if !["pause", "resume", "cancel", "remove"].contains(&action.as_str()) || !safe_id(&id) { return (axum::http::StatusCode::BAD_REQUEST, "bad action").into_response(); }
+    // "all" pauses or resumes the whole queue: only this computer
+    if id == "all" { if who != "local" { return (axum::http::StatusCode::FORBIDDEN, "only this computer can pause the whole queue").into_response(); } }
+    else if !queue_job(&s.data_dir, &id).map(|j| owns(&who, &j)).unwrap_or(false) { return with_cors_for((axum::http::StatusCode::NOT_FOUND, "no such job").into_response(), &st, origin.as_deref()); }
+    let dir = s.data_dir.join("queue-in");
+    let _ = std::fs::create_dir_all(&dir);
+    let _ = std::fs::write(dir.join(format!("{}.json", new_id())), json!({ "action": action, "id": id }).to_string());
+    with_cors_for((axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "ok": true }))).into_response(), &st, origin.as_deref())
+}
+async fn srv_queue_output(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(id): axum::extract::Path<String>,
+                          axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    let origin = headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
+    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    // <video>/<img> tags cannot send headers: the token or key may also come as ?t= / ?key=
+    let mut h = headers.clone();
+    if let Some(t) = q.get("t") { if let Ok(v) = axum::http::HeaderValue::from_str(t) { h.insert("x-sushila-token", v); } }
+    if let Some(k) = q.get("key") { if let Ok(v) = axum::http::HeaderValue::from_str(&format!("Bearer {k}")) { h.insert("authorization", v); } }
+    let Some(who) = caller(&h, &st) else { return (axum::http::StatusCode::UNAUTHORIZED, "unauthorized").into_response() };
+    let Some(job) = queue_job(&s.data_dir, &id).filter(|j| safe_id(&id) && owns(&who, j)) else { return (axum::http::StatusCode::NOT_FOUND, "no such job").into_response() };
+    let out = job.get("output").cloned().unwrap_or(Value::Null);
+    let file = out.get("file").and_then(|f| f.as_str()).unwrap_or("");
+    if file.is_empty() || file.contains('/') || file.contains('\\') || file.starts_with('.') { return (axum::http::StatusCode::NOT_FOUND, "no output yet").into_response(); }
+    let Ok(data) = tokio::fs::read(s.data_dir.join("outputs").join(file)).await else { return (axum::http::StatusCode::NOT_FOUND, "output missing").into_response() };
+    let mime = out.get("mime").and_then(|m| m.as_str()).unwrap_or("application/octet-stream").to_string();
+    let disp = format!("{}; filename=\"{}\"", if q.contains_key("download") { "attachment" } else { "inline" }, file);
+    with_cors_for(([("content-type", mime), ("content-disposition", disp), ("cache-control", "no-store".to_string())], data).into_response(), &st, origin.as_deref())
+}
+
+/// Writes base64 data (a finished image, video or song) to a file in the app's data folder.
+#[tauri::command]
+fn write_b64(host: State<'_, Host>, path: String, data: String) -> Result<u64, String> {
+    use base64::Engine;
+    let p = PathBuf::from(&path);
+    inside_data_dir(&host, &p)?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data.trim()).map_err(err)?;
+    if let Some(d) = p.parent() { std::fs::create_dir_all(d).map_err(err)?; }
+    std::fs::write(&p, &bytes).map_err(err)?;
+    Ok(bytes.len() as u64)
+}
+
 /// sushila:// links that arrived before the page asked (e.g. the link that started the app).
 #[tauri::command]
 fn take_links(host: State<'_, Host>) -> Vec<String> { std::mem::take(&mut *host.links.lock().unwrap()) }
@@ -635,6 +746,9 @@ async fn server_start(host: State<'_, Host>, port: u16, bind: Option<String>) ->
         .route("/worker_sushila_host.js", axum::routing::get(srv_js))
         .route("/api/state", axum::routing::get(srv_state))
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
+        .route("/api/queue", axum::routing::get(srv_queue).post(srv_queue_add).options(srv_queue_add))
+        .route("/api/queue/:id/output", axum::routing::get(srv_queue_output))
+        .route("/api/queue/:id/:action", axum::routing::post(srv_queue_action).options(srv_queue_action))
         .fallback(srv_proxy)
         .with_state(srv);
     let (tx, rx) = oneshot::channel::<()>();
@@ -669,10 +783,18 @@ pub fn run() {
     // another Sushila product (e.g. ChatGen started while ImageGen is open) is the same app: the running window gets
     // its program path and adds that product's part
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-        if let Some(w) = app.get_webview_window("main") { let _ = w.unminimize(); let _ = w.set_focus(); }
+        if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus(); }
         let _ = app.emit("second-instance", json!({ "argv": argv }));
     }));
     builder
+        // closing the window keeps Sushila running in the tray, so queued jobs go on; Quit is in the tray menu
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+                let _ = window.emit("hidden-to-tray", ());
+            }
+        })
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -680,6 +802,21 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let downloads_dir = app.path().download_dir().ok();
+            {
+                use tauri::menu::{Menu, MenuItem};
+                use tauri::tray::TrayIconBuilder;
+                let open = MenuItem::with_id(app, "open", "Open Sushila", true, None::<&str>)?;
+                let quit = MenuItem::with_id(app, "quit", "Quit (stops models and the queue)", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&open, &quit])?;
+                let mut tray = TrayIconBuilder::with_id("sushila").tooltip("Sushila: models and the job queue keep running").menu(&menu)
+                    .on_menu_event(|app, e| match e.id.as_ref() {
+                        "open" => { if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus(); } }
+                        "quit" => app.exit(0),
+                        _ => {}
+                    });
+                if let Some(icon) = app.default_window_icon() { tray = tray.icon(icon.clone()); }
+                tray.build(app)?;
+            }
             app.manage(Host { data_dir, downloads_dir, procs: Mutex::new(HashMap::new()), server: Mutex::new(None), links: std::sync::Mutex::new(vec![]), downloads: std::sync::Mutex::new(HashMap::new()) });
             // sushila:// links (the "Install in Host Station" buttons on sushila.ai). The page decides what to do and
             // always asks the user first; here they are only queued and passed on.
@@ -700,7 +837,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             host_info, open_url, verify_signature, download_control, copy_file, move_path, pick_file, read_text, write_text, list_dir, path_exists, make_dirs, remove_path, set_executable,
             file_sha256, extract_archive, http_text, download, run_capture, spawn_process, kill_process,
-            running_processes, run_elevated, server_start, server_stop, local_addresses, take_links
+            running_processes, run_elevated, server_start, server_stop, local_addresses, take_links, write_b64
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sushila Host Station");
