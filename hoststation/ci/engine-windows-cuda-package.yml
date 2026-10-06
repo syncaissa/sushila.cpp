@@ -1,0 +1,38 @@
+# Packages the Windows CUDA engine from the parts built by engine-windows-cuda.yml (another run): the three programs,
+# the CUDA runtime DLLs from NVIDIA's redistributable wheels (nvidia-cuda-runtime-cu12, nvidia-cublas-cu12; CUDA EULA
+# redistributable), the app-local Microsoft C++ runtime, licenses. Publish with publish_engine.py <this run> <version> windows-x86_64-cuda.
+name: Sushila.cpp engine, Windows CUDA (package parts of another run)
+on:
+  workflow_dispatch:
+    inputs:
+      version: { description: "engine version, e.g. 0.1.1", required: true }
+      parts_run: { description: "run id of engine-windows-cuda.yml with the part-* artifacts", required: true }
+jobs:
+  package:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: pkg, pattern: "part-*", merge-multiple: true, run-id: "${{ inputs.parts_run }}", github-token: "${{ github.token }}" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: CUDA runtime DLLs from NVIDIA's wheels
+        shell: bash
+        run: |
+          python -m pip download --no-deps --only-binary=:all: --platform win_amd64 -d wheels "nvidia-cuda-runtime-cu12==12.8.*" "nvidia-cublas-cu12==12.8.*"
+          mkdir -p dlls && for w in wheels/*.whl; do python -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); [open('dlls/'+n.split('/')[-1],'wb').write(z.read(n)) for n in z.namelist() if n.lower().endswith('.dll')]" "$w"; done
+          ls -la dlls
+          for l in cudart64_12 cublas64_12 cublasLt64_12; do cp dlls/$l.dll pkg/ || { echo "missing $l.dll"; exit 1; }; done
+      - name: Package
+        shell: bash
+        run: |
+          for l in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do cp "$SYSTEMROOT/System32/$l" pkg/; done
+          for l in msvcp140_1.dll msvcp140_2.dll msvcp140_codecvt_ids.dll; do [ -f "$SYSTEMROOT/System32/$l" ] && cp "$SYSTEMROOT/System32/$l" pkg/ || echo "no $l"; done
+          cp LICENSE pkg/ 2>/dev/null || true
+          for f in sushila-server.exe sushila-sd-server.exe sushila-ace-server.exe; do [ -f pkg/$f ] || { echo "missing $f"; exit 1; }; done
+          ls -la pkg
+          name="sushila-cpp-${{ inputs.version }}-windows-x86_64-cuda.zip"
+          (cd pkg && 7z a "../$name" . > /dev/null)
+          echo "NAME=$name" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with: { name: windows-x86_64-cuda, path: "${{ env.NAME }}" }

@@ -1,0 +1,35 @@
+{
+ "target": "m-a-p/YuE-s1-7B-anneal-en-cot",
+ "draft": "m-a-p/YuE-s1-0.5B",
+ "segments": [
+  {
+   "segment": 1,
+   "positions": 1500,
+   "guidance": 1.5,
+   "expected_acceptance": 0.7679407000541687,
+   "acceptance_p10_p50_p90": [
+    0.47474727034568787,
+    0.7798042297363281,
+    1.0
+   ],
+   "entropy_nats": 1.1048612594604492,
+   "prob_of_drawn_token": 0.5482854247093201,
+   "nucleus_size_median": 5
+  },
+  {
+   "segment": 2,
+   "positions": 1500,
+   "guidance": 1.2,
+   "expected_acceptance": 0.5194045305252075,
+   "acceptance_p10_p50_p90": [
+    0.22841644287109375,
+    0.5257492065429688,
+    0.8229247331619263
+   ],
+   "entropy_nats": 1.0678448677062988,
+   "prob_of_drawn_token": 0.46863916516304016,
+   "nucleus_size_median": 4
+  }
+ ],
+ "expected_acceptance": 0.6436726152896881
+}
