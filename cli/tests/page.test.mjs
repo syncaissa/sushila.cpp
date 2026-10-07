@@ -14,6 +14,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
   w.fetch = async (u, o = {}) => { u = String(u); if (o.method === 'POST') sent.push({ u, body: o.body, h: o.headers });
     if (u.includes('/api/admin/change')) { const b = JSON.parse(o.body); const good = b.current === 'correct horse'; return { ok: good, status: good ? 200 : 401, json: async () => ({ ok: good }), text: async () => good ? '' : 'wrong current password' }; }
     if (u.includes('/api/admin/setup') || u.includes('/api/admin/login')) { const pw = JSON.parse(o.body).password; if (pw !== 'correct horse') return { ok: false, status: 401, json: async () => ({}), text: async () => 'wrong password' }; A.passwordSet = true; A.loggedIn = true; return { ok: true, status: 200, json: async () => ({ session: 's'.repeat(48) }), text: async () => '' }; }
+    if (u.includes('/api/assistant') && JSON.parse(o.body).question === 'quote me') return { ok: true, status: 200, json: async () => ({ mode: 'quote', model: 'qwen2.5-0.5b-q4km', answer: '…', quotes: [{ title: 'The Admin tab and security', source: 'notes', text: 'lost it? run sushila password --reset' }], commands: ['sushila password --reset'], hint: 'For fuller answers install a bigger chat model, e.g. `sushila install qwen3-4b-instruct-2507` (needs about 3 GB).', sources: [] }), text: async () => '' };
     if (u.includes('/api/assistant')) { const b = JSON.parse(o.body); return { ok: true, status: 200, json: async () => ({ answer: 'Run sushila install qwen2.5-coder-7b (' + b.history.length + ')', model: 'qwen2.5-0.5b-q4km', sources: [{ title: 'Installing a model', source: 'notes' }] }), text: async () => '' }; }
     const j = u.includes('/api/admin') ? A : u.includes('/api/state') ? state : u.includes('/api/catalog') ? catalog : u.includes('/api/logs') ? { next: 20, text: '2026 [server] hello log\n' } : u.includes('/api/queue') ? { paused: false, jobs: [{ id: 'job-1', kind: 'text', model: 'qwen', status: 'ready', title: 'poem' }] } : u.includes('/api/control') ? { id: 'task-x' } : {};
     return { ok: true, status: 200, json: async () => j, text: async () => JSON.stringify(j) }; };
@@ -67,6 +68,9 @@ ok(sa && JSON.parse(sa.body).question === 'how do I install a coding model?' && 
 ok(p.d.getElementById('asstlog').textContent.includes('sushila install qwen2.5-coder-7b') && p.d.querySelector('.asrc').textContent.includes('Installing a model'), 'Ask Sushila: shows the answer and its sources');
 p.d.getElementById('asstq').value = 'and then?'; p.d.getElementById('asstgo').click(); await sleep(300);
 ok(JSON.parse(p.sent.filter((s) => s.u === '/api/assistant')[1].body).history.length === 2 && p.d.getElementById('asstlog').textContent.includes('(2)'), 'Ask Sushila: follow-up questions carry the conversation');
+p.d.getElementById('asstq').value = 'quote me'; p.d.getElementById('asstgo').click(); await sleep(300);
+const qd = p.d.querySelector('.asst.quote');
+ok(qd && qd.querySelector('blockquote .qt').textContent.includes('The Admin tab and security') && qd.querySelector('.qcmds code').textContent === 'sushila password --reset' && qd.textContent.includes('qwen3-4b-instruct-2507') && qd.textContent.includes('small model'), 'Ask Sushila: quote mode shows the sections as quotes, their commands and the hint');
 p = await page('', '#assistant'); await sleep(200);
 ok(p.d.getElementById('assistant') && p.d.querySelector('.smenu a[href="#assistant"]'), 'remote visitor: Ask Sushila is available too');
 console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0);

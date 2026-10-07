@@ -8,6 +8,24 @@ use crate::util::*;
 pub const CATALOG_URL: &str = "https://sushila.ai/hoststation/catalog.json";
 pub const SIGNING_KEYS: [&str; 1] = ["Z1PIla052/oI3aZmZvsgB/V3lZUrqnjEoJEeYv4OwTs="];
 pub const DEFAULT_MODEL: &str = "qwen2.5-0.5b-q4km";
+/// The first model on computers with room for it (see Ctx::default_pack).
+pub const BIGGER_DEFAULT: &str = "qwen3-4b-instruct-2507";
+
+/// Which first model a computer gets: the 4B chat model with a GPU of 8 GB or more (NVIDIA, or AMD/Intel reporting it),
+/// Apple silicon with 16 GB or more, or no GPU but 16 GB of memory or more; else the 0.5B model. Returns the reason.
+/// nvidia_gb / other_gb: GPU memory (None: no such GPU); mac: Apple silicon; ram_gb: the computer's memory.
+pub fn choose_default(nvidia_gb: Option<f64>, other_gb: Option<f64>, mac: bool, ram_gb: f64) -> (bool, String) {
+    match (nvidia_gb, other_gb) {
+        (Some(g), _) if g >= 8.0 => (true, format!("the NVIDIA GPU has {g:.0} GB")),
+        (Some(g), _) => (false, format!("the NVIDIA GPU has {g:.0} GB (8 GB or more runs the 4B model)")),
+        (None, Some(g)) if g >= 8.0 => (true, format!("the GPU has {g:.0} GB")),
+        (None, Some(g)) => (false, format!("the GPU has {g:.0} GB (8 GB or more runs the 4B model)")),
+        _ if mac && ram_gb >= 16.0 => (true, format!("this Mac has {ram_gb:.0} GB of unified memory")),
+        _ if mac => (false, format!("this Mac has {ram_gb:.0} GB of unified memory (16 GB or more runs the 4B model)")),
+        _ if ram_gb >= 16.0 => (true, format!("there is no GPU but {ram_gb:.0} GB of memory")),
+        _ => (false, format!("there is no GPU and {ram_gb:.0} GB of memory (16 GB or more runs the 4B model)")),
+    }
+}
 const PACK_EXT: [&str; 7] = [".gguf", ".safetensors", ".json", ".mclp", ".mclk", ".txt", ".md"];
 
 /// The data folder: the same one the desktop app uses (ai.sushila.hoststation), so packs installed with either show up
@@ -294,6 +312,25 @@ impl Ctx {
             if p["serve"]["engine"] == "image-nunchaku" && !rt { return false; }
         }
         true
+    }
+    /// The pack a computer without any gets first (choose_default), only if the catalog has it, it fits, and the disk
+    /// has room for it (1.2x its size); with the reason, for the log.
+    pub async fn default_pack(&mut self) -> (String, String) {
+        let nv = self.nvidia_gpu().await.and_then(|g| g["memoryGB"].as_f64());
+        let other = if nv.is_none() && self.other_gpu().await.is_some() { Some(self.other_gpu_memory_gb().await.unwrap_or(0.0)) } else { None };
+        let mac = self.platform_key() == "macos-aarch64";
+        let ram = self.info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9;
+        let (big, why) = choose_default(nv, other, mac, ram);
+        let small = (DEFAULT_MODEL.to_string(), format!("default model: Qwen2.5 0.5B, because {why}"));
+        if !big { return small; }
+        let Some(p) = self.catalog.as_ref().and_then(|c| c["packs"].as_array()?.iter().find(|p| p["id"] == BIGGER_DEFAULT).cloned()) else { return (small.0, format!("{} ({BIGGER_DEFAULT} is not in the catalog)", small.1)) };
+        if !self.pack_fits(&p).await { return (small.0, format!("{} ({BIGGER_DEFAULT} does not fit)", small.1)); }
+        let bytes: f64 = p["files"].as_array().map(|a| a.iter().map(|f| f["bytes"].as_f64().unwrap_or(0.0)).sum()).unwrap_or(0.0);
+        let canon = std::fs::canonicalize(&self.packs_dir).unwrap_or(self.packs_dir.clone());
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        let free = disks.list().iter().filter(|d| canon.starts_with(d.mount_point())).max_by_key(|d| d.mount_point().as_os_str().len()).map(|d| d.available_space() as f64);
+        if free.map(|f| f < bytes * 1.2).unwrap_or(false) { return (small.0, format!("default model: Qwen2.5 0.5B: {why}, but the disk has only {} free", human(free.unwrap_or(0.0) as u64))); }
+        (BIGGER_DEFAULT.to_string(), format!("default model: Qwen3 4B, because {why}"))
     }
     /// The variant made for this computer's GPU (e.g. z-image-turbo-nvidia) if one fits, else the pack itself.
     pub async fn best_variant(&mut self, id: &str) -> String {
@@ -996,4 +1033,16 @@ pub fn can_turbo(p: &Value) -> bool {
     let e = p["engine"].as_str().unwrap_or("text");
     let n = |k: &str| p[k].as_array().map(|a| !a.is_empty()).unwrap_or(false);
     e == "image-nunchaku" || (e == "image" && turbo_request(p).is_some()) || (e == "music" && n("turboArgs")) || (e == "text" && (n("artifacts") || n("turboArgs")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test] fn default_by_hardware() {
+        assert!(choose_default(Some(24.0), None, false, 32.0).0 && !choose_default(Some(6.0), None, false, 64.0).0);
+        assert!(choose_default(None, Some(8.0), false, 8.0).0 && !choose_default(None, Some(4.0), false, 32.0).0);
+        assert!(choose_default(None, None, true, 16.0).0 && !choose_default(None, None, true, 8.0).0);
+        assert!(choose_default(None, None, false, 16.0).0 && !choose_default(None, None, false, 15.5).0);
+        assert_eq!(choose_default(Some(24.0), None, false, 32.0).1, "the NVIDIA GPU has 24 GB");
+    }
 }

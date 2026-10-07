@@ -15,8 +15,11 @@ downloads of the engine and model packs from files.sushila.ai.
 Double-click `sushila` (or run `sushila serve`). A terminal window opens and prints the addresses:
 Inference http://localhost:8765/, Admin http://localhost:8765/admin (this computer only), Documentation
 http://localhost:8765/docs, API http://localhost:8765/v1, and the home folder. On the first start it asks for an Admin
-password, downloads the engine for your GPU, installs a small default chat model (Qwen2.5 0.5B, about 400 MB) and opens
-your browser. Type `?` in that window for the important commands; type `stop` or press Ctrl+C to stop.
+password, downloads the engine for your GPU, installs a default chat model and opens your browser. The default model
+depends on the computer: Qwen3 4B (`qwen3-4b-instruct-2507`, about 2.5 GB) with an NVIDIA GPU of 8 GB or more, another
+GPU reporting 8 GB or more, a Mac with Apple silicon and 16 GB or more, or no GPU but 16 GB of memory or more (and
+enough free disk); otherwise Qwen2.5 0.5B (`qwen2.5-0.5b-q4km`, about 535 MB). The log says which and why.
+`sushila selftest` uses the small model (fast), or the 4B model if it is already installed. Type `?` in that window for the important commands; type `stop` or press Ctrl+C to stop.
 
 ## The home folder
 Everything Sushila keeps is in one home folder: model-packs/, the engine, settings (state.json), logs, the queue and
@@ -63,7 +66,10 @@ Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal:
 The assistant answers questions about Sushila from these notes and the documentation, with live facts about this
 computer (GPU, installed packs, which packs fit). Use it from the ☰ menu of the page (Ask Sushila), with
 `sushila assistant "<question>"` (or `sushila assistant` to keep asking), or by typing a question in the server window.
-It uses the largest installed text model; a bigger model answers better than the small default one.
+It uses the largest installed text model. With a model under 3B parameters (such as the 0.5B default) it does not
+write answers itself, because small models invent steps: it quotes the best one or two sections of the notes, lists
+the commands in them, and answers questions about this computer (which packs fit, where the models are) from the live
+facts. With a model of 3B or more (for example `sushila install qwen3-4b-instruct-2507`) it answers in its own words.
 
 ## Which pack fits my computer
 Rough rule for text models in 4-bit: the model needs about 0.6 GB of memory per billion parameters, plus room for

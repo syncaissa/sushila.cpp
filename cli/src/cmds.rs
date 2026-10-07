@@ -1369,7 +1369,9 @@ async fn assistant(ctx: &mut Ctx, question: Option<String>, j: bool) -> Result<(
     let facts = crate::assistant::live_facts(&st, &cat, &gpu, &other, &ctx.info, port, true, &ctx.data.to_string_lossy());
     let pack = default_text_pack(ctx).await;
     if !ctx.packs().contains_key(&pack) { return Err(format!("no text model is installed: sushila install {DEFAULT_MODEL}")); }
-    let (base, here) = text_base(ctx, &pack, None).await?;
+    let quote = crate::assistant::small_model(&ctx.packs()[&pack]);
+    let (base, here) = if quote { (String::new(), false) } else { text_base(ctx, &pack, None).await? };
+    let gl = crate::assistant::gpu_line(&gpu, &other, &ctx.info);
     let tok = token(ctx);
     let ctx_tokens = ctx.setting("contextSize").as_u64().unwrap_or(4096);
     let mut hist: Vec<Value> = vec![];
@@ -1380,12 +1382,20 @@ async fn assistant(ctx: &mut Ctx, question: Option<String>, j: bool) -> Result<(
             if tty_in() { eprint!("\n? "); }
             let mut l = String::new(); if std::io::stdin().read_line(&mut l).map_err(err)? == 0 { return Ok(()); }
             let l = l.trim().to_string(); if l == "/exit" || l == "/quit" { return Ok(()); } if l.is_empty() { continue; } l } };
+        if quote {
+            // under 3B parameters: the notes themselves, not generated text (small models invent steps)
+            let v = crate::assistant::quote_answer(&q, &crate::assistant::quote_sections(&q), &st, &cat, &gl, true, &ctx.data.to_string_lossy(), &pack);
+            if j { println!("{v}"); } else { println!("{}\n\n[{pack} is a small model, so this is quoted from the notes: {}]", v["answer"].as_str().unwrap_or(""),
+                v["quotes"].as_array().map(|a| a.iter().filter_map(|x| x["title"].as_str()).collect::<Vec<_>>().join("; ")).unwrap_or_default()); }
+            if !interactive { return Ok(()); }
+            continue;
+        }
         let notes = crate::assistant::retrieve(&q, crate::assistant::notes_budget(ctx_tokens, facts.len(), q.len()));
         let msgs = crate::assistant::messages(&q, &hist, &notes, &facts, port);
         let mut print = |t: &str| { if !j { use std::io::Write; print!("{t}"); let _ = std::io::stdout().flush(); } };
         let (a, _) = chat(&base, &tok, &pack, &msgs, 600, 0.2, if j { None } else { Some(&mut print) }).await?;
         let sources: Vec<String> = notes.iter().map(|s| format!("{} ({})", s.title, s.source)).collect();
-        if j { println!("{}", json!({ "answer": a, "sources": sources, "model": pack })); } else { println!("\n\n[answered by {pack}; notes used: {}]", sources.join("; ")); }
+        if j { println!("{}", json!({ "mode": "generate", "answer": a, "sources": sources, "model": pack })); } else { println!("\n\n[answered by {pack}; notes used: {}]", sources.join("; ")); }
         hist.push(json!({ "role": "user", "content": q })); hist.push(json!({ "role": "assistant", "content": a }));
         if !interactive { return Ok(()); }
     } }.await;

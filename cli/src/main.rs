@@ -31,10 +31,10 @@ use crate::util::*;
 #[command(name = "sushila", version, about = "Sushila.cpp from the command line: the same commands on Windows, macOS and Linux",
           after_help = "Examples:\n  sushila install qwen3-4b-instruct-2507\n  sushila serve                      # then open http://127.0.0.1:8765\n  sushila run qwen2.5-0.5b-q4km \"Write a haiku about GPUs\"\n  sushila selftest                   # engine + smallest model + one answer: exit code 0 = works")]
 struct Cli {
-    /// Data folder (default: the one Sushila Host Station uses; or $SUSHILA_HOME)
+    /// Use this home folder for this command (default: the remembered home, see `sushila home`; or $SUSHILA_HOME)
     #[arg(long, global = true)]
     data_dir: Option<PathBuf>,
-    /// The model-packs folder (default: model-packs next to this program if it exists, else in the data folder; or $SUSHILA_PACKS)
+    /// The model-packs folder (default: model-packs inside the home folder; or $SUSHILA_PACKS)
     #[arg(long, global = true)]
     packs_dir: Option<PathBuf>,
     /// Machine-readable JSON output
@@ -104,7 +104,7 @@ enum Cmd {
     Stop { pack: Option<String> },
     /// The shared log of every action (logs/sushila.log): `sushila logs [-f] [-n 40]`
     Logs { #[arg(short, long)] follow: bool, #[arg(short, default_value_t = 40)] n: usize },
-    /// The Inference URL, the Admin URL (this computer only) and the API address
+    /// The addresses: Inference, Admin (this computer only), Documentation, the API, and the network address when shared
     Url,
     /// Access keys for other machines (when serving on the network): `keys add <name>`, `keys list`, `keys remove <name>`
     Keys { #[command(subcommand)] act: KeysCmd },
@@ -117,7 +117,8 @@ enum Cmd {
     #[command(alias = "location")]
     Home { folder: Option<PathBuf>, #[arg(long)] reset: bool },
     /// End-to-end check: engine, the smallest model, one answer (exit code 0 = everything works)
-    Selftest { #[arg(long, default_value = DEFAULT_MODEL)] pack: String },
+    Selftest { /// default: the small default model (fast), or the 4B default model if it is already installed
+        #[arg(long)] pack: Option<String> },
     /// Checks this computer: GPU, driver, engine build, disk, port, home folder, pack checksums, admin password (with the fix for each)
     Doctor,
     /// Speed on this computer, Standard vs Accelerated (tokens/s, or seconds per image/song/video); saved under <home>/bench/
@@ -321,7 +322,7 @@ async fn owner_port(ctx: &Ctx) -> Option<u16> {
     let port = ctx.setting("port").as_u64().unwrap_or(8765) as u16;
     http_text(&format!("http://127.0.0.1:{port}/api/state"), 2).await.ok().map(|_| port)
 }
-/// Sends a request to the owner and follows it to the end (progress on stderr). The same path Host Station uses.
+/// Sends a request to the owner and follows it to the end (progress on stderr). The same path the page's Admin tab uses.
 async fn remote(ctx: &Ctx, port: u16, body: Value) -> Result<(), String> {
     let token = ctx.state["token"].as_str().unwrap_or("").to_string();
     let c = reqwest::Client::new();
@@ -552,6 +553,7 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
         }
         Cmd::Serve { packs, port, host, public, standard, max, open } => serve(ctx, packs, *port, if *public { Some("0.0.0.0".into()) } else { host.clone() }, *standard, *max, *open, j).await?,
         Cmd::Selftest { pack } => {
+            let pack = &pack.clone().unwrap_or_else(|| if ctx.packs().contains_key(BIGGER_DEFAULT) { BIGGER_DEFAULT.into() } else { DEFAULT_MODEL.into() });
             let t0 = std::time::Instant::now();
             let mut steps: Vec<String> = vec![];
             ctx.load_catalog().await?; steps.push("catalog reachable and parsed".into());
@@ -853,7 +855,7 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
 async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<String>, standard: bool, max: usize, open: bool, j: bool) -> Result<(), String> {
     let _ = core::SOURCE.set("server".into());
     let lock = std::fs::OpenOptions::new().create(true).write(true).open(ctx.data.join("owner.lock")).map_err(err)?;
-    if lock.try_lock().is_err() { return Err("another `sushila serve` (or Sushila Host Station's server) already owns this data folder: `sushila status`".into()); }
+    if lock.try_lock().is_err() { return Err("another `sushila serve` already owns this home folder: `sushila status`".into()); }
     if !ctx.engine_ok() { ctx.install_engine(None).await?; }
     if let Some(p) = port { ctx.state["settings"]["port"] = json!(p); }
     let port = ctx.setting("port").as_u64().unwrap_or(8765) as u16;
@@ -896,7 +898,12 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     let mut o = Owner { tasks: vec![], prog: Default::default(), tx, starting: Default::default(), checking: Default::default(), rejected: Default::default() };
     let mut last_scan = std::time::Instant::now() - Duration::from_secs(10);
     let mut ids: Vec<String> = if packs.is_empty() { ctx.packs().keys().take(max).cloned().collect() } else { packs.to_vec() };
-    if ids.is_empty() { ctx.log("no packs installed: installing the default model"); ctx.load_catalog().await?; let id = ctx.best_variant(DEFAULT_MODEL).await; ctx.install_pack(&id).await?; ids.push(id); }
+    if ids.is_empty() {
+        ctx.load_catalog().await?;
+        let (id, why) = ctx.default_pack().await;
+        ctx.log(&format!("no packs installed: {why}"));
+        let id = ctx.best_variant(&id).await; ctx.install_pack(&id).await?; ids.push(id);
+    }
     for id in &ids { if let Err(e) = o.start(ctx, id, if standard { Some("regular") } else { None }, None).await { ctx.log(&format!("{id}: {e}")); } }
     out(j, json!({ "ok": true, "page": page, "urls": u, "api": format!("{addr}/v1"), "models": ids }), || format!(
         "Models: {} (loading in the background: `sushila status`)\n  page:  {page}\n  API:   header x-sushila-token: <token> here, or Authorization: Bearer <key> from other machines\n  log:   {}\n",

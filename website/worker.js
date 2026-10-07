@@ -142,11 +142,13 @@ Windows, macOS and Linux.</p>
 <ol>
   <li>Download <code>sushila.exe</code> (Windows) or <code>sushila</code> (macOS, Linux) for your system.</li>
   <li>Run it: double-click it, or in a terminal type <code>sushila serve</code>. The first time it installs the engine for your
-      GPU (NVIDIA: CUDA; AMD and Intel: Vulkan; Apple: Metal; otherwise the CPU) and a small model, and asks you to choose an
-      admin password.</li>
+      GPU (NVIDIA: CUDA; AMD and Intel: Vulkan; Apple: Metal; otherwise the CPU) and a first model, and asks you to choose an
+      admin password. The first model depends on the computer: Qwen3 4B (about 2.5 GB) with a GPU of 8 GB or more, a Mac with
+      Apple silicon and 16 GB or more, or 16 GB of memory without a GPU (if the disk has room); otherwise Qwen2.5 0.5B (about 535 MB).
+      The log says which one and why.</li>
   <li>Open <a href="http://localhost:8765/">http://localhost:8765/</a> in a browser (double-clicking opens it for you).</li>
 </ol>
-<p>To check that everything works: <code>sushila selftest</code>. It installs what is needed, asks the smallest model one question and
+<p>To check that everything works: <code>sushila selftest</code>. It installs what is needed, asks the small model (or the 4B model, if installed) one question and
 ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 
 <h2 id="commands">All commands</h2>
@@ -155,9 +157,9 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <table>
 <tr><th>Command</th><th>What it does</th></tr>
 <tr><td><code>sushila</code> (no command, or double-click)</td><td>Starts the server and opens the web page in the browser.</td></tr>
-<tr><td><code>sushila selftest</code></td><td>End-to-end check: engine, the smallest model, one answer. Exit code 0 = everything works.</td></tr>
+<tr><td><code>sushila selftest</code></td><td>End-to-end check: engine, the small default model (or the 4B one if installed; <code>--pack</code> picks another), one answer. Exit code 0 = everything works.</td></tr>
 <tr><td><code>sushila doctor</code></td><td>Checks this computer: GPU, driver, engine build, free disk, the port, the home folder, every pack file's SHA-256, the admin password. Each line says OK, WARN or FAIL, with the command that fixes it.</td></tr>
-<tr><td><code>sushila assistant ["&lt;question&gt;"]</code></td><td>Ask Sushila how Sushila works: answers from this documentation and live facts about this computer, by the largest installed text model (no question: keeps asking; <code>/exit</code> ends). Also in the ☰ menu (Ask Sushila) and in the server window.</td></tr>
+<tr><td><code>sushila assistant ["&lt;question&gt;"]</code></td><td>Ask Sushila how Sushila works: answers from this documentation and live facts about this computer, by the largest installed text model (no question: keeps asking; <code>/exit</code> ends). Also in the ☰ menu (Ask Sushila) and in the server window. With a model under 3B parameters it quotes the matching sections and their commands instead of writing an answer (small models invent steps); install a 3B+ chat model, e.g. <code>sushila install qwen3-4b-instruct-2507</code>, for answers in its own words.</td></tr>
 <tr><th colspan="2">Engine and model packs</th></tr>
 <tr><td><code>sushila engine install</code></td><td>Installs Sushila.cpp for this computer's GPU (CPU only when there is no usable GPU).</td></tr>
 <tr><td><code>sushila engine install --build cpu</code></td><td>Forces a build: <code>cpu</code>, <code>vulkan</code> or <code>cuda</code>.</td></tr>
@@ -269,7 +271,7 @@ as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with 
       delete or change things (remove, uninstall, clean, update, restore, import, share on, keys remove, password --reset, home &lt;folder&gt;) ask
       <code>Run this? [y/N]</code> first. Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal: Ctrl+C here stops the server.</li>
   <li><b>A question</b> (<code>how do I add a coding model?</code>) is answered by the Sushila assistant, with the sections it used.</li>
-  <li><b>A mistyped command</b> (<code>instal qwen</code>) gets a suggestion (<code>Did you mean \`sushila install qwen\`? Run it? [y/N]</code>); nothing runs without a yes.</li>
+  <li><b>A mistyped command</b> (<code>instal qwen</code>) gets a suggestion (with a small model, found by spelling and by matching words to commands and pack ids) (<code>Did you mean \`sushila install qwen\`? Run it? [y/N]</code>); nothing runs without a yes.</li>
   <li><code>?</code> lists the important commands, <code>urls</code> the addresses, <code>stop</code> stops the server.</li>
 </ul>
 

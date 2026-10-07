@@ -51,7 +51,7 @@ pub fn doc_sections(html: &str) -> Vec<Section> {
 
 /// Tags removed, entities decoded, one line per table row / list item / paragraph.
 pub fn strip_tags(h: &str) -> String {
-    let h = h.replace("</tr>", "\n").replace("</li>", "\n").replace("</p>", "\n").replace("<br>", "\n").replace("</pre>", "\n").replace("</td><td>", " : ").replace("</th><th>", " : ");
+    let h = h.replace("<code>", "`").replace("</code>", "`").replace("</tr>", "\n").replace("</li>", "\n").replace("</p>", "\n").replace("<br>", "\n").replace("</pre>", "\n").replace("</td><td>", " : ").replace("</th><th>", " : ");
     let mut s = String::new(); let mut tag = false;
     for c in h.chars() { match c { '<' => tag = true, '>' if tag => tag = false, c if !tag => s.push(c), _ => {} } }
     s.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").replace("&quot;", "\"").replace("&nbsp;", " ")
@@ -122,6 +122,14 @@ pub fn retrieve(q: &str, budget: usize) -> Vec<Section> {
     out
 }
 
+/// Quote mode: the best section, and the second only when it scores nearly as well (else it is noise to read).
+pub fn quote_sections(q: &str) -> Vec<Section> {
+    let secs = sections();
+    let r = rank(q, secs);
+    let Some(top) = r.first().map(|x| x.1) else { return vec![] };
+    r.iter().take(2).filter(|x| x.1 >= 0.75 * top).map(|x| secs[x.0].clone()).collect()
+}
+
 /// What is true on this computer right now, as plain lines. `local`: false for visitors from other machines (no paths).
 pub fn live_facts(state: &Value, catalog: &Value, gpu: &Option<Value>, other_gpu: &Option<String>, info: &Value, port: u64, local: bool, home: &str) -> String {
     let mut f = String::from("## Live facts about this computer (now)\n");
@@ -186,8 +194,111 @@ pub fn pick_model(state: &Value, memory_gb: f64) -> Option<String> {
     all.last().map(|(id, _)| id.to_string())
 }
 
+// ---------- quote mode: models under 3B parameters do not write free text (they invent steps); the assistant then
+// answers with the notes themselves, the commands in them, and facts about this computer.
+
+/// Billions of parameters from a pack's id or name ("qwen2.5-0.5b-q4km" -> 0.5, "qwen3-30b-a3b" -> 30), if it says.
+pub fn params_b(p: &Value) -> Option<f64> {
+    for t in [p["id"].as_str(), p["name"].as_str()].into_iter().flatten() {
+        for w in t.to_lowercase().split(|c: char| c == '-' || c == '_' || c == ' ' || c == '(' || c == ')') {
+            if let Some(n) = w.strip_suffix('b') { if let Ok(x) = n.parse::<f64>() { if x > 0.0 { return Some(x); } } }
+        }
+    }
+    None
+}
+/// Under 3B parameters (or, when the name does not say, under 1.6 GB: a 3B model in 4 bits is about 1.9 GB).
+pub fn small_model(p: &Value) -> bool { params_b(p).map(|b| b < 3.0).unwrap_or(p["bytes"].as_f64().unwrap_or(0.0) < 1.6e9) }
+
+/// The lines of a long section that share the most words with the question (in their order), about `max` characters.
+pub fn trim_to(q: &str, text: &str, max: usize) -> String {
+    if text.len() <= max { return text.to_string(); }
+    let qw: std::collections::HashSet<String> = words(&expand(q)).into_iter().collect();
+    let lines: Vec<&str> = text.lines().collect();
+    let mut scored: Vec<(usize, usize)> = lines.iter().enumerate().map(|(i, l)| (words(l).iter().filter(|w| qw.contains(*w)).count(), i)).collect();
+    scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+    let (mut keep, mut used) = (vec![], 0);
+    for (sc, i) in scored { if sc == 0 && !keep.is_empty() { break; } if used + lines[i].len() > max && !keep.is_empty() { continue; } used += lines[i].len() + 1; keep.push(i); }
+    keep.sort();
+    let mut out = String::new(); let mut last = None;
+    for i in keep { if last.map(|l: usize| i > l + 1).unwrap_or(i > 0) { out += "…\n"; } out += lines[i]; out.push('\n'); last = Some(i); }
+    if last.map(|l| l + 1 < lines.len()).unwrap_or(false) { out += "…"; }
+    out.trim_end().to_string()
+}
+/// Every `sushila ...` command written in code quotes in a text, in order, once each.
+pub fn commands_in(text: &str) -> Vec<String> {
+    let mut out: Vec<String> = vec![];
+    for (i, part) in text.split('`').enumerate() {
+        let c = part.trim();
+        if i % 2 == 1 && c.starts_with("sushila ") && !c.contains('\n') && !c.contains("...") && !out.iter().any(|x| x == c) { out.push(c.to_string()); }
+    }
+    out
+}
+fn kind_of(p: &Value) -> &str { let k = p["kind"].as_str().unwrap_or("text"); if k == "text" { if p["id"].as_str().unwrap_or("").contains("coder") { "code" } else { "chat" } } else { k } }
+
+/// A question about this computer that the facts answer: which packs fit, where the models are.
+pub fn facts_answer(q: &str, state: &Value, catalog: &Value, gpu_line: &str, local: bool, home: &str) -> Option<String> {
+    let l = q.to_lowercase();
+    let has = |ws: &[&str]| ws.iter().any(|w| l.contains(w));
+    if has(&["where"]) && has(&["model", "pack", "stored", "store", "file", "folder", "home", "kept", "saved"]) {
+        return Some(if local { format!("On this computer the model packs are in {}, inside the home folder {home}. `sushila home` prints it; `sushila du` shows the space each pack uses.",
+            std::path::Path::new(home).join("model-packs").display()) }
+            else { "In the model-packs folder of the Sushila home folder on the computer that runs the server (`sushila home` there prints it).".into() });
+    }
+    if has(&["fit", "can i run", "which model", "which pack", "what model", "what pack", "which image", "which video", "which music", "which chat", "which coding", "which code", "recommend"]) {
+        let want = if has(&["image", "picture", "photo"]) { Some("image") } else if has(&["video", "clip"]) { Some("video") } else if has(&["music", "song"]) { Some("music") }
+                   else if has(&["code", "coding", "program"]) { Some("code") } else if has(&["chat", "text", "assistant"]) { Some("chat") } else { None };
+        let list: Vec<&Value> = catalog["packs"].as_array().map(|a| a.iter().filter(|p| p["fits"] != false && want.map(|w| kind_of(p) == w).unwrap_or(true)).collect()).unwrap_or_default();
+        if !catalog["packs"].is_array() { return Some(format!("{gpu_line}\nThe catalog is not loaded yet: `sushila search --fits` lists the packs that fit.")); }
+        let mut a = format!("{gpu_line}\nPacks{} that fit this computer:\n", want.map(|w| format!(" ({w})")).unwrap_or_default());
+        if list.is_empty() { a += "- none in the catalog\n"; }
+        for p in &list { let id = p["id"].as_str().unwrap_or(""); a += &format!("- {id} ({}, {}){}: `sushila install {id}`\n", kind_of(p), crate::util::human(p["bytes"].as_u64().unwrap_or(0)), if state["packs"][id].is_object() { " [installed]" } else { "" }); }
+        return Some(a.trim_end().to_string());
+    }
+    None
+}
+
+/// The quote-mode answer: facts for questions about this computer, else the best 1-2 sections as they are written,
+/// the commands in them, and (when one fits) the bigger chat model that would answer in its own words.
+pub fn quote_answer(q: &str, notes: &[Section], state: &Value, catalog: &Value, gpu_line: &str, local: bool, home: &str, model: &str) -> Value {
+    let model_bytes = state["packs"][model]["bytes"].as_u64().unwrap_or(0);
+    let bigger = catalog["packs"].as_array().and_then(|a| a.iter().find(|p| p["id"] == "qwen3-4b-instruct-2507" && p["fits"] != false && p["bytes"].as_u64().unwrap_or(0) > model_bytes && !state["packs"]["qwen3-4b-instruct-2507"].is_object()).cloned());
+    let hint = bigger.map(|p| format!("For fuller answers install a bigger chat model, e.g. `sushila install qwen3-4b-instruct-2507` (needs about {:.0} GB).", (p["bytes"].as_f64().unwrap_or(2.5e9) / 1e9).ceil()));
+    let (mut answer, quotes, commands): (String, Vec<Value>, Vec<String>);
+    if let Some(f) = facts_answer(q, state, catalog, gpu_line, local, home) {
+        commands = commands_in(&f);
+        answer = f; quotes = vec![json!({ "title": "Live facts about this computer", "source": "facts", "text": answer })];
+    } else if notes.is_empty() {
+        answer = "The notes do not answer this. See the Documentation page (/docs) or `sushila --help`.".into(); quotes = vec![]; commands = vec![];
+    } else {
+        let best: Vec<&Section> = notes.iter().take(2).collect();
+        let q2: Vec<Value> = best.iter().map(|s| json!({ "title": s.title, "source": s.source, "text": trim_to(q, &s.text, 900) })).collect();
+        commands = q2.iter().flat_map(|x| commands_in(x["text"].as_str().unwrap_or(""))).fold(vec![], |mut v: Vec<String>, c| { if !v.contains(&c) { v.push(c); } v });
+        answer = q2.iter().map(|x| format!("From \"{}\" ({}):\n{}", x["title"].as_str().unwrap_or(""), x["source"].as_str().unwrap_or(""), x["text"].as_str().unwrap_or(""))).collect::<Vec<_>>().join("\n\n");
+        if !commands.is_empty() { answer += &format!("\n\nCommands from these notes:\n{}", commands.iter().map(|c| format!("  {c}")).collect::<Vec<_>>().join("\n")); }
+        quotes = q2;
+    }
+    if let Some(h) = &hint { answer += &format!("\n\n{h}"); }
+    json!({ "mode": "quote", "answer": answer, "quotes": quotes, "commands": commands, "hint": hint, "model": model })
+}
+/// One line about the GPU, for quote-mode answers.
+pub fn gpu_line(gpu: &Option<Value>, other: &Option<String>, info: &Value) -> String {
+    match (gpu, other) {
+        (Some(g), _) => format!("This computer: {} with {} GB of GPU memory.", g["name"].as_str().unwrap_or("NVIDIA GPU"), g["memoryGB"]),
+        (None, Some(o)) => format!("This computer: {o} (Vulkan)."),
+        _ if info["os"] == "macos" && info["arch"] == "aarch64" => format!("This computer: Apple silicon with {:.0} GB of shared memory.", info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9),
+        _ => format!("This computer: no GPU found (CPU), {:.0} GB of memory.", info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9),
+    }
+}
+/// The model Ask Sushila uses here and whether it answers in quote mode.
+pub fn model_for(dir: &std::path::Path, mem_gb: f64) -> Option<(String, bool)> {
+    let st = crate::webserver::read_state(dir);
+    let m = pick_model(&st, mem_gb).or_else(|| st["packs"].get(crate::core::DEFAULT_MODEL).map(|_| crate::core::DEFAULT_MODEL.to_string()))?;
+    let small = small_model(&st["packs"][&m]);
+    Some((m, small))
+}
+
 /// This computer's GPUs and memory, looked up once per server process.
-async fn probe(dir: &std::path::Path) -> &'static (Option<Value>, Option<String>, Value) {
+pub async fn probe(dir: &std::path::Path) -> &'static (Option<Value>, Option<String>, Value) {
     static P: tokio::sync::OnceCell<(Option<Value>, Option<String>, Value)> = tokio::sync::OnceCell::const_new();
     P.get_or_init(|| async { match crate::core::Ctx::load(dir.to_path_buf(), true) {
         Ok(mut c) => { let g = c.nvidia_gpu().await; let o = c.other_gpu().await; (g, o, c.info.clone()) }
@@ -207,6 +318,15 @@ pub async fn answer_stream(dir: &std::path::Path, port: u16, q: &str, history: &
     let mem = gpu.as_ref().and_then(|g| g["memoryGB"].as_f64()).unwrap_or(info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9 * 0.6);
     let model = pick_model(&st, mem).or_else(|| st["packs"].get(crate::core::DEFAULT_MODEL).map(|_| crate::core::DEFAULT_MODEL.to_string()))
         .ok_or("no text model is installed (install one on the Admin tab, e.g. qwen2.5-0.5b-q4km)")?;
+    if small_model(&st["packs"][&model]) {
+        // quote mode: nothing generated, so the model need not even be loaded
+        let notes = quote_sections(q);
+        let mut v = quote_answer(q, &notes, &st, &cat, &gpu_line(gpu, other, info), local, &dir.to_string_lossy(), &model);
+        v["sources"] = json!(v["quotes"].as_array().map(|a| a.iter().map(|x| json!({ "title": x["title"], "source": x["source"] })).collect::<Vec<_>>()).unwrap_or_default());
+        if let Some(f) = each { f(v["answer"].as_str().unwrap_or("")); }
+        crate::core::log(true, &format!("assistant: {} chars asked, answered with quotes ({model} is under 3B)", q.len()));
+        return Ok(v);
+    }
     let st2 = crate::webserver::start_and_wait(dir, &model, 300).await.ok_or(format!("{model} did not start; see the Admin tab, Logs"))?;
     let eport = st2["running"][&model]["port"].as_u64().ok_or("the model is not running")?;
     let ctx_tokens = st2["settings"]["contextSize"].as_u64().unwrap_or(4096);
@@ -219,7 +339,7 @@ pub async fn answer_stream(dir: &std::path::Path, port: u16, q: &str, history: &
     crate::webserver::touch(&model, -1);
     let a = r?.0;
     crate::core::log(true, &format!("assistant: {} chars asked, {model} answered", q.len()));
-    Ok(json!({ "answer": a, "model": model, "sources": notes.iter().map(|s| json!({ "title": s.title, "source": s.source })).collect::<Vec<_>>() }))
+    Ok(json!({ "mode": "generate", "answer": a, "model": model, "sources": notes.iter().map(|s| json!({ "title": s.title, "source": s.source })).collect::<Vec<_>>() }))
 }
 
 #[cfg(test)]
@@ -237,7 +357,28 @@ mod tests {
         assert!(top("what does Accelerated do?").iter().take(2).any(|t| t.contains("Accelerated")));
         assert!(top("where are my models stored?").iter().take(3).any(|t| t.contains("home folder") || t.contains("Files and folders") || t.contains("model-packs")));
     }
-    #[test] fn strips_tags() { assert_eq!(strip_tags("<tr><td><code>a &lt;b&gt;</code></td><td>x</td></tr>").trim(), "a <b> : x"); }
+    #[test] fn strips_tags() { assert_eq!(strip_tags("<tr><td><code>a &lt;b&gt;</code></td><td>x</td></tr>").trim(), "`a <b>` : x"); }
+    #[test] fn small_models() {
+        assert_eq!(params_b(&json!({ "id": "qwen2.5-0.5b-q4km" })), Some(0.5)); assert_eq!(params_b(&json!({ "id": "qwen3-30b-a3b-q4km" })), Some(30.0));
+        assert!(small_model(&json!({ "id": "qwen2.5-0.5b-q4km", "bytes": 534772932u64 })) && !small_model(&json!({ "id": "qwen3-4b-instruct-2507", "bytes": 2500000000u64 })));
+        assert!(small_model(&json!({ "id": "my-model", "bytes": 900000000u64 })) && !small_model(&json!({ "id": "my-model", "bytes": 5000000000u64 })));
+    }
+    #[test] fn quotes() {
+        assert_eq!(commands_in("run `sushila password --reset` or `ls` then `sushila password --reset`"), vec!["sushila password --reset"]);
+        let notes = retrieve("I forgot the admin password", 6000);
+        let cat = json!({ "packs": [{ "id": "qwen3-4b-instruct-2507", "kind": "text", "bytes": 2500000000u64, "fits": true }, { "id": "z-image-turbo-nvidia", "kind": "image", "bytes": 12e9 as u64, "fits": false }, { "id": "z-image-turbo", "kind": "image", "bytes": 6.7e9 as u64, "fits": true }] });
+        let st = json!({ "packs": { "qwen2.5-0.5b-q4km": { "bytes": 534772932u64 } } });
+        let v = quote_answer("I forgot the admin password", &notes, &st, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km");
+        let a = v["answer"].as_str().unwrap();
+        assert!(v["commands"].as_array().unwrap().iter().any(|c| c == "sushila password --reset") && a.contains("Commands from these notes:") && a.ends_with("(needs about 3 GB)."), "{a}");
+        let f = quote_answer("which image model fits my GPU?", &notes, &st, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km");
+        let fa = f["answer"].as_str().unwrap(); assert!(fa.contains("z-image-turbo (image") && !fa.contains("z-image-turbo-nvidia") && !fa.contains("- qwen3"), "{fa}");
+        let w = quote_answer("where are my models stored?", &notes, &st, &cat, "GPU", false, "/secret/home", "qwen2.5-0.5b-q4km");
+        assert!(!w["answer"].as_str().unwrap().contains("/secret"));
+        let st4 = json!({ "packs": { "qwen2.5-0.5b-q4km": { "bytes": 1 }, "qwen3-4b-instruct-2507": { "bytes": 2 } } });
+        assert!(quote_answer("hello", &notes, &st4, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km")["hint"].is_null());
+    }
+    #[test] fn trims() { let t = "alpha one\nbeta two\npassword reset here\ngamma\ndelta"; assert!(trim_to("password", t, 25).contains("password reset here")); assert_eq!(trim_to("x", "short", 100), "short"); }
     #[test] fn picks_largest_running_chat_model() {
         let st = json!({ "packs": { "a": { "kind": "text", "bytes": 1 }, "b-coder": { "kind": "text", "bytes": 9 }, "c": { "kind": "text", "bytes": 5 }, "img": { "kind": "image", "bytes": 99 } }, "running": {} });
         assert_eq!(pick_model(&st, 0.0).as_deref(), Some("c"));

@@ -73,6 +73,43 @@ pub fn spelling_candidates(args: &[String]) -> Vec<Vec<String>> {
     near.sort();
     near.into_iter().map(|(_, n)| std::iter::once(n).chain(args[1..].iter().cloned()).collect::<Vec<_>>()).filter(|a| valid(a)).take(3).collect()
 }
+/// Without a language model (quote mode): the command word by spelling or by everyday words, pack words matched
+/// against pack ids ("instal coder model" -> install qwen2.5-coder-7b). `packs`: catalog and installed ids; `mine`: an
+/// installed text pack for commands that need one. Every candidate is checked by clap.
+pub fn keyword_candidates(args: &[String], packs: &[String], mine: Option<&str>) -> Vec<Vec<String>> {
+    const FILL: [&str; 14] = ["model", "models", "pack", "packs", "the", "a", "an", "for", "me", "please", "my", "it", "new", "one"];
+    let names: Vec<String> = subcommands().into_iter().map(|(n, _)| n).collect();
+    let lower: Vec<String> = args.iter().map(|a| a.to_lowercase()).collect();
+    let mut out: Vec<Vec<String>> = vec![];
+    let push = |v: Vec<String>, out: &mut Vec<Vec<String>>| { if valid(&v) && !out.contains(&v) && out.len() < 3 { out.push(v); } };
+    // 1. a command word (exact or at most 2 letters off), then pack ids that contain the other words
+    let cmd = lower.first().and_then(|w| { let mut near: Vec<(usize, &String)> = names.iter().map(|n| (distance(w, n), n)).filter(|(d, n)| *d <= 2 && *d < n.len()).collect(); near.sort(); near.first().map(|x| x.1.clone()) });
+    if let Some(c) = &cmd {
+        let rest: Vec<&String> = lower[1..].iter().filter(|w| !FILL.contains(&w.as_str())).collect();
+        if !rest.is_empty() {
+            for id in packs.iter().filter(|id| rest.iter().all(|w| id.contains(w.as_str()))) { push(vec![c.clone(), id.clone()], &mut out); }
+        } else { push(vec![c.clone()], &mut out); }
+        if !out.is_empty() { return out; }
+    }
+    // 2. everyday words for what a command does
+    let pack = mine.unwrap_or(crate::core::DEFAULT_MODEL);
+    let table: [(&[&str], &[&str]); 11] = [
+        (&["fast", "faster", "speed", "quick", "quicker", "slow", "benchmark"], &["bench {pack}", "mode {pack} accelerated"]),
+        (&["check", "broken", "problem", "driver", "fix", "wrong", "gpu"], &["doctor"]),
+        (&["running", "loaded"], &["ps"]),
+        (&["find", "available", "download", "catalog"], &["search"]),
+        (&["phone", "tablet", "network", "share", "qr"], &["share qr"]),
+        (&["password"], &["password"]),
+        (&["log", "logs", "error", "errors"], &["logs"]),
+        (&["update", "upgrade", "newer"], &["update --check"]),
+        (&["space", "disk", "size"], &["du"]),
+        (&["uninstall"], &["uninstall"]),
+        (&["chat", "talk"], &["chat"]),
+    ];
+    for (keys, cmds) in table { if lower.iter().any(|w| keys.contains(&w.as_str())) { for c in cmds { push(split_args(&c.replace("{pack}", pack)), &mut out); } } }
+    out
+}
+
 /// "CMD: sushila ..." lines of the assistant's reply, each checked by clap.
 pub fn parse_candidates(reply: &str) -> Vec<Vec<String>> {
     let mut out: Vec<Vec<String>> = vec![];
@@ -105,6 +142,12 @@ impl Window {
     fn confirm(&self, lines: &mut dyn Iterator<Item = std::io::Result<String>>, prompt: &str) -> bool {
         matches!(self.ask(lines, prompt).to_lowercase().as_str(), "y" | "yes")
     }
+    /// Ask Sushila answers with quotes here (its model is under 3B parameters).
+    fn quote_mode(&self) -> bool {
+        let (gpu, _, info) = self.rt.block_on(crate::assistant::probe(&self.data));
+        let mem = gpu.as_ref().and_then(|g| g["memoryGB"].as_f64()).unwrap_or(info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9 * 0.6);
+        crate::assistant::model_for(&self.data, mem).map(|m| m.1).unwrap_or(true)
+    }
     fn assistant(&self, q: &str, extra: Option<&str>, stream: bool) -> Result<serde_json::Value, String> {
         let mut print = |t: &str| { eprint!("{t}"); let _ = std::io::stderr().flush(); };
         self.rt.block_on(crate::assistant::answer_stream(&self.data, self.port, q, &[], true, extra, if stream { Some(&mut print) } else { None }))
@@ -127,14 +170,24 @@ impl Window {
         if is_question(line) {
             eprintln!();
             match self.assistant(line, None, true) {
+                Ok(v) if v["mode"] == "quote" => eprintln!("\n[quoted from Sushila's notes ({} is a small model): {}]", v["model"].as_str().unwrap_or(""), v["sources"].as_array().map(|a| a.iter().filter_map(|s| s["title"].as_str()).collect::<Vec<_>>().join("; ")).unwrap_or_default()),
                 Ok(v) => eprintln!("\n[answered by {} from: {}]", v["model"].as_str().unwrap_or(""), v["sources"].as_array().map(|a| a.iter().filter_map(|s| s["title"].as_str()).collect::<Vec<_>>().join("; ")).unwrap_or_default()),
                 Err(e) => eprintln!("the assistant could not answer: {e}"),
             }
             return;
         }
-        // a command attempt that does not parse: spelling first, then the assistant proposes real commands
-        let mut cands = spelling_candidates(&args);
-        if cands.len() < 3 {
+        // a command attempt that does not parse: spelling first; then, with a model of 3B or more, the assistant proposes
+        // real commands; with a small one (quote mode) only words matched against commands and pack ids
+        let quote = self.quote_mode();
+        let mut cands = if quote { vec![] } else { spelling_candidates(&args) };
+        if quote {
+            let st = crate::webserver::read_state(&self.data);
+            let mut packs: Vec<String> = std::fs::read_to_string(self.data.join("catalog-cache.json")).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+                .and_then(|c| c["packs"].as_array().map(|a| a.iter().filter_map(|p| p["id"].as_str().map(String::from)).collect())).unwrap_or_default();
+            packs.extend(st["packs"].as_object().map(|m| m.keys().cloned().collect::<Vec<_>>()).unwrap_or_default());
+            let mine = crate::assistant::pick_model(&st, 0.0);
+            for c in keyword_candidates(&args, &packs, mine.as_deref()) { if !cands.contains(&c) && cands.len() < 3 { cands.push(c); } }
+        } else if cands.len() < 3 {
             let list: String = subcommands().iter().map(|(n, a)| format!("{n}: {}\n", a.lines().next().unwrap_or(""))).collect();
             let extra = format!("The user typed this into the Sushila server window, but it is not a valid sushila command. Reply ONLY with 1 to 3 lines, each exactly \"CMD: sushila <command> <arguments>\", using only these commands and pack ids from the facts:\n{list}");
             eprintln!("(not a command; asking the assistant what you meant…)");
@@ -189,6 +242,10 @@ mod tests {
     #[test] fn candidates() {
         assert_eq!(spelling_candidates(&a("instal qwen")), vec![a("install qwen")]);
         assert!(spelling_candidates(&a("banana")).is_empty());
+        let packs: Vec<String> = ["qwen2.5-0.5b-q4km", "qwen2.5-coder-7b", "qwen3-coder-30b-a3b", "z-image-turbo"].iter().map(|x| x.to_string()).collect();
+        assert_eq!(keyword_candidates(&a("instal coder model"), &packs, None), vec![a("install qwen2.5-coder-7b"), a("install qwen3-coder-30b-a3b")]);
+        assert_eq!(keyword_candidates(&a("make it faster"), &packs, Some("qwen2.5-0.5b-q4km")), vec![a("bench qwen2.5-0.5b-q4km"), a("mode qwen2.5-0.5b-q4km accelerated")]);
+        assert!(keyword_candidates(&a("banana"), &packs, None).is_empty());
         assert_eq!(parse_candidates("Sure!\nCMD: sushila install qwen2.5-coder-7b\nCMD: `sushila frobnicate`\nCMD: sushila search --kind code"), vec![a("install qwen2.5-coder-7b"), a("search --kind code")]);
     }
 }

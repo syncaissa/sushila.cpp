@@ -95,7 +95,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .manage h2{font-size:18px;margin:18px 0 8px}.manage table td,.manage table th{font-size:14px}.manage .acts{display:flex;gap:6px;flex-wrap:wrap}
 .manage button{padding:5px 11px;font-size:13px}.task{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0;background:var(--card)}
 .task.failed{border-color:var(--err)}.logbox{background:var(--code);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;height:65vh;overflow:auto;white-space:pre-wrap;word-break:break-word}
-.asst{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0;background:var(--card);white-space:pre-wrap}.asst.user{margin-left:12%;background:var(--accbg)}.asst.err{border-color:var(--err)}.asst .asrc{margin-top:6px;white-space:normal}
+.asst{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0;background:var(--card);white-space:pre-wrap}.asst.user{margin-left:12%;background:var(--accbg)}.asst.err{border-color:var(--err)}.asst blockquote{margin:4px 0 8px;padding:4px 10px;border-left:3px solid var(--acc)}.asst .qt{font-weight:600;font-size:13px;margin-bottom:2px}.asst .qcmds code{display:block;margin:2px 0}.asst .asrc{margin-top:6px;white-space:normal}
 .manage label{display:block;font-weight:600;font-size:13px;margin:10px 0 4px}.swhere{border-top:1px solid var(--line);margin-top:6px;padding:6px 10px 2px;font-size:12px;color:var(--mut);word-break:break-all;line-height:1.6}.manage .kv td:first-child{color:var(--mut);width:180px}`));
     // the ☰ menu on every page and tab: Inference, Admin (this computer), Documentation (/docs, the same file the website
     // uses), API; then the addresses and, on this computer, the home folder (the same lines the server prints at start)
@@ -275,7 +275,14 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           const r = await fetch('/api/assistant', { method: 'POST', headers: h, body: JSON.stringify({ question, history: asked.slice(-4) }) });
           if (!r.ok) throw new Error(r.status === 401 ? 'an access key is needed (enter it on the Use tab first)' : (await r.text()) || r.status);
           const a = await r.json();
-          wait.replaceWith(add('bot', a.answer || '(no answer)', el('div', { class: 'sub asrc' }, 'Answered by ' + (a.model || '?') + ' from: ' + (a.sources || []).map((x) => x.title).join('; '))));
+          // quote mode (a model under 3B): the sections themselves, shown as quotes, then their commands and the hint
+          if (a.mode === 'quote') {
+            const d = el('div', { class: 'asst bot quote' }, ...(a.quotes || []).map((x) => el('blockquote', {}, el('div', { class: 'qt' }, x.title + (x.source === 'facts' ? '' : ' (' + x.source + ')')), el('div', {}, x.text))),
+              a.commands && a.commands.length && !(a.quotes || []).some((x) => x.source === 'facts') ? el('div', { class: 'qcmds' }, el('div', { class: 'qt' }, 'Commands from these notes:'), ...a.commands.map((c) => el('code', {}, c))) : null,
+              a.hint ? el('div', { class: 'sub' }, a.hint) : null,
+              el('div', { class: 'sub asrc' }, 'Quoted from Sushila\'s notes: ' + (a.model || '?') + ' is a small model, so it does not write answers itself.'));
+            wait.replaceWith(d); log.append(d);
+          } else wait.replaceWith(add('bot', a.answer || '(no answer)', el('div', { class: 'sub asrc' }, 'Answered by ' + (a.model || '?') + ' from: ' + (a.sources || []).map((x) => x.title).join('; '))));
           asked.push({ role: 'user', content: question }, { role: 'assistant', content: a.answer || '' });
         } catch (e) { wait.replaceWith(add('bot err', 'The assistant could not answer: ' + e.message)); }
         btn.disabled = false;
