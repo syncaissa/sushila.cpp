@@ -1,10 +1,11 @@
 # Results
 
 **Summary (2026-10-06).** Sushila.cpp vs the usual local baseline: chat and coding models vs vanilla Ollama on one A100
-(160 unseen prompts): Llama-3.3-70B 3.95x, R1-Distill-Llama-70B 3.64x, Kimi-Dev-72B 3.56x, Qwen3-32B 3.14x,
-Qwen3-Coder-30B-A3B 1.80x, Qwen3-30B-A3B 1.65x, Gemma 3 27B 1.22x -> **average 2.71x (geometric mean 2.48x)**. With
-Qwen2.5-0.5B (landscape, CPU) 1.26x, Z-Image 1.10x, Wan 2.2 video 1.45x and ACE-Step music 1.27x: **average over all 11
-models 2.19x (geometric 1.94x)**. In progress: YuE 3.73x (exact runner). Out of scope: Qwen3-235B-A22B (heads slower).
+(160 unseen prompts): Llama-3.3-70B 4.05x, R1-Distill-Llama-70B 3.64x, Kimi-Dev-72B 3.56x, Qwen3-32B 3.14x,
+Qwen3-Coder-30B-A3B 1.80x, Qwen3-30B-A3B 1.65x, Llama-3.1-8B (16-bit) 1.55x, Gemma 3 27B 1.22x -> **average 2.58x
+(geometric mean 2.35x)**. With Qwen2.5-0.5B (landscape, CPU) 1.26x, Z-Image 1.10x and ACE-Step music 1.27x: **average
+over all 11 models 2.20x (geometric 1.96x)**. Wan 2.2 video is being re-measured: its 1.45x used sampling settings
+that gave poor video (`video_quality_20261007/`). In progress: YuE 3.73x (exact runner). Out of scope: Qwen3-235B-A22B (heads slower).
 
 One folder per run, named `<UTC timestamp>_<model>_<mode>/`:
 
@@ -21,7 +22,9 @@ Runs with `chunks` other than `all` are smoke tests and are not used in the pape
 
 | Folder | Model | Headline (160 unseen prompts, one A100, vs vanilla Ollama) |
 |---|---|---|
-| `70b_day0/` | Llama-3.3-70B-Instruct | 3.95x (3.88-4.01); our head +7% |
+| `llama3.3-70b_20261007/` | Llama-3.3-70B-Instruct, rerun through the standard pipeline | **4.05x** (3.98-4.11); our head +8%; GSM8K 96 vs 97% |
+| `llama3.1-8b_20261007/` | Llama-3.1-8B-Instruct, 16-bit in SGLang | **1.55x** (1.52-1.58); our head +11% (2.49x over SGLang); GSM8K 76 vs 74% |
+| `70b_day0/` | Llama-3.3-70B-Instruct, first measurement (bench70b scripts) | 3.95x (3.88-4.01); our head +7% |
 | `qwen3_20261004/qwen3-32b/` | Qwen3-32B | 3.14x (3.05-3.24); our head +1% |
 | `qwen3_20261004/qwen3-30b-a3b/` | Qwen3-30B-A3B (MoE) | 1.65x (1.61-1.70); our head +1% |
 | `deepseek-r1-distill-llama-70b_20261005/` | DeepSeek-R1-Distill-Llama-70B | 3.64x (3.53-3.73); no published head: the base model's slows it (0.85x), ours is 2.30x over SGLang alone |
@@ -44,7 +47,8 @@ Each holds `summary.md` (speeds, steps, bootstrap intervals, GSM8K accuracy, loa
 | `zimage_nvidia_fp4_5090_20261005/` | same, RTX 5090, FP4 pack | 0.71 s / 1.85 s |
 | `cache_plan_zimage_20261006/` | **ours**: precomputed cache plan for Z-Image (sd.cpp, every computer) | held-out 1.10x, SSIM 0.978 |
 | `video_wan22_ti2v5b_20261006.json` | Wan 2.2 TI2V-5B video on an RTX 4090 (VideoGen, not released) | 480p 2 s 53 s; 480p 5 s 108 s; 720p 5 s 561 s (VAE decode 313 s) |
-| `cache_plan_wan_20261006/` | **ours**: precomputed cache plan for Wan 2.2 video | held-out 1.45x, frame SSIM 0.91 (slightly softer; uncached runs identical) |
+| `cache_plan_wan_20261006/` | **ours**: precomputed cache plan for Wan 2.2 video | held-out 1.45x, frame SSIM 0.91: **superseded**, measured with poor sampling settings |
+| `video_quality_20261007/` | why the Wan samples were bad | 20 steps / cfg 6 / shift 3 gave noise; 30 / 5 / 5 fixes it; video packs keep offloading |
 | `music_spec_20261006/` | **MusicGen Accelerated**: Sushila fast sampler in acestep.cpp (exact); draft LMs, music draft head, DiT reuse (all measured, off) | 60 s song 5.16 -> 4.05 s (1.27x); code decode 1.52x; head 24% acceptance (not used) |
 | `music_acestep_split_20261006/` | ACE-Step 1.5 (MusicGen) time split, RTX 4090 | 60 s song 7.5 s; its 4B LM is 60% (draft head / landscape could apply) |
 | `turbo_text_draft_20261006/` | small draft models for Accelerated text in sushila.cpp | slower for every pack except Qwen3-32B on GPU (1.30x): Accelerated stays off |

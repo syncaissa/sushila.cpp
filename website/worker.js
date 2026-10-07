@@ -76,20 +76,21 @@ const LISTED = [
 // A100, 160 unseen prompts, greedy, 256 tokens; images/video/music: the reference engine vs Sushila on one RTX 4090.
 // [model, kind, baseline + hardware, baseline speed, Sushila speed, speedup, our precomputed part]
 const RESULTS = [
-  ['Llama 3.3 70B', 'chat', 'Ollama 0.35.1, A100', '21.2 tok/s', '83.7 tok/s', '3.95×', 'draft head refitted to its answers: +7%'],
+  ['Llama 3.3 70B', 'chat', 'Ollama 0.35.1, A100', '23.6 tok/s', '95.7 tok/s', '4.05×', 'draft head refitted to its answers: +8%'],
   ['DeepSeek-R1 Distill Llama 70B', 'reasoning', 'Ollama 0.35.1, A100', '23.5 tok/s', '85.6 tok/s', '3.64×', 'draft head (none published): 2.30× over the engine'],
   ['Kimi-Dev 72B', 'coding', 'Ollama 0.35.1, A100', '20.9 tok/s', '74.4 tok/s', '3.56×', 'draft head from the closest published one: +41%'],
   ['Qwen3 32B', 'chat', 'Ollama 0.35.1, A100', '43.2 tok/s', '135.7 tok/s', '3.14×', 'draft head: +1%'],
   ['Qwen3-Coder 30B-A3B', 'coding (MoE)', 'Ollama 0.35.1, A100', '146.3 tok/s', '262.8 tok/s', '1.80×', 'draft head: +2%'],
   ['Qwen3 30B-A3B', 'chat (MoE)', 'Ollama 0.35.1, A100', '163.8 tok/s', '270.6 tok/s', '1.65×', 'draft head: +1%'],
+  ['Llama 3.1 8B (16-bit)', 'chat', 'Ollama 0.35.1, A100', '143.3 tok/s', '222.2 tok/s', '1.55×', 'draft head refitted to its answers: +11%'],
   ['Gemma 3 27B', 'chat', 'Ollama 0.35.1, A100', '46.5 tok/s', '56.6 tok/s', '1.22×', 'draft head over a community one: +9%'],
   ['Qwen2.5 0.5B', 'chat (CPU)', 'llama.cpp, 8 CPU threads', '145.5 tok/s', '183.3 tok/s', '1.26×', 'output-layer landscape (exact)'],
   ['Z-Image-Turbo', 'images', 'stable-diffusion.cpp, RTX 4090', '', '', '1.10×', 'cache plan (SSIM 0.98)'],
-  ['Wan 2.2 TI2V-5B', 'video', 'stable-diffusion.cpp, RTX 4090', '', '', '1.45×', 'cache plan (frame SSIM 0.91)'],
   ['ACE-Step 1.5', 'music', 'acestep.cpp, RTX 4090', '5.16 s/song', '4.05 s/song', '1.27×', 'faster sampler (same distribution)'],
 ];
-const RESULTS_AVG = [['Average, 7 text models', '2.71×', 'geometric mean 2.48×'], ['Average, all 11 models', '2.19×', 'geometric mean 1.94×']];
+const RESULTS_AVG = [['Average, 8 text models', '2.58×', 'geometric mean 2.35×'], ['Average, all 11 models', '2.20×', 'geometric mean 1.96×']];
 const RESULTS_MORE = [
+  ['Wan 2.2 TI2V-5B (being re-measured)', 'video', 'stable-diffusion.cpp, RTX 4090', '', '', '—', 'cache plan; the earlier 1.45× used poor sampling settings'],
   ['YuE (long songs, in progress)', 'music', 'official YuE code, RTX 4090', '1,213 s/song', '325 s/song', '3.73×', 'exact batched runner; draft model next'],
   ['Qwen3 235B-A22B (out of scope)', 'chat (MoE)', 'Ollama, 2× A100', '', '', '0.73×', 'draft heads slow it; SGLang alone 1.25×'],
 ];

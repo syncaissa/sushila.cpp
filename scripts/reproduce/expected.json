@@ -228,5 +228,81 @@
    "base": 80.0,
    "ours": 79.0
   }
+ },
+ "llama3.3-70b": {
+  "results": "results/llama3.3-70b_20261007",
+  "gpu": "1x A100 SXM 80GB",
+  "sets": {
+   "main": {
+    "tok_s": {
+     "ollama": 23.8,
+     "base": 37.3,
+     "pub": 78.6,
+     "ours": 86.3
+    },
+    "total": 3.62
+   },
+   "ood": {
+    "tok_s": {
+     "ollama": 23.6,
+     "base": 37.2,
+     "pub": 88.3,
+     "ours": 95.7
+    },
+    "total": 4.05
+   },
+   "mt_t07": {
+    "tok_s": {
+     "ollama": 23.7,
+     "base": 37.1,
+     "pub": 77.7,
+     "ours": 87.2
+    },
+    "total": 3.67
+   }
+  },
+  "gsm8k_pct": {
+   "ollama": 97.0,
+   "base": 96.0,
+   "ours": 96.0
+  }
+ },
+ "llama3.1-8b": {
+  "results": "results/llama3.1-8b_20261007",
+  "gpu": "1x A100 PCIe 80GB",
+  "sets": {
+   "main": {
+    "tok_s": {
+     "ollama": 146.5,
+     "base": 89.9,
+     "pub": 175.5,
+     "ours": 198.5
+    },
+    "total": 1.35
+   },
+   "ood": {
+    "tok_s": {
+     "ollama": 143.3,
+     "base": 89.4,
+     "pub": 200.1,
+     "ours": 222.2
+    },
+    "total": 1.55
+   },
+   "mt_t07": {
+    "tok_s": {
+     "ollama": 143.6,
+     "base": 88.4,
+     "pub": 167.5,
+     "ours": 189.8
+    },
+    "total": 1.32
+   }
+  },
+  "gsm8k_pct": {
+   "ollama": 74.0,
+   "base": 76.0,
+   "ours": 76.0
+  }
  }
 }

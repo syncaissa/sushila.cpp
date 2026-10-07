@@ -44,7 +44,8 @@ A run passes when the speed-up over Ollama is within 10% of the paper's or highe
 | `qwen3-coder-30b-a3b` | 1.80× | ~1 h |
 | `qwen3-30b-a3b` | 1.65× | ~1 h |
 | `gemma3-27b` | 1.22× | ~1.5 h |
-| Llama-3.3-70B | 3.95× | ~5 h, see [REPRODUCE_70B.md](REPRODUCE_70B.md) |
+| `llama3.3-70b` | 4.05× | ~3 h |
+| `llama3.1-8b` (16-bit) | 1.55× | ~1 h |
 
 Options:
 
@@ -85,7 +86,8 @@ at `https://files.sushila.ai/public/precomputed/<model>/draft-head/model.safeten
 | Qwen3-30B-A3B | `Qwen/Qwen3-30B-A3B-GPTQ-Int4` @ `9b534e43` | `AngelSlim/Qwen3-a3B_eagle3` @ `266a50ea` | `qwen3:30b-a3b-q4_K_M` / `e9183b5c…07ac` | `91f0e907…183a` |
 | Gemma 3 27B | `gaunernst/gemma-3-27b-it-int4-awq` @ `7cf8bdc8` | `witcheer/gemma-3-27b-eagle3-drafter` @ `66d6a106` | `gemma3:27b` / `e796792e…0f68` | `5b8d9adb…626c` |
 | Qwen3-235B-A22B (out of scope) | `QuixiAI/Qwen3-235B-A22B-AWQ` @ `1df91c16` | `lmsys/Qwen3-235B-A22B-EAGLE3` @ `d75f968c` | `qwen3:235b-a22b-q4_K_M` / `aeacdade…8d5d` | `23834c8c…2549` |
-| Llama-3.3-70B | `casperhansen/llama-3.3-70b-instruct-awq` | `lmsys/sglang-EAGLE3-LLaMA3.3-Instruct-70B` | `llama3.3:70b` / `4824460d…` | being rebuilt (see REPRODUCE_70B.md) |
+| Llama-3.3-70B | `casperhansen/llama-3.3-70b-instruct-awq` @ `64d25562` | `lmsys/sglang-EAGLE3-LLaMA3.3-Instruct-70B` @ `5279b1b6` | `llama3.3:70b` / `4824460d…447d` | `390fb490…8831` |
+| Llama-3.1-8B (16-bit) | `unsloth/Llama-3.1-8B-Instruct` @ `4699cc75` | `lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B` @ `28a53ce8` | `llama3.1:8b` / `667b0c19…6a29` | `e4f07a3c…a4d0` |
 
 Each model's full 64-character values are in `scripts/precompute/models/<model>.env` (`TARGET_REV`, `PUB_HEAD_REV`,
 `OLLAMA_SHA256`, `HEAD_SHA256`). They are also in `CHECKSUMS.json`, with every file of the head, its training data

@@ -7,8 +7,7 @@
 #   bash scripts/reproduce/retest.sh qwen3-32b              # ~1.5-3 h, LOAD=0 (no multi-user test) by default
 #   FULL=1 bash scripts/reproduce/retest.sh qwen3-32b       # also rebuild our head from scratch (+3-6 h) instead of downloading it
 #   bash scripts/reproduce/retest.sh --check <run folder>   # compare an existing run with the paper
-# Models: deepseek-r1-distill-llama-70b gemma3-27b kimi-dev-72b qwen3-30b-a3b qwen3-32b qwen3-coder-30b-a3b
-# (Llama-3.3-70B: docs/REPRODUCE_70B.md). Output: $W/<model>/summary.md, out/ENV.txt (exact versions of this run).
+# Models: llama3.3-70b llama3.1-8b deepseek-r1-distill-llama-70b gemma3-27b kimi-dev-72b qwen3-30b-a3b qwen3-32b qwen3-coder-30b-a3b. Output: $W/<model>/summary.md, out/ENV.txt (exact versions of this run).
 set -euo pipefail
 R=$(cd "$(dirname "$0")" && pwd); ROOT=$R/../..
 if [ "${1:-}" = --check ]; then python3 $R/check.py "$2"; exit; fi
