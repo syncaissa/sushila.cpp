@@ -1,0 +1,92 @@
+{
+ "work_dir": "/workspace/yue6",
+ "segments": 7,
+ "max_new_tokens": 3000,
+ "runs": {
+  "official": {
+   "stage1_s": 840.2,
+   "stage2_s": 1493.0,
+   "total_s": 2352.9,
+   "label": "official YuE infer.py",
+   "speedup": 1.0
+  },
+  "fast_batched_k0": {
+   "stage1_s": 630.5,
+   "stage2_s": 279.4,
+   "total_s": 930.1,
+   "label": "exact: KV cache + batched rows + batched guidance (eager)",
+   "speedup": 2.53
+  },
+  "fast_batched_k0_graphs": {
+   "stage1_s": 615.1,
+   "stage2_s": 144.8,
+   "total_s": 781.0,
+   "label": "exact: as above + static caches and CUDA graphs",
+   "speedup": 3.01
+  }
+ },
+ "checks": {
+  "graphs_vs_eager": {
+   "m-a-p/YuE-s1-0.5B": 0.0,
+   "m-a-p/YuE-s1-7B-anneal-en-cot": 0.0
+  },
+  "sampler": {
+   "trials": 300,
+   "covered": 152,
+   "max_abs_diff_covered": 0.0,
+   "pass": true
+  },
+  "stage2_float32": {
+   "mode": "cached",
+   "dtype": "float32",
+   "first_diff_after_prompt_per_row": [
+    -1,
+    -1,
+    -1,
+    -1
+   ],
+   "frames": 40,
+   "rows": 4,
+   "official_s": 16.546123504638672,
+   "cached_s": 7.761938810348511,
+   "official_ms_per_frame": 413.6530876159668,
+   "cached_ms_per_frame": 194.04847025871277,
+   "speedup": 2.1316998122400492,
+   "tokens_identical": true,
+   "tokens_different": 0,
+   "tokens_compared": 2492
+  },
+  "stage2_bfloat16_song": {
+   "rows": 46,
+   "frames_max": 300,
+   "seconds": 277.38648557662964,
+   "official_seconds": 1493.018144607544,
+   "itrack.npy": {
+    "shape_ours": [
+     8,
+     6681
+    ],
+    "shape_official": [
+     8,
+     6681
+    ]
+   },
+   "vtrack.npy": {
+    "shape_ours": [
+     8,
+     6681
+    ],
+    "shape_official": [
+     8,
+     6681
+    ]
+   },
+   "codes_identical_fraction": 0.49034575662325997,
+   "speedup": 5.3824473153544785
+  }
+ },
+ "yue_commit": "6d4f0b1f8ce6a55fb2392e959394c46e07ee334d",
+ "xcodec_commit": "fe781a67815ab47b4a3a5fce1e8d0a692da7e4e5",
+ "models": "Fetching 12 files:   0%|          | 0/12 [00:00<?, ?it/s]\nFetching 12 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 12/12 [00:00<00:00, 1808.08it/s]\nm-a-p/YuE-s1-7B-anneal-en-cot /root/.cache/huggingface/hub/models--m-a-p--YuE-s1-7B-anneal-en-cot/snapshots/454c20e1748888800f8e4b3da45125f55482d967\n\nFetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]\nFetching 9 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 9/9 [00:00<00:00, 2478.09it/s]\nm-a-p/YuE-s2-1B-general /root/.cache/huggingface/hub/models--m-a-p--YuE-s2-1B-general/snapshots/9dfa90b7013f6b5e7eb5eb2991620dca33058a0e\n\nFetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]\nFetching 9 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 9/9 [00:00<00:00, 2715.15it/s]\nm-a-p/YuE-s1-0.5B /root/.cache/huggingface/hub/models--m-a-p--YuE-s1-0.5B/snapshots/65b4514ee5d821275cf4204f307425ed94fb936e",
+ "checks_pass": true
+}

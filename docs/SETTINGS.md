@@ -222,12 +222,23 @@ Raw results: `results/music_spec_20261006/`, `results/music_acestep_split_202610
 
 Full walk-through: [REPRODUCE_YUE.md](REPRODUCE_YUE.md). Songs: `https://files.sushila.ai/public/temp/yue-songs-20261007/`.
 
-### Production settings (⏳ next)
+### Production settings (✅ measured 2026-10-07, `results/yue_fullsong_20261007/`)
 
 - **The full song**: as many sections of the same official example as YuE's code generates. Its `infer.py` runs `min(run_n_segments + 1, sections)` prompts including a header, so with 6 lyrics sections it makes at most **5**. Each is up to 30 s (3,000 tokens; YuE writes 100 tokens per second of music), so the song is about **2.5 minutes**.
 - Everything else as in the lab.
 - Command: `NSEG=6 W=/workspace/yue6 bash scripts/music/yue/reproduce_yue.sh` (our run used `NSEG=7`, which YuE caps to the same 5 sections).
-- Songs will go to `https://files.sushila.ai/public/temp/yue-songs-20261007_fullSong/`.
+- Results:
+
+| Run | Song | Time | Speed-up |
+|---|---|---|---|
+| Official | 134 s | 2,353 s | 1.00× |
+| Sushila, eager | 144 s | 930 s | 2.53× |
+| Sushila, CUDA graphs | 144 s | **781 s** | **3.01×** (3.24× per second of music) |
+
+  - Where the time goes: stage 2 drops from 1,493 s to 145 s (10.3×). Stage 1 (the 7B over a context of about 15,000
+    tokens) only drops from 840 s to 615 s.
+  - All checks pass.
+- Songs: `https://files.sushila.ai/public/temp/yue-songs-20261007_fullSong/`.
 
 ---
 
