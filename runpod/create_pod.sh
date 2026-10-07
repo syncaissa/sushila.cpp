@@ -22,3 +22,5 @@ body="$(jq -n --arg gpu "$GPU" --argjson n "$COUNT" --arg img "$IMAGE" --arg key
 }')"
 
 runpod POST /pods "$body" | jq '{id, name, desiredStatus, costPerHr, error}'
+# after the pod is up: install the safe process stopper before anything else (never pkill -f over ssh):
+#   scp -P <port> runpod/safe_pkill.sh root@<ip>:/usr/local/bin/safe_pkill && ssh -p <port> root@<ip> chmod +x /usr/local/bin/safe_pkill
