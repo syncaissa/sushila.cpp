@@ -1,0 +1,14 @@
+{
+ "replay_bf16": {
+  "stage1_tokens_identical": true,
+  "tokens": 14135,
+  "official_tokens": 14135,
+  "stage2_codes_equal_to_official": 0.4918986678640922
+ },
+ "replay_s2fp32": {
+  "stage1_tokens_identical": true,
+  "tokens": 14135,
+  "official_tokens": 14135,
+  "stage2_codes_equal_to_official": 0.4665562790001497
+ }
+}

@@ -211,7 +211,8 @@ Raw results: `results/music_spec_20261006/`, `results/music_acestep_split_202610
 |---|---|
 | Official | 1,210 s |
 | Sushila, eager | 329 s (3.67×) |
-| Sushila, CUDA graphs | **263 s (4.60×)** |
+| Sushila, CUDA graphs (a different draw) | 263 s (4.60×) |
+| Sushila, the **same song** (replay) | **253 s (4.77×)** |
 
 **Steps:**
 

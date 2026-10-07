@@ -1,7 +1,8 @@
 # Retest the YuE result, step by step
 
 **Paper claim** (section "Beyond Text", Table "YuE v1"): one 59-second song takes 1,210 s with YuE's official code on
-an RTX 4090. With Sushila's runner it takes 263 s, which is **4.60× faster**. The same models run with the same
+an RTX 4090. With Sushila's runner the **same song** (identical stage-1 tokens) takes 253 s, which is **4.77× faster**.
+With stage 2 in float32, Sushila's output equals the official code's float32 output code for code, 4.56× faster. The same models run with the same
 sampling; only the way the models are run changes, and in float32 the output is identical (step 6).
 
 This guide reruns everything on a rented GPU: the official baseline, the exactness checks and the fast runs. It ends
@@ -173,13 +174,29 @@ It ends in `ALL CHECKS PASS`, or else names the check that failed or is missing.
 
 To recompute it any time: `python3 summarize.py /workspace/yue`.
 
+## Step 9b: the same song, same length (replay)
+
+The fast runs in step 8 draw their own random numbers, so they make a different song from the same distribution, with a
+different length. `run_yue_replay.sh` times Sushila's runner on **the official run's song**:
+
+- Every step does its full work, sampling included, and then takes the official token.
+- `replay_check.json` must say `"stage1_tokens_identical": true`.
+- It also runs stage 2 in float32 (`replay_s2fp32`). For the float32 reference, run the official code with stage 2 in
+  float32: our float32 stage-2 codes then equal it exactly (paper Table "YuE v1").
+
+```
+W=/workspace/yue NSEG=2 bash /workspace/repo/scripts/music/yue/run_yue_replay.sh
+```
+
 ## Step 10: compare with ours
 
 | | Paper (RTX 4090) | Yours |
 |---|---:|---:|
 | Official total | 1,210 s | |
 | Equivalent runner, eager | 329 s (3.67×) | |
-| Equivalent runner + CUDA graphs | **263 s (4.60×)** | |
+| Equivalent runner + CUDA graphs (step 8: a different draw) | 263 s | |
+| Same song, replay (step 9b) | **253 s (4.77×)** | |
+| Same song, stage 2 in float32 | 396 s (every code = official float32) | |
 | Stage 2, float32, vs official loop | 0 of 2,492 codes differ | |
 | Graph logits vs eager | max diff 0.0 | |
 | Sampler vs reference | max diff 0.0 | |

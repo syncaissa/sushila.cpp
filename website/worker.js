@@ -88,9 +88,9 @@ const RESULTS = [
   ['Z-Image-Turbo', 'images', 'stable-diffusion.cpp, RTX 4090', '', '', '1.10×', 'cache plan (SSIM 0.98)'],
   ['Wan 2.2 TI2V-5B', 'video', 'stable-diffusion.cpp, RTX 4090', '889 s/clip', '549 s/clip', '1.62×', 'cache plan (frame SSIM 0.93), 720p 5 s, medians of 5 prompts; vs the same engine without the plan (Wan official bf16: 536 s on one prompt)'],
   ['ACE-Step 1.5', 'music', 'acestep.cpp, RTX 4090', '5.16 s/song', '4.05 s/song', '1.27×', 'faster sampler (same distribution)'],
-  ['YuE v1', 'music', 'official YuE code, RTX 4090', '1,210 s/song', '263 s/song', '4.60×', 'equivalent runner: one cache, batching, CUDA graphs (same distribution; stage 2 = official in float32) (59 s song; full song 3.01×); research code, not yet in Sushila.cpp'],
+  ['YuE v1', 'music', 'official YuE code, RTX 4090', '1,210 s/song', '253 s/song', '4.77×', 'equivalent runner on the same song (one cache, batching, CUDA graphs); full 134 s song 3.29×; with stage 2 in float32 every code equals the official float32 output; research code, not yet in Sushila.cpp'],
 ];
-const RESULTS_AVG = [['Average, 8 GPU chat and coding models vs Ollama', '2.58×', 'geometric mean 2.35×'], ['Average, all 13 models', '2.34×', 'geometric mean 2.06×'], ['Average, 12 without YuE', '2.16×', 'geometric mean 1.93×']];
+const RESULTS_AVG = [['Average, 8 GPU chat and coding models vs Ollama', '2.58×', 'geometric mean 2.35×'], ['Average, all 13 models', '2.36×', 'geometric mean 2.07×'], ['Average, 12 without YuE', '2.16×', 'geometric mean 1.93×']];
 const RESULTS_MORE = [
   ['Qwen3 235B-A22B (out of scope)', 'chat (MoE)', 'Ollama, 2× A100', '', '', '0.73×', 'draft heads slow it; SGLang alone 1.25×'],
 ];

@@ -9,9 +9,9 @@ W=${W:-/workspace/yue}; HERE=$(cd "$(dirname "$0")" && pwd); NSEG=${NSEG:-2}; MA
 cd $W/YuE/inference
 cp infer.py infer_fast.py && python3 $HERE/patch_infer.py infer_fast.py > /dev/null && python3 $HERE/patch_fast.py infer_fast.py
 export SUSHILA_YUE_DIR=$HERE SUSHILA_STAGE1=batched SUSHILA_STAGE2=batched SUSHILA_GRAPHS=1 SUSHILA_REPLAY=$W/res/base_seed42 HF_HUB_OFFLINE=1
-for dt in bf16 s2fp32; do
+for dt in ${DTS:-bf16 s2fp32}; do   # DTS=s2fp32 runs only the float32 stage-2 variant
   out=$W/res/replay_$dt; rm -rf $out; mkdir -p $out
-  if [ $dt = s2fp32 ]; then export SUSHILA_S2_DTYPE=float32; else unset SUSHILA_S2_DTYPE; fi
+  if [ $dt = s2fp32 ]; then export SUSHILA_S2_DTYPE=float32 SUSHILA_S2_ROWS=${SUSHILA_S2_ROWS:-8}; else unset SUSHILA_S2_DTYPE; fi   # float32 doubles the cache: 8 rows per batch
   python3 infer_fast.py --stage1_model m-a-p/YuE-s1-7B-anneal-en-cot --stage2_model m-a-p/YuE-s2-1B-general \
     --genre_txt ../prompt_egs/genre.txt --lyrics_txt ../prompt_egs/lyrics.txt --run_n_segments $NSEG --stage2_batch_size 4 \
     --output_dir $out --max_new_tokens $MAXTOK --repetition_penalty 1.1 --seed 42 > $out/infer.log 2>&1
