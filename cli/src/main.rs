@@ -20,6 +20,7 @@ mod locate;
 mod cmds;
 mod assistant;
 mod window;
+mod ticker;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -147,7 +148,8 @@ enum Cmd {
     Idle { minutes: String },
     /// Engine limits used at the next model start: `limit --threads N --parallel N --context N --gpu-layers N` (no flags: show)
     Limit { #[arg(long)] threads: Option<i64>, #[arg(long)] parallel: Option<i64>, #[arg(long)] context: Option<i64>, #[arg(long, allow_hyphen_values = true)] gpu_layers: Option<i64> },
-    /// Settings: `config list`, `config get <key>`, `config set <key> <value>`
+    /// Settings: `config list`, `config get <key>`, `config set <key> <value>`; keys: port, enginePort, threads, contextSize, gpuLayers,
+    /// parallel, idleMinutes, keepCopy, catalogUrl, ticker (on/off: the scrolling line at the bottom of the server window)
     Config { #[command(subcommand)] act: ConfigCmd },
     /// The background queue of the running server: `queue [list]`, `queue pause|resume [<id>]`, `queue cancel <id>`
     Queue { #[command(subcommand)] act: Option<QueueCmd> },
@@ -265,6 +267,7 @@ async fn main() -> ExitCode {
         std::panic::set_hook(Box::new(move |info| {
             let bt = std::backtrace::Backtrace::force_capture();
             let _ = std::fs::write(&panic_file, format!("{info}\n\n{bt}"));
+            ticker::set_on(false);
             eprintln!("sushila crashed: {info}");
         }));
     }
@@ -293,6 +296,8 @@ async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
         if restarts > 0 { c.env("SUSHILA_NO_BROWSER", "1").env_remove("SUSHILA_TEST_PANIC_AFTER"); }
         let status = match c.status().await { Ok(s) => s, Err(e) => { eprintln!("error: could not start the server: {e}"); return ExitCode::from(1); } };
         let up = t0.elapsed();
+        // a server that died (killed, crashed) could not reset its ticker line: done here
+        if !status.success() && ticker::wanted(false, quiet, &read_json(&data.join("state.json")).map(|s| s["settings"]["ticker"].clone()).unwrap_or_default()) { ticker::hard_reset(); }
         if status.success() || stopping.load(std::sync::atomic::Ordering::SeqCst) { return ExitCode::SUCCESS; }
         if restarts == 0 && up < Duration::from_secs(8) && status.code() == Some(1) { return ExitCode::from(1); }  // did not start: the error is already printed
         let reason = match status.code() { Some(c) => format!("exit code {c}"), None => "stopped by the operating system".into() };
@@ -709,11 +714,12 @@ fn quick_help() -> &'static str {
   sushila bench <pack>              speed on this computer, Standard vs Accelerated
   sushila doctor                    check GPU, driver, engine, disk, port (with fixes)
   sushila share on | qr             let other machines (a phone) use it
-  sushila logs -f                   follow the log
+  sushila logs -f                   follow the log (in another terminal)
   sushila password                  set or change the Admin password (sushila password --reset if lost)
   sushila stop                      stop the server
 Typed in the server window: any of these commands (without \"sushila\" if you like; changes ask first), a question
-for the assistant (e.g. how do I add a coding model?), ? = this list, urls = the addresses again, stop = stop the server.\n"
+for the assistant (e.g. how do I add a coding model?), ? = this list, urls = the addresses again, stop = stop the server.
+The scrolling line at the bottom: Enter = pause/resume, b = back, n = next, all = every message so far, ticker off / ticker on.\n"
 }
 fn url_banner(u: &Value) -> String {
     let mut b = format!("\n==============================================================\n Sushila {} is running\n   Inference:      {}\n   Admin:          {}   (this computer only)\n   Documentation:  {}\n   API (OpenAI):   {}\n",
@@ -828,6 +834,7 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
                 for k in ["threads", "contextSize", "gpuLayers", "parallel", "keepCopy", "enginePort", "port", "idleMinutes"] {
                     if let Some(v) = r["values"].get(k) { if v.is_number() || v.is_boolean() { ctx.state["settings"][k] = v.clone(); } }
                 }
+                if let Some(t) = r["values"]["ticker"].as_str() { if t != "on" && t != "off" { return Err("ticker is on or off".into()); } ctx.state["settings"]["ticker"] = json!(t); }
                 if let Some(u) = r["values"]["catalogUrl"].as_str() { crate::net::check_url(u, false)?; ctx.state["settings"]["catalogUrl"] = json!(u); ctx.catalog = None; }
                 ctx.save()?; Ok(true)
             }
@@ -892,6 +899,9 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         let banner = url_banner(&u);
         std::thread::spawn(move || window::read_loop(w, banner));
     }
+    // the ticker line at the bottom of this window (off: --json, --quiet, not a terminal, TERM=dumb, SUSHILA_TICKER=0, setting ticker off)
+    let _ticker = ticker::Guard;
+    if ticker::wanted(j, ctx.quiet, &ctx.setting("ticker")) { ticker::start(ctx.data.clone(), port); }
     if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Done>();

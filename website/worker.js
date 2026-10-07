@@ -197,7 +197,7 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila mode &lt;pack&gt; standard|accelerated</code></td><td>Switches a running model at once; otherwise remembered for its next start.</td></tr>
 <tr><td><code>sushila idle &lt;minutes&gt;|off</code></td><td>Unloads models nobody used for that long; the next request loads them again (it waits while the model loads).</td></tr>
 <tr><td><code>sushila limit [--threads N] [--parallel N] [--context N] [--gpu-layers N]</code></td><td>Engine limits used when a model starts next (no flags: shows them).</td></tr>
-<tr><td><code>sushila config list | get &lt;key&gt; | set &lt;key&gt; &lt;value&gt;</code></td><td>The settings (port, enginePort, threads, contextSize, gpuLayers, parallel, idleMinutes, keepCopy, catalogUrl), checked before they are saved.</td></tr>
+<tr><td><code>sushila config list | get &lt;key&gt; | set &lt;key&gt; &lt;value&gt;</code></td><td>The settings (port, enginePort, threads, contextSize, gpuLayers, parallel, idleMinutes, keepCopy, catalogUrl, ticker), checked before they are saved.</td></tr>
 <tr><td><code>sushila queue [list] | pause [&lt;id&gt;] | resume [&lt;id&gt;] | cancel &lt;id&gt;</code></td><td>The running server's background queue (without an id: the whole queue).</td></tr>
 <tr><td><code>sushila history [show &lt;id&gt;]</code></td><td>Past queue jobs with prompt, settings, seed, times and the output file.</td></tr>
 <tr><td><code>sushila open [admin|docs|assistant]</code></td><td>Opens the page in the browser.</td></tr>
@@ -274,6 +274,15 @@ as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with 
   <li><b>A mistyped command</b> (<code>instal qwen</code>) gets a suggestion (with a small model, found by spelling and by matching words to commands and pack ids) (<code>Did you mean \`sushila install qwen\`? Run it? [y/N]</code>); nothing runs without a yes.</li>
   <li><code>?</code> lists the important commands, <code>urls</code> the addresses, <code>stop</code> stops the server.</li>
 </ul>
+<p><b>The ticker.</b> The bottom line of the window scrolls, like an LED message board, one short sentence for every command
+("To add a new model pack: sushila install &lt;pack&gt; …", with this server's real addresses), with live news in between (models
+running and their mode, the queue's job and progress, GPU memory, requests served). Everything else scrolls above it. It starts
+with its keys: <b>Enter</b> pauses or resumes (paused, the whole message is shown), <b>b</b> goes back one message (and pauses; b again goes further
+back), <b>n</b> forward, <b>all</b> prints every message, grouped like the command list, with the live news and their times, so you can scroll up and read them.
+<code>ticker off</code> / <code>ticker on</code> hide or show it; <code>sushila config set ticker off</code> keeps it off. It is off by itself when the output
+is not a terminal, with <code>--json</code> or <code>--quiet</code>, with <code>TERM=dumb</code> or <code>SUSHILA_TICKER=0</code>, and in windows narrower than 40 columns.
+Windows: escape sequences and UTF-8 are turned on for the console at start (Windows Terminal and the classic console); where symbols cannot be shown it uses ASCII keys.
+On exit (stop, Ctrl+C, a crash) the window is left as it was.</p>
 
 <h2 id="network">Other machines and the internet</h2>
 <pre>sushila serve --public --port 8844      # listens on all addresses

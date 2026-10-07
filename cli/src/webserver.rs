@@ -31,6 +31,9 @@ pub struct Metrics { requests: HashMap<(String, u16), u64>, inflight: HashMap<St
 static USE: std::sync::LazyLock<std::sync::Mutex<HashMap<String, (i64, std::time::SystemTime)>>> = std::sync::LazyLock::new(Default::default);
 static IDLE: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet<String>>> = std::sync::LazyLock::new(Default::default);
 pub fn touch(model: &str, d: i64) { if let Ok(mut u) = USE.lock() { let e = u.entry(model.to_string()).or_insert((0, std::time::SystemTime::now())); e.0 += d; e.1 = std::time::SystemTime::now(); } }
+static SERVED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+/// Requests forwarded to models since the server started (the ticker shows it).
+pub fn requests_served() -> u64 { SERVED.load(std::sync::atomic::Ordering::Relaxed) }
 pub fn in_flight(model: &str) -> i64 { USE.lock().ok().and_then(|u| u.get(model).map(|x| x.0)).unwrap_or(0) }
 pub fn last_use(model: &str) -> Option<std::time::SystemTime> { USE.lock().ok().and_then(|u| u.get(model).map(|x| x.1)) }
 pub fn mark_idle(model: &str, idle: bool) { if let Ok(mut s) = IDLE.lock() { if idle { s.insert(model.to_string()); } else { s.remove(model); } } }
@@ -60,6 +63,7 @@ impl Drop for InFlight {
     fn drop(&mut self) {
         let secs = self.t0.elapsed().as_secs_f64();
         touch(&self.model, -1);
+        SERVED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if let Ok(mut m) = self.s.metrics.lock() {
             *m.inflight.entry(self.model.clone()).or_default() -= 1;
             *m.requests.entry((self.model.clone(), self.status)).or_default() += 1;

@@ -142,6 +142,7 @@ pub const SETTINGS: [(&str, &str, i64, i64); 8] = [
     ("idleMinutes", "unload models idle this long (0 = never)", 0, 10080), ("keepCopy", "keep a copy of installed pack files (true/false)", 0, 1)];
 pub fn parse_setting(key: &str, val: &str) -> Result<Value, String> {
     if key == "catalogUrl" { let u = crate::net::check_url(val, false)?; return Ok(json!(u.to_string())); }
+    if key == "ticker" { return match val { "on" | "true" | "1" => Ok(json!("on")), "off" | "false" | "0" => Ok(json!("off")), _ => Err("ticker is on or off".into()) }; }
     let (_, _, lo, hi) = SETTINGS.iter().find(|s| s.0 == key).ok_or(format!("unknown setting {key}; `sushila config list` shows them"))?;
     if key == "keepCopy" { return match val { "true" | "1" | "yes" => Ok(json!(true)), "false" | "0" | "no" => Ok(json!(false)), _ => Err("keepCopy is true or false".into()) }; }
     let n: i64 = val.parse().map_err(|_| format!("{key} must be a whole number"))?;
@@ -690,11 +691,11 @@ async fn config(ctx: &mut Ctx, act: &crate::ConfigCmd, j: bool) -> Result<(), St
     refresh(ctx);
     match act {
         crate::ConfigCmd::List => {
-            let v: Value = SETTINGS.iter().map(|s| (s.0.to_string(), ctx.setting(s.0))).chain([("catalogUrl".to_string(), ctx.setting("catalogUrl"))]).collect::<serde_json::Map<_, _>>().into();
-            out(j, v.clone(), || SETTINGS.iter().map(|s| format!("{:<12} {:<8} {}", s.0, ctx.setting(s.0).to_string(), s.1)).chain([format!("{:<12} {}", "catalogUrl", ctx.setting("catalogUrl"))]).collect::<Vec<_>>().join("\n"));
+            let v: Value = SETTINGS.iter().map(|s| (s.0.to_string(), ctx.setting(s.0))).chain([("catalogUrl".to_string(), ctx.setting("catalogUrl")), ("ticker".to_string(), json!(if crate::ticker::off_setting(&ctx.setting("ticker")) { "off" } else { "on" }))]).collect::<serde_json::Map<_, _>>().into();
+            out(j, v.clone(), || SETTINGS.iter().map(|s| format!("{:<12} {:<8} {}", s.0, ctx.setting(s.0).to_string(), s.1)).chain([format!("{:<12} {}", "catalogUrl", ctx.setting("catalogUrl")), format!("{:<12} {:<8} the scrolling line at the bottom of the server window (on/off)", "ticker", if crate::ticker::off_setting(&ctx.setting("ticker")) { "off" } else { "on" })]).collect::<Vec<_>>().join("\n"));
         }
         crate::ConfigCmd::Get { key } => {
-            if key != "catalogUrl" && !SETTINGS.iter().any(|s| s.0 == key) { return Err(format!("unknown setting {key}; `sushila config list` shows them")); }
+            if key != "catalogUrl" && key != "ticker" && !SETTINGS.iter().any(|s| s.0 == key) { return Err(format!("unknown setting {key}; `sushila config list` shows them")); }
             let v = ctx.setting(key); out(j, json!({ key.as_str(): v }), || v.as_str().map(String::from).unwrap_or(v.to_string()));
         }
         crate::ConfigCmd::Set { key, value } => {
@@ -1417,6 +1418,7 @@ mod tests {
     }
     #[test] fn qr() { let q = qr_text("http://192.168.1.20:8765/").unwrap(); let lines: Vec<&str> = q.lines().collect(); assert!(lines.len() >= 12 && lines.iter().all(|l| l.chars().count() == lines[0].chars().count())); }
     #[test] fn settings_validated() {
+        assert_eq!(parse_setting("ticker", "off").unwrap(), json!("off")); assert!(parse_setting("ticker", "maybe").is_err());
         assert_eq!(parse_setting("port", "8800").unwrap(), json!(8800)); assert!(parse_setting("port", "0").is_err()); assert!(parse_setting("nope", "1").is_err());
         assert_eq!(parse_setting("keepCopy", "false").unwrap(), json!(false)); assert!(parse_setting("gpuLayers", "-2").is_err()); assert!(parse_setting("catalogUrl", "https://evil.example/c.json").is_err());
     }

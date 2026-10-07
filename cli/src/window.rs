@@ -126,7 +126,10 @@ fn show(a: &[String]) -> String { std::iter::once("sushila".to_string()).chain(a
 /// Runs this program with the arguments, in this window, and waits.
 fn run(exe: &Path, args: &[String]) {
     crate::core::log(true, &format!("[window] ran: {}", show(args)));
-    match std::process::Command::new(exe).args(args).status() {
+    crate::ticker::pause(true);  // the command writes to this terminal: the ticker line stays still meanwhile
+    let r = std::process::Command::new(exe).args(args).status();
+    crate::ticker::pause(false);
+    match r {
         Ok(s) if !s.success() => eprintln!("({} ended with {s})", show(args)),
         Err(e) => eprintln!("could not run it: {e}"),
         _ => {}
@@ -216,10 +219,14 @@ pub fn read_loop(w: Window, banner: String) {
     let stdin = std::io::stdin();
     let mut lines = stdin.lock().lines();
     while let Some(Ok(line)) = lines.next() {
+        // the ticker's keys (Enter, b, n, all) first: they are never commands or questions
+        if crate::ticker::control(&line.trim().to_lowercase()) { continue; }
         match line.trim().to_lowercase().as_str() {
             "" => {}
             "?" | "man" | "help" | "h" => eprintln!("{}", crate::quick_help()),
             "urls" | "url" => eprintln!("{banner}"),
+            "ticker off" => { crate::ticker::set_on(false); eprintln!("ticker off (ticker on shows it again; sushila config set ticker off keeps it off)"); }
+            "ticker on" => { if crate::ticker::active() { crate::ticker::set_on(true); eprintln!("ticker on"); } else { eprintln!("the ticker is not available in this window (not a terminal, --quiet, TERM=dumb, SUSHILA_TICKER=0 or the setting ticker is off)"); } }
             "stop" | "quit" | "exit" | "q" => { eprintln!("stopping..."); let _ = std::fs::write(w.data.join("shutdown-request.json"), "{}"); break; }
             _ => w.line(&line, &mut lines),
         }

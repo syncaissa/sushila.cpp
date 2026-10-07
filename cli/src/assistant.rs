@@ -271,7 +271,9 @@ pub fn quote_answer(q: &str, notes: &[Section], state: &Value, catalog: &Value, 
         answer = "The notes do not answer this. See the Documentation page (/docs) or `sushila --help`.".into(); quotes = vec![]; commands = vec![];
     } else {
         let best: Vec<&Section> = notes.iter().take(2).collect();
-        let q2: Vec<Value> = best.iter().map(|s| json!({ "title": s.title, "source": s.source, "text": trim_to(q, &s.text, 900) })).collect();
+        // the notes are one paragraph per section, wrapped at about 120 characters: unwrapped, so terminals and the page
+        // wrap them at their own width; documentation sections keep one line per table row or item
+        let q2: Vec<Value> = best.iter().map(|s| { let t = trim_to(q, &s.text, 900); json!({ "title": s.title, "source": s.source, "text": if s.source == "notes" { t.replace('\n', " ") } else { t } }) }).collect();
         commands = q2.iter().flat_map(|x| commands_in(x["text"].as_str().unwrap_or(""))).fold(vec![], |mut v: Vec<String>, c| { if !v.contains(&c) { v.push(c); } v });
         answer = q2.iter().map(|x| format!("From \"{}\" ({}):\n{}", x["title"].as_str().unwrap_or(""), x["source"].as_str().unwrap_or(""), x["text"].as_str().unwrap_or(""))).collect::<Vec<_>>().join("\n\n");
         if !commands.is_empty() { answer += &format!("\n\nCommands from these notes:\n{}", commands.iter().map(|c| format!("  {c}")).collect::<Vec<_>>().join("\n")); }
