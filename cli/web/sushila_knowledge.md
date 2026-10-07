@@ -102,8 +102,7 @@ the page or with `sushila mode <pack> standard|accelerated`.
 ## What speed to expect
 The speedups measured for the paper (same computer, same prompts): Llama-3.3-70B 4.05x over vanilla Ollama on an A100
 (through Sushila's NVIDIA serving path); on a regular computer with llama.cpp, the engine-level gains are about
-1.1-1.3x, and 2x or more for 70B models with a small draft model. Images on an NVIDIA GPU: under a second for a
-768x768 image with the 4-bit kernels. Video: a 5-second 720p clip takes about 15 minutes on an RTX 4090 in Standard
+1.1-1.3x, and 2x or more for 70B models with a small draft model. Images on an NVIDIA GPU with the 4-bit kernels: about 0.9 s for a 768x768 image on a desktop RTX 4090 (0.7 s on an RTX 5090); on GPUs with less than 18 GB (laptops, 8-12 GB cards) much longer, often half a minute, because the 4B text encoder and the image model are moved between system and GPU memory for every image; Accelerated (768x768, 6 steps) is the faster setting there. Video: a 5-second 720p clip takes about 15 minutes on an RTX 4090 in Standard
 and about 9 minutes in Accelerated. Music: a 60-second ACE-Step song takes about 4-5 seconds on an RTX 4090. Measure
 your own computer with `sushila bench <pack>`.
 

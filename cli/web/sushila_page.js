@@ -473,7 +473,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         sw.classList.toggle('turbo', !!m && m.mode === 'turbo'); sw.classList.toggle('none', !m);
         b.disabled = !m || !local || (b.dataset.mode === 'turbo' && !can);
       });
-      sw.title = !m ? '' : !local ? 'Only the computer running the model can switch modes.' : can && m.kind === 'image' ? 'Accelerated: 768x768 in 6 steps on Nunchaku 4-bit kernels (under a second on an RTX 4090); Standard: the published 1024x1024, 8 steps.' : can ? 'Accelerated uses this model\'s precomputed Sushila files (landscape, draft model); Standard runs the plain model, as Ollama does.'
+      sw.title = !m ? '' : !local ? 'Only the computer running the model can switch modes.' : can && m.kind === 'image' ? 'Accelerated: 768x768 in 6 steps on Nunchaku 4-bit kernels (0.9 s on a desktop RTX 4090; GPUs with less than 18 GB, such as laptop GPUs, are much slower, because parts of the model are moved between system and GPU memory for each image). Standard: the published 1024x1024, 8 steps.' : can ? 'Accelerated uses this model\'s precomputed Sushila files (landscape, draft model); Standard runs the plain model, as Ollama does.'
         : 'This model has no precomputed Sushila files yet, so it runs Standard (the plain model, as Ollama runs it).';
     }
     async function switchMode(mode) {
