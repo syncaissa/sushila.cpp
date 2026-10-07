@@ -395,15 +395,17 @@ function page(env, user, models, packs = [], app = null, mode = 'home') {
         <button class="copy" data-copy="${m.sha256}" title="Copy sha256">sha256</button></td>
     </tr>`).join('');
 
-  // model packs for Sushila Host Station: the button opens the desktop app through its sushila:// link
+  // model packs: installed by sushila (the Sushila.cpp server) running on the visitor's computer. "Install" opens its
+  // page (http://localhost:8765/install/<pack>), which asks before installing; or the command; or the pack file
   const packRows = packs.map((p) => `
     <tr>
       <td><b>${esc(p.name)}</b>${(p.artifacts || []).length ? ' <span class="tag">precomputed</span>' : ''}<div class="sub">${esc(p.description || '')}</div></td>
       <td>${esc(p.category || '')}</td>
       <td class="num">${gb(p.files.reduce((a, f) => a + (f.bytes || 0), 0))}</td>
       <td>${p.licenseUrl ? `<a href="${esc(p.licenseUrl)}">${esc(p.license)}</a>` : esc(p.license)}</td>
-      <td class="act"><a class="btn small hsinstall" href="sushila://install-pack/${esc(p.id)}" data-name="${esc(p.name)}">Install in Host Station</a>
-        <a class="btn small ghost" href="/hoststation/pack/${esc(p.id)}.sushilapack" title="Save the pack to your Downloads folder; Host Station installs it from there">Download pack</a></td>
+      <td class="act"><a class="btn small" href="http://localhost:8765/install/${esc(p.id)}" target="_blank" rel="noopener" title="Opens Sushila on this computer (it must be running: sushila serve, or double-click sushila); it asks before installing">Install</a>
+        <button class="btn small ghost copycmd" data-cmd="sushila install ${esc(p.id)}" title="sushila install ${esc(p.id)}">Copy command</button>
+        <a class="btn small ghost" href="/hoststation/pack/${esc(p.id)}.sushilapack" title="One file with the whole pack: sushila install ${esc(p.id)}.sushilapack, or unpack it into the model-packs folder">Download pack</a></td>
     </tr>`).join('');
 
   const listedRows = LISTED.map((m) => `
@@ -588,14 +590,22 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
 
 <section id="packs">
   <h2>Model packs</h2>
-  <p class="lead">One click installs a model and its precomputed files (landscape, draft head) into <a href="/hoststation">Sushila Host Station</a>, the free desktop app for Windows, macOS and Linux. It then runs the model on your own computer and opens a chat page in your browser. Every pack is signed by Sushila and contains only data files; the app checks each file before using it.</p>
+  <p class="lead">A model pack is a model and its precomputed files (landscape, draft head), installed by <b>Sushila</b> on your own computer:
+  one program (<code>sushila</code>, <code>sushila.exe</code> on Windows) that runs the models and serves a web page for chat, code,
+  images, music and video. Every pack is signed by Sushila and contains only data files; Sushila checks each file before using it.</p>
+  <p class="sub">Three ways to add a pack, all the same result (a folder in <code>model-packs</code>):
+  <b>Install</b> opens Sushila on this computer (<code>http://localhost:8765</code>; start it first) and asks before installing ·
+  <b>Copy command</b> for a terminal (<code>sushila install &lt;pack&gt;</code>) · <b>Download pack</b>: one file, then
+  <code>sushila install &lt;file&gt;</code>, or unpack it into the <code>model-packs</code> folder (found within seconds, no restart).</p>
   ${packs.length ? `<div class="tablewrap"><table>
     <thead><tr><th>Pack</th><th>Kind</th><th class="num">Size</th><th>License</th><th></th></tr></thead>
     <tbody>${packRows}</tbody>
   </table></div>` : '<p class="note">The pack list is unavailable right now. Please try again shortly.</p>'}
-  <p class="row"><a class="btn ghost hsget" href="/hoststation">Get Sushila Host Station (free)</a> <span class="sub">New here? The button walks you through installing the app first, with a few clicks.</span></p>
   ${HS_WIZARD(app, packs)}
 </section>
+<script>document.querySelectorAll('.copycmd').forEach((b) => b.addEventListener('click', () => {
+  try { navigator.clipboard.writeText(b.dataset.cmd); const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = t; }, 1500); } catch (_) {}
+}));</script>
 
 
 <section id="api">

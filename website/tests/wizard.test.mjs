@@ -27,7 +27,10 @@ ok(/Music packs are coming soon/.test(d.getElementById('hswiz-body').textContent
 fire(d.querySelectorAll('#hswiz-body .pk')[1]); ok(d.querySelector('[data-a=sent]')?.getAttribute('href') === 'sushila://install-pack/qwen3-32b-q4km', 'picking a pack gives its install link');
 d.getElementById('hswiz').close(); fire(hero); click('[data-a=choose]'); ok(/Which model pack/.test(title()), '"I already have Host Station" jumps to the pack choice');
 d.getElementById('hswiz').close();
-fire(d.querySelector('.hsinstall')); await sleep(1900); ok(d.getElementById('hswiz').open && /Did Sushila Host Station open/.test(title()), 'a pack button that opens nothing asks first');
+const inst = [...d.querySelectorAll('#packs a.btn')].find((a) => a.textContent === 'Install');
+ok(inst && /^http:\/\/localhost:8765\/install\//.test(inst.getAttribute('href')), 'pack Install opens sushila on this computer (localhost:8765/install/<pack>)');
+ok([...d.querySelectorAll('#packs .copycmd')].every((b) => /^sushila install [\w.-]+$/.test(b.dataset.cmd)) && d.querySelectorAll('#packs .copycmd').length > 0, 'each pack has Copy command: sushila install <pack>');
+ok(!d.querySelector('#packs a[href^="sushila://"]'), 'no Host Station (sushila://) links in the pack list');
 // ---------- downloads: progress, pause, resume (Range), cancel, done -> install step
 const TOTAL = 400000; const ranges = []; let saved = null;
 w.URL.createObjectURL = () => 'blob:x'; w.HTMLAnchorElement.prototype.click = function () { if (this.download) saved = this.download; };

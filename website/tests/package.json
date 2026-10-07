@@ -1,1 +1,1 @@
-{ "name": "sushila-site-tests", "private": true, "type": "module", "scripts": { "test": "node wizard.test.mjs" }, "devDependencies": { "jsdom": "^24.0.0" } }
+{"name":"sushila-site-tests","private":true,"type":"module","scripts":{"test":"node wizard.test.mjs"},"devDependencies":{"jsdom":"^24.1.3"}}
