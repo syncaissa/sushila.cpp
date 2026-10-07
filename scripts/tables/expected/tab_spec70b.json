@@ -1,0 +1,231 @@
+{
+ "label": "tab:spec70b",
+ "source": "Paper/latex/paper.tex, table \\label{tab:spec70b} (caption: stock 22.1 tokens/s (22.0--22.3))",
+ "cells": [
+  {
+   "row": "Stock (caption)",
+   "col": "Tokens/s",
+   "paper": "22.1"
+  },
+  {
+   "row": "Stock (caption)",
+   "col": "Tokens/s min",
+   "paper": "22.0"
+  },
+  {
+   "row": "Stock (caption)",
+   "col": "Tokens/s max",
+   "paper": "22.1"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 8",
+   "col": "Tokens/s",
+   "paper": "57.4"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 8",
+   "col": "Tokens/s min",
+   "paper": "33.8"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 8",
+   "col": "Tokens/s max",
+   "paper": "81.4"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 8",
+   "col": "Speedup",
+   "paper": "2.60"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 8",
+   "col": "Speedup min",
+   "paper": "1.54"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 8",
+   "col": "Speedup max",
+   "paper": "3.68"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 8",
+   "col": "Accepted (%)",
+   "paper": "61"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 16",
+   "col": "Tokens/s",
+   "paper": "58.9"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 16",
+   "col": "Tokens/s min",
+   "paper": "27.9"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 16",
+   "col": "Tokens/s max",
+   "paper": "109.8"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 16",
+   "col": "Speedup",
+   "paper": "2.67"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 16",
+   "col": "Speedup min",
+   "paper": "1.27"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 16",
+   "col": "Speedup max",
+   "paper": "4.94"
+  },
+  {
+   "row": "Llama-3.2-1B (Q8_0), draft length 16",
+   "col": "Accepted (%)",
+   "paper": "45"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 8",
+   "col": "Tokens/s",
+   "paper": "54.5"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 8",
+   "col": "Tokens/s min",
+   "paper": "36.8"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 8",
+   "col": "Tokens/s max",
+   "paper": "71.5"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 8",
+   "col": "Speedup",
+   "paper": "2.47"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 8",
+   "col": "Speedup min",
+   "paper": "1.67"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 8",
+   "col": "Speedup max",
+   "paper": "3.22"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 8",
+   "col": "Accepted (%)",
+   "paper": "70"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 16",
+   "col": "Tokens/s",
+   "paper": "54.0"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 16",
+   "col": "Tokens/s min",
+   "paper": "29.6"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 16",
+   "col": "Tokens/s max",
+   "paper": "94.1"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 16",
+   "col": "Speedup",
+   "paper": "2.45"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 16",
+   "col": "Speedup min",
+   "paper": "1.35"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 16",
+   "col": "Speedup max",
+   "paper": "4.24"
+  },
+  {
+   "row": "Llama-3.2-3B (Q4_K_M), draft length 16",
+   "col": "Accepted (%)",
+   "paper": "52"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 8",
+   "col": "Tokens/s",
+   "paper": "41.5"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 8",
+   "col": "Tokens/s min",
+   "paper": "29.5"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 8",
+   "col": "Tokens/s max",
+   "paper": "58.3"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 8",
+   "col": "Speedup",
+   "paper": "1.88"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 8",
+   "col": "Speedup min",
+   "paper": "1.34"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 8",
+   "col": "Speedup max",
+   "paper": "2.64"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 8",
+   "col": "Accepted (%)",
+   "paper": "62"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 16",
+   "col": "Tokens/s",
+   "paper": "37.6"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 16",
+   "col": "Tokens/s min",
+   "paper": "23.6"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 16",
+   "col": "Tokens/s max",
+   "paper": "70.0"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 16",
+   "col": "Speedup",
+   "paper": "1.70"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 16",
+   "col": "Speedup min",
+   "paper": "1.07"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 16",
+   "col": "Speedup max",
+   "paper": "3.17"
+  },
+  {
+   "row": "Llama-3.1-8B (Q4_K_M), draft length 16",
+   "col": "Accepted (%)",
+   "paper": "45"
+  }
+ ]
+}

@@ -1,0 +1,101 @@
+{
+ "label": "tab:draftls",
+ "source": "Paper/latex/paper.tex, table \\label{tab:draftls} (caption: stock 19.9 tokens/s)",
+ "cells": [
+  {
+   "row": "Stock (caption)",
+   "col": "Tokens/s",
+   "paper": "19.9"
+  },
+  {
+   "row": "Full (no landscape)",
+   "col": "Bytes read (%)",
+   "paper": "100"
+  },
+  {
+   "row": "Full (no landscape)",
+   "col": "Draft ms/pass min",
+   "paper": "82"
+  },
+  {
+   "row": "Full (no landscape)",
+   "col": "Draft ms/pass max",
+   "paper": "89"
+  },
+  {
+   "row": "Full (no landscape)",
+   "col": "Speedup",
+   "paper": "0.95"
+  },
+  {
+   "row": "Full (no landscape)",
+   "col": "Speedup min",
+   "paper": "0.67"
+  },
+  {
+   "row": "Full (no landscape)",
+   "col": "Speedup max",
+   "paper": "1.06"
+  },
+  {
+   "row": "Landscape, 512-wide preview, 1,024 candidates",
+   "col": "Bytes read (%)",
+   "paper": "9.7"
+  },
+  {
+   "row": "Landscape, 512-wide preview, 1,024 candidates",
+   "col": "Draft ms/pass min",
+   "paper": "45"
+  },
+  {
+   "row": "Landscape, 512-wide preview, 1,024 candidates",
+   "col": "Draft ms/pass max",
+   "paper": "51"
+  },
+  {
+   "row": "Landscape, 512-wide preview, 1,024 candidates",
+   "col": "Speedup",
+   "paper": "1.18"
+  },
+  {
+   "row": "Landscape, 512-wide preview, 1,024 candidates",
+   "col": "Speedup min",
+   "paper": "0.81"
+  },
+  {
+   "row": "Landscape, 512-wide preview, 1,024 candidates",
+   "col": "Speedup max",
+   "paper": "1.34"
+  },
+  {
+   "row": "Landscape, 768-wide preview, 1,024 candidates",
+   "col": "Bytes read (%)",
+   "paper": "12.3"
+  },
+  {
+   "row": "Landscape, 768-wide preview, 1,024 candidates",
+   "col": "Draft ms/pass min",
+   "paper": "44"
+  },
+  {
+   "row": "Landscape, 768-wide preview, 1,024 candidates",
+   "col": "Draft ms/pass max",
+   "paper": "52"
+  },
+  {
+   "row": "Landscape, 768-wide preview, 1,024 candidates",
+   "col": "Speedup",
+   "paper": "1.21"
+  },
+  {
+   "row": "Landscape, 768-wide preview, 1,024 candidates",
+   "col": "Speedup min",
+   "paper": "0.83"
+  },
+  {
+   "row": "Landscape, 768-wide preview, 1,024 candidates",
+   "col": "Speedup max",
+   "paper": "1.35"
+  }
+ ]
+}

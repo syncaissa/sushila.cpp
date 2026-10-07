@@ -1,0 +1,96 @@
+{
+ "label": "tab:speed",
+ "source": "Paper/latex/paper.tex, table \\label{tab:speed}",
+ "cells": [
+  {
+   "row": "Stock engine (tokens/s)",
+   "col": "1",
+   "paper": "36.7"
+  },
+  {
+   "row": "Stock engine (tokens/s)",
+   "col": "2",
+   "paper": "54.8"
+  },
+  {
+   "row": "Stock engine (tokens/s)",
+   "col": "4",
+   "paper": "102.6"
+  },
+  {
+   "row": "Stock engine (tokens/s)",
+   "col": "8",
+   "paper": "145.5"
+  },
+  {
+   "row": "Stock engine (tokens/s)",
+   "col": "16",
+   "paper": "203.4"
+  },
+  {
+   "row": "Stock engine (tokens/s)",
+   "col": "32",
+   "paper": "240.5"
+  },
+  {
+   "row": "Landscape, 8-bit preview",
+   "col": "1",
+   "paper": "1.13"
+  },
+  {
+   "row": "Landscape, 8-bit preview",
+   "col": "2",
+   "paper": "1.18"
+  },
+  {
+   "row": "Landscape, 8-bit preview",
+   "col": "4",
+   "paper": "1.15"
+  },
+  {
+   "row": "Landscape, 8-bit preview",
+   "col": "8",
+   "paper": "1.26"
+  },
+  {
+   "row": "Landscape, 8-bit preview",
+   "col": "16",
+   "paper": "1.05"
+  },
+  {
+   "row": "Landscape, 8-bit preview",
+   "col": "32",
+   "paper": "1.09"
+  },
+  {
+   "row": "Landscape, 4-bit preview",
+   "col": "1",
+   "paper": "1.11"
+  },
+  {
+   "row": "Landscape, 4-bit preview",
+   "col": "2",
+   "paper": "1.17"
+  },
+  {
+   "row": "Landscape, 4-bit preview",
+   "col": "4",
+   "paper": "1.14"
+  },
+  {
+   "row": "Landscape, 4-bit preview",
+   "col": "8",
+   "paper": "1.03"
+  },
+  {
+   "row": "Landscape, 4-bit preview",
+   "col": "16",
+   "paper": "1.07"
+  },
+  {
+   "row": "Landscape, 4-bit preview",
+   "col": "32",
+   "paper": "1.13"
+  }
+ ]
+}

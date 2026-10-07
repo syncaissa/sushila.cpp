@@ -1,0 +1,106 @@
+{
+ "label": "tab:cpu70b",
+ "source": "Paper/latex/paper.tex, table \\label{tab:cpu70b}",
+ "cells": [
+  {
+   "row": "Stock",
+   "col": "Tokens/s",
+   "paper": "2.72"
+  },
+  {
+   "row": "Stock",
+   "col": "Tokens/s min",
+   "paper": "2.69"
+  },
+  {
+   "row": "Stock",
+   "col": "Tokens/s max",
+   "paper": "2.75"
+  },
+  {
+   "row": "Stock",
+   "col": "Speedup",
+   "paper": "1.00"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 4",
+   "col": "Tokens/s",
+   "paper": "6.22"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 4",
+   "col": "Tokens/s min",
+   "paper": "5.54"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 4",
+   "col": "Tokens/s max",
+   "paper": "6.47"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 4",
+   "col": "Speedup",
+   "paper": "2.29"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 4",
+   "col": "Speedup min",
+   "paper": "2.06"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 4",
+   "col": "Speedup max",
+   "paper": "2.36"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 4",
+   "col": "Accepted min (%)",
+   "paper": "76"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 4",
+   "col": "Accepted max (%)",
+   "paper": "92"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 8",
+   "col": "Tokens/s",
+   "paper": "4.63"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 8",
+   "col": "Tokens/s min",
+   "paper": "3.13"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 8",
+   "col": "Tokens/s max",
+   "paper": "5.15"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 8",
+   "col": "Speedup",
+   "paper": "1.71"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 8",
+   "col": "Speedup min",
+   "paper": "1.16"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 8",
+   "col": "Speedup max",
+   "paper": "1.87"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 8",
+   "col": "Accepted min (%)",
+   "paper": "51"
+  },
+  {
+   "row": "Llama-3.2-1B, draft length 8",
+   "col": "Accepted max (%)",
+   "paper": "90"
+  }
+ ]
+}

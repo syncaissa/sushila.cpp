@@ -1,0 +1,366 @@
+{
+ "label": "tab:dayzero",
+ "source": "Paper/latex/paper.tex, table \\label{tab:dayzero} (rows and caption: stock 89.8 / 33.8 tokens/s; 21 = 15 Dolly + 6 other, 23 = 17 + 6)",
+ "cells": [
+  {
+   "row": "Llama-3.1-8B: SGLang alone",
+   "col": "Tokens/s",
+   "paper": "89.8"
+  },
+  {
+   "row": "Llama-3.1-8B: SGLang alone",
+   "col": "reported prompts",
+   "paper": "21"
+  },
+  {
+   "row": "Llama-3.1-8B: SGLang alone",
+   "col": "reported Dolly",
+   "paper": "15"
+  },
+  {
+   "row": "Llama-3.1-8B: SGLang alone",
+   "col": "reported other",
+   "paper": "6"
+  },
+  {
+   "row": "Llama-3.3-70B: SGLang alone",
+   "col": "Tokens/s",
+   "paper": "33.8"
+  },
+  {
+   "row": "Llama-3.3-70B: SGLang alone",
+   "col": "reported prompts",
+   "paper": "23"
+  },
+  {
+   "row": "Llama-3.3-70B: SGLang alone",
+   "col": "reported Dolly",
+   "paper": "17"
+  },
+  {
+   "row": "Llama-3.3-70B: SGLang alone",
+   "col": "reported other",
+   "paper": "6"
+  },
+  {
+   "row": "Llama-3.1-8B: Published (lmsys)",
+   "col": "Speedup",
+   "paper": "1.86"
+  },
+  {
+   "row": "Llama-3.1-8B: Published (lmsys)",
+   "col": "Speedup min",
+   "paper": "0.93"
+  },
+  {
+   "row": "Llama-3.1-8B: Published (lmsys)",
+   "col": "Speedup max",
+   "paper": "2.29"
+  },
+  {
+   "row": "Llama-3.1-8B: Published (lmsys)",
+   "col": "Tokens/s",
+   "paper": "162"
+  },
+  {
+   "row": "Llama-3.1-8B: Published (lmsys)",
+   "col": "All 26 (median)",
+   "paper": "1.84"
+  },
+  {
+   "row": "Llama-3.1-8B: Published (lmsys)",
+   "col": "Held-out Dolly",
+   "paper": "1.87"
+  },
+  {
+   "row": "Llama-3.1-8B: Published (lmsys)",
+   "col": "Other",
+   "paper": "1.85"
+  },
+  {
+   "row": "Llama-3.1-8B: Published (lmsys)",
+   "col": "Tokens/pass",
+   "paper": "3.3"
+  },
+  {
+   "row": "Llama-3.1-8B: Precomputed (ours)",
+   "col": "Speedup",
+   "paper": "2.29"
+  },
+  {
+   "row": "Llama-3.1-8B: Precomputed (ours)",
+   "col": "Speedup min",
+   "paper": "1.07"
+  },
+  {
+   "row": "Llama-3.1-8B: Precomputed (ours)",
+   "col": "Speedup max",
+   "paper": "2.92"
+  },
+  {
+   "row": "Llama-3.1-8B: Precomputed (ours)",
+   "col": "Tokens/s",
+   "paper": "195"
+  },
+  {
+   "row": "Llama-3.1-8B: Precomputed (ours)",
+   "col": "All 26 (median)",
+   "paper": "2.23"
+  },
+  {
+   "row": "Llama-3.1-8B: Precomputed (ours)",
+   "col": "Held-out Dolly",
+   "paper": "2.29"
+  },
+  {
+   "row": "Llama-3.1-8B: Precomputed (ours)",
+   "col": "Other",
+   "paper": "2.28"
+  },
+  {
+   "row": "Llama-3.1-8B: Precomputed (ours)",
+   "col": "Tokens/pass",
+   "paper": "4.0"
+  },
+  {
+   "row": "Llama-3.3-70B: Published (lmsys)",
+   "col": "Speedup",
+   "paper": "1.93"
+  },
+  {
+   "row": "Llama-3.3-70B: Published (lmsys)",
+   "col": "Speedup min",
+   "paper": "0.95"
+  },
+  {
+   "row": "Llama-3.3-70B: Published (lmsys)",
+   "col": "Speedup max",
+   "paper": "2.59"
+  },
+  {
+   "row": "Llama-3.3-70B: Published (lmsys)",
+   "col": "Tokens/s",
+   "paper": "64.1"
+  },
+  {
+   "row": "Llama-3.3-70B: Published (lmsys)",
+   "col": "All 26 (median)",
+   "paper": "2.02"
+  },
+  {
+   "row": "Llama-3.3-70B: Published (lmsys)",
+   "col": "Held-out Dolly",
+   "paper": "1.86"
+  },
+  {
+   "row": "Llama-3.3-70B: Published (lmsys)",
+   "col": "Other",
+   "paper": "2.16"
+  },
+  {
+   "row": "Llama-3.3-70B: Published (lmsys)",
+   "col": "Tokens/pass",
+   "paper": "3.5"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000 ans.",
+   "col": "Speedup",
+   "paper": "2.27"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000 ans.",
+   "col": "Speedup min",
+   "paper": "1.04"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000 ans.",
+   "col": "Speedup max",
+   "paper": "2.95"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000 ans.",
+   "col": "Tokens/s",
+   "paper": "73.2"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000 ans.",
+   "col": "All 26 (median)",
+   "paper": "2.36"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000 ans.",
+   "col": "Held-out Dolly",
+   "paper": "2.27"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000 ans.",
+   "col": "Other",
+   "paper": "2.56"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000 ans.",
+   "col": "Tokens/pass",
+   "paper": "4.1"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000, 16-tok.",
+   "col": "Speedup",
+   "paper": "2.50"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000, 16-tok.",
+   "col": "Speedup min",
+   "paper": "1.15"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000, 16-tok.",
+   "col": "Speedup max",
+   "paper": "3.05"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000, 16-tok.",
+   "col": "Tokens/s",
+   "paper": "78.7"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000, 16-tok.",
+   "col": "All 26 (median)",
+   "paper": "2.47"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000, 16-tok.",
+   "col": "Held-out Dolly",
+   "paper": "2.35"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000, 16-tok.",
+   "col": "Other",
+   "paper": "2.61"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 1,000, 16-tok.",
+   "col": "Tokens/pass",
+   "paper": "3.5"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000 ans.",
+   "col": "Speedup",
+   "paper": "2.26"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000 ans.",
+   "col": "Speedup min",
+   "paper": "1.00"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000 ans.",
+   "col": "Speedup max",
+   "paper": "2.89"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000 ans.",
+   "col": "Tokens/s",
+   "paper": "70.3"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000 ans.",
+   "col": "All 26 (median)",
+   "paper": "2.26"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000 ans.",
+   "col": "Held-out Dolly",
+   "paper": "2.16"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000 ans.",
+   "col": "Other",
+   "paper": "2.38"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000 ans.",
+   "col": "Tokens/pass",
+   "paper": "3.9"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000, 16-tok.",
+   "col": "Speedup",
+   "paper": "2.36"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000, 16-tok.",
+   "col": "Speedup min",
+   "paper": "1.20"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000, 16-tok.",
+   "col": "Speedup max",
+   "paper": "2.87"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000, 16-tok.",
+   "col": "Tokens/s",
+   "paper": "75.5"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000, 16-tok.",
+   "col": "All 26 (median)",
+   "paper": "2.36"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000, 16-tok.",
+   "col": "Held-out Dolly",
+   "paper": "2.28"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000, 16-tok.",
+   "col": "Other",
+   "paper": "2.46"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomputed, 6,000, 16-tok.",
+   "col": "Tokens/pass",
+   "paper": "3.4"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomp., 2,000 (chosen), 16-tok.",
+   "col": "Speedup",
+   "paper": "2.29"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomp., 2,000 (chosen), 16-tok.",
+   "col": "Speedup min",
+   "paper": "1.13"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomp., 2,000 (chosen), 16-tok.",
+   "col": "Speedup max",
+   "paper": "3.04"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomp., 2,000 (chosen), 16-tok.",
+   "col": "Tokens/s",
+   "paper": "77.4"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomp., 2,000 (chosen), 16-tok.",
+   "col": "All 26 (median)",
+   "paper": "2.35"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomp., 2,000 (chosen), 16-tok.",
+   "col": "Held-out Dolly",
+   "paper": "2.25"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomp., 2,000 (chosen), 16-tok.",
+   "col": "Other",
+   "paper": "2.61"
+  },
+  {
+   "row": "Llama-3.3-70B: Precomp., 2,000 (chosen), 16-tok.",
+   "col": "Tokens/pass",
+   "paper": "3.4"
+  }
+ ]
+}

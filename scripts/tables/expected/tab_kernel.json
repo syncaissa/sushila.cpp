@@ -1,0 +1,106 @@
+{
+ "label": "tab:kernel",
+ "source": "Paper/latex/paper.tex, table \\label{tab:kernel}",
+ "cells": [
+  {
+   "row": "Stock (vector kernel to 8)",
+   "col": "B=1",
+   "paper": "6.67"
+  },
+  {
+   "row": "Stock (vector kernel to 8)",
+   "col": "B=4",
+   "paper": "10.97"
+  },
+  {
+   "row": "Stock (vector kernel to 8)",
+   "col": "B=5",
+   "paper": "13.05"
+  },
+  {
+   "row": "Stock (vector kernel to 8)",
+   "col": "B=6",
+   "paper": "13.98"
+  },
+  {
+   "row": "Stock (vector kernel to 8)",
+   "col": "B=8",
+   "paper": "18.55"
+  },
+  {
+   "row": "Stock (vector kernel to 8)",
+   "col": "B=16",
+   "paper": "14.98"
+  },
+  {
+   "row": "Ours (vector kernel to 4)",
+   "col": "B=1",
+   "paper": "6.69"
+  },
+  {
+   "row": "Ours (vector kernel to 4)",
+   "col": "B=4",
+   "paper": "10.73"
+  },
+  {
+   "row": "Ours (vector kernel to 4)",
+   "col": "B=5",
+   "paper": "10.73"
+  },
+  {
+   "row": "Ours (vector kernel to 4)",
+   "col": "B=6",
+   "paper": "11.19"
+  },
+  {
+   "row": "Ours (vector kernel to 4)",
+   "col": "B=8",
+   "paper": "11.44"
+  },
+  {
+   "row": "Ours (vector kernel to 4)",
+   "col": "B=16",
+   "paper": "14.12"
+  },
+  {
+   "row": "Tree: stock switch",
+   "col": "5-token chain",
+   "paper": "1.00"
+  },
+  {
+   "row": "Tree: stock switch",
+   "col": "7-token chain",
+   "paper": "0.86"
+  },
+  {
+   "row": "Tree: stock switch",
+   "col": "7-token tree",
+   "paper": "0.95"
+  },
+  {
+   "row": "Tree: stock switch",
+   "col": "32-token tree",
+   "paper": "0.89"
+  },
+  {
+   "row": "Tree: ours",
+   "col": "5-token chain",
+   "paper": "1.14"
+  },
+  {
+   "row": "Tree: ours",
+   "col": "7-token chain",
+   "paper": "1.25"
+  },
+  {
+   "row": "Tree: ours",
+   "col": "7-token tree",
+   "paper": "1.30"
+  },
+  {
+   "row": "Tree: ours",
+   "col": "32-token tree",
+   "paper": "1.06"
+  }
+ ]
+}

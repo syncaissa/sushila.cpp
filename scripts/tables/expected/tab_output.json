@@ -1,0 +1,23 @@
+{"label": "tab:output", "source": "Paper/latex/paper.tex, table \\label{tab:output}",
+ "cells": [
+  {"row": "Full output layer (stock)", "col": "Llama-3.1-8B Top-1", "paper": "100"},
+  {"row": "Full output layer (stock)", "col": "Llama-3.1-8B Read", "paper": "100"},
+  {"row": "Full output layer (stock)", "col": "Qwen2.5-7B Top-1", "paper": "100"},
+  {"row": "Full output layer (stock)", "col": "Qwen2.5-7B Read", "paper": "100"},
+  {"row": "Exact pruning (Cauchy-Schwarz)", "col": "Llama-3.1-8B Top-1", "paper": "100"},
+  {"row": "Exact pruning (Cauchy-Schwarz)", "col": "Llama-3.1-8B Read", "paper": "97.3"},
+  {"row": "Exact pruning (Cauchy-Schwarz)", "col": "Qwen2.5-7B Top-1", "paper": "100"},
+  {"row": "Exact pruning (Cauchy-Schwarz)", "col": "Qwen2.5-7B Read", "paper": "95.9"},
+  {"row": "SVD-softmax, best at <=30% read", "col": "Llama-3.1-8B Top-1", "paper": "97.4"},
+  {"row": "SVD-softmax, best at <=30% read", "col": "Llama-3.1-8B Read", "paper": "29.1"},
+  {"row": "SVD-softmax, best at <=30% read", "col": "Qwen2.5-7B Top-1", "paper": "72.9"},
+  {"row": "SVD-softmax, best at <=30% read", "col": "Qwen2.5-7B Read", "paper": "29.3"},
+  {"row": "Bound landscape (99.8% quantile)", "col": "Llama-3.1-8B Top-1", "paper": "99.8"},
+  {"row": "Bound landscape (99.8% quantile)", "col": "Llama-3.1-8B Read", "paper": "25.8"},
+  {"row": "Bound landscape (99.8% quantile)", "col": "Qwen2.5-7B Top-1", "paper": "99.7"},
+  {"row": "Bound landscape (99.8% quantile)", "col": "Qwen2.5-7B Read", "paper": "28.8"},
+  {"row": "Preview landscape (4-bit preview)", "col": "Llama-3.1-8B Top-1", "paper": "99.9"},
+  {"row": "Preview landscape (4-bit preview)", "col": "Llama-3.1-8B Read", "paper": "12.7"},
+  {"row": "Preview landscape (4-bit preview)", "col": "Qwen2.5-7B Top-1", "paper": "99.95"},
+  {"row": "Preview landscape (4-bit preview)", "col": "Qwen2.5-7B Read", "paper": "14.7"}
+ ]}

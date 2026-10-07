@@ -1,0 +1,96 @@
+{
+ "label": "tab:confirm",
+ "source": "Paper/latex/paper.tex, table \\label{tab:confirm} (caption: rank 128, 99.8% quantile, 2,000 tokens per cell)",
+ "cells": [
+  {
+   "row": "Llama-3.1-8B (landscape)",
+   "col": "quantile used (%)",
+   "paper": "99.8"
+  },
+  {
+   "row": "Qwen2.5-7B (landscape)",
+   "col": "quantile used (%)",
+   "paper": "99.8"
+  },
+  {
+   "row": "Llama-3.1-8B WikiText-2",
+   "col": "Tokens",
+   "paper": "2,000"
+  },
+  {
+   "row": "Llama-3.1-8B WikiText-2",
+   "col": "Top-1 (%)",
+   "paper": "99.8"
+  },
+  {
+   "row": "Llama-3.1-8B WikiText-2",
+   "col": "Misses",
+   "paper": "4"
+  },
+  {
+   "row": "Llama-3.1-8B WikiText-2",
+   "col": "Read (%)",
+   "paper": "25.0"
+  },
+  {
+   "row": "Llama-3.1-8B C4",
+   "col": "Tokens",
+   "paper": "2,000"
+  },
+  {
+   "row": "Llama-3.1-8B C4",
+   "col": "Top-1 (%)",
+   "paper": "99.9"
+  },
+  {
+   "row": "Llama-3.1-8B C4",
+   "col": "Misses",
+   "paper": "2"
+  },
+  {
+   "row": "Llama-3.1-8B C4",
+   "col": "Read (%)",
+   "paper": "25.8"
+  },
+  {
+   "row": "Qwen2.5-7B WikiText-2",
+   "col": "Tokens",
+   "paper": "2,000"
+  },
+  {
+   "row": "Qwen2.5-7B WikiText-2",
+   "col": "Top-1 (%)",
+   "paper": "100.0"
+  },
+  {
+   "row": "Qwen2.5-7B WikiText-2",
+   "col": "Misses",
+   "paper": "1"
+  },
+  {
+   "row": "Qwen2.5-7B WikiText-2",
+   "col": "Read (%)",
+   "paper": "28.8"
+  },
+  {
+   "row": "Qwen2.5-7B C4",
+   "col": "Tokens",
+   "paper": "2,000"
+  },
+  {
+   "row": "Qwen2.5-7B C4",
+   "col": "Top-1 (%)",
+   "paper": "99.7"
+  },
+  {
+   "row": "Qwen2.5-7B C4",
+   "col": "Misses",
+   "paper": "6"
+  },
+  {
+   "row": "Qwen2.5-7B C4",
+   "col": "Read (%)",
+   "paper": "27.7"
+  }
+ ]
+}

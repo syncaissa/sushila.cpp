@@ -1,0 +1,78 @@
+{
+ "label": "tab:moe",
+ "source": "Paper/latex/paper.tex, table \\label{tab:moe}; speed from Section 'Mixture-of-Experts Models', paragraph 'Measured speed' (1.11--1.14x at 8, 16 and 32 threads)",
+ "cells": [
+  {
+   "row": "Stock (8 experts per token)",
+   "col": "Expert bytes read (%)",
+   "paper": "100"
+  },
+  {
+   "row": "Stock (8 experts per token)",
+   "col": "Perplexity",
+   "paper": "7.540"
+  },
+  {
+   "row": "6 of 8 experts",
+   "col": "Expert bytes read (%)",
+   "paper": "75"
+  },
+  {
+   "row": "6 of 8 experts",
+   "col": "Perplexity",
+   "paper": "7.548"
+  },
+  {
+   "row": "8 experts, 70% of neurons in each",
+   "col": "Expert bytes read (%)",
+   "paper": "70"
+  },
+  {
+   "row": "8 experts, 70% of neurons in each",
+   "col": "Perplexity",
+   "paper": "7.552"
+  },
+  {
+   "row": "8 experts, 50% of neurons in each",
+   "col": "Expert bytes read (%)",
+   "paper": "50"
+  },
+  {
+   "row": "8 experts, 50% of neurons in each",
+   "col": "Perplexity",
+   "paper": "7.578"
+  },
+  {
+   "row": "8 experts, 30% of neurons in each",
+   "col": "Expert bytes read (%)",
+   "paper": "30"
+  },
+  {
+   "row": "8 experts, 30% of neurons in each",
+   "col": "Perplexity",
+   "paper": "7.689"
+  },
+  {
+   "row": "6 of 8 experts, 70% of neurons",
+   "col": "Expert bytes read (%)",
+   "paper": "53"
+  },
+  {
+   "row": "6 of 8 experts, 70% of neurons",
+   "col": "Perplexity",
+   "paper": "7.535"
+  },
+  {
+   "row": "MoE speed, 6 of 8 experts (text)",
+   "col": "lowest",
+   "paper": "1.11",
+   "where": "text"
+  },
+  {
+   "row": "MoE speed, 6 of 8 experts (text)",
+   "col": "highest",
+   "paper": "1.14",
+   "where": "text"
+  }
+ ]
+}

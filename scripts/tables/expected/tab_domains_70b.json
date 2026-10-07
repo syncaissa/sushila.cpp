@@ -1,0 +1,211 @@
+{
+ "label": "tab:domains_70b",
+ "source": "Paper/latex/paper.tex, table \\label{tab:domains_70b} (rows and caption token counts)",
+ "cells": [
+  {
+   "row": "held-out tokens",
+   "col": "Prose",
+   "paper": "1,793"
+  },
+  {
+   "row": "held-out tokens",
+   "col": "Web",
+   "paper": "1,793"
+  },
+  {
+   "row": "held-out tokens",
+   "col": "Code",
+   "paper": "1,569"
+  },
+  {
+   "row": "held-out tokens",
+   "col": "Chat",
+   "paper": "1,345"
+  },
+  {
+   "row": "held-out tokens",
+   "col": "Multiling.",
+   "paper": "1,345"
+  },
+  {
+   "row": "W=768, N=4096, prose only",
+   "col": "Read",
+   "paper": "11.1"
+  },
+  {
+   "row": "W=768, N=4096, prose only",
+   "col": "Prose",
+   "paper": "99.83"
+  },
+  {
+   "row": "W=768, N=4096, prose only",
+   "col": "Web",
+   "paper": "99.72"
+  },
+  {
+   "row": "W=768, N=4096, prose only",
+   "col": "Code",
+   "paper": "91.33"
+  },
+  {
+   "row": "W=768, N=4096, prose only",
+   "col": "Chat",
+   "paper": "99.70"
+  },
+  {
+   "row": "W=768, N=4096, prose only",
+   "col": "Multiling.",
+   "paper": "99.33"
+  },
+  {
+   "row": "W=768, N=4096, mixed",
+   "col": "Read",
+   "paper": "11.1"
+  },
+  {
+   "row": "W=768, N=4096, mixed",
+   "col": "Prose",
+   "paper": "99.67"
+  },
+  {
+   "row": "W=768, N=4096, mixed",
+   "col": "Web",
+   "paper": "99.72"
+  },
+  {
+   "row": "W=768, N=4096, mixed",
+   "col": "Code",
+   "paper": "99.55"
+  },
+  {
+   "row": "W=768, N=4096, mixed",
+   "col": "Chat",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=768, N=4096, mixed",
+   "col": "Multiling.",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1024, N=4096, prose only",
+   "col": "Read",
+   "paper": "13.7"
+  },
+  {
+   "row": "W=1024, N=4096, prose only",
+   "col": "Prose",
+   "paper": "99.94"
+  },
+  {
+   "row": "W=1024, N=4096, prose only",
+   "col": "Web",
+   "paper": "99.89"
+  },
+  {
+   "row": "W=1024, N=4096, prose only",
+   "col": "Code",
+   "paper": "94.39"
+  },
+  {
+   "row": "W=1024, N=4096, prose only",
+   "col": "Chat",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1024, N=4096, prose only",
+   "col": "Multiling.",
+   "paper": "99.78"
+  },
+  {
+   "row": "W=1024, N=4096, mixed",
+   "col": "Read",
+   "paper": "13.7"
+  },
+  {
+   "row": "W=1024, N=4096, mixed",
+   "col": "Prose",
+   "paper": "99.83"
+  },
+  {
+   "row": "W=1024, N=4096, mixed",
+   "col": "Web",
+   "paper": "99.83"
+  },
+  {
+   "row": "W=1024, N=4096, mixed",
+   "col": "Code",
+   "paper": "99.81"
+  },
+  {
+   "row": "W=1024, N=4096, mixed",
+   "col": "Chat",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1024, N=4096, mixed",
+   "col": "Multiling.",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1536, N=8192, prose only",
+   "col": "Read",
+   "paper": "22.2"
+  },
+  {
+   "row": "W=1536, N=8192, prose only",
+   "col": "Prose",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1536, N=8192, prose only",
+   "col": "Web",
+   "paper": "99.94"
+  },
+  {
+   "row": "W=1536, N=8192, prose only",
+   "col": "Code",
+   "paper": "98.47"
+  },
+  {
+   "row": "W=1536, N=8192, prose only",
+   "col": "Chat",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1536, N=8192, prose only",
+   "col": "Multiling.",
+   "paper": "99.41"
+  },
+  {
+   "row": "W=1536, N=8192, mixed",
+   "col": "Read",
+   "paper": "22.2"
+  },
+  {
+   "row": "W=1536, N=8192, mixed",
+   "col": "Prose",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1536, N=8192, mixed",
+   "col": "Web",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1536, N=8192, mixed",
+   "col": "Code",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1536, N=8192, mixed",
+   "col": "Chat",
+   "paper": "100.0"
+  },
+  {
+   "row": "W=1536, N=8192, mixed",
+   "col": "Multiling.",
+   "paper": "100.0"
+  }
+ ]
+}
