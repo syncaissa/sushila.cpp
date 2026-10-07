@@ -2146,7 +2146,7 @@ const HOST_PACKS = [
       ['weights/vae/wan2.2_vae.safetensors', 'wan2.2_vae.safetensors', 'vae']],
     serve: { engine: 'image', model: 'Wan2.2-TI2V-5B-Q8_0.gguf',
       args: ['--diffusion-model', '{pack}/Wan2.2-TI2V-5B-Q8_0.gguf', '--t5xxl', '{pack}/umt5-xxl-encoder-Q8_0.gguf', '--vae', '{pack}/wan2.2_vae.safetensors', '--diffusion-fa', '--offload-to-cpu'],
-      // Accelerated: Sushila's precomputed cache plan for this model (EasyCache 0.2: 1.45x on held-out prompts, frame SSIM 0.91)
+      // Accelerated: Sushila's precomputed cache plan for this model (EasyCache 0.2: 1.62x median at 1280x704, 50 steps, frame SSIM 0.93)
       turboRequest: { cache_mode: 'easycache', cache_option: 'threshold=0.2' } } },
   { id: 'ace-step-15', category: 'Music', kind: 'music', name: 'ACE-Step 1.5 (songs from lyrics and a style)', model: 'precomputed/ace-step-15', minRamGB: 12,
     description: 'Full songs with vocals from your lyrics and a style description (stereo 48 kHz MP3), up to several minutes; 8-step turbo model with the 4B song-writing model. Runs on GPUs with 8 GB+, slower on CPU.',
@@ -2376,7 +2376,7 @@ ${product('chatgen', 'sushilaChatGen.cpp', 'Sushila ChatGen', 'A private assista
 ${product('codegen', 'sushilaCodeGen.cpp', 'Sushila CodeGen', 'Write programs in many languages, locally: Qwen3-Coder 30B-A3B with 24 GB+ of memory (Qwen2.5-Coder 7B otherwise). Answers show code blocks with a Copy button.')}
 ${product('imagegen', 'sushilaImageGen.cpp', 'Sushila ImageGen', 'Pictures from a sentence: it installs Sushila.cpp and Z-Image-Turbo (the fast Accelerated pack on NVIDIA RTX cards: a 768x768 image in under a second on an RTX 4090), starts it, and makes a first image ("Two bears dancing in a forest near a river") with a Download button.')}
 ${product('musicgen', 'sushilaMusicGen.cpp', 'Sushila MusicGen', 'Songs from lyrics and a style: it installs Sushila.cpp and ACE-Step 1.5, starts it, and makes a first song. Then type <b>1. Lyrics</b> and <b>2. Style</b> and press <b>Generate</b>: a full song with vocals, with a Download button.')}
-${product('videogen', 'sushilaVideoGen.cpp', 'Sushila VideoGen', 'Short videos from a sentence or a start picture: it installs Sushila.cpp and Wan 2.2 TI2V-5B (Apache-2.0), starts it, and makes a first clip. A 5-second 832x480 video takes about 110 seconds on an RTX 4090 in Standard, and Accelerated (our precomputed cache plan) is about 1.45x faster; 24 GB+ of memory recommended. Every finished clip has a Download button, and long jobs can run in the background queue.')}
+${product('videogen', 'sushilaVideoGen.cpp', 'Sushila VideoGen', 'Short videos from a sentence or a start picture: it installs Sushila.cpp and Wan 2.2 TI2V-5B (Apache-2.0), starts it, and makes a first clip. A 5-second 1280x704 video with the settings Wan recommends (50 steps) takes about 15 minutes on an RTX 4090 in Standard, and Accelerated (our precomputed cache plan) is about 1.6x faster (889 s against 549 s, median of 5 prompts); 24 GB+ of memory recommended. Every finished clip has a Download button, and long jobs can run in the background queue.')}
 
 <h2>Install, then four clicks</h2>
 <ol>
