@@ -3,9 +3,9 @@
 **Summary (2026-10-06).** Sushila.cpp vs the usual local baseline: chat and coding models vs vanilla Ollama on one A100
 (160 unseen prompts): Llama-3.3-70B 4.05x, R1-Distill-Llama-70B 3.64x, Kimi-Dev-72B 3.56x, Qwen3-32B 3.14x,
 Qwen3-Coder-30B-A3B 1.80x, Qwen3-30B-A3B 1.65x, Llama-3.1-8B (16-bit) 1.55x, Gemma 3 27B 1.22x -> **average 2.58x
-(geometric mean 2.35x)**. With Qwen2.5-0.5B (landscape, CPU) 1.26x, Z-Image 1.10x and ACE-Step music 1.27x: **average
-over all 11 models 2.20x (geometric 1.96x)**. Wan 2.2 video is being re-measured: its 1.45x used sampling settings
-that gave poor video (`video_quality_20261007/`). In progress: YuE 3.73x (exact runner). Out of scope: Qwen3-235B-A22B (heads slower).
+(geometric mean 2.35x)**. With Qwen2.5-0.5B (landscape, CPU) 1.26x, Z-Image 1.10x, Wan 2.2 video 1.65x and ACE-Step music 1.27x: **average
+over all 12 models 2.16x (geometric 1.93x)**. Wan 2.2 was measured again with Wan's own sampling settings (50 steps,
+guidance 5, shift 5) at 720p: 892 s -> 542 s per 5 s clip, frame SSIM 0.93 (`video_quality_20261007/`). In progress: YuE 3.73x (exact runner). Out of scope: Qwen3-235B-A22B (heads slower).
 
 One folder per run, named `<UTC timestamp>_<model>_<mode>/`:
 
@@ -48,7 +48,7 @@ Each holds `summary.md` (speeds, steps, bootstrap intervals, GSM8K accuracy, loa
 | `cache_plan_zimage_20261006/` | **ours**: precomputed cache plan for Z-Image (sd.cpp, every computer) | held-out 1.10x, SSIM 0.978 |
 | `video_wan22_ti2v5b_20261006.json` | Wan 2.2 TI2V-5B video on an RTX 4090 (VideoGen, not released) | 480p 2 s 53 s; 480p 5 s 108 s; 720p 5 s 561 s (VAE decode 313 s) |
 | `cache_plan_wan_20261006/` | **ours**: precomputed cache plan for Wan 2.2 video | held-out 1.45x, frame SSIM 0.91: **superseded**, measured with poor sampling settings |
-| `video_quality_20261007/` | why the Wan samples were bad | 20 steps / cfg 6 / shift 3 gave noise; 30 / 5 / 5 fixes it; video packs keep offloading |
+| `video_quality_20261007/` | why the Wan samples were bad, and the corrected measurement | 20 steps / cfg 6 / shift 3 gave noise; Wan's 50 / 5 / 5 matches Wan's official pipeline; **cache plan 1.65x at 720p, SSIM 0.93** (5 prompts); samples: files.sushila.ai/public/temp/video-samples-720p-v3-20261007/ |
 | `music_spec_20261006/` | **MusicGen Accelerated**: Sushila fast sampler in acestep.cpp (exact); draft LMs, music draft head, DiT reuse (all measured, off) | 60 s song 5.16 -> 4.05 s (1.27x); code decode 1.52x; head 24% acceptance (not used) |
 | `music_acestep_split_20261006/` | ACE-Step 1.5 (MusicGen) time split, RTX 4090 | 60 s song 7.5 s; its 4B LM is 60% (draft head / landscape could apply) |
 | `turbo_text_draft_20261006/` | small draft models for Accelerated text in sushila.cpp | slower for every pack except Qwen3-32B on GPU (1.30x): Accelerated stays off |

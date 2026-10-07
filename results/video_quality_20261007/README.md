@@ -32,4 +32,16 @@ falls back to tiled decoding, and once crashed (502). The 2026-10-06 change that
 GPU when they fit left only 12 GB for it. Fix: video packs always keep `--offload-to-cpu` (`cli/src/core.rs`). With
 offload and the right settings (E4) the tiled decode looks fine.
 
-The samples are being regenerated with the fix (`temp/video-samples-720p-v2-20261007/`).
+## Corrected measurement (Wan's own settings, 50 steps, guidance 5, shift 5, 1280x704x121, offloaded decode)
+30 steps were enough at 832x480 but murky at 720p (`v2`), so the default is Wan's 50 steps. The official Wan pipeline
+(diffusers, bf16, VAE in float32 with tiling) on the bears prompt: 536 s, quality like ours (`E4`, 934 s). Our 10 samples,
+`temp/video-samples-720p-v3-20261007/` (README.txt there): all five prompts correct in both modes.
+
+| Prompt | Standard s | Accelerated s | SSIM |
+|---|---:|---:|---:|
+| bears | 906 | 549 | 0.904 |
+| balloon | 889 | 521 | 0.952 |
+| cat | 889 | 557 | 0.911 |
+| ocean | 885 | 529 | 0.939 |
+| city | 893 | 553 | 0.938 |
+| **mean** | **892** | **542 (1.65x)** | **0.929** |
