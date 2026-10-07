@@ -44,7 +44,7 @@ not change.
 | Qwen3-235B-A22B (out of scope) | 2× A100 80GB PCIe | 500 GB |
 | Images, video, music (lab) | 1× RTX 4090 24 GB (RTX 5090 for the FP4 image row) | 80 GB |
 | Images at production settings | 1× L40S 48 GB (any 48 GB GPU) | not recorded |
-| Video at production settings (pending) | 1× A100 80GB | not recorded |
+| Video at production settings | 1× A100 80GB | ~4 h for both clips (≈$7) |
 | Landscapes, MoE, Monte Carlo ladder | CPU pod, 32 vCPU, 64–128 GB RAM (8B ladder: 16 vCPU is enough) | 30 GB (100 GB for 70B) |
 | llama.cpp CPU runs on 70B and 8B | the 30-thread AMD EPYC 7763 of an A100 pod | 250 GB |
 
@@ -102,7 +102,7 @@ being prepared.
 | Clarity proxy (Sections "Beyond Text" and "Production") | Share of audio energy above 4 kHz | `python3 scripts/music/yue/audio_clarity.py <label=mp3> ...` | any | seconds | lab: official bf16 6.28%, ours bf16 6.67%, float32 6.97%; full: 6.57%, 5.99%, 6.21% | on the same files: equal to the printed digits | `results/yue_samesong_20261007/README.md` |
 | ACE-Step 1.5 (Tables 3 and 16; Section "Beyond Text") | Faster top-p sampler, 60 s songs | `W=/workspace/music REPO=$PWD bash scripts/music/run_music_spec.sh` (build, pack), then `W=/workspace/music REPO=$PWD bash scripts/music/run_music_eval.sh` (see Known gaps) | RTX 4090 | ~3 h for all music work | codes 3.02 → 1.99 s (1.52×); song writing 4.40 → 3.29 s; whole song 5.16 → 4.05 s (1.27×) | whole-song speedup within 10% | `results/music_spec_20261006/` (`eval/`) |
 | Table 26 (`tab:prodimg`) | Z-Image at production settings, bf16 vs 4-bit kernels | `W=/workspace/zprod bash scripts/image/bench_zimage_production.sh` | 1× L40S 48 GB | ~1 h | 1.72×, 1.65×, 1.54×, 1.34× (768²–2048²); 2048² peak 30.9 vs 22.6 GB; MUSIQ 0.3–1.9 lower; CLIP equal or higher | speedups within 10%; Sushila's 2048² peak below 24 GB; MUSIQ gap ≤ 2 points | `results/zimage_production_20261007/` |
-| Video at production settings (Section "Production", marked pending) | Wan 2.2 A14B at 720p, with and without the plan | `W=/root/w bash scripts/video/run_wan_a14b.sh setup`, then `... smoke`, then `... run [N]` | 1× A100 80GB | ~2.6 h per Standard clip | pending: not in the paper yet | – | not yet published |
+| Video at production settings (Section "Production") | Wan 2.2 A14B at 720p, with and without the plan | `W=/root/w bash scripts/video/run_wan_a14b.sh setup`, then `... smoke`, then `... run 1`; `bash scripts/video/video_similarity.sh $W/out/run-0-standard.webm $W/out/run-0-accelerated.webm $W/out`; `python3 scripts/video/summarize_wan_a14b.py $W/out` | 1× A100 80GB | ~2.7 h Standard + 1.2 h Accelerated | 2.28× whole clip (2.37× sampling); frame SSIM 0.80 | speedup within 10%; SSIM ≥ 0.75 | `results/wan_a14b_20261007/` |
 | Qwen3-235B-A22B (Table 3, last row; Section "Mixture-of-Experts") | Out of scope: heads slow it | `cd scripts/precompute && W=/workspace/sushila bash run_model.sh models/qwen3-235b-a22b.env` (not in `retest.sh`) | 2× A100 80GB PCIe, 500 GB | ~6 h (+2.5 h smoke) | SGLang alone 1.25× Ollama (57.8 vs 46.1 tok/s); published head 32.1, ours 33.6 tok/s; GSM8K 90 vs 89% | ratios within 10%; heads slower than SGLang alone | `results/qwen3-235b-a22b_20261005/` |
 | Table 29 (`tab:compute`) | Hardware and hours per model | none: accounting from our pod logs | – | – | – | – | `Paper/WORKLOG.md` (authors) |
 | Table 30 (`tab:day0times`) and the Qwen2.5-0.5B day-0 run | Time of each day-0 step; one unattended run | `scripts/day0_landscape.sh qwen2.5-0.5b-q4km`. 70B build time: research script `pod_70b_v2.sh` | 0.5B: 2 CPU cores; 70B: 32 cores | ~19 min (0.5B) | 0.5B: build 14–21 s, selection 1.4 min; chose W=224, N=4,096; gate passed, top-1 99.67–100%, 17.6% read. 70B: dumps 4.7 min, build 2 min | same setting chosen; gate passes; times of the same order | manifest: `files.sushila.ai/public/precomputed/qwen2.5-0.5b-q4km/landscape/manifest.json`; 70B: `results/research/results_70b_20261003/buildtime.log` |
@@ -198,7 +198,7 @@ These results cannot yet be rerun from this repository alone, or need something 
    `run_music_spec.sh` and `bench_draft_turbo.sh` restore packs with `scripts/precompute/b2_save.py`, which needs
    `~/.b2_key`. The same pack files are public at `https://files.sushila.ai/public/precomputed/<pack>/` (list:
    `scripts/public_catalog_keys.txt`), but the scripts do not download from there yet.
-6. **Video at production settings.** Wan 2.2 A14B (`run_wan_a14b.sh`) is still running; the paper marks it pending.
+6. **Video at production settings.** Done (2.28×, SSIM 0.80); the threshold was not recalibrated for A14B, and the 4–8-step distilled workflows were not measured.
 7. **Table 29 (compute)** is accounting, not a measurement; it has no script.
 8. **Single runs.** Images, video and music were measured once per prompt (YuE: one song, one seed). Expect run-to-run
    noise; the 10% rule allows for it.

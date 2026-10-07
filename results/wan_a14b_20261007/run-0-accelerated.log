@@ -1,0 +1,76 @@
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 81151 MiB):
+  Device 0: NVIDIA A100-SXM4-80GB, compute capability 8.0, VMM: yes, VRAM: 81151 MiB
+[INFO   ] diffusion_engine.cpp:732  - loading diffusion model from '/root/w/models/LowNoise/Wan2.2-T2V-A14B-LowNoise-Q8_0.gguf'
+[INFO   ] model_loader.cpp:215  - load /root/w/models/LowNoise/Wan2.2-T2V-A14B-LowNoise-Q8_0.gguf using gguf format
+[INFO   ] diffusion_engine.cpp:739  - loading high noise diffusion model from '/root/w/models/HighNoise/Wan2.2-T2V-A14B-HighNoise-Q8_0.gguf'
+[INFO   ] model_loader.cpp:215  - load /root/w/models/HighNoise/Wan2.2-T2V-A14B-HighNoise-Q8_0.gguf using gguf format
+[INFO   ] diffusion_engine.cpp:774  - loading t5xxl from '/root/w/models/umt5-xxl-encoder-Q8_0.gguf'
+[INFO   ] model_loader.cpp:215  - load /root/w/models/umt5-xxl-encoder-Q8_0.gguf using gguf format
+[INFO   ] diffusion_engine.cpp:803  - loading vae from '/root/w/models/split_files/vae/wan_2.1_vae.safetensors'
+[INFO   ] model_loader.cpp:221  - load /root/w/models/split_files/vae/wan_2.1_vae.safetensors using safetensors format
+[INFO   ] diffusion_engine.cpp:995  - Version: Wan 2.x 
+[INFO   ] backend_fit.cpp:323  - auto-fit plan:
+[INFO   ] backend_fit.cpp:324  -   devices:
+[INFO   ] backend_fit.cpp:326  -     CUDA0        NVIDIA A100-SXM4-80GB            free  80726 MiB, budget  80214 MiB
+[INFO   ] backend_fit.cpp:333  -     RAM          free 1979500 MiB, params budget 1781550 MiB
+[INFO   ] backend_fit.cpp:336  -   compute-device weight cache priority: diffusion > te > vae
+[INFO   ] backend_fit.cpp:337  -   components (params: compute device -> RAM -> other GPU -> disk):
+[INFO   ] backend_fit.cpp:346  -     DiT          params  14691 MiB, compute reserve  2048 MiB -> compute CUDA0, params CUDA0
+[INFO   ] backend_fit.cpp:346  -     Conditioner  params   5757 MiB, compute reserve  2048 MiB -> compute CUDA0, params CUDA0
+[INFO   ] backend_fit.cpp:346  -     VAE          params    242 MiB, compute reserve  1024 MiB -> compute CUDA0, params CUDA0
+[INFO   ] backend_fit.cpp:474  - auto-fit: --backend "diffusion=CUDA0,te=CUDA0,vae=CUDA0"
+[INFO   ] diffusion_engine.cpp:1522 - Weight type stat:                      f32: 75   |     f16: 1388 |    q8_0: 969  |    bf16: 194  
+[INFO   ] diffusion_engine.cpp:1523 - Conditioner weight type stat:          f32: 73   |    q8_0: 169  
+[INFO   ] diffusion_engine.cpp:1524 - Diffusion model weight type stat:      f32: 1    |     f16: 694  |    q8_0: 400  
+[INFO   ] diffusion_engine.cpp:1525 - VAE weight type stat:                 bf16: 194  
+[INFO   ] wan.hpp:967  - Wan2.x-T2V-14B
+[INFO   ] wan.hpp:967  - Wan2.x-T2V-14B
+[INFO   ] model_builders.cpp:625  - using VAE for encoding / decoding
+[INFO   ] diffusion_engine.cpp:1202 - Using flash attention in the diffusion model
+[INFO   ] diffusion_engine.cpp:1327 - total params memory size = 35399.18MB (VRAM 35399.18MB, RAM 0.00MB): text_encoders 5757.05MB(VRAM), diffusion_model 29400.04MB(VRAM), vae 242.10MB(VRAM), controlnet 0.00MB(N/A), extensions 0.00MB(N/A)
+[INFO   ] diffusion_engine.cpp:1466 - running in FLOW mode
+[INFO   ] denoiser.hpp:1129 - get_sigmas with discrete scheduler
+[INFO   ] request.cpp:420  - sampling using Euler method
+[INFO   ] request.cpp:425  - sampling(high noise) using Euler method
+[INFO   ] ggml_graph_cut.cpp:1032 - t5 build cached graph cut plan done (taking 1 ms)
+  |#####################################             | 176/242 - 1.90GB/s[K  |########################################          | 193/242 - 1.23GB/s[K  |##################################################| 242/242 - 3.26GB/s[K
+[INFO   ] model_loader.cpp:1378 - loading tensors completed, taking 1.73s (read: 0.04s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 0.37s)
+[INFO   ] video.cpp:1212 - get_learned_condition completed, taking 2.20s
+[INFO   ] video.cpp:1612 - generate_video 1280x720x81
+[INFO   ] sample-cache.cpp:63   - EasyCache enabled - threshold: 0.200, start: 0.15, end: 0.95
+[INFO   ] ggml_graph_cut.cpp:1032 - Wan2.x-T2V-14B build cached graph cut plan done (taking 7 ms)
+  |################                                  | 337/1095 - 489.81MB/s[K  |#################                                 | 351/1095 - 1.01GB/s[K  |###################                               | 409/1095 - 3.33GB/s[K  |#######################                           | 483/1095 - 5.59GB/s[K  |############################                      | 612/1095 - 6.86GB/s[K  |###################################               | 763/1095 - 7.30GB/s[K  |#########################################         | 893/1095 - 7.47GB/s[K  |###############################################   | 1023/1095 - 7.69GB/s[K  |##################################################| 1095/1095 - 4.74GB/s[K
+[INFO   ] model_loader.cpp:1378 - loading tensors completed, taking 3.03s (read: 0.07s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 1.36s)
+  |==>                                               | 1/25 - 237.07s/it[K  |====>                                             | 2/25 - 233.80s/it[K  |======>                                           | 3/25 - 233.89s/it[K  |========>                                         | 4/25 - 234.03s/it[K  |==========>                                       | 5/25 - 233.88s/it[K  |============>                                     | 6/25 - 233.90s/it[K  |==============>                                   | 7/25 - 234.06s/it[K  |================>                                 | 8/25 - 233.98s/it[K  |==================>                               | 9/25 - 9.61it/s[K  |====================>                             | 10/25 - 18.94it/s[K  |======================>                           | 11/25 - 11.30it/s[K  |========================>                         | 12/25 - 233.93s/it[K  |==========================>                       | 13/25 - 9.04it/s[K  |============================>                     | 14/25 - 16.60it/s[K  |==============================>                   | 15/25 - 9.83it/s[K  |================================>                 | 16/25 - 19.84it/s[K  |==================================>               | 17/25 - 234.11s/it[K  |====================================>             | 18/25 - 15.29it/s[K  |======================================>           | 19/25 - 11.33it/s[K  |========================================>         | 20/25 - 20.30it/s[K  |==========================================>       | 21/25 - 11.06it/s[K  |============================================>     | 22/25 - 234.01s/it[K  |==============================================>   | 23/25 - 9.88it/s[K  |================================================> | 24/25 - 21.80it/s[K  |==================================================| 25/25 - 11.69it/s[K
+[INFO   ] sample-cache.cpp:319  - EasyCache skipped 14/25 steps (2.27x estimated speedup)
+[INFO   ] video.cpp:1671 - sampling(high noise) completed, taking 2577.84s
+[INFO   ] sample-cache.cpp:63   - EasyCache enabled - threshold: 0.200, start: 0.15, end: 0.95
+[INFO   ] ggml_graph_cut.cpp:1032 - Wan2.x-T2V-14B build cached graph cut plan done (taking 7 ms)
+  |#############                                     | 275/1095 - 1.78GB/s[K  |###############                                   | 314/1095 - 1.50GB/s[K  |#################                                 | 369/1095 - 3.76GB/s[K  |#####################                             | 445/1095 - 4.97GB/s[K  |##########################                        | 566/1095 - 5.41GB/s[K  |################################                  | 682/1095 - 5.76GB/s[K  |#####################################             | 789/1095 - 5.84GB/s[K  |#########################################         | 880/1095 - 6.07GB/s[K  |#############################################     | 977/1095 - 6.14GB/s[K  |##################################################| 1092/1095 - 6.21GB/s[K  |##################################################| 1095/1095 - 4.71GB/s[K
+[INFO   ] model_loader.cpp:1378 - loading tensors completed, taking 3.05s (read: 0.05s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 1.79s)
+  |===>                                              | 1/15 - 237.06s/it[K  |======>                                           | 2/15 - 233.96s/it[K  |==========>                                       | 3/15 - 8.74it/s[K  |=============>                                    | 4/15 - 23.66it/s[K  |================>                                 | 5/15 - 10.92it/s[K  |====================>                             | 6/15 - 22.57it/s[K  |=======================>                          | 7/15 - 234.02s/it[K  |==========================>                       | 8/15 - 15.15it/s[K  |==============================>                   | 9/15 - 11.00it/s[K  |=================================>                | 10/15 - 19.41it/s[K  |====================================>             | 11/15 - 234.05s/it[K  |========================================>         | 12/15 - 15.05it/s[K  |===========================================>      | 13/15 - 11.46it/s[K  |==============================================>   | 14/15 - 233.90s/it[K  |==================================================| 15/15 - 233.92s/it[K
+[INFO   ] sample-cache.cpp:319  - EasyCache skipped 9/15 steps (2.50x estimated speedup)
+[INFO   ] video.cpp:1712 - sampling completed, taking 1407.63s
+[INFO   ] video.cpp:1856 - generating latent video completed, taking 3985.73s
+[INFO   ] ggml_graph_cut.cpp:1032 - wan_vae build cached graph cut plan done (taking 14 ms)
+[WARN   ] model_manager.cpp:1749 - model manager memory on CUDA0: reported free 44346.94 MB / total 81151.75 MB, tracked weights 35157.09 MB / other runtime 0.00 MB / current runtime 0.00 MB
+[WARN   ] model_manager.cpp:1914 - model manager cannot make enough memory available on CUDA0: need 46223.14 MB device / 45711.14 MB budget, available 44346.94 MB device / 45057.85 MB budget
+[ERROR  ] ggml_runner.cpp:898  - wan_vae segment 1/1 (graph) failed during weight preparation
+[ERROR  ] vae.hpp:344  - vae decode compute failed
+[WARN   ] backend_fit.cpp:522  - VAE decode ran out of memory; retrying with temporal tiling
+[INFO   ] ggml_graph_cut.cpp:1032 - wan_vae build cached graph cut plan done (taking 2 ms)
+[WARN   ] model_manager.cpp:1749 - model manager memory on CUDA0: reported free 44346.94 MB / total 81151.75 MB, tracked weights 35157.09 MB / other runtime 0.00 MB / current runtime 0.00 MB
+[WARN   ] model_manager.cpp:1914 - model manager cannot make enough memory available on CUDA0: need 50258.73 MB device / 49746.73 MB budget, available 44346.94 MB device / 45057.85 MB budget
+[ERROR  ] ggml_runner.cpp:898  - wan_vae segment 1/1 (graph) failed during weight preparation
+[ERROR  ] vae.hpp:344  - vae decode compute failed
+[WARN   ] backend_fit.cpp:517  - Reducing VAE decode tiles from 1280x720 to 256x256 image pixels
+[WARN   ] backend_fit.cpp:522  - VAE decode ran out of memory; retrying with spatial+temporal tiling
+[INFO   ] ggml_graph_cut.cpp:1032 - wan_vae build cached graph cut plan done (taking 3 ms)
+  |##################################################| 108/108 - 1.66GB/s[K
+[INFO   ] model_loader.cpp:1378 - loading tensors completed, taking 0.08s (read: 0.00s, memcpy: 0.00s, convert: 0.01s, copy_to_backend: 0.00s)
+[INFO   ] ggml_graph_cut.cpp:1032 - wan_vae build cached graph cut plan done (taking 3 ms)
+[INFO   ] ggml_graph_cut.cpp:1032 - wan_vae build cached graph cut plan done (taking 2 ms)
+  |=>                                                | 1/36 - 7.59s/it[K  |==>                                               | 2/36 - 7.17s/it[K  |====>                                             | 3/36 - 7.18s/it[K  |=====>                                            | 4/36 - 7.42s/it[K  |======>                                           | 5/36 - 7.51s/it[K  |========>                                         | 6/36 - 7.49s/it[K  |=========>                                        | 7/36 - 7.42s/it[K  |===========>                                      | 8/36 - 6.96s/it[K  |============>                                     | 9/36 - 6.96s/it[K  |=============>                                    | 10/36 - 7.07s/it[K  |===============>                                  | 11/36 - 7.12s/it[K  |================>                                 | 12/36 - 6.98s/it[K  |==================>                               | 13/36 - 7.08s/it[K  |===================>                              | 14/36 - 7.04s/it[K  |====================>                             | 15/36 - 7.11s/it[K  |======================>                           | 16/36 - 6.90s/it[K  |=======================>                          | 17/36 - 6.90s/it[K  |=========================>                        | 18/36 - 6.97s/it[K  |==========================>                       | 19/36 - 7.06s/it[K  |===========================>                      | 20/36 - 6.99s/it[K  |=============================>                    | 21/36 - 7.12s/it[K  |==============================>                   | 22/36 - 7.02s/it[K  |===============================>                  | 23/36 - 7.16s/it[K  |=================================>                | 24/36 - 6.92s/it[K  |==================================>               | 25/36 - 7.03s/it[K  |====================================>             | 26/36 - 7.29s/it[K  |=====================================>            | 27/36 - 7.03s/it[K  |======================================>           | 28/36 - 7.25s/it[K  |========================================>         | 29/36 - 7.33s/it[K  |=========================================>        | 30/36 - 7.03s/it[K  |===========================================>      | 31/36 - 7.39s/it[K  |============================================>     | 32/36 - 7.21s/it[K  |=============================================>    | 33/36 - 7.33s/it[K  |===============================================>  | 34/36 - 7.16s/it[K  |================================================> | 35/36 - 7.41s/it[K  |==================================================| 36/36 - 7.08s/it[K
+[INFO   ] video.cpp:1243 - decode_first_stage completed, taking 276.14s
+[INFO   ] video.cpp:1944 - generate_video completed in 4264.63s
+[INFO   ] main.cpp:547  - save result video to '/root/w/out/run-0-accelerated.webm'

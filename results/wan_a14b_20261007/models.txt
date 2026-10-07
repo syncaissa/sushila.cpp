@@ -1,0 +1,8 @@
+QuantStack/Wan2.2-T2V-A14B-GGUF @73eafba53a1a8f29254e4c77f92e74ea27d7cd6f HighNoise/Wan2.2-T2V-A14B-HighNoise-Q8_0.gguf
+QuantStack/Wan2.2-T2V-A14B-GGUF @73eafba53a1a8f29254e4c77f92e74ea27d7cd6f HighNoise/Wan2.2-T2V-A14B-HighNoise-Q8_0.gguf
+QuantStack/Wan2.2-T2V-A14B-GGUF @73eafba53a1a8f29254e4c77f92e74ea27d7cd6f LowNoise/Wan2.2-T2V-A14B-LowNoise-Q8_0.gguf
+city96/umt5-xxl-encoder-gguf @b535255bee98c2b0a59ea7c0ae2dcd0c6657b3b7 umt5-xxl-encoder-Q8_0.gguf
+Comfy-Org/Wan_2.1_ComfyUI_repackaged @123acf1cc74bccbb9bfff8ac1ee72edc08c2341d split_files/vae/wan_2.1_vae.safetensors
+QuantStack/Wan2.2-T2V-A14B-GGUF @73eafba53a1a8f29254e4c77f92e74ea27d7cd6f LowNoise/Wan2.2-T2V-A14B-LowNoise-Q8_0.gguf
+city96/umt5-xxl-encoder-gguf @b535255bee98c2b0a59ea7c0ae2dcd0c6657b3b7 umt5-xxl-encoder-Q8_0.gguf
+Comfy-Org/Wan_2.1_ComfyUI_repackaged @123acf1cc74bccbb9bfff8ac1ee72edc08c2341d split_files/vae/wan_2.1_vae.safetensors

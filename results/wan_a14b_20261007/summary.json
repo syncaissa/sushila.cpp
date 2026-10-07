@@ -1,0 +1,28 @@
+{
+ "settings": "1280x720, 81 frames (16 fps), 40 euler steps (25 high-noise + 15 low-noise, boundary 0.875), cfg 4.0/3.0, shift 12, seed 42, Q8_0; Accelerated = EasyCache threshold 0.2",
+ "gpu": "NVIDIA A100-SXM4-80GB",
+ "standard": {
+  "wall_s": 9747.2,
+  "high_noise_sampling_s": 5942.69,
+  "low_noise_sampling_s": 3511.6,
+  "vae_decode_s": 277.63,
+  "generate_video_s": 9735.07,
+  "cache_skipped_steps": []
+ },
+ "accelerated": {
+  "wall_s": 4277.3,
+  "high_noise_sampling_s": 2577.84,
+  "low_noise_sampling_s": 1407.63,
+  "vae_decode_s": 276.14,
+  "generate_video_s": 4264.63,
+  "cache_skipped_steps": [
+   "14/25",
+   "9/15"
+  ]
+ },
+ "speedup_wall": 2.28,
+ "speedup_sampling": 2.37,
+ "ssim_frames": 81,
+ "ssim_mean": 0.7965,
+ "ssim_min": 0.7888
+}

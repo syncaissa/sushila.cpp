@@ -1,0 +1,20 @@
+[13:01:00] build failed: /root/w/out/build.log
+[13:12:11] build failed: /root/w/out/build.log
+[13:16:44] sd-cli: /root/w/sdbuild/bin/sd-cli (sd.cpp 3f8527a46c54ecf4cb4ed6003da8e8982283c73c)
+[13:17:22] sd-cli: /root/w/sdbuild/bin/sd-cli (sd.cpp 3f8527a46c54ecf4cb4ed6003da8e8982283c73c)
+[13:22:40] SETUP_DONE
+[13:22:53] SETUP_DONE
+NVIDIA A100-SXM4-80GB, 81920 MiB, 580.159.04
+[13:22:55] smoke-0-standard: Two bears dancing in a forest near a river, slow camera pan, warm golden light
+[13:28:32] smoke-0-standard: exit 0, 336.5 s
+[13:28:32] smoke-0-accelerated: Two bears dancing in a forest near a river, slow camera pan, warm golden light
+[13:31:23] smoke-0-accelerated: exit 0, 170.9 s
+[13:31:23] SMOKE_DONE
+NVIDIA A100-SXM4-80GB, 81920 MiB, 580.159.04
+[13:31:30] run-0-standard: Two bears dancing in a forest near a river, slow camera pan, warm golden light
+NVIDIA A100-SXM4-80GB, 81920 MiB, 580.159.04
+[16:19:18] run-0-standard: Two bears dancing in a forest near a river, slow camera pan, warm golden light
+[19:01:45] run-0-standard: exit 0, 9747.2 s
+[19:01:45] run-0-accelerated: Two bears dancing in a forest near a river, slow camera pan, warm golden light
+[20:13:03] run-0-accelerated: exit 0, 4277.3 s
+[20:13:03] RUN_DONE

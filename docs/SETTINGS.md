@@ -149,12 +149,23 @@ Raw results: `results/video_quality_20261007/`. Samples: `https://files.sushila.
 An earlier lab run used 20 steps, guidance 6 and flow shift 3, and gave poor video in both modes. It is documented in
 `results/video_quality_20261007/README.md` and is not used.
 
-### Production settings (⏳ being measured; needs an 80 GB GPU)
+### Production settings (✅ paper: 2.28×, frame SSIM 0.80; needs an 80 GB GPU)
 
-The run in progress: `scripts/video/run_wan_a14b.sh` (`setup`, `smoke`, `run [N]`) on one A100 80GB, Wan 2.2
-T2V-A14B with Wan's official A14B settings as set in the script (1280×720, 81 frames at 16 fps, 40 steps); about 2.6 h
-per Standard clip. The paper marks this result as pending. The table below is the plan.
+`scripts/video/run_wan_a14b.sh` (`setup`, `smoke`, `run 1`) on one A100 80GB, Wan 2.2 T2V-A14B with Wan's official
+A14B settings. Results (`results/wan_a14b_20261007/summary.json`, made by `scripts/video/summarize_wan_a14b.py` from
+the logs and from `video_similarity.sh standard.webm accelerated.webm`):
 
+| | Standard | Accelerated (cache plan) |
+|---|---|---|
+| High-noise sampling (25 steps) | 5,943 s | 2,578 s (14 of 25 steps skipped) |
+| Low-noise sampling (15 steps) | 3,512 s | 1,408 s (9 of 15 skipped) |
+| Video decode | 278 s | 276 s |
+| **Whole clip** | **9,747 s** | **4,277 s: 2.28×** (sampling 2.37×) |
+| Frame SSIM to Standard | – | mean 0.797, min 0.789 (81 frames) |
+
+The plan's threshold (0.2) comes from TI2V-5B and was not recalibrated for A14B, so the Accelerated clip shows the same
+scene and motion with different detail. Clips: `files.sushila.ai/public/temp/video-samples-20261007_higherRes/`.
+Each mode ran once (one prompt; each clip takes hours).
 
 | Setting | Value (exactly what `scripts/video/run_wan_a14b.sh run 1` does) |
 |---|---|
@@ -166,6 +177,7 @@ per Standard clip. The paper marks this result as pending. The table below is th
 | Standard / Accelerated | uncached / EasyCache threshold 0.2. This is the TI2V-5B pack's plan, reused and not recalibrated for A14B. |
 | Quality | frame SSIM to the uncached clip; side-by-side clips |
 | GPU | one A100 SXM 80 GB (about 238 s per step for Standard) |
+| Similarity and numbers | `bash scripts/video/video_similarity.sh out/run-0-standard.webm out/run-0-accelerated.webm out` then `python3 scripts/video/summarize_wan_a14b.py out` |
 | Not done | a 4–8-step distilled workflow, VBench scores (future work) |
 
 ---

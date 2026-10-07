@@ -1,0 +1,22 @@
+[
+ {
+  "tag": "run-0-accelerated",
+  "seconds": 4277.3,
+  "exit": 0
+ },
+ {
+  "tag": "run-0-standard",
+  "seconds": 9747.2,
+  "exit": 0
+ },
+ {
+  "tag": "smoke-0-accelerated",
+  "seconds": 170.9,
+  "exit": 0
+ },
+ {
+  "tag": "smoke-0-standard",
+  "seconds": 336.5,
+  "exit": 0
+ }
+]

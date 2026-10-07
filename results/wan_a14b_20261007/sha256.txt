@@ -1,0 +1,4 @@
+e15fecd4ce8f7effe1c4d9ab2c51d37b071bf3dd8b7f1b73e9fc27ac28f6820a  ./HighNoise/Wan2.2-T2V-A14B-HighNoise-Q8_0.gguf
+71574f62260f3ba305c31085c922a2b1b6672dbfdbe07717c066688ea56966fc  ./LowNoise/Wan2.2-T2V-A14B-LowNoise-Q8_0.gguf
+2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc  ./umt5-xxl-encoder-Q8_0.gguf
+2fc39d31359a4b0a64f55876d8ff7fa8d780956ae2cb13463b0223e15148976b  ./split_files/vae/wan_2.1_vae.safetensors

@@ -1,0 +1,56 @@
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 81151 MiB):
+  Device 0: NVIDIA A100-SXM4-80GB, compute capability 8.0, VMM: yes, VRAM: 81151 MiB
+[INFO   ] diffusion_engine.cpp:732  - loading diffusion model from '/root/w/models/LowNoise/Wan2.2-T2V-A14B-LowNoise-Q8_0.gguf'
+[INFO   ] model_loader.cpp:215  - load /root/w/models/LowNoise/Wan2.2-T2V-A14B-LowNoise-Q8_0.gguf using gguf format
+[INFO   ] diffusion_engine.cpp:739  - loading high noise diffusion model from '/root/w/models/HighNoise/Wan2.2-T2V-A14B-HighNoise-Q8_0.gguf'
+[INFO   ] model_loader.cpp:215  - load /root/w/models/HighNoise/Wan2.2-T2V-A14B-HighNoise-Q8_0.gguf using gguf format
+[INFO   ] diffusion_engine.cpp:774  - loading t5xxl from '/root/w/models/umt5-xxl-encoder-Q8_0.gguf'
+[INFO   ] model_loader.cpp:215  - load /root/w/models/umt5-xxl-encoder-Q8_0.gguf using gguf format
+[INFO   ] diffusion_engine.cpp:803  - loading vae from '/root/w/models/split_files/vae/wan_2.1_vae.safetensors'
+[INFO   ] model_loader.cpp:221  - load /root/w/models/split_files/vae/wan_2.1_vae.safetensors using safetensors format
+[INFO   ] diffusion_engine.cpp:995  - Version: Wan 2.x 
+[INFO   ] backend_fit.cpp:323  - auto-fit plan:
+[INFO   ] backend_fit.cpp:324  -   devices:
+[INFO   ] backend_fit.cpp:326  -     CUDA0        NVIDIA A100-SXM4-80GB            free  80726 MiB, budget  80214 MiB
+[INFO   ] backend_fit.cpp:333  -     RAM          free 1990774 MiB, params budget 1791697 MiB
+[INFO   ] backend_fit.cpp:336  -   compute-device weight cache priority: diffusion > te > vae
+[INFO   ] backend_fit.cpp:337  -   components (params: compute device -> RAM -> other GPU -> disk):
+[INFO   ] backend_fit.cpp:346  -     DiT          params  14691 MiB, compute reserve  2048 MiB -> compute CUDA0, params CUDA0
+[INFO   ] backend_fit.cpp:346  -     Conditioner  params   5757 MiB, compute reserve  2048 MiB -> compute CUDA0, params CUDA0
+[INFO   ] backend_fit.cpp:346  -     VAE          params    242 MiB, compute reserve  1024 MiB -> compute CUDA0, params CUDA0
+[INFO   ] backend_fit.cpp:474  - auto-fit: --backend "diffusion=CUDA0,te=CUDA0,vae=CUDA0"
+[INFO   ] diffusion_engine.cpp:1522 - Weight type stat:                      f32: 75   |     f16: 1388 |    q8_0: 969  |    bf16: 194  
+[INFO   ] diffusion_engine.cpp:1523 - Conditioner weight type stat:          f32: 73   |    q8_0: 169  
+[INFO   ] diffusion_engine.cpp:1524 - Diffusion model weight type stat:      f32: 1    |     f16: 694  |    q8_0: 400  
+[INFO   ] diffusion_engine.cpp:1525 - VAE weight type stat:                 bf16: 194  
+[INFO   ] wan.hpp:967  - Wan2.x-T2V-14B
+[INFO   ] wan.hpp:967  - Wan2.x-T2V-14B
+[INFO   ] model_builders.cpp:625  - using VAE for encoding / decoding
+[INFO   ] diffusion_engine.cpp:1202 - Using flash attention in the diffusion model
+[INFO   ] diffusion_engine.cpp:1327 - total params memory size = 35399.18MB (VRAM 35399.18MB, RAM 0.00MB): text_encoders 5757.05MB(VRAM), diffusion_model 29400.04MB(VRAM), vae 242.10MB(VRAM), controlnet 0.00MB(N/A), extensions 0.00MB(N/A)
+[INFO   ] diffusion_engine.cpp:1466 - running in FLOW mode
+[INFO   ] denoiser.hpp:1129 - get_sigmas with discrete scheduler
+[INFO   ] request.cpp:420  - sampling using Euler method
+[INFO   ] request.cpp:425  - sampling(high noise) using Euler method
+[INFO   ] ggml_graph_cut.cpp:1032 - t5 build cached graph cut plan done (taking 1 ms)
+  |##################################                | 164/242 - 846.27MB/s[K  |#########################################         | 194/242 - 1.27GB/s[K  |##################################################| 242/242 - 2.98GB/s[K
+[INFO   ] model_loader.cpp:1378 - loading tensors completed, taking 1.89s (read: 0.04s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 0.45s)
+[INFO   ] video.cpp:1212 - get_learned_condition completed, taking 2.40s
+[INFO   ] video.cpp:1612 - generate_video 832x480x17
+[INFO   ] ggml_graph_cut.cpp:1032 - Wan2.x-T2V-14B build cached graph cut plan done (taking 6 ms)
+  |############                                      | 244/1095 - 766.13MB/s[K  |#############                                     | 276/1095 - 700.46MB/s[K  |################                                  | 339/1095 - 2.65GB/s[K  |###################                               | 414/1095 - 3.89GB/s[K  |#######################                           | 489/1095 - 4.64GB/s[K  |##########################                        | 558/1095 - 4.85GB/s[K  |##############################                    | 656/1095 - 5.00GB/s[K  |###################################               | 760/1095 - 5.20GB/s[K  |########################################          | 866/1095 - 5.26GB/s[K  |############################################      | 956/1095 - 5.21GB/s[K  |################################################  | 1042/1095 - 5.41GB/s[K  |##################################################| 1095/1095 - 3.99GB/s[K
+[INFO   ] model_loader.cpp:1378 - loading tensors completed, taking 3.59s (read: 0.06s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 2.09s)
+  |==>                                               | 1/20 - 11.67s/it[K  |=====>                                            | 2/20 - 7.92s/it[K  |=======>                                          | 3/20 - 7.91s/it[K  |==========>                                       | 4/20 - 7.91s/it[K  |============>                                     | 5/20 - 7.89s/it[K  |===============>                                  | 6/20 - 7.89s/it[K  |=================>                                | 7/20 - 7.90s/it[K  |====================>                             | 8/20 - 7.92s/it[K  |======================>                           | 9/20 - 7.88s/it[K  |=========================>                        | 10/20 - 7.89s/it[K  |===========================>                      | 11/20 - 7.93s/it[K  |==============================>                   | 12/20 - 7.89s/it[K  |================================>                 | 13/20 - 7.88s/it[K  |===================================>              | 14/20 - 7.92s/it[K  |=====================================>            | 15/20 - 7.90s/it[K  |========================================>         | 16/20 - 7.89s/it[K  |==========================================>       | 17/20 - 7.90s/it[K  |=============================================>    | 18/20 - 7.90s/it[K  |===============================================>  | 19/20 - 7.90s/it[K  |==================================================| 20/20 - 7.90s/it[K
+[INFO   ] video.cpp:1671 - sampling(high noise) completed, taking 161.83s
+[INFO   ] ggml_graph_cut.cpp:1032 - Wan2.x-T2V-14B build cached graph cut plan done (taking 7 ms)
+  |###############                                   | 327/1095 - 858.38MB/s[K  |################                                  | 343/1095 - 503.73MB/s[K  |#################                                 | 352/1095 - 666.97MB/s[K  |###################                               | 410/1095 - 2.52GB/s[K  |######################                            | 467/1095 - 3.83GB/s[K  |##########################                        | 563/1095 - 4.68GB/s[K  |###############################                   | 665/1095 - 5.01GB/s[K  |####################################              | 782/1095 - 5.26GB/s[K  |##########################################        | 900/1095 - 5.50GB/s[K  |##############################################    | 998/1095 - 5.63GB/s[K  |##################################################| 1095/1095 - 4.60GB/s[K
+[INFO   ] model_loader.cpp:1378 - loading tensors completed, taking 3.12s (read: 0.07s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 1.83s)
+  |==>                                               | 1/20 - 11.05s/it[K  |=====>                                            | 2/20 - 7.91s/it[K  |=======>                                          | 3/20 - 7.91s/it[K  |==========>                                       | 4/20 - 7.91s/it[K  |============>                                     | 5/20 - 7.93s/it[K  |===============>                                  | 6/20 - 7.90s/it[K  |=================>                                | 7/20 - 7.91s/it[K  |====================>                             | 8/20 - 7.90s/it[K  |======================>                           | 9/20 - 7.89s/it[K  |=========================>                        | 10/20 - 7.90s/it[K  |===========================>                      | 11/20 - 7.89s/it[K  |==============================>                   | 12/20 - 7.90s/it[K  |================================>                 | 13/20 - 7.88s/it[K  |===================================>              | 14/20 - 7.90s/it[K  |=====================================>            | 15/20 - 7.91s/it[K  |========================================>         | 16/20 - 7.88s/it[K  |==========================================>       | 17/20 - 7.89s/it[K  |=============================================>    | 18/20 - 7.90s/it[K  |===============================================>  | 19/20 - 7.90s/it[K  |==================================================| 20/20 - 7.91s/it[K
+[INFO   ] video.cpp:1712 - sampling completed, taking 161.17s
+[INFO   ] video.cpp:1856 - generating latent video completed, taking 323.03s
+[INFO   ] ggml_graph_cut.cpp:1032 - wan_vae build cached graph cut plan done (taking 2 ms)
+  |##################################################| 108/108 - 1.98GB/s[K
+[INFO   ] model_loader.cpp:1378 - loading tensors completed, taking 0.07s (read: 0.00s, memcpy: 0.00s, convert: 0.01s, copy_to_backend: 0.00s)
+[INFO   ] video.cpp:1243 - decode_first_stage completed, taking 7.48s
+[INFO   ] video.cpp:1944 - generate_video completed in 332.96s
+[INFO   ] main.cpp:547  - save result video to '/root/w/out/smoke-0-standard.webm'
