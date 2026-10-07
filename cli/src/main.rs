@@ -272,7 +272,23 @@ async fn main() -> ExitCode {
     let mut ctx = match Ctx::load(data, cli.quiet) { Ok(c) => c, Err(e) => { eprintln!("error: {e}"); return ExitCode::from(1); } };
     match dispatch(&cli, &mut ctx).await {
         Ok(()) => ExitCode::SUCCESS,
-        Err(e) => { if cli.json { println!("{}", json!({ "ok": false, "error": e })); } else { eprintln!("error: {e}"); } ExitCode::from(1) }
+        Err(e) => {
+            if cli.json { println!("{}", json!({ "ok": false, "error": e })); } else { eprintln!("error: {e}"); }
+            // a serve worker that failed before it was serving (engine download, port busy): the supervisor must not retry
+            if std::env::var("SUSHILA_WORKER").is_ok() && !SERVING.load(std::sync::atomic::Ordering::SeqCst) { ExitCode::from(START_FAILED) } else { ExitCode::from(1) }
+        }
+    }
+}
+
+/// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
+const START_FAILED: u8 = 3;
+static SERVING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Double-click: the window closes when the program ends, so keep it open until the person has read the message.
+fn hold_window() {
+    if std::env::var("SUSHILA_DOUBLE_CLICK").is_ok() && std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        eprint!("\nPress Enter to close this window. ");
+        let mut l = String::new(); let _ = std::io::stdin().read_line(&mut l);
     }
 }
 
@@ -297,7 +313,11 @@ async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
         // a server that died (killed, crashed) could not reset its ticker line: done here
         if !status.success() && ticker::wanted(false, quiet, &read_json(&data.join("state.json")).map(|s| s["settings"]["ticker"].clone()).unwrap_or_default()) { ticker::hard_reset(); }
         if status.success() || stopping.load(std::sync::atomic::Ordering::SeqCst) { return ExitCode::SUCCESS; }
-        if restarts == 0 && up < Duration::from_secs(8) && status.code() == Some(1) { return ExitCode::from(1); }  // did not start: the error is already printed
+        // did not start (engine download failed, port busy...): the error is already printed; retrying would loop
+        if status.code() == Some(START_FAILED as i32) || (restarts == 0 && up < Duration::from_secs(8) && status.code() == Some(1)) {
+            eprintln!("Sushila did not start. Fix the problem above and start it again (downloads resume where they stopped).");
+            hold_window(); return ExitCode::from(1);
+        }
         let reason = match status.code() { Some(c) => format!("exit code {c}"), None => "stopped by the operating system".into() };
         #[cfg(unix)]
         let reason = { use std::os::unix::process::ExitStatusExt; match status.signal() { Some(sig) => format!("killed by signal {sig}{}", match sig { 9 => " (SIGKILL: often out of memory)", 11 => " (SIGSEGV: memory fault)", 6 => " (SIGABRT)", _ => "" }), None => reason } };
@@ -339,11 +359,11 @@ async fn remote(ctx: &Ctx, port: u16, body: Value) -> Result<(), String> {
         let st: Value = c.get(format!("http://127.0.0.1:{port}/api/state")).send().await.map_err(err)?.json().await.map_err(err)?;
         let Some(t) = st["tasks"].as_array().and_then(|a| a.iter().find(|t| t["id"] == id.as_str())).cloned() else { continue };
         match t["status"].as_str() {
-            Some("done") => { if tty && !ctx.quiet { eprint!("\r{:<100}\r", ""); } return Ok(()); }
+            Some("done") => { if tty && !ctx.quiet { crate::ticker::progress_clear(); } return Ok(()); }
             Some("failed") => { if tty && !ctx.quiet { eprintln!(); } return Err(t["error"].as_str().unwrap_or("failed").to_string()); }
             _ => if !ctx.quiet && t["total"].as_u64().unwrap_or(0) > 0 {
                 let line = format!("  {}: {:.1}% of {}", t["label"].as_str().unwrap_or(""), 100.0 * t["done"].as_f64().unwrap_or(0.0) / t["total"].as_f64().unwrap_or(1.0), human(t["total"].as_u64().unwrap_or(0)));
-                if tty { eprint!("\r{line:<100}"); }
+                if tty { crate::ticker::progress(&line); }
             },
         }
     }
@@ -717,7 +737,7 @@ fn quick_help() -> &'static str {
   sushila stop                      stop the server
 Typed in the server window: any of these commands (without \"sushila\" if you like; changes ask first), a question
 for the assistant (e.g. how do I add a coding model?), ? = this list, urls = the addresses again, stop = stop the server.
-The scrolling line at the bottom: Enter = pause/resume, b = back, n = next, all = every message so far, ticker off / ticker on.\n"
+The scrolling line at the bottom shows every command in turn: ticker off hides it, ticker on shows it again.\n"
 }
 fn url_banner(u: &Value) -> String {
     let mut b = format!("\n==============================================================\n Sushila {} is running\n   Inference:      {}\n   Admin:          {}   (this computer only)\n   Documentation:  {}\n   API (OpenAI):   {}\n",
@@ -883,6 +903,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     ctx.save()?;
     let (addr, stop_tx) = webserver::start(ctx.data.clone(), port, if bind == "localhost" { "127.0.0.1" } else { &bind }).await
         .map_err(|e| format!("{e} (is another server already running? `sushila status`)"))?;
+    SERVING.store(true, std::sync::atomic::Ordering::SeqCst);
     ctx.log(&format!("serving on {addr} (data {})", ctx.data.display()));
     let u = urls(port, network);
     if !j { eprintln!("{}", url_banner(&u)); }

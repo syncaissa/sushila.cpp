@@ -62,8 +62,8 @@ is answered by the Sushila assistant. A mistyped command gets a suggestion ("Did
 that runs only if you answer y. `?` lists the important commands, `urls` the addresses, `stop` stops the server.
 Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal: Ctrl+C in this window stops the server.
 The bottom line of the window is a scrolling ticker: one sentence for every command, with live news in between (models
-running, queue progress, GPU memory). Press Enter to pause or resume it, type b for the previous message, n for the
-next, all to print every message. `ticker off` hides it in this window; `sushila config set ticker off` keeps it off.
+running, queue progress, GPU memory). It has no keys of its own. `ticker off` hides it in this window;
+`sushila config set ticker off` keeps it off.
 
 ## Ask Sushila
 The assistant answers questions about Sushila from these notes and the documentation, with live facts about this

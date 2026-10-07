@@ -1,8 +1,7 @@
 // The ticker: one line at the bottom of the server window that scrolls tips and live facts right to left, like an LED
 // message board. Everything else scrolls above it: the terminal's scroll region is all lines but the last (DECSTBM),
 // and the line is drawn with save cursor / move / print / restore cursor in one write, so it never splits a log line.
-// Typed in the window (plain lines, so typing commands keeps working): Enter pauses or resumes, b goes back one
-// message, n forward, all prints the history, ticker off/on hides or shows it.
+// It has no keys of its own (typed lines are commands or questions); ticker off/on hides or shows it.
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::SeqCst};
 use std::time::{Duration, Instant};
@@ -11,15 +10,12 @@ static RUNNING: AtomicBool = AtomicBool::new(false);   // the thread exists
 static ON: AtomicBool = AtomicBool::new(false);        // the user wants it (ticker on/off, setting)
 static CHILD: AtomicBool = AtomicBool::new(false);     // a typed command runs and writes to the same terminal
 static ROWS: AtomicU64 = AtomicU64::new(0);            // rows of the scroll region we set (0: none set)
-static UTF8: AtomicBool = AtomicBool::new(true);       // the terminal shows the legend's symbols
+static UTF8: AtomicBool = AtomicBool::new(true);       // the terminal shows symbols such as • (else ASCII)
 
-/// What the line shows and what b/n/all browse: the history of messages (every command sentence once, then the last 50
-/// live updates, each when it changed, with its time).
+/// What the line shows: the current messages (command sentences with live facts in between) and the scroll position.
 #[derive(Default)]
-struct Ui { history: std::collections::VecDeque<(Option<String>, String)>, statics: usize, paused: bool, cursor: Option<usize>,
-            current: Vec<String>, offset: usize, seg: Vec<(usize, String)>, groups: Vec<(String, String)> }
+struct Ui { current: Vec<String>, offset: usize }
 static UI: std::sync::LazyLock<std::sync::Mutex<Ui>> = std::sync::LazyLock::new(Default::default);
-const HISTORY: usize = 50;
 
 /// The terminal's size (columns, rows), read again at every redraw so a resized window is followed.
 fn size() -> Option<(usize, usize)> { terminal_size::terminal_size_of(std::io::stderr()).map(|(w, h)| (w.0 as usize, h.0 as usize)) }
@@ -56,9 +52,26 @@ fn emit(s: &str) { let mut e = std::io::stderr().lock(); let _ = e.write_all(s.a
 
 /// Sets the scroll region above the last line and keeps the cursor inside it.
 fn setup(rows: usize) {
-    // a newline first, so whatever is on the last line moves up instead of being covered
-    emit(&format!("\n\x1b7\x1b[1;{}r\x1b8\x1b[{};1H", rows - 1, rows - 1));
+    // a newline first (only the first time), so whatever is on the last line moves up instead of being covered
+    static FIRST: AtomicBool = AtomicBool::new(true);
+    let nl = if FIRST.swap(false, SeqCst) { "\n" } else { "" };
+    emit(&format!("{nl}\x1b7\x1b[1;{}r\x1b8\x1b[{};1H", rows - 1, rows - 1));
     ROWS.store(rows as u64, SeqCst);
+}
+/// A progress line rewritten in place (\r), cut to one row of this window: a line wider than the window wraps, every
+/// rewrite then leaves a row behind, and under the ticker the wrapped part covers the ticker line.
+pub fn progress(line: &str) {
+    match size() { Some((c, _)) if c > 10 => eprint!("\r{}", fit_middle(line, c - 2)), _ => eprint!("\r{line:<100}") }
+}
+/// Exactly `width` characters; a longer line loses its middle (the name), so the numbers at the end stay readable.
+pub fn fit_middle(s: &str, width: usize) -> String {
+    let c: Vec<char> = s.chars().collect();
+    if c.len() <= width { return fit(s, width); }
+    let head = (width / 3).min(c.len());
+    c[..head].iter().chain(['…'].iter()).chain(c[c.len() - (width - head - 1)..].iter()).collect()
+}
+pub fn progress_clear() {
+    match size() { Some((c, _)) if c > 10 => eprint!("\r{}\r", " ".repeat(c - 2)), _ => eprint!("\r{:<100}\r", "") }
 }
 /// The scroll region back to the whole window and the last line cleared: the terminal is left as it was.
 pub fn reset() {
@@ -76,13 +89,6 @@ pub fn window(msg: &[char], offset: usize, width: usize) -> String {
 pub fn fit(s: &str, width: usize) -> String {
     let n = s.chars().count();
     if n <= width { format!("{s}{}", " ".repeat(width - n)) } else { s.chars().take(width.saturating_sub(1)).chain(['…']).collect() }
-}
-/// The key legend at the start of the line (shorter in narrow windows; ASCII where the symbols cannot be shown).
-pub fn legend(cols: usize, utf8: bool) -> &'static str {
-    match (cols < 70, utf8) {
-        (false, true) => "⏸ Enter=pause ◀ b=back ▶ n=next ☰ all │ ", (true, true) => "Enter=⏸ b=◀ n=▶ │ ",
-        (false, false) => "|| Enter=pause < b=back > n=next = all | ", (true, false) => "Enter=|| b=< n=> | ",
-    }
 }
 const SEP: &str = " • ";
 
@@ -155,11 +161,12 @@ pub const SENTENCES: [(&str, &str, &str); 70] = [
     ("Housekeeping", "help", "To list every command: sushila --help; one command: sushila <command> --help"),
     ("Getting started", "assistant", "To ask Sushila in the browser: the ☰ menu, Ask Sushila ({u}/#assistant)"),
     ("Using models", "open", "To use the models in the browser: {u}/"),
-    ("Running server and models", "status", "This line: Enter pauses, b goes back, n forward, all lists every message"),
+    ("Getting started", "help", "To see the important commands here: type ? (or man, or help)"),
     ("Running server and models", "stop", "To hide this line: type ticker off (ticker on shows it again)"),
     ("Housekeeping", "home", "To use another home folder: sushila home <folder> (takes effect at the next start)"),
     ("Getting started", "packs", "To see what fits this computer: sushila search --fits"),
 ];
+#[allow(dead_code)]  // the groups of SENTENCES, checked by a test
 pub const GROUPS: [&str; 7] = ["Getting started", "Models", "Using models", "Running server and models", "Speed and quality", "Settings, sharing and security", "Housekeeping"];
 /// The sentences with this server's address filled in, in table order: (group, text).
 pub fn tips(port: u16) -> Vec<(String, String)> {
@@ -206,52 +213,22 @@ fn live(dir: &std::path::Path, last_jobs: &mut std::collections::HashMap<String,
     if n > 0 { v.push((format!("{n} request{} served", if n == 1 { "" } else { "s" }), false)); }
     v
 }
-fn remember(ui: &mut Ui, time: Option<String>, text: String) {
-    if ui.history.iter().any(|(_, t)| *t == text) { return; }
-    if time.is_none() { ui.statics += 1; }
-    ui.history.push_back((time, text));
-    if ui.history.len() > ui.statics + HISTORY {
-        // the oldest live update goes; the command sentences stay
-        ui.history.remove(ui.statics);
-        if let Some(c) = ui.cursor.as_mut() { if *c > ui.statics { *c -= 1; } }
-    }
+/// The scrolling text of the current messages.
+fn rebuild(ui: &Ui) -> Vec<char> {
+    let sep = if UTF8.load(SeqCst) { SEP } else { " | " };
+    ui.current.iter().flat_map(|m| m.chars().chain(sep.chars())).collect()
 }
-/// The scrolling text of the current messages, and where each starts.
-fn rebuild(ui: &mut Ui) -> Vec<char> {
-    let (mut s, mut seg) = (String::new(), vec![]);
-    for m in &ui.current { seg.push((s.chars().count(), m.clone())); s += m; s += SEP; }
-    ui.seg = seg;
-    s.chars().collect()
-}
-
-/// What the line shows now (without the reverse-video escape codes): the legend, then the scrolling text, or the paused
-/// or browsed message in full.
-fn line(ui: &Ui, msg: &[char], cols: usize) -> String {
-    let utf8 = UTF8.load(SeqCst);
-    let lg = legend(cols, utf8);
-    let room = cols.saturating_sub(1 + lg.chars().count());
-    let body = match ui.cursor {
-        Some(c) => { let (t, m) = &ui.history[c.min(ui.history.len().saturating_sub(1))];
-            fit(&format!("{} {}/{} {}{}", if utf8 { "◀" } else { "<" }, c + 1, ui.history.len(), t.as_ref().map(|t| format!("[{t}] ")).unwrap_or_default(), m), room) }
-        None if ui.paused => fit(&format!("{} paused  {}", if utf8 { "⏸" } else { "||" }, current_message(ui)), room),
-        None => window(msg, ui.offset, room),
-    };
-    format!("{lg}{body}")
-}
-/// The message at the left of the scrolling text.
-fn current_message(ui: &Ui) -> String { ui.seg.iter().rev().find(|(s, _)| *s <= ui.offset).or(ui.seg.first()).map(|x| x.1.clone()).unwrap_or_default() }
 
 /// Starts the ticker thread (once). It moves about 9 characters a second and refreshes the live facts every 5 s.
 pub fn start(dir: std::path::PathBuf, port: u16) {
     if !enable_vt() || RUNNING.swap(true, SeqCst) { return; }
     ON.store(true, SeqCst);
     std::thread::spawn(move || {
-        let groups = tips(port);
-        let tips: Vec<String> = groups.iter().map(|x| x.1.clone()).collect();
-        UI.lock().unwrap().groups = groups;
+        let tips: Vec<String> = tips(port).into_iter().map(|x| x.1).collect();
         let mut jobs = Default::default();
         let mut last = Instant::now() - Duration::from_secs(60);
         let mut msg: Vec<char> = vec![];
+        let (mut seen, mut again) = (0usize, Instant::now());
         loop {
             if last.elapsed() > Duration::from_secs(5) {
                 last = Instant::now();
@@ -259,12 +236,9 @@ pub fn start(dir: std::path::PathBuf, port: u16) {
                 if off_setting(&crate::webserver::read_state(&dir)["settings"]["ticker"]) { ON.store(false, SeqCst); }
                 let items = live(&dir, &mut jobs);
                 let mut ui = UI.lock().unwrap();
-                if ui.history.is_empty() { for t in &tips { remember(&mut ui, None, t.clone()); } }
-                let now = crate::util::now_iso()[11..19].to_string();
-                for (t, h) in &items { if *h { remember(&mut ui, Some(now.clone()), t.clone()); } }
                 // the live items between the sentences, one every 4, so they come round every half minute or so
                 ui.current = interleave(&tips, &items.into_iter().map(|x| x.0).collect::<Vec<_>>(), 4);
-                msg = rebuild(&mut ui);
+                msg = rebuild(&ui);
                 if ui.offset >= msg.len() { ui.offset = 0; }
             }
             std::thread::sleep(Duration::from_millis(110));
@@ -272,44 +246,17 @@ pub fn start(dir: std::path::PathBuf, port: u16) {
             if CHILD.load(SeqCst) { continue; }
             let Some((cols, rows)) = size() else { continue };
             if cols < 40 || rows < 5 { reset(); continue; }
-            if ROWS.load(SeqCst) != rows as u64 { reset(); setup(rows); }
-            let text = { let mut ui = UI.lock().unwrap(); if !ui.paused && ui.cursor.is_none() { ui.offset = (ui.offset + 1) % msg.len().max(1); } line(&ui, &msg, cols) };
+            // a new size must be read twice in a row (a window being dragged), then the region follows it
+            if ROWS.load(SeqCst) != rows as u64 { if seen == rows { reset(); setup(rows); } else { seen = rows; continue; } }
+            // every 2 s the scroll region is set again: a program that reset it (a password prompt, a child process)
+            // would otherwise let the log run over the ticker line
+            if again.elapsed() > Duration::from_secs(2) { again = Instant::now(); emit(&format!("\x1b7\x1b[1;{}r\x1b8", rows - 1)); }
+            let text = { let mut ui = UI.lock().unwrap(); ui.offset = (ui.offset + 1) % msg.len().max(1); window(&msg, ui.offset, cols - 1) };
             emit(&format!("\x1b7\x1b[{rows};1H\x1b[7m{text}\x1b[0m\x1b8"));
         }
     });
 }
 
-/// The window's short controls: "" (Enter) pause/resume, b back, n next, all history. Returns false for anything else.
-pub fn control(word: &str) -> bool {
-    if !["", "b", "n", "all"].contains(&word) { return false; }
-    if !RUNNING.load(SeqCst) || !ON.load(SeqCst) {
-        if !word.is_empty() { eprintln!("the ticker is off here (ticker on shows it, where the window supports it)"); }
-        return true;
-    }
-    let mut ui = UI.lock().unwrap();
-    let last = ui.history.len().saturating_sub(1);
-    match word {
-        "" => { if ui.paused || ui.cursor.is_some() { ui.paused = false; ui.cursor = None; } else { ui.paused = true; } }
-        "b" => {
-            // from the message on the line now (its place in the history), one back
-            let here = ui.cursor.or_else(|| { let m = current_message(&ui); ui.history.iter().position(|(_, t)| *t == m) }).unwrap_or(last + 1);
-            ui.paused = true; ui.cursor = Some(here.saturating_sub(1).min(last));
-        }
-        "n" => match ui.cursor {
-            Some(c) => ui.cursor = Some((c + 1).min(last)),
-            // scrolling: jump to the next message
-            None => { let o = ui.offset; if let Some(s) = ui.seg.iter().find(|(s, _)| *s > o).or(ui.seg.first()).map(|x| x.0) { ui.offset = s; } }
-        },
-        _ => {
-            let mut s = String::from("Every sushila command (the ticker's messages):\n");
-            for g in GROUPS { s += &format!("{g}:\n"); for (gg, t) in &ui.groups { if gg == g { s += &format!("  {t}\n"); } } }
-            let live: Vec<String> = ui.history.iter().filter_map(|(t, m)| t.as_ref().map(|t| format!("  [{t}] {m}\n"))).collect();
-            if !live.is_empty() { s += "Live updates (newest last):\n"; s += &live.concat(); }
-            drop(ui); eprint!("{s}"); return true;
-        }
-    }
-    true
-}
 /// `ticker on` / `ticker off` typed in the window.
 pub fn set_on(on: bool) { ON.store(on, SeqCst); if !on { reset(); } }
 /// While a typed command runs (it writes to the same terminal), the line stays still.
@@ -331,18 +278,11 @@ mod tests {
         assert_eq!(interleave(&["a".into(), "b".into(), "c".into()], &["L1".into(), "L2".into()], 2), vec!["L1", "a", "b", "L2", "c"]);
         assert!(off_setting(&serde_json::json!("off")) && off_setting(&serde_json::json!(false)) && !off_setting(&serde_json::json!("on")) && !off_setting(&serde_json::Value::Null));
         assert_eq!(fit("abcdef", 4), "abc…"); assert_eq!(fit("ab", 4), "ab  ");
-        assert!(legend(100, true).starts_with("⏸ Enter=pause") && legend(60, true) == "Enter=⏸ b=◀ n=▶ │ " && legend(100, false).is_ascii() && legend(50, false).is_ascii());
+        assert_eq!(fit_middle("abcdefghij 42%", 10), "abc…ij 42%"); assert_eq!(fit_middle("ab", 4), "ab  ");
     }
-    #[test] fn browsing() {
-        let mut ui = Ui::default();
-        for i in 0..3 { remember(&mut ui, None, format!("s{i}")); }
-        for i in 0..60 { remember(&mut ui, Some("12:00:00".into()), format!("m{i}")); }
-        remember(&mut ui, Some("12:00:01".into()), "m59".into());
-        assert_eq!(ui.history.len(), 3 + HISTORY); assert_eq!(ui.history[0].1, "s0"); assert_eq!(ui.history[3].1, "m10");
-        ui.current = vec!["live".into(), "tip".into()]; let msg = rebuild(&mut ui);
-        ui.offset = 8; assert_eq!(current_message(&ui), "tip"); ui.offset = 2; assert_eq!(current_message(&ui), "live");
-        ui.offset = 8; ui.paused = true; let l = line(&ui, &msg, 100); assert!(l.contains("paused  tip") && l.chars().count() == 99, "{l}");
-        ui.cursor = Some(4); assert!(line(&ui, &msg, 100).contains("5/53 [12:00:00] m11"), "{}", line(&ui, &msg, 100));
+    #[test] fn joins() {
+        let ui = Ui { current: vec!["live".into(), "tip".into()], offset: 0 };
+        assert_eq!(rebuild(&ui).iter().collect::<String>(), format!("live{SEP}tip{SEP}"));
     }
     #[test] fn every_command_has_a_sentence() {
         use clap::CommandFactory;

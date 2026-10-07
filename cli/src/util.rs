@@ -59,9 +59,29 @@ pub type Prog = std::sync::Arc<std::sync::Mutex<Value>>;
 pub async fn download(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool) -> Result<String, String> {
     download_p(url, dest, sha256, bytes, label, quiet, None).await
 }
+/// Retries up to 8 times (waits 2, 4, 8 ... 60 s) when the server answers 5xx/408/429, the connection drops or stalls
+/// for 60 s; every retry resumes from the .part file, so nothing already downloaded is fetched again.
 pub async fn download_p(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool, prog: Option<&Prog>) -> Result<String, String> {
-    let url = check_url(url, false)?.to_string();
-    if let Some(d) = dest.parent() { tokio::fs::create_dir_all(d).await.map_err(err)?; }
+    const TRIES: u32 = 8;
+    let mut tri = 1;
+    loop {
+        match download_once(url, dest, sha256, bytes, label, quiet, prog).await {
+            Ok(h) => return Ok(h),
+            Err((e, retry)) if retry && tri < TRIES => {
+                let wait = (2u64 << (tri - 1)).min(60);
+                eprintln!("  {label}: {e}; trying again in {wait} s (try {} of {TRIES}, resuming)", tri + 1);
+                tokio::time::sleep(Duration::from_secs(wait)).await;
+                tri += 1;
+            }
+            Err((e, retry)) => return Err(if retry { format!("{e}; gave up after {tri} tries (run the same command again to resume)") } else { e }),
+        }
+    }
+}
+async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool, prog: Option<&Prog>) -> Result<String, (String, bool)> {
+    let fatal = |e: String| (e, false);
+    let again = |e: String| (e, true);
+    let url = check_url(url, cfg!(test)).map_err(fatal)?.to_string();  // tests: a local flaky server
+    if let Some(d) = dest.parent() { tokio::fs::create_dir_all(d).await.map_err(|e| fatal(e.to_string()))?; }
     let part = PathBuf::from(format!("{}.part", dest.display()));
     let mut start = tokio::fs::metadata(&part).await.map(|m| m.len()).unwrap_or(0);
     let mut hasher = Sha256::new();
@@ -69,21 +89,28 @@ pub async fn download_p(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opt
         let p = part.clone();
         hasher = tokio::task::spawn_blocking(move || -> Result<Sha256, String> {
             let mut h = Sha256::new(); let mut f = std::fs::File::open(&p).map_err(err)?; std::io::copy(&mut f, &mut h).map_err(err)?; Ok(h)
-        }).await.map_err(err)??;
+        }).await.map_err(|e| fatal(e.to_string()))?.map_err(fatal)?;
     }
-    let mut req = client()?.get(&url);
+    let mut req = client().map_err(fatal)?.get(&url);
     if start > 0 { req = req.header(reqwest::header::RANGE, format!("bytes={start}-")); }
-    let resp = req.send().await.map_err(err)?;
-    if !resp.status().is_success() { return Err(format!("download failed: HTTP {}", resp.status())); }
+    let resp = req.send().await.map_err(|e| again(format!("download failed: {e}")))?;
+    let code = resp.status().as_u16();
+    if code == 416 { let _ = tokio::fs::remove_file(&part).await; return Err(again("download failed: the partial file did not match; starting over".into())); }
+    if !resp.status().is_success() { return Err((format!("download failed: HTTP {}", resp.status()), code >= 500 || code == 408 || code == 429)); }
     if start > 0 && resp.status().as_u16() != 206 { start = 0; hasher = Sha256::new(); }
     let total = bytes.or_else(|| resp.content_length().map(|n| n + start)).unwrap_or(0);
-    let mut file = tokio::fs::OpenOptions::new().create(true).write(true).append(start > 0).truncate(start == 0).open(&part).await.map_err(err)?;
+    let mut file = tokio::fs::OpenOptions::new().create(true).write(true).append(start > 0).truncate(start == 0).open(&part).await.map_err(|e| fatal(e.to_string()))?;
     let (mut done, t0, mut last) = (start, std::time::Instant::now(), std::time::Instant::now());
     let mut stream = resp.bytes_stream();
     let tty = !quiet && std::io::IsTerminal::is_terminal(&std::io::stderr());
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| format!("{e} (run the same command again to resume)"))?;
-        file.write_all(&chunk).await.map_err(err)?;
+    loop {
+        let chunk = match tokio::time::timeout(Duration::from_secs(60), stream.next()).await {
+            Err(_) => { let _ = file.flush().await; return Err(again(format!("download stalled at {}", human(done)))); }
+            Ok(None) => break,
+            Ok(Some(Err(e))) => { let _ = file.flush().await; return Err(again(format!("download interrupted at {}: {e}", human(done)))); }
+            Ok(Some(Ok(c))) => c,
+        };
+        file.write_all(&chunk).await.map_err(|e| fatal(e.to_string()))?;
         hasher.update(&chunk);
         done += chunk.len() as u64;
         if let Some(p) = prog { if let Ok(mut g) = p.lock() { *g = json!({ "label": label, "done": done, "total": total }); } }
@@ -91,21 +118,22 @@ pub async fn download_p(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opt
             let rate = (done - start) as f64 / t0.elapsed().as_secs_f64().max(0.1);
             let pct = if total > 0 { format!("{:5.1}%", 100.0 * done as f64 / total as f64) } else { String::new() };
             let line = format!("  {label}: {pct} {} of {} ({}/s)", human(done), if total > 0 { human(total) } else { "?".into() }, human(rate as u64));
-            if tty { eprint!("\r{line:<100}"); } else { eprintln!("{line}"); }
+            if tty { crate::ticker::progress(&line); } else { eprintln!("{line}"); }
             last = std::time::Instant::now();
         }
     }
-    file.flush().await.map_err(err)?;
+    file.flush().await.map_err(|e| fatal(e.to_string()))?;
     drop(file);
-    if tty { eprint!("\r{:<100}\r", ""); }
+    if total > 0 && done < total { return Err(again(format!("download ended early at {} of {}", human(done), human(total)))); }
+    if tty { crate::ticker::progress_clear(); }
     let got = hex::encode(hasher.finalize());
     if let Some(want) = sha256.filter(|s| !s.is_empty()) {
         if !got.eq_ignore_ascii_case(want) {
             let _ = tokio::fs::remove_file(&part).await;
-            return Err(format!("{label}: sha256 mismatch (expected {want}, got {got}); the file was deleted"));
+            return Err(fatal(format!("{label}: sha256 mismatch (expected {want}, got {got}); the file was deleted")));
         }
     }
-    tokio::fs::rename(&part, dest).await.map_err(err)?;
+    tokio::fs::rename(&part, dest).await.map_err(|e| fatal(e.to_string()))?;
     if !quiet { eprintln!("  {label}: {} downloaded and verified", human(done)); }
     Ok(got)
 }
@@ -199,4 +227,52 @@ pub fn random_token() -> String {
     let mut b = [0u8; 24];
     getrandom::getrandom(&mut b).expect("the operating system has no random number source");
     hex::encode(b)
+}
+
+#[cfg(test)]
+mod download_tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    /// The failures seen on Windows build 2 (HTTP 500 after a while) and a connection cut mid-file: the download must
+    /// retry, resume with a Range request, and end with the right sha256.
+    #[tokio::test]
+    async fn retries_and_resumes() {
+        let body: Vec<u8> = (0..300_000u32).map(|i| (i * 7 % 251) as u8).collect();
+        let want = hex::encode(Sha256::digest(&body));
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = l.local_addr().unwrap().port();
+        let b = body.clone();
+        let ranges = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let r2 = ranges.clone();
+        tokio::spawn(async move {
+            for n in 0.. {
+                let (mut s, _) = l.accept().await.unwrap();
+                let mut buf = vec![0u8; 4096]; let k = s.read(&mut buf).await.unwrap();
+                let req = String::from_utf8_lossy(&buf[..k]).to_lowercase();
+                let start = req.lines().find_map(|x| x.strip_prefix("range: bytes=")).and_then(|x| x.trim_end_matches('-').trim().parse::<usize>().ok()).unwrap_or(0);
+                r2.lock().unwrap().push(format!("{n}:{start}"));
+                match n {
+                    0 => { let _ = s.write_all(b"HTTP/1.1 500 Internal Server Error\r\ncontent-length: 0\r\nconnection: close\r\n\r\n").await; }
+                    1 => {  // promise the whole file, send 100 KB, cut the connection
+                        let _ = s.write_all(format!("HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n", b.len()).as_bytes()).await;
+                        let _ = s.write_all(&b[..100_000]).await;
+                    }
+                    _ => {
+                        let rest = &b[start..];
+                        let _ = s.write_all(format!("HTTP/1.1 206 Partial Content\r\ncontent-length: {}\r\ncontent-range: bytes {start}-{}/{}\r\nconnection: close\r\n\r\n", rest.len(), b.len() - 1, b.len()).as_bytes()).await;
+                        let _ = s.write_all(rest).await;
+                    }
+                }
+                let _ = s.shutdown().await;
+            }
+        });
+        let dir = std::env::temp_dir().join(format!("sushila-dl-test-{}", std::process::id()));
+        let dest = dir.join("f.bin");
+        let got = download(&format!("http://127.0.0.1:{port}/f.bin"), &dest, Some(&want), Some(body.len() as u64), "test", true).await.unwrap();
+        assert_eq!(got, want);
+        assert_eq!(std::fs::read(&dest).unwrap(), body);
+        let r = ranges.lock().unwrap().clone();
+        assert_eq!(r, vec!["0:0", "1:0", "2:100000"], "500, then a cut at 100 KB, then a resume from 100 KB");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

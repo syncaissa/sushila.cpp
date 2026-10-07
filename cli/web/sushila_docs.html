@@ -178,12 +178,11 @@ as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with 
 </ul>
 <p><b>The ticker.</b> The bottom line of the window scrolls, like an LED message board, one short sentence for every command
 ("To add a new model pack: sushila install &lt;pack&gt; …", with this server's real addresses), with live news in between (models
-running and their mode, the queue's job and progress, GPU memory, requests served). Everything else scrolls above it. It starts
-with its keys: <b>Enter</b> pauses or resumes (paused, the whole message is shown), <b>b</b> goes back one message (and pauses; b again goes further
-back), <b>n</b> forward, <b>all</b> prints every message, grouped like the command list, with the live news and their times, so you can scroll up and read them.
+running and their mode, the queue's job and progress, GPU memory, requests served). Everything else scrolls above it; download
+progress is kept to one row so it never runs into it. It has no keys of its own (every typed line is a command or a question); type <b>?</b> for the important commands.
 <code>ticker off</code> / <code>ticker on</code> hide or show it; <code>sushila config set ticker off</code> keeps it off. It is off by itself when the output
 is not a terminal, with <code>--json</code> or <code>--quiet</code>, with <code>TERM=dumb</code> or <code>SUSHILA_TICKER=0</code>, and in windows narrower than 40 columns.
-Windows: escape sequences and UTF-8 are turned on for the console at start (Windows Terminal and the classic console); where symbols cannot be shown it uses ASCII keys.
+Windows: escape sequences and UTF-8 are turned on for the console at start (Windows Terminal and the classic console); where symbols cannot be shown it uses ASCII.
 On exit (stop, Ctrl+C, a crash) the window is left as it was.</p>
 
 <h2 id="network">Other machines and the internet</h2>

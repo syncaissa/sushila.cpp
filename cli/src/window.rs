@@ -219,8 +219,6 @@ pub fn read_loop(w: Window, banner: String) {
     let stdin = std::io::stdin();
     let mut lines = stdin.lock().lines();
     while let Some(Ok(line)) = lines.next() {
-        // the ticker's keys (Enter, b, n, all) first: they are never commands or questions
-        if crate::ticker::control(&line.trim().to_lowercase()) { continue; }
         match line.trim().to_lowercase().as_str() {
             "" => {}
             "?" | "man" | "help" | "h" => eprintln!("{}", crate::quick_help()),
