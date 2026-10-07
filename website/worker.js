@@ -1629,12 +1629,26 @@ async function audit(db, event, who, request, extra = {}) {
 
 // --- Backblaze B2 (native API) ---
 let b2Cache = null;  // per isolate: { auth, bucketId, until }
+// B2 answers 500/503 now and then (its documented "retry" case): every call is tried up to 4 times (0.3, 0.9, 2 s).
+async function b2fetch(url, init) {
+  let last;
+  for (const wait of [0, 300, 900, 2000]) {
+    if (wait) await new Promise((r) => setTimeout(r, wait));
+    try {
+      const r = await fetch(url, init);
+      if (r.status < 500 && r.status !== 429) return r;
+      last = r;
+    } catch (e) { last = e; }
+  }
+  if (last instanceof Response) return last;
+  throw new Error('B2 fetch: ' + (last && last.message));
+}
 class B2 {
   constructor(env) { this.env = env; }
   get configured() { return !!(this.env.B2_KEY_ID && this.env.B2_APP_KEY && this.env.B2_BUCKET_NAME); }
   async auth() {
     if (b2Cache && b2Cache.until > Date.now()) return b2Cache;
-    const r = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
+    const r = await b2fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
       headers: { authorization: 'Basic ' + btoa(`${this.env.B2_KEY_ID}:${this.env.B2_APP_KEY}`) } });
     if (!r.ok) throw new Error('B2 authorize: ' + r.status);
     const a = await r.json();
@@ -1642,7 +1656,7 @@ class B2 {
     let bucketId = (api.allowed && api.allowed.buckets && (api.allowed.buckets.find((b) => b.name === this.env.B2_BUCKET_NAME) || {}).id)
       || (api.allowed && api.allowed.bucketName === this.env.B2_BUCKET_NAME && api.allowed.bucketId) || null;
     if (!bucketId) {
-      const lb = await fetch(`${api.apiUrl}/b2api/v3/b2_list_buckets`, { method: 'POST', headers: { authorization: a.authorizationToken, 'content-type': 'application/json' },
+      const lb = await b2fetch(`${api.apiUrl}/b2api/v3/b2_list_buckets`, { method: 'POST', headers: { authorization: a.authorizationToken, 'content-type': 'application/json' },
         body: JSON.stringify({ accountId: a.accountId, bucketName: this.env.B2_BUCKET_NAME }) });
       if (!lb.ok) throw new Error('B2 list buckets: ' + lb.status);
       bucketId = ((await lb.json()).buckets || [])[0]?.bucketId;
@@ -1654,7 +1668,7 @@ class B2 {
   fileUrl(base, key) { return `${base}/file/${encodeURIComponent(this.env.B2_BUCKET_NAME)}/${key.split('/').map(encodeURIComponent).join('/')}`; }
   async signedUrl(key, seconds, filename) {  // a time-limited link straight to B2 (large files never pass through the worker)
     const a = await this.auth();
-    const r = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST',
+    const r = await b2fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST',
       headers: { authorization: a.token, 'content-type': 'application/json' },
       body: JSON.stringify({ bucketId: a.bucketId, fileNamePrefix: key, validDurationInSeconds: seconds,
         b2ContentDisposition: `attachment; filename="${filename}"` }) });
@@ -1667,7 +1681,7 @@ class B2 {
     const h = { authorization: a.token };
     const range = request.headers.get('range');
     if (range) h.range = range;
-    return fetch(this.fileUrl(a.downloadUrl, key), { headers: h, cf: { cacheEverything: true, cacheTtl: 86400 } });
+    return b2fetch(this.fileUrl(a.downloadUrl, key), { headers: h, cf: { cacheEverything: true, cacheTtl: 86400 } });
   }
 }
 
@@ -2308,17 +2322,31 @@ let hostCatalogCache = null;  // per isolate, 10 minutes (links stay valid for 2
 // scripts/b2_publish_public.py; links never show the storage provider and need no tokens.
 const FILES_BASE = 'https://files.sushila.ai/public/';
 const publicUrl = (key) => FILES_BASE + key.split('/').map(encodeURIComponent).join('/');
+// When B2 fails even after the retries, the last good catalog of this isolate is served (its links stay valid 24 h).
 async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
   if (hostCatalogCache && hostCatalogCache.until > Date.now() && hostCatalogCache.origin === origin) return hostCatalogCache.body;
+  try { return await buildHostCatalog(env, b2, origin); }
+  catch (e) {
+    if (hostCatalogCache && hostCatalogCache.origin === origin && hostCatalogCache.until > Date.now() - 20 * 3600 * 1000) { console.error('catalog: serving the last good one', e.message); return hostCatalogCache.body; }
+    throw e;
+  }
+}
+async function buildHostCatalog(env, b2, origin) {
   const direct = {};  // "<pack id>/<file index>" or "engine/<system>" -> B2 link (24 h)
   const a = await b2.auth();
   const grant = async (prefix) => {
-    const r = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
+    const r = await b2fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
       body: JSON.stringify({ bucketId: a.bucketId, fileNamePrefix: prefix, validDurationInSeconds: 24 * 3600 }) });
     if (!r.ok) throw new Error('B2 download authorization: ' + r.status);
     return (await r.json()).authorizationToken;
   };
-  const getText = async (key) => { const r = await fetch(b2.fileUrl(a.downloadUrl, key), { headers: { authorization: a.token } }); return r.ok ? r.text() : null; };
+  // missing (404): null; any other failure after the retries throws, so a pack is never left out by a B2 hiccup
+  const getText = async (key) => {
+    const r = await b2fetch(b2.fileUrl(a.downloadUrl, key), { headers: { authorization: a.token } });
+    if (r.ok) return r.text();
+    if (r.status === 404) return null;
+    throw new Error(`B2 read ${key}: ${r.status}`);
+  };
   const getJson = async (key) => { const t = await getText(key); return t ? JSON.parse(t) : null; };
   const packs = [];
   for (const p of HOST_PACKS) {
@@ -2345,7 +2373,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
       const { model, files: _f, ollamaGguf, hidden, ...pub } = p;
       const packBytes = 512 + 0 + files.reduce((a, f) => a + 512 + f.bytes + pad512(f.bytes), 0) + 1024;  // approximate (+ metadata)
       packs.push({ ...pub, files, index: { text, signature: signature.trim() }, packUrl: `${origin}/hoststation/pack/${p.id}.sushilapack`, packBytes });
-    } catch (e) { console.error('hoststation pack', p.id, e.message); }
+    } catch (e) { if (/^B2/.test(e.message)) throw e; console.error('hoststation pack', p.id, e.message); }
   }
   let engine = null;
   try {
@@ -2357,7 +2385,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
         return [k, { ...b, url: `${origin}/hoststation/get/engine/${k}` }];
       })) };
     }
-  } catch (e) { console.error('hoststation engine', e.message); }
+  } catch (e) { if (/^B2/.test(e.message)) throw e; console.error('hoststation engine', e.message); }
   // runtimes the app installs on demand (e.g. image-nunchaku: Python + PyTorch + Nunchaku for the NVIDIA image packs)
   const runtimes = {};
   for (const name of HOST_RUNTIMES) {
@@ -2375,7 +2403,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
         const linked = files.map((f, i) => link(key, i, f));
         return [key, { bytes: b.bytes, python: { ...linked[0], exe: b.python.exe }, server: { ...linked[1], script: b.server.script }, wheels: linked.slice(2) }];
       })) };
-    } catch (e) { console.error('hoststation runtime', name, e.message); }
+    } catch (e) { if (/^B2/.test(e.message)) throw e; console.error('hoststation runtime', name, e.message); }
   }
   const body = { version: 1, generated: new Date().toISOString(), filesBase: FILES_BASE, engine, runtimes, packs };
   hostCatalogCache = { body, direct, origin, until: Date.now() + 10 * 60 * 1000 };

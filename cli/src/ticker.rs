@@ -56,7 +56,7 @@ pub fn console_prepare() { console_input(); let _ = enable_vt(); }
 pub struct Feed { dir: std::path::PathBuf, jobs: std::collections::HashMap<String, String>, msg: Vec<char>, offset: usize, last: Option<Instant> }
 impl Feed {
     pub fn new(dir: std::path::PathBuf) -> Self { Feed { dir, jobs: Default::default(), msg: vec![], offset: 0, last: None } }
-    pub fn next(&mut self, port: u16, width: usize) -> String {
+    pub fn next(&mut self, port: u16, width: usize, step: bool) -> String {
         if self.last.map(|l| l.elapsed() > Duration::from_secs(5)).unwrap_or(true) {
             self.last = Some(Instant::now());
             let tips: Vec<String> = tips(port).into_iter().map(|x| x.1).collect();
@@ -64,7 +64,7 @@ impl Feed {
             self.msg = rebuild(&Ui { current: interleave(&tips, &items, 4), offset: 0 });
             if self.offset >= self.msg.len() { self.offset = 0; }
         }
-        self.offset = (self.offset + 1) % self.msg.len().max(1);
+        if step { self.offset = (self.offset + 1) % self.msg.len().max(1); }
         window(&self.msg, self.offset, width)
     }
 }
@@ -121,14 +121,7 @@ fn setup(rows: usize) {
 /// rewrite then leaves a row behind, and under the ticker the wrapped part covers the ticker line.
 pub fn progress(line: &str) {
     if crate::tui::in_screen() { eprint!("\r{line}"); return; }  // the screen fits it to the window
-    match size() { Some((c, _)) if c > 10 => eprint!("\r{}", fit_middle(line, c - 2)), _ => eprint!("\r{line:<100}") }
-}
-/// Exactly `width` characters; a longer line loses its middle (the name), so the numbers at the end stay readable.
-pub fn fit_middle(s: &str, width: usize) -> String {
-    let c: Vec<char> = s.chars().collect();
-    if c.len() <= width { return fit(s, width); }
-    let head = (width / 3).min(c.len());
-    c[..head].iter().chain(['…'].iter()).chain(c[c.len() - (width - head - 1)..].iter()).collect()
+    match size() { Some((c, _)) if c > 10 => eprint!("\r{}", fit(line, c - 2)), _ => eprint!("\r{line:<100}") }
 }
 pub fn progress_clear() {
     if crate::tui::in_screen() { eprint!("\r"); return; }
@@ -281,7 +274,7 @@ fn rebuild(ui: &Ui) -> Vec<char> {
     ui.current.iter().flat_map(|m| m.chars().chain(sep.chars())).collect()
 }
 
-/// Starts the ticker thread (once). It moves about 9 characters a second and refreshes the live facts every 5 s.
+/// Starts the ticker thread (once). It moves about 2 characters a second and refreshes the live facts every 5 s.
 pub fn start(dir: std::path::PathBuf, port: u16) {
     if !enable_vt() || RUNNING.swap(true, SeqCst) { return; }
     ON.store(true, SeqCst);
@@ -303,7 +296,7 @@ pub fn start(dir: std::path::PathBuf, port: u16) {
                 msg = rebuild(&ui);
                 if ui.offset >= msg.len() { ui.offset = 0; }
             }
-            std::thread::sleep(Duration::from_millis(110));
+            std::thread::sleep(Duration::from_millis(440));
             if !ON.load(SeqCst) { reset(); continue; }
             if CHILD.load(SeqCst) { continue; }
             let Some((cols, rows)) = size() else { continue };
@@ -341,8 +334,7 @@ mod tests {
         assert_eq!(interleave(&["a".into(), "b".into(), "c".into()], &["L1".into(), "L2".into()], 2), vec!["L1", "a", "b", "L2", "c"]);
         assert!(off_setting(&serde_json::json!("off")) && off_setting(&serde_json::json!(false)) && !off_setting(&serde_json::json!("on")) && !off_setting(&serde_json::Value::Null));
         assert_eq!(fit("abcdef", 4), "abc…"); assert_eq!(fit("ab", 4), "ab  ");
-        assert_eq!(fit_middle("abcdefghij 42%", 10), "abc…ij 42%");
-        assert_eq!(bar(Some(0.5), 10).chars().filter(|&c| c == '█' || c == '#').count(), 5); assert_eq!(bar(None, 10).chars().count(), 12); assert_eq!(fit_middle("ab", 4), "ab  ");
+        assert_eq!(bar(Some(0.5), 10).chars().filter(|&c| c == '█' || c == '#').count(), 5); assert_eq!(bar(None, 10).chars().count(), 12);
     }
     #[test] fn joins() {
         let ui = Ui { current: vec!["live".into(), "tip".into()], offset: 0 };

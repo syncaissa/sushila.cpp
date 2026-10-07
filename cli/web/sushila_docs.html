@@ -176,10 +176,12 @@ as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with 
   <li><b>A mistyped command</b> (<code>instal qwen</code>) gets a suggestion (with a small model, found by spelling and by matching words to commands and pack ids) (<code>Did you mean `sushila install qwen`? Run it? [y/N]</code>); nothing runs without a yes.</li>
   <li><code>?</code> lists the important commands, <code>urls</code> the addresses, <code>stop</code> stops the server.</li>
 </ul>
-<p><b>The screen.</b> The window is drawn as one screen in your normal terminal (Windows Terminal or the Windows console, macOS Terminal, any Linux terminal):
-the output of the server and of your commands scrolls in the top part, the <code>sushila&gt;</code> input line stays fixed above the last line, and the ticker is the last line.
+<p><b>The screen.</b> The window is your normal terminal (Windows Terminal or the Windows console, macOS Terminal, any Linux terminal):
+the output of the server and of your commands is printed as ordinary lines, so the terminal's scroll bar, mouse wheel, selection and copy work as always,
+and only the last rows are kept live: one progress bar per download job (the whole job's percentage, then the current file's), the <code>sushila&gt;</code> input line and the ticker.
+Commands typed here run in the background, so questions are answered while something installs; <code>!&lt;command&gt;</code> runs a command of the system shell.
 Keys are read one at a time, so your typing is never mixed with output, a resize redraws everything, and blank lines are left out.
-Up/Down bring back earlier lines, PgUp/PgDn scroll back through the output, Esc clears the line, <code>clear</code> empties the window; Ctrl+C stops the server (twice: at once).
+Up/Down bring back earlier lines, Esc clears the line, <code>clear</code> empties the window; Ctrl+C stops the server (twice: at once).
 The server runs under the screen as a child process; if it crashes it is restarted and the screen stays.
 Without a terminal (a service, output to a file, <code>SUSHILA_TUI=0</code>) the plain window is used.</p>
 <p><b>Typing, copy and paste.</b> A blinking block cursor shows where your typing goes.

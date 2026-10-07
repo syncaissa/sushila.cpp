@@ -61,8 +61,11 @@ password --reset, home <folder>) ask for a yes first. A question (for example "h
 is answered by the Sushila assistant. A mistyped command gets a suggestion ("Did you mean `sushila install ...`?")
 that runs only if you answer y. `?` lists the important commands, `urls` the addresses, `stop` stops the server.
 The window is one screen: the output scrolls in the top part, the `sushila>` input line stays fixed above the last
-line, with a blinking block cursor, and typing is never mixed with output. Up/Down bring back earlier lines, PgUp/PgDn
-scroll back through the output, Esc clears the line, `clear` empties the window. `copy` puts the last answer on the clipboard (`copy urls`:
+line, with a blinking block cursor, and typing is never mixed with output. Everything printed stays in the terminal:
+scroll up with the mouse wheel or the scroll bar, select and copy. Up/Down bring back earlier lines, Esc clears the
+line, `clear` empties the window, `!<command>` runs a command of the system shell (`!dir`, `!ls`). Commands typed here
+run in the background, so questions are answered while something installs. Downloads show one bar per job (a pack,
+the image runtime) above the input line: the whole job's percentage, then the current file's. `copy` puts the last answer on the clipboard (`copy urls`:
 the addresses); any text can be selected with the mouse and copied with a right-click (or Enter), and pasted with a
 right-click or Ctrl+V (Windows console: also the window menu, Edit). Downloads show a bar that fills as they go.
 Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal: Ctrl+C in this window stops the server.

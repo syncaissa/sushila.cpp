@@ -131,14 +131,24 @@ pub fn parse_candidates(reply: &str) -> Vec<Vec<String>> {
 }
 fn show(a: &[String]) -> String { std::iter::once("sushila".to_string()).chain(a.iter().map(|x| if x.contains(' ') || x.is_empty() { format!("\"{x}\"") } else { x.clone() })).collect::<Vec<_>>().join(" ") }
 
-/// Runs this program with the arguments, in this window, and waits.
+/// Runs this program with the arguments, in this window. Under the screen it runs in the background (the window keeps
+/// taking commands and questions; a line says when it is finished); in a plain terminal it waits.
 fn run(exe: &Path, args: &[String]) {
     crate::core::log(true, &format!("[window] ran: {}", show(args)));
+    if crate::tui::in_screen() {
+        let what = show(args);
+        match std::process::Command::new(exe).args(args).stdin(std::process::Stdio::null()).spawn() {
+            Ok(mut c) => { std::thread::spawn(move || match c.wait() {
+                Ok(s) if s.success() => eprintln!("(finished: {what})"),
+                Ok(s) => eprintln!("({what} ended with {s})"),
+                Err(e) => eprintln!("({what}: {e})"),
+            }); }
+            Err(e) => eprintln!("could not run it: {e}"),
+        }
+        return;
+    }
     crate::ticker::pause(true);  // the command writes to this terminal: the ticker line stays still meanwhile
-    let mut c = std::process::Command::new(exe);
-    // under the screen the typed lines come through stdin: a command must not take them
-    if crate::tui::in_screen() { c.stdin(std::process::Stdio::null()); }
-    let r = c.args(args).status();
+    let r = std::process::Command::new(exe).args(args).status();
     crate::ticker::pause(false);
     match r {
         Ok(s) if !s.success() => eprintln!("({} ended with {s})", show(args)),
@@ -165,6 +175,41 @@ pub fn to_clipboard(text: &str) -> &'static str {
     "sent to the terminal's clipboard (if the terminal allows it; else select the text with the mouse)"
 }
 
+/// A working example for commands people often start without their arguments.
+fn example(cmd: &str, port: u16) -> Option<String> {
+    Some(match cmd {
+        "run" => format!("Example: sushila run z-image-turbo-nvidia \"a red fox in the snow, golden light\"  (the picture is saved in the folder shown; or use the Images tab of the Inference page: http://localhost:{port}/)\n         sushila run qwen3-4b-instruct-2507 \"Write a haiku about GPUs\"  (text is printed here)"),
+        "install" => "Example: sushila install qwen2.5-coder-7b  (find packs: sushila search <words>, sushila search --kind image)".into(),
+        "ask" => "Example: sushila ask notes.txt \"What are the action items?\"".into(),
+        "mode" => "Example: sushila mode qwen3-4b-instruct-2507 accelerated".into(),
+        "bench" | "eval" | "show" | "remove" | "start" | "license" => format!("Example: sushila {cmd} qwen3-4b-instruct-2507  (installed packs: sushila list)"),
+        "search" => "Example: sushila search coder, or sushila search --kind image --fits".into(),
+        _ => return None,
+    })
+}
+
+/// Runs a line in the system shell (cmd on Windows, sh elsewhere), in the background under the screen.
+fn shell(cmd: &str, dir: &Path) {
+    if cmd.is_empty() { eprintln!("!<command> runs a command of the system shell, e.g. !dir or !ls, !nvidia-smi"); return; }
+    let mut c = if cfg!(windows) { let mut c = std::process::Command::new("cmd"); c.args(["/C", cmd]); c } else { let mut c = std::process::Command::new("sh"); c.args(["-c", cmd]); c };
+    c.current_dir(dir).stdin(std::process::Stdio::null());
+    if crate::tui::in_screen() {
+        match c.spawn() { Ok(mut ch) => { std::thread::spawn(move || { let _ = ch.wait(); }); } Err(e) => eprintln!("could not run it: {e}") }
+    } else { let _ = c.status(); }
+}
+
+/// The clipboard's text (Windows PowerShell Get-Clipboard, macOS pbpaste, Linux wl-paste, xclip or xsel); "" if none.
+pub fn from_clipboard() -> String {
+    let tools: &[(&str, &[&str])] = if cfg!(windows) { &[("powershell", &["-NoProfile", "-Command", "Get-Clipboard -Raw"])] } else if cfg!(target_os = "macos") { &[("pbpaste", &[])] }
+        else { &[("wl-paste", &["--no-newline"]), ("xclip", &["-selection", "clipboard", "-o"]), ("xsel", &["--clipboard", "--output"])] };
+    for (t, a) in tools {
+        if let Ok(o) = std::process::Command::new(t).args(*a).stdin(std::process::Stdio::null()).stderr(std::process::Stdio::null()).output() {
+            if o.status.success() { return String::from_utf8_lossy(&o.stdout).trim_end_matches(['\r', '\n']).replace(['\r', '\n'], " "); }
+        }
+    }
+    String::new()
+}
+
 pub struct Window { pub exe: PathBuf, pub data: PathBuf, pub port: u16, pub rt: tokio::runtime::Handle, pub last: std::sync::Mutex<String> }
 impl Window {
     fn ask(&self, lines: &mut dyn Iterator<Item = std::io::Result<String>>, prompt: &str) -> String {
@@ -181,11 +226,22 @@ impl Window {
         crate::assistant::model_for(&self.data, mem).map(|m| m.1).unwrap_or(true)
     }
     fn assistant(&self, q: &str, extra: Option<&str>, stream: bool) -> Result<serde_json::Value, String> {
-        let mut print = |t: &str| { eprint!("{t}"); let _ = std::io::stderr().flush(); };
-        self.rt.block_on(crate::assistant::answer_stream(&self.data, self.port, q, &[], true, extra, if stream { Some(&mut print) } else { None }))
+        // under the screen, whole lines (output of commands running in the background may come in between)
+        let screen = crate::tui::in_screen();
+        let mut held = String::new();
+        let mut print = |t: &str| {
+            if !screen { eprint!("{t}"); let _ = std::io::stderr().flush(); return; }
+            held.push_str(t);
+            while let Some(i) = held.find('\n') { let l: String = held.drain(..=i).collect(); eprint!("{l}"); }
+        };
+        let r = self.rt.block_on(crate::assistant::answer_stream(&self.data, self.port, q, &[], true, extra, if stream { Some(&mut print) } else { None }));
+        if !held.is_empty() { eprintln!("{held}"); }
+        r
     }
     /// One typed line (not ?, urls or stop, which serve() handles itself).
     pub fn line(&self, line: &str, lines: &mut dyn Iterator<Item = std::io::Result<String>>) {
+        // !<command>: a command of the operating system's shell (dir, ls, nvidia-smi ...), in the home folder
+        if let Some(sh) = line.trim().strip_prefix('!') { shell(sh.trim(), &self.data); return; }
         let args = command_args(line);
         if args.is_empty() { return; }
         match parse(&args) {
@@ -197,6 +253,13 @@ impl Window {
                 return;
             }
             Err(e) if matches!(e.kind(), clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand) => { let _ = e.print(); return; }
+            // a real command with something missing or wrong (e.g. `run` without a prompt): what it needs, with an example
+            Err(e) if Cli::command().find_subcommand(&args[0]).is_some() => {
+                eprintln!("{}", e.render().to_string().lines().filter(|l| !l.trim().is_empty() && !l.starts_with("For more information")).collect::<Vec<_>>().join("\n"));
+                if let Some(x) = example(&args[0], self.port) { eprintln!("{x}"); }
+                eprintln!("(sushila {} --help explains every option)", args[0]);
+                return;
+            }
             _ => {}
         }
         if is_question(line) {

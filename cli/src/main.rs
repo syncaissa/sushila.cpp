@@ -370,7 +370,8 @@ async fn remote(ctx: &Ctx, port: u16, body: Value) -> Result<(), String> {
         match t["status"].as_str() {
             Some("done") => { if tty && !ctx.quiet { crate::ticker::progress_clear(); } return Ok(()); }
             Some("failed") => { if tty && !ctx.quiet { eprintln!(); } return Err(t["error"].as_str().unwrap_or("failed").to_string()); }
-            _ => if !ctx.quiet && t["total"].as_u64().unwrap_or(0) > 0 {
+            // under the server window's screen the server shows its own bar for this task
+            _ => if !ctx.quiet && !tui::in_screen() && t["total"].as_u64().unwrap_or(0) > 0 {
                 let f = t["done"].as_f64().unwrap_or(0.0) / t["total"].as_f64().unwrap_or(1.0);
                 let line = format!("  {}: {} {:.1}% of {}", t["label"].as_str().unwrap_or(""), crate::ticker::bar(Some(f), 20), 100.0 * f, human(t["total"].as_u64().unwrap_or(0)));
                 if tty { crate::ticker::progress(&line); }
@@ -748,7 +749,8 @@ fn quick_help() -> &'static str {
 Typed in the server window: any of these commands (without \"sushila\" if you like; changes ask first), or a question for the assistant (e.g. how do I add a coding model?).
   ?  this list    urls  the addresses again    stop  stop the server    clear  empty the window
   copy  copy the last answer to the clipboard (copy urls: the addresses)
-  Up/Down  earlier lines    PgUp/PgDn  scroll back through the window    Esc  clear the line
+  Up/Down  earlier lines    Esc  clear the line    !<command>  a command of the system shell (e.g. !dir, !ls)
+Scroll up with the mouse wheel or the scroll bar: everything stays in the window.
 Copy any text: select it with the mouse, then right-click (or Enter); paste: right-click or Ctrl+V (Windows console: also the window menu, Edit).
 The scrolling line at the bottom shows every command in turn: ticker off hides it, ticker on shows it again.\n"
 }

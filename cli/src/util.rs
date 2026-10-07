@@ -41,14 +41,23 @@ pub fn human(b: u64) -> String {
     if b >= 1e9 { format!("{:.1} GB", b / 1e9) } else if b >= 1e6 { format!("{:.0} MB", b / 1e6) } else { format!("{:.0} KB", b / 1e3) }
 }
 
+/// GET as text. From the internet it is tried up to 5 times (waits 1, 2, 3, 4 s) when the server answers 5xx/429 or
+/// the connection fails: a busy server or a storage hiccup should not fail an install.
 pub async fn http_text(url: &str, timeout_s: u64) -> Result<String, String> {
     let local = url.starts_with("http://127.0.0.1") || url.starts_with("http://localhost");
     let u = check_url(url, local)?;
-    let r = client()?.get(u).timeout(Duration::from_secs(timeout_s)).send().await.map_err(err)?;
-    let status = r.status();
-    let body = r.text().await.map_err(err)?;
-    if !status.is_success() { return Err(format!("HTTP {status}: {}", body.chars().take(200).collect::<String>())); }
-    Ok(body)
+    let tries = if local { 1 } else { 5 };
+    let mut last = String::new();
+    for t in 1..=tries {
+        if t > 1 { tokio::time::sleep(Duration::from_secs(t as u64 - 1)).await; }
+        let r = match client()?.get(u.clone()).timeout(Duration::from_secs(timeout_s)).send().await { Ok(r) => r, Err(e) => { last = e.to_string(); continue; } };
+        let status = r.status();
+        let body = match r.text().await { Ok(b) => b, Err(e) => { last = e.to_string(); continue; } };
+        if status.is_success() { return Ok(body); }
+        last = format!("HTTP {status}: {}", body.chars().take(200).collect::<String>());
+        if !(status.is_server_error() || status.as_u16() == 429) { break; }
+    }
+    Err(last)
 }
 
 /// Downloads url to dest: resumes a partial download (dest.part), shows progress on stderr, checks the sha256 over the
@@ -56,16 +65,49 @@ pub async fn http_text(url: &str, timeout_s: u64) -> Result<String, String> {
 /// Progress of a background action, shared with the server loop: {label, done, total}.
 pub type Prog = std::sync::Arc<std::sync::Mutex<Value>>;
 
+#[allow(dead_code)]  // single-file downloads outside a job use download_p; kept for tests and callers without progress
 pub async fn download(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool) -> Result<String, String> {
     download_p(url, dest, sha256, bytes, label, quiet, None).await
 }
 /// Retries up to 8 times (waits 2, 4, 8 ... 60 s) when the server answers 5xx/408/429, the connection drops or stalls
 /// for 60 s; every retry resumes from the .part file, so nothing already downloaded is fetched again.
 pub async fn download_p(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool, prog: Option<&Prog>) -> Result<String, String> {
+    download_in(url, dest, sha256, bytes, label, quiet, prog, None).await
+}
+
+/// Several files downloaded as one job (a model pack, the image runtime): one progress bar for the whole job, with the
+/// current file and its percentage, and one line at the end instead of one per file.
+pub struct Job { pub name: String, pub total: u64, pub files: usize, done: std::sync::atomic::AtomicU64, file: std::sync::atomic::AtomicUsize, id: String, quiet: bool }
+impl Job {
+    pub fn new(name: &str, total: u64, files: usize, quiet: bool) -> Self {
+        Job { name: name.into(), total, files, done: 0.into(), file: 0.into(), id: format!("job-{}-{}", std::process::id(), name), quiet }
+    }
+    /// A file finished (or was already there): its bytes count as done.
+    pub fn file_done(&self, bytes: u64) { self.done.fetch_add(bytes, std::sync::atomic::Ordering::SeqCst); self.file.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
+    pub fn finish(&self) {
+        progress_hide(&self.id, !self.quiet && progress_tty());
+        if !self.quiet { eprintln!("  {}: {} file{}, {} downloaded and verified", self.name, self.files, if self.files == 1 { "" } else { "s" }, human(self.total)); }
+    }
+}
+fn progress_tty() -> bool { std::io::IsTerminal::is_terminal(&std::io::stderr()) || crate::tui::in_screen() }
+/// One progress update: under the server window's screen an event (it draws the bar on its own row), in a terminal
+/// a line rewritten in place, otherwise a line in the log.
+fn progress_show(id: &str, line: &str, frac: Option<f64>, tty: bool) {
+    if crate::tui::in_screen() { eprint!("\x1b]7770;{}\x07", json!({ "id": id, "text": line, "frac": frac })); }
+    else if tty { crate::ticker::progress(&format!("{} {line}", crate::ticker::bar(frac, 20))); }
+    else { eprintln!("{line}"); }
+}
+fn progress_hide(id: &str, tty: bool) {
+    if crate::tui::in_screen() { eprint!("\x1b]7770;{}\x07", json!({ "id": id, "done": true })); }
+    else if tty { crate::ticker::progress_clear(); }
+}
+
+/// download_p, as part of a job (or not).
+pub async fn download_in(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool, prog: Option<&Prog>, job: Option<&Job>) -> Result<String, String> {
     const TRIES: u32 = 8;
     let mut tri = 1;
     loop {
-        match download_once(url, dest, sha256, bytes, label, quiet, prog).await {
+        match download_once(url, dest, sha256, bytes, label, quiet, prog, job).await {
             Ok(h) => return Ok(h),
             Err((e, retry)) if retry && tri < TRIES => {
                 let wait = (2u64 << (tri - 1)).min(60);
@@ -77,7 +119,7 @@ pub async fn download_p(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opt
         }
     }
 }
-async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool, prog: Option<&Prog>) -> Result<String, (String, bool)> {
+async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Option<u64>, label: &str, quiet: bool, prog: Option<&Prog>, job: Option<&Job>) -> Result<String, (String, bool)> {
     let fatal = |e: String| (e, false);
     let again = |e: String| (e, true);
     let url = check_url(url, cfg!(test)).map_err(fatal)?.to_string();  // tests: a local flaky server
@@ -102,7 +144,8 @@ async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opti
     let mut file = tokio::fs::OpenOptions::new().create(true).write(true).append(start > 0).truncate(start == 0).open(&part).await.map_err(|e| fatal(e.to_string()))?;
     let (mut done, t0, mut last) = (start, std::time::Instant::now(), std::time::Instant::now());
     let mut stream = resp.bytes_stream();
-    let tty = !quiet && (std::io::IsTerminal::is_terminal(&std::io::stderr()) || crate::tui::in_screen());
+    let tty = !quiet && progress_tty();
+    let id = job.map(|j| j.id.clone()).unwrap_or_else(|| format!("dl-{}-{label}", std::process::id()));
     loop {
         let chunk = match tokio::time::timeout(Duration::from_secs(60), stream.next()).await {
             Err(_) => { let _ = file.flush().await; return Err(again(format!("download stalled at {}", human(done)))); }
@@ -115,18 +158,29 @@ async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opti
         done += chunk.len() as u64;
         if let Some(p) = prog { if let Ok(mut g) = p.lock() { *g = json!({ "label": label, "done": done, "total": total }); } }
         if !quiet && last.elapsed() > Duration::from_millis(if tty { 300 } else { 15000 }) {
-            let rate = (done - start) as f64 / t0.elapsed().as_secs_f64().max(0.1);
-            let pct = if total > 0 { format!("{:5.1}%", 100.0 * done as f64 / total as f64) } else { String::new() };
-            let bar = if tty { format!("{} ", crate::ticker::bar(if total > 0 { Some(done as f64 / total as f64) } else { None }, 20)) } else { String::new() };
-            let line = format!("  {label}: {bar}{pct} {} of {} ({}/s)", human(done), if total > 0 { human(total) } else { "?".into() }, human(rate as u64));
-            if tty { crate::ticker::progress(&line); } else { eprintln!("{line}"); }
+            let rate = human(((done - start) as f64 / t0.elapsed().as_secs_f64().max(0.1)) as u64);
+            let fpct = if total > 0 { format!("{:.0}%", 100.0 * done as f64 / total as f64) } else { human(done) };
+            let (line, frac) = match job {
+                // the whole job first, then this file
+                Some(j) => {
+                    let all = j.done.load(std::sync::atomic::Ordering::SeqCst) + done;
+                    let f = if j.total > 0 { Some((all as f64 / j.total as f64).min(1.0)) } else { None };
+                    (format!("{}: {:.1}% ({} of {})  |  file {} of {}: {fpct}  |  {rate}/s  |  {label}", j.name, 100.0 * f.unwrap_or(0.0), human(all), human(j.total),
+                        j.file.load(std::sync::atomic::Ordering::SeqCst) + 1, j.files), f)
+                }
+                None => {
+                    let f = if total > 0 { Some(done as f64 / total as f64) } else { None };
+                    (format!("{label}: {:.1}%  {} of {}  ({rate}/s)", 100.0 * f.unwrap_or(0.0), human(done), if total > 0 { human(total) } else { "?".into() }), f)
+                }
+            };
+            progress_show(&id, &format!("  {line}"), frac, tty);
             last = std::time::Instant::now();
         }
     }
     file.flush().await.map_err(|e| fatal(e.to_string()))?;
     drop(file);
     if total > 0 && done < total { return Err(again(format!("download ended early at {} of {}", human(done), human(total)))); }
-    if tty { crate::ticker::progress_clear(); }
+    if job.is_none() { progress_hide(&id, tty); }
     let got = hex::encode(hasher.finalize());
     if let Some(want) = sha256.filter(|s| !s.is_empty()) {
         if !got.eq_ignore_ascii_case(want) {
@@ -135,7 +189,7 @@ async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opti
         }
     }
     tokio::fs::rename(&part, dest).await.map_err(|e| fatal(e.to_string()))?;
-    if !quiet { eprintln!("  {label}: {} downloaded and verified", human(done)); }
+    if !quiet && job.is_none() { eprintln!("  {label}: {} downloaded and verified", human(done)); }
     Ok(got)
 }
 

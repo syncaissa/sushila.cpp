@@ -386,12 +386,16 @@ impl Ctx {
         let files = p.pack["files"].as_array().cloned().unwrap_or_default();
         let total: u64 = files.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum();
         log(p.quiet, &format!("installing {} ({}, {} files)", p.pack["name"].as_str().unwrap_or(&p.id), human(total), files.len()));
-        for (i, f) in files.iter().enumerate() {
+        let job = Job::new(&p.id, total, files.len(), p.quiet);
+        for f in &files {
             let dest = join_rel(&p.dir, f["path"].as_str().unwrap_or(""));
-            if dest.exists() && file_sha256(&dest).await.ok().as_deref() == f["sha256"].as_str() { continue; }
-            let label = format!("{}: file {} of {} ({})", p.id, i + 1, files.len(), f["path"].as_str().unwrap_or("").rsplit('/').next().unwrap_or(""));
-            download_p(f["url"].as_str().unwrap_or(""), &dest, f["sha256"].as_str(), f["bytes"].as_u64(), &label, p.quiet, prog).await?;
+            let b = f["bytes"].as_u64().unwrap_or(0);
+            if dest.exists() && file_sha256(&dest).await.ok().as_deref() == f["sha256"].as_str() { job.file_done(b); continue; }
+            let label = f["path"].as_str().unwrap_or("").rsplit('/').next().unwrap_or("").to_string();
+            download_in(f["url"].as_str().unwrap_or(""), &dest, f["sha256"].as_str(), f["bytes"].as_u64(), &label, p.quiet, prog, Some(&job)).await?;
+            job.file_done(b);
         }
+        job.finish();
         Ok(())
     }
     pub fn apply_pack(&mut self, p: &PackPlan) -> Result<(), String> {
@@ -475,20 +479,29 @@ impl Ctx {
         let v = index["version"].as_str().unwrap_or("0").to_string();
         let dir = self.data.join("runtime").join(name).join(&v);
         let dl = self.data.join("downloads");
-        self.log(&format!("installing the {name} runtime {v} (once)"));
+        // one job: Python, the server script and the packages (PyTorch, Nunchaku and what they need), one bar for all
+        let every = all(&build);
+        let job = Job::new(&format!("{name} runtime"), every.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum(), every.len(), self.quiet);
+        self.log(&format!("installing the {name} runtime {v} (once; {} files, {}): Python with PyTorch and the 4-bit Nunchaku kernels", every.len(), human(job.total)));
         for (part, sub) in [("python", None), ("server", Some("server"))] {
             let f = &build[part];
-            let file = dl.join(f["path"].as_str().unwrap_or("x").rsplit('/').next().unwrap_or("x"));
-            download(f["url"].as_str().unwrap_or(""), &file, f["sha256"].as_str(), f["bytes"].as_u64(), part, self.quiet).await?;
+            let fname = f["path"].as_str().unwrap_or("x").rsplit('/').next().unwrap_or("x").to_string();
+            let file = dl.join(&fname);
+            download_in(f["url"].as_str().unwrap_or(""), &file, f["sha256"].as_str(), f["bytes"].as_u64(), &fname, self.quiet, None, Some(&job)).await?;
+            job.file_done(f["bytes"].as_u64().unwrap_or(0));
             extract_archive(&file, &match sub { Some(s) => dir.join(s), None => dir.clone() }).await?;
             let _ = std::fs::remove_file(&file);
         }
         let mut wheels = vec![];
         for w in build["wheels"].as_array().cloned().unwrap_or_default() {
-            let dest = dir.join("wheels").join(w["path"].as_str().unwrap_or("x").rsplit('/').next().unwrap_or("x"));
-            download(w["url"].as_str().unwrap_or(""), &dest, w["sha256"].as_str(), w["bytes"].as_u64(), "wheel", self.quiet).await?;
+            let fname = w["path"].as_str().unwrap_or("x").rsplit('/').next().unwrap_or("x").to_string();
+            let dest = dir.join("wheels").join(&fname);
+            download_in(w["url"].as_str().unwrap_or(""), &dest, w["sha256"].as_str(), w["bytes"].as_u64(), &fname, self.quiet, None, Some(&job)).await?;
+            job.file_done(w["bytes"].as_u64().unwrap_or(0));
             wheels.push(dest.to_string_lossy().to_string());
         }
+        job.finish();
+        self.log("setting up the runtime's packages (a minute or two)");
         let exe = join_rel(&dir, exe_rel);
         set_executable(&exe);
         let exe_s = exe.to_string_lossy().to_string();
