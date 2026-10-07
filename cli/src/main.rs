@@ -591,7 +591,7 @@ fn open_browser(url: &str) {
 fn urls(port: u16, network: bool) -> Value {
     let home = std::env::var("SUSHILA_HOME").unwrap_or_default();
     let lan = if network { local_ip() } else { None };
-    json!({ "inference": format!("http://localhost:{port}/"), "admin": format!("http://localhost:{port}/#admin"),
+    json!({ "inference": format!("http://localhost:{port}/"), "admin": format!("http://localhost:{port}/admin"),
             "api": format!("http://localhost:{port}/v1"), "network": lan.map(|ip| format!("http://{ip}:{port}/")), "home": home })
 }
 fn url_banner(u: &Value) -> String {
@@ -747,7 +747,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     if !j { eprintln!("{}", url_banner(&u)); }
     if !webserver::password_set(&ctx.data) {
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) { if let Err(e) = ask_password(ctx, false) { ctx.log(&format!("admin password: {e}")); } }
-        else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/#admin on this computer to set it")); }
+        else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/admin on this computer to set it")); }
     }
     if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };
