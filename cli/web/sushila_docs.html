@@ -64,6 +64,8 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila packs</code></td><td>The model packs you can install (<code>--all</code> also lists packs for other hardware).</td></tr>
 <tr><td><code>sushila install &lt;pack&gt;</code></td><td>Downloads a pack and checks the Sushila signature and every file's SHA-256. Several packs at once are fine.</td></tr>
 <tr><td><code>sushila install &lt;file&gt;.sushilapack</code></td><td>Installs a pack file (from a USB drive or another computer), with the same checks.</td></tr>
+<tr><td><code>sushila install my-model.gguf</code></td><td>Your own GGUF model: becomes our pack if we precomputed it, else "your own model" (Standard mode).</td></tr>
+<tr><td><code>sushila install hf:&lt;owner&gt;/&lt;repo&gt;/&lt;file&gt;.gguf[@rev]</code></td><td>Downloads a GGUF from Hugging Face (checked, revision recorded), then the same as above.</td></tr>
 <tr><td><code>sushila list</code></td><td>Installed packs.</td></tr>
 <tr><td><code>sushila verify [&lt;pack&gt;]</code></td><td>Checks every file of installed packs against its SHA-256.</td></tr>
 <tr><td><code>sushila remove &lt;pack&gt;</code></td><td>Removes a pack and its files.</td></tr>
@@ -194,6 +196,20 @@ same folders. Big packs are checked once: a file is read again only if its size 
 <tr><td>Anywhere else</td><td><code>--packs-dir &lt;folder&gt;</code> or the environment variable <code>SUSHILA_PACKS</code></td></tr>
 </table>
 <p><code>sushila engine info</code> shows which folder is used.</p>
+<h3>Your own model (GGUF)</h3>
+<p>Any text model in GGUF format (the files Ollama, LM Studio and llama.cpp use, e.g. from Hugging Face) can be added:</p>
+<pre>sushila install hf:Qwen/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q4_k_m.gguf     # from Hugging Face (@revision optional)
+sushila install C:\Users\me\Downloads\my-model.gguf                                # a file you have</pre>
+<p>or drop the <code>.gguf</code> file (or a folder holding it) into <code>model-packs</code>, or use Admin → Packs → "Add from Hugging Face".</p>
+<ul>
+  <li><b>If we precomputed it</b> (the file is byte for byte one of our packs' models, compared by SHA-256), it becomes that signed pack:
+      only the precomputed files are downloaded, and Accelerated is available.</li>
+  <li><b>Otherwise</b> it is listed as <b>your own model, not verified by Sushila</b>, and runs in Standard mode (no precomputed files).
+      A Hugging Face download is checked against the SHA-256 Hugging Face lists for it, and its repository and revision are recorded.</li>
+  <li>Split files (<code>-00001-of-0000N</code>) load from the first part; a vision projector (a file named <code>*mmproj*</code>) is used with it.</li>
+  <li>Hugging Face's original format (safetensors with <code>config.json</code>) is not run directly: use its GGUF version, or convert it with llama.cpp's
+      <code>convert_hf_to_gguf.py</code>.</li>
+</ul>
 
 <h2 id="files">Files and folders</h2>
 <p>Created the first time; nothing is searched for, and no administrator rights are needed. The program itself can live anywhere.</p>

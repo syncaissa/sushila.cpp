@@ -210,7 +210,20 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     let st = read_state(&s.data_dir);
     if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     let path = parts.uri.path().to_string();
-    if path == "/health" || path == "/ready" || path == "/metrics" { return health(&s, &parts.headers, &st, &path); }
+    if path == "/health" || path == "/ready" || path == "/metrics" {
+        // the sushila.ai website checks whether Sushila runs on this computer (to show "running" or "get it / start it"
+        // next to its Install buttons): only that origin may read /health, and Chrome's private-network check is answered
+        let site = parts.headers.get("origin").and_then(|o| o.to_str().ok()).filter(|o| matches!(*o, "https://sushila.ai" | "https://www.sushila.ai")).map(String::from);
+        let mut r = if parts.method == axum::http::Method::OPTIONS { axum::http::StatusCode::NO_CONTENT.into_response() } else { health(&s, &parts.headers, &st, &path) };
+        if let (Some(o), "/health") = (site, path.as_str()) {
+            let h = r.headers_mut();
+            if let Ok(v) = axum::http::HeaderValue::from_str(&o) { h.insert("access-control-allow-origin", v); }
+            h.insert("vary", axum::http::HeaderValue::from_static("origin"));
+            h.insert("access-control-allow-methods", axum::http::HeaderValue::from_static("GET, OPTIONS"));
+            h.insert("access-control-allow-private-network", axum::http::HeaderValue::from_static("true"));
+        }
+        return r;
+    }
     if !path.starts_with("/v1/") { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); }
     let rid = request_id(&parts.headers);
     let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
@@ -303,7 +316,7 @@ fn health(s: &Arc<Srv>, headers: &axum::http::HeaderMap, st: &Value, path: &str)
     let running = st.get("running").and_then(|r| r.as_object()).cloned().unwrap_or_default();
     let ready = running.values().filter(|r| r.get("ready").and_then(|x| x.as_bool()).unwrap_or(false)).count();
     match path {
-        "/health" => axum::Json(json!({ "ok": true, "uptimeSeconds": s.started.elapsed().as_secs(), "models": running.len(), "ready": ready })).into_response(),
+        "/health" => axum::Json(json!({ "ok": true, "app": "sushila", "version": env!("CARGO_PKG_VERSION"), "port": s.port, "uptimeSeconds": s.started.elapsed().as_secs(), "models": running.len(), "ready": ready })).into_response(),
         "/ready" => (if ready > 0 { axum::http::StatusCode::OK } else { axum::http::StatusCode::SERVICE_UNAVAILABLE }, axum::Json(json!({ "ready": ready }))).into_response(),
         _ => {
             let allowed = local_host(headers, s.port) || caller(headers, st).map(|w| !w.starts_with("open")).unwrap_or(false) || admin_ok(s, headers, st);
@@ -477,7 +490,7 @@ async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, re
     let Ok(bytes) = axum::body::to_bytes(body, 65536).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let Ok(mut v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("");
-    if !["engine-install", "install", "install-file", "remove", "start", "stop", "settings", "verify", "catalog"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
+    if !["engine-install", "install", "install-file", "install-hf", "remove", "start", "stop", "settings", "verify", "catalog"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
     let id = new_id().replacen("job-", "task-", 1);
     v["id"] = json!(id);
     let dir = s.data_dir.join("control-in");

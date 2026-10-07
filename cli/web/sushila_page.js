@@ -159,7 +159,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const installed = st.packs || [], ids = new Set(installed.map((p) => p.id));
       const rows = installed.map((p) => {
         const r = running(p.id);
-        return el('tr', {}, el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, p.id)), el('td', {}, p.kind), el('td', {}, p.bytes ? human(p.bytes) : ''),
+        const src = p.custom ? (p.source && p.source.kind === 'huggingface' ? 'your own model from Hugging Face: ' + p.source.repo + ' @ ' + String(p.source.revision || '').slice(0, 8) : 'your own model') + ' · not verified by Sushila · Standard mode' : p.id;
+        return el('tr', {}, el('td', {}, el('b', {}, p.name), p.custom ? ' ' : null, p.custom ? el('span', { class: 'pill off' }, 'own model') : null, el('div', { class: 'sub' }, src)), el('td', {}, p.kind), el('td', {}, p.bytes ? human(p.bytes) : ''),
           el('td', {}, r ? el('span', { class: 'pill on' }, (r.ready ? 'running' : 'loading') + ' · ' + (r.mode === 'turbo' ? 'Accelerated' : 'Standard')) : el('span', { class: 'pill' }, 'stopped')),
           el('td', { class: 'acts' },
             r ? el('button', { class: 'ghost', onclick: () => control({ action: 'stop', pack: p.id }) }, 'Stop')
@@ -179,7 +180,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         if (p && confirm('Install ' + p.name + ' (' + human(p.bytes) + ') on this computer?')) control({ action: 'install', pack: want }, 'Install ' + p.name);
       }
       const probs = st.packProblems || [];
-      return [el('div', { class: 'sub' }, 'Pack folder: ', el('code', {}, st.packsDir || '…'), ' · Each model pack is one folder here. Drop an unzipped pack folder in and it appears below within seconds (checked first); remove a folder and the pack is gone. No restart needed.'),
+      const hfGo = () => { const v = ($('hfspec').value || '').trim(); if (!v) return; control({ action: 'install-hf', spec: v.startsWith('hf:') ? v : 'hf:' + v }, 'Download ' + v); };
+      return [el('div', { class: 'sub' }, 'Pack folder: ', el('code', {}, st.packsDir || '…'), ' · Each model pack is one folder here. Drop an unzipped pack folder in and it appears below within seconds (checked first); remove a folder and the pack is gone. No restart needed. Your own .gguf file dropped here works too: if it is a model we precomputed, it becomes that pack (Accelerated); otherwise it runs as your own model (Standard).'),
+        el('div', { class: 'row' }, el('input', { id: 'hfspec', placeholder: 'owner/repo/file.gguf from Hugging Face (optionally @revision)', style: 'flex:1;min-width:320px' }),
+          el('button', { class: 'ghost', onclick: hfGo }, 'Add from Hugging Face')),
         probs.length ? el('div', { class: 'task failed' }, el('b', {}, 'Folders that are not loaded'), ...probs.map((p) => el('div', { class: 'sub' }, (p.folder || '?') + ': ' + p.problem))) : null,
         el('h2', {}, 'Installed'), installed.length ? el('table', {}, el('tbody', {}, rows)) : el('p', { class: 'sub' }, 'Nothing installed yet: pick a pack below.'),
         el('h2', {}, 'Available'), el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: () => { catalog = null; control({ action: 'catalog' }, 'Refresh the catalog'); } }, 'Refresh the list')),
@@ -568,7 +572,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       try {
         const r = await fetch(base() + '/v1/video/vid_gen', { method: 'POST', headers: hdr, body: JSON.stringify({
           model: model.packId, prompt, negative_prompt: WAN_NEGATIVE, width: w, height: h, video_frames: frames, fps, seed: seed ? +seed : -1,
-          init_image: startImage, sample_params: { sample_method: 'euler', guidance: { txt_cfg: 6.0 }, flow_shift: 3.0 }, output_format: 'webm', ...(model.request || {}) }) });
+          init_image: startImage, sample_params: { sample_method: 'euler', sample_steps: 50, guidance: { txt_cfg: 5.0 }, flow_shift: 5.0 }, output_format: 'webm',  // Wan 2.2's own settings (fewer steps or 6 / 3 gave poor video)
+          ...(model.request || {}) }) });
         if (!r.ok) throw new Error(explain(r, await r.text()));
         videoJob = (await r.json()).id;
         for (;;) {

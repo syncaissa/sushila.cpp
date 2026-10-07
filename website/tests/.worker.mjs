@@ -2946,3 +2946,5 @@ export default {
     }
   },
 };
+
+export const __home = (packs, app) => page({}, null, builtin(), packs, app);

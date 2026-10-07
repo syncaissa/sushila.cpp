@@ -6,6 +6,11 @@ use crate::util::err;
 
 pub const WAN_NEGATIVE_PROMPT: &str = "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走";
 
+/// Wan 2.2 TI2V-5B sampling: Wan's own settings, 50 steps, guidance 5, flow shift 5. At 1280x704 this matches Wan's
+/// official pipeline frame for frame in quality; 30 steps were enough at 832x480 but murky at 720p, and the engine
+/// defaults (20 steps) with our earlier guidance 6 / shift 3 gave noise: results/video_quality_20261007/.
+pub static WAN_SAMPLING: std::sync::LazyLock<Value> = std::sync::LazyLock::new(|| json!({ "sample_method": "euler", "sample_steps": 50, "guidance": { "txt_cfg": 5.0 }, "flow_shift": 5.0 }));
+
 pub struct Output { pub ext: String, pub mime: String, pub bytes: Vec<u8> }
 
 fn http() -> reqwest::Client { reqwest::Client::builder().timeout(Duration::from_secs(3600)).build().expect("http client") }
@@ -61,7 +66,7 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
         }
         "video" => {
             let mut body = json!({ "negative_prompt": WAN_NEGATIVE_PROMPT, "fps": 24, "seed": -1, "output_format": "webm",
-                                   "sample_params": { "sample_method": "euler", "guidance": { "txt_cfg": 6.0 }, "flow_shift": 3.0 } });
+                                   "sample_params": WAN_SAMPLING.clone() });
             for src in [accel.unwrap_or(json!({})), p.clone()] { if let Some(o) = src.as_object() { for (k, v) in o { body[k] = v.clone(); } } }
             let j: Value = post(&base, "/sdcpp/v1/vid_gen", &body).await?.json().await.map_err(err)?;
             let id = j["id"].as_str().ok_or("the video server returned no job")?.to_string();

@@ -51,7 +51,7 @@ enum Cmd {
         #[arg(long)] all: bool },
     /// Installed packs
     List,
-    /// Install model packs by id, or from .sushilapack files
+    /// Install model packs: by id (sushila packs), from a .sushilapack/.zip file, your own .gguf file, or hf:<owner>/<repo>/<file>.gguf[@revision]
     Install { #[arg(required = true)] packs: Vec<String> },
     /// Remove an installed pack
     Remove { pack: String },
@@ -241,6 +241,7 @@ async fn dispatch(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
     if let Some(port) = owner_port(ctx).await {
         let body = match cli.cmd.as_ref().unwrap() {
             Cmd::Engine { act: EngineCmd::Install { build } } => Some(json!({ "action": "engine-install", "build": build })),
+            Cmd::Install { packs } if packs.len() == 1 && packs[0].starts_with("hf:") => Some(json!({ "action": "install-hf", "spec": packs[0] })),
             Cmd::Install { packs } if packs.len() == 1 => Some(if packs[0].ends_with(".sushilapack") || PathBuf::from(&packs[0]).is_file()
                 { json!({ "action": "install-file", "path": std::fs::canonicalize(&packs[0]).map_err(err)?.to_string_lossy() }) } else { json!({ "action": "install", "pack": packs[0] }) }),
             Cmd::Remove { pack } => Some(json!({ "action": "remove", "pack": pack })),
@@ -316,7 +317,15 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             let mut done = vec![];
             for p in packs {
                 let path = PathBuf::from(p);
-                if p.ends_with(".sushilapack") || path.is_file() { done.push(ctx.install_pack_file(&path).await?); }
+                if p.starts_with("hf:") {
+                    if !ctx.engine_ok() { ctx.install_engine(None).await?; }
+                    let d = core::download_hf_gguf(&ctx.packs_dir, p, ctx.quiet, None).await?;
+                    done.push(ctx.adopt_folder_now(&d).await?);
+                } else if path.is_file() && p.to_lowercase().ends_with(".gguf") {
+                    if !ctx.engine_ok() { ctx.install_engine(None).await?; }
+                    let d = ctx.take_gguf(&path)?;
+                    done.push(ctx.adopt_folder_now(&d).await?);
+                } else if p.ends_with(".sushilapack") || path.is_file() { done.push(ctx.install_pack_file(&path).await?); }
                 else { ctx.load_catalog().await?; let id = ctx.best_variant(p).await; ctx.install_pack(&id).await?; done.push(id); }
             }
             out(j, json!({ "ok": true, "installed": done }), || format!("installed: {}\nNext: sushila serve   (or: sushila run {} \"Hello\")", done.join(", "), done[0]));
@@ -543,6 +552,7 @@ enum Done {
     Ready(Option<String>, String, Result<(), String>),                       // task id, pack id
     Job(String, Result<jobs::Output, String>),                               // queue job id
     Found(String, PathBuf, Result<Value, String>),                           // a pack folder dropped into model-packs, checked
+    Hf(String, Result<(), String>),                                          // a GGUF downloaded from Hugging Face (the scan adopts it)
 }
 
 struct Owner {
@@ -617,7 +627,19 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
                 });
                 Ok(false)
             }
-            "install-file" => { let p = PathBuf::from(r["path"].as_str().unwrap_or("")); let got = ctx.install_pack_file(&p).await?; ctx.log(&format!("{got} installed from {}", p.display())); Ok(true) }
+            "install-file" => {
+                let p = PathBuf::from(r["path"].as_str().unwrap_or(""));
+                if p.extension().map(|x| x.eq_ignore_ascii_case("gguf")).unwrap_or(false) {
+                    // the user's own model: into model-packs; the folder scan checks it and adopts it
+                    let d = ctx.take_gguf(&p)?; ctx.log(&format!("{} copied to {}", p.display(), d.display())); Ok(true)
+                } else { let got = ctx.install_pack_file(&p).await?; ctx.log(&format!("{got} installed from {}", p.display())); Ok(true) }
+            }
+            "install-hf" => {
+                let spec = r["spec"].as_str().unwrap_or("").to_string();
+                let (tx, t, pd, q) = (o.tx.clone(), id.clone(), ctx.packs_dir.clone(), ctx.quiet);
+                tokio::spawn(async move { let r = core::download_hf_gguf(&pd, &spec, q, Some(&prog)).await.map(|_| ()); let _ = tx.send(Done::Hf(t, r)); });
+                Ok(false)
+            }
             "verify" => { let bad = ctx.verify_pack(&pack)?; if bad.is_empty() { Ok(true) } else { Err(format!("missing or changed: {}", bad.join(", "))) } }
             "catalog" => { ctx.catalog = None; ctx.write_catalog_cache().await?; Ok(true) }
             "remove" => { if ctx.state["running"][&pack].is_object() { ctx.stop_model(&pack).await; } ctx.remove_pack(&pack)?; Ok(true) }
@@ -717,10 +739,21 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                             }
                         }
                     }
+                    Done::Hf(t, r) => { if let Err(e) = &r { ctx.log(&format!("Hugging Face download failed: {e}")); } o.finish(&t, &r); last_scan = std::time::Instant::now() - Duration::from_secs(10); }
                     Done::Found(id, dir, res) => {
                         o.checking.remove(&dir);
                         let t = format!("found-{}", dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default());
                         match res {
+                            Ok(rec) if rec["custom"] == true => match ctx.adopt_custom(&dir, rec).await {
+                                Ok(core::Adopted::Registered(_)) => o.finish(&t, &Ok(())),
+                                Ok(core::Adopted::AlreadyHave(cid)) => { let e = format!("this file is the model of {cid}, which is already installed"); ctx.log(&format!("{}: {e}", dir.display())); o.rejected.insert(dir.clone(), std::time::UNIX_EPOCH); o.finish(&t, &Err(e)); }
+                                Ok(core::Adopted::Precomputed(plan)) => {
+                                    let (tx, t2) = (o.tx.clone(), t.clone()); let prog = o.task(&format!("{t}-pre"), "precomputed files", &plan.id, "model-packs folder");
+                                    o.finish(&t, &Ok(()));
+                                    tokio::spawn(async move { let r = Ctx::fetch_pack(&plan, Some(&prog)).await.map(|_| (None, plan)); let _ = tx.send(Done::Pack(format!("{t2}-pre"), r)); });
+                                }
+                                Err(e) => { ctx.log(&format!("{}: {e}", dir.display())); o.finish(&t, &Err(e)); }
+                            },
                             Ok(rec) => {
                                 ctx.state["packs"][&id] = rec; let _ = ctx.save();
                                 ctx.log(&format!("new pack in {}: {id} verified and available", ctx.packs_dir.display()));

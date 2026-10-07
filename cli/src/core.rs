@@ -93,7 +93,7 @@ impl Ctx {
                     "mode": r.get("mode").cloned().unwrap_or(json!("regular")), "turbo": can_turbo(p), "ready": r["ready"].as_bool().unwrap_or(false),
                     "request": if r["mode"] == "turbo" { turbo_request(p).unwrap_or(Value::Null) } else { Value::Null } })
         }).collect()).unwrap_or_default();
-        let packs: Vec<Value> = self.packs().values().map(|p| json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "turbo": can_turbo(p) })).collect();
+        let packs: Vec<Value> = self.packs().values().map(|p| json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "turbo": can_turbo(p), "custom": p["custom"] == true, "source": p["source"] })).collect();
         let engine = self.state.get("engine").filter(|e| e.is_object()).map(|e| json!({ "version": e["version"], "source": e["source"] })).unwrap_or(Value::Null);
         let tasks = self.state.get("tasks").cloned().unwrap_or(json!([]));
         let owner = self.state.get("owner").cloned().unwrap_or(Value::Null);
@@ -544,7 +544,9 @@ impl Ctx {
         let mut pack_args: Vec<String> = p["args"].as_array().into_iter().flatten().chain(if mode == "turbo" { p["turboArgs"].as_array() } else { None }.into_iter().flatten())
             .filter_map(|a| a.as_str()).map(|a| match a.strip_prefix("{pack}/") { Some(r) => join_rel(&dir, r).to_string_lossy().to_string(), None => a.to_string() }).collect();
         let engine = p["engine"].as_str().unwrap_or("text").to_string();
-        if engine == "image" && pack_args.iter().any(|a| a == "--offload-to-cpu") && self.gpu_room_for(&p).await {
+        // images: the whole model stays on the GPU when it fits. Video packs keep offloading: decoding a 5 s 720p video
+        // needs far more memory than the model (about 50 GB at 1280x704x121); without the room it decodes in tiny tiles or fails
+        if engine == "image" && p["kind"] != "video" && pack_args.iter().any(|a| a == "--offload-to-cpu") && self.gpu_room_for(&p).await {
             pack_args.retain(|a| a != "--offload-to-cpu");
             self.log(&format!("{id}: the GPU has room for the whole model, so it stays on the GPU"));
         }
@@ -627,6 +629,99 @@ pub fn write_pack_meta(dir: &Path, pack: &Value, index: Option<&Value>) {
     let _ = std::fs::write(dir.join("sushila-pack.json"), serde_json::to_string_pretty(&m).unwrap_or_default());
 }
 
+/// The user's own model (a GGUF from Hugging Face or anywhere), without Sushila's sushila-pack.json: a description is
+/// written for it, marked custom (not verified by Sushila). Text models only, Standard mode (no precomputed files).
+/// GGUF files are data (no code runs from them). Split files (-00001-of-0000N) load from the first part; a vision
+/// projector (a file named *mmproj*) is passed with --mmproj.
+pub fn make_custom_meta(dir: &Path, source: Option<Value>) -> Result<Value, String> {
+    let mut ggufs: Vec<(String, u64)> = vec![];
+    for e in std::fs::read_dir(dir).map_err(err)?.flatten() {
+        let n = e.file_name().to_string_lossy().to_string();
+        if n.to_lowercase().ends_with(".gguf") && e.path().is_file() { ggufs.push((n, e.metadata().map(|m| m.len()).unwrap_or(0))); }
+    }
+    if ggufs.is_empty() { return Err("no .gguf file in it".into()); }
+    let mmproj = ggufs.iter().find(|g| g.0.to_lowercase().contains("mmproj")).map(|g| g.0.clone());
+    let mut main: Vec<&(String, u64)> = ggufs.iter().filter(|g| Some(&g.0) != mmproj.as_ref()).collect();
+    if main.is_empty() { return Err("only a vision projector (mmproj), no model".into()); }
+    main.sort_by_key(|g| std::cmp::Reverse(g.1));
+    let model = main.iter().find(|g| g.0.contains("-00001-of-")).map(|g| g.0.clone()).unwrap_or_else(|| main[0].0.clone());
+    let folder = dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "model".into());
+    let id: String = folder.chars().map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' { c.to_ascii_lowercase() } else { '-' }).collect::<String>().trim_matches('-').chars().take(80).collect();
+    let mut args = vec![];
+    if let Some(m) = &mmproj { args = vec![json!("--mmproj"), json!(format!("{{pack}}/{m}"))]; }
+    let meta = json!({ "id": if id.is_empty() { "my-model".into() } else { id }, "name": folder, "kind": "text", "custom": true,
+        "license": "see the model's own page (not checked by Sushila)", "serve": { "engine": "text", "model": model, "args": args },
+        "files": ggufs.iter().map(|(n, b)| json!({ "path": n, "bytes": b })).collect::<Vec<_>>(), "source": source.unwrap_or(json!({ "kind": "your own file" })) });
+    std::fs::write(dir.join("sushila-pack.json"), serde_json::to_string_pretty(&meta).map_err(err)?).map_err(err)?;
+    Ok(meta)
+}
+
+/// Checks a custom pack: every file it names exists (its sha256 is recorded, and compared with the source's when the
+/// download recorded one). Returns its installed record (custom: true).
+pub fn verify_custom_folder(data: &Path, dir: &Path, meta: &Value, prog: Option<&Prog>) -> Result<Value, String> {
+    let name = meta["name"].as_str().unwrap_or("model").to_string();
+    let files = meta["files"].as_array().cloned().unwrap_or_default();
+    let total: u64 = files.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum();
+    let (mut done, mut rec_files) = (0u64, vec![]);
+    for f in &files {
+        let p = f["path"].as_str().unwrap_or("");
+        if !safe_rel_path(p) || !p.to_lowercase().ends_with(".gguf") { return Err(format!("{name}: {p}: only .gguf files are run as your own model")); }
+        if let Some(pg) = prog { if let Ok(mut g) = pg.lock() { *g = json!({ "label": format!("checking {name}: {p}"), "done": done, "total": total }); } }
+        let path = join_rel(dir, p);
+        if !path.exists() { return Err(format!("{name}: {p} is missing")); }
+        let sha = sha256_cached(data, &path)?;
+        if let Some(want) = f["sha256"].as_str() { if want != sha { return Err(format!("{name}: {p} does not match the sha256 recorded when it was downloaded")); } }
+        rec_files.push(json!({ "path": p, "sha256": sha, "bytes": std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0) }));
+        done += f["bytes"].as_u64().unwrap_or(0);
+    }
+    for a in meta["serve"]["args"].as_array().into_iter().flatten() {
+        if !pack_arg_ok(a.as_str().unwrap_or(""), &files) { return Err(format!("{name}: engine option {a} is not allowed")); }
+    }
+    let model = meta["serve"]["model"].as_str().unwrap_or("");
+    Ok(json!({ "id": meta["id"], "name": meta["name"], "kind": "text", "engine": "text", "bytes": total, "dir": dir.to_string_lossy(), "model": model,
+        "args": meta["serve"]["args"], "turboArgs": [], "turboRequest": Value::Null, "files": rec_files, "license": meta["license"], "scope": "user",
+        "installedAt": now_iso(), "artifacts": [], "custom": true, "source": meta["source"] }))
+}
+
+/// A catalog pack whose model file is exactly this file (same sha256): the user's own download is one we precomputed.
+pub fn catalog_match(catalog: &Value, model_sha: &str) -> Option<Value> {
+    catalog["packs"].as_array()?.iter().find(|p| {
+        let m = p["serve"]["model"].as_str().unwrap_or("");
+        p["files"].as_array().map(|fs| fs.iter().any(|f| f["path"] == m && f["sha256"] == model_sha)).unwrap_or(false)
+    }).cloned()
+}
+
+/// `hf:<owner>/<repo>/<path/file.gguf>[@revision]`: downloads one GGUF from Hugging Face into model-packs/<file name>/,
+/// checked against the sha256 Hugging Face lists for that file and revision, and records where it came from.
+pub async fn download_hf_gguf(packs_dir: &Path, spec: &str, quiet: bool, prog: Option<&Prog>) -> Result<PathBuf, String> {
+    let s = spec.strip_prefix("hf:").unwrap_or(spec);
+    let (s, rev) = match s.rsplit_once('@') { Some((a, r)) => (a, r.to_string()), None => (s, "main".to_string()) };
+    let parts: Vec<&str> = s.splitn(3, '/').collect();
+    if parts.len() < 3 || !parts[2].to_lowercase().ends_with(".gguf") { return Err("use hf:<owner>/<repo>/<file>.gguf[@revision]".into()); }
+    let (repo, path) = (format!("{}/{}", parts[0], parts[1]), parts[2].to_string());
+    let ok = |x: &str| !x.is_empty() && x.chars().all(|c| c.is_ascii_alphanumeric() || "._-/".contains(c)) && !x.contains("..");
+    if !ok(&repo) || !ok(&path) || !ok(&rev) { return Err("not a valid Hugging Face repository, file or revision".into()); }
+    let c = crate::net::client()?;
+    let info: Value = c.get(format!("https://huggingface.co/api/models/{repo}/revision/{rev}")).send().await.map_err(err)?.json().await.map_err(|e| format!("{repo} at {rev}: {e}"))?;
+    let sha_rev = info["sha"].as_str().ok_or(format!("{repo}: no such repository or revision (or it needs a login)"))?.to_string();
+    let pi: Value = c.post(format!("https://huggingface.co/api/models/{repo}/paths-info/{sha_rev}")).form(&[("paths", path.as_str()), ("expand", "true")]).send().await.map_err(err)?.json().await.map_err(err)?;
+    let f = pi.as_array().and_then(|a| a.first()).cloned().ok_or(format!("{path} is not in {repo}"))?;
+    let (sha256, bytes) = (f["lfs"]["oid"].as_str().map(String::from), f["lfs"]["size"].as_u64().or(f["size"].as_u64()));
+    let file = path.rsplit('/').next().unwrap_or(&path).to_string();
+    let stem = file.trim_end_matches(".gguf").trim_end_matches(".GGUF").to_string();
+    let tmp = packs_dir.join(format!(".downloading-{stem}"));
+    let dest = packs_dir.join(&stem);
+    if dest.exists() { return Err(format!("{} already exists in model-packs", stem)); }
+    std::fs::create_dir_all(&tmp).map_err(err)?;
+    log(quiet, &format!("downloading {repo}/{path} at {} ({})", &sha_rev[..12.min(sha_rev.len())], bytes.map(human).unwrap_or_default()));
+    download_p(&format!("https://huggingface.co/{repo}/resolve/{sha_rev}/{path}"), &tmp.join(&file), sha256.as_deref(), bytes, &file, quiet, prog).await?;
+    std::fs::rename(&tmp, &dest).map_err(err)?;
+    let mut meta = make_custom_meta(&dest, Some(json!({ "kind": "huggingface", "repo": repo, "revision": sha_rev, "path": path, "sha256": sha256 })))?;
+    if let Some(s) = &sha256 { if let Some(f0) = meta["files"].as_array_mut().and_then(|a| a.iter_mut().find(|x| x["path"] == file.as_str())) { f0["sha256"] = json!(s); } }
+    std::fs::write(dest.join("sushila-pack.json"), serde_json::to_string_pretty(&meta).map_err(err)?).map_err(err)?;
+    Ok(dest)
+}
+
 /// What the model-packs folder holds compared with the installed list.
 pub struct Scan { pub new: Vec<(String, PathBuf)>, pub gone: Vec<String>, pub moved: Vec<(String, PathBuf)>, pub problems: Vec<Value> }
 
@@ -652,6 +747,7 @@ pub fn sha256_cached(data: &Path, path: &Path) -> Result<String, String> {
 pub fn verify_pack_folder(data: &Path, dir: &Path, prog: Option<&Prog>) -> Result<Value, String> {
     let raw = std::fs::read_to_string(dir.join("sushila-pack.json")).map_err(|_| "no sushila-pack.json: not a Sushila model pack".to_string())?;
     let meta: Value = serde_json::from_str(&raw).map_err(|e| format!("sushila-pack.json is not valid: {e}"))?;
+    if meta["custom"] == true { return verify_custom_folder(data, dir, &meta, prog); }
     let name = meta["name"].as_str().unwrap_or("pack").to_string();
     let id = meta["id"].as_str().unwrap_or("").to_string();
     if !safe_id_dots(&id) { return Err("the pack id in sushila-pack.json is not valid".into()); }
@@ -690,19 +786,87 @@ pub fn verify_pack_folder(data: &Path, dir: &Path, prog: Option<&Prog>) -> Resul
         "files": rec_files, "license": meta["license"], "scope": "user", "installedAt": now_iso(), "artifacts": meta.get("artifacts").cloned().unwrap_or(json!([])), "source": "model-packs folder" }))
 }
 
+pub enum Adopted { Registered(String), Precomputed(PackPlan), AlreadyHave(String) }
+
 impl Ctx {
+    /// A verified custom folder: if its model is a file we precomputed (same sha256 as a catalog pack's model), it becomes
+    /// that signed pack (the model file is moved, only the precomputed files are downloaded: Accelerated available);
+    /// else it is registered as the user's own model (Standard mode).
+    pub async fn adopt_custom(&mut self, dir: &Path, rec: Value) -> Result<Adopted, String> {
+        let model = rec["model"].as_str().unwrap_or("").to_string();
+        let sha = rec["files"].as_array().and_then(|a| a.iter().find(|f| f["path"] == model.as_str())).and_then(|f| f["sha256"].as_str()).unwrap_or("").to_string();
+        let hit = match self.load_catalog().await { Ok(cat) => catalog_match(cat, &sha), Err(_) => None };
+        if let Some(cp) = hit {
+            let cid = cp["id"].as_str().unwrap_or("").to_string();
+            if self.packs().contains_key(&cid) { return Ok(Adopted::AlreadyHave(cid)); }
+            if let Some(plan) = self.prepare_pack(&cid).await? {
+                let to = join_rel(&plan.dir, cp["serve"]["model"].as_str().unwrap_or(""));
+                if let Some(d) = to.parent() { std::fs::create_dir_all(d).map_err(err)?; }
+                std::fs::rename(join_rel(dir, &model), &to).map_err(err)?;
+                let _ = std::fs::remove_dir_all(dir);
+                self.log(&format!("{} is {}: the same file we precomputed; getting its precomputed files (Accelerated)", model, cp["name"].as_str().unwrap_or(&cid)));
+                return Ok(Adopted::Precomputed(plan));
+            }
+        }
+        let id = rec["id"].as_str().unwrap_or("").to_string();
+        self.state["packs"][&id] = rec;
+        self.save()?;
+        self.log(&format!("{id}: your own model added (not verified by Sushila; Standard mode, no precomputed files for it)"));
+        Ok(Adopted::Registered(id))
+    }
+    /// Without a server: a folder holding the user's GGUF, checked and adopted at once (precomputed files downloaded here).
+    pub async fn adopt_folder_now(&mut self, dir: &Path) -> Result<String, String> {
+        if !dir.join("sushila-pack.json").exists() { make_custom_meta(dir, None)?; }
+        let (data, d) = (self.data.clone(), dir.to_path_buf());
+        let rec = tokio::task::spawn_blocking(move || verify_pack_folder(&data, &d, None)).await.map_err(err)??;
+        if rec["custom"] != true { let id = rec["id"].as_str().unwrap_or("").to_string(); self.state["packs"][&id] = rec; self.save()?; return Ok(id); }
+        match self.adopt_custom(dir, rec).await? {
+            Adopted::Registered(id) => Ok(id),
+            Adopted::AlreadyHave(id) => Err(format!("this file is the model of {id}, which is already installed")),
+            Adopted::Precomputed(plan) => { Self::fetch_pack(&plan, None).await?; self.apply_pack(&plan)?; Ok(plan.id.clone()) }
+        }
+    }
+    /// The user's own GGUF file: copied into model-packs/<name>/ (the original stays where it is).
+    pub fn take_gguf(&self, file: &Path) -> Result<PathBuf, String> {
+        let stem = file.file_stem().map(|s| s.to_string_lossy().to_string()).ok_or("not a file")?;
+        let d = self.packs_dir.join(&stem);
+        if d.exists() { return Err(format!("{stem} already exists in {}", self.packs_dir.display())); }
+        let tmp = self.packs_dir.join(format!(".copying-{stem}"));
+        std::fs::create_dir_all(&tmp).map_err(err)?;
+        let to = tmp.join(file.file_name().unwrap());
+        if std::fs::hard_link(file, &to).is_err() { std::fs::copy(file, &to).map_err(err)?; }
+        std::fs::rename(&tmp, &d).map_err(err)?;
+        Ok(d)
+    }
+
     /// Compares the model-packs folder with the installed list: folders not yet known (to verify), installed packs whose
     /// folder is gone, and folders that are not packs.
     pub fn scan_packs(&self) -> Scan {
         let mut sc = Scan { new: vec![], gone: vec![], moved: vec![], problems: vec![] };
         let known: HashMap<String, String> = self.packs().iter().map(|(id, p)| (p["dir"].as_str().unwrap_or("").to_string(), id.clone())).collect();
+        // a .gguf file dropped straight into model-packs gets its own folder (once it has stopped growing: not mid-copy)
+        for e in std::fs::read_dir(&self.packs_dir).into_iter().flatten().flatten() {
+            let p = e.path();
+            if p.is_file() && p.extension().map(|x| x.eq_ignore_ascii_case("gguf")).unwrap_or(false) {
+                let settled = e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map(|d| d.as_secs() >= 10).unwrap_or(false);
+                if !settled { continue; }
+                let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "model".into());
+                let d = self.packs_dir.join(&stem);
+                if !d.exists() && std::fs::create_dir_all(&d).is_ok() { let _ = std::fs::rename(&p, d.join(e.file_name())); }
+            }
+        }
         for e in std::fs::read_dir(&self.packs_dir).into_iter().flatten().flatten() {
             let dir = e.path();
             if !dir.is_dir() || e.file_name().to_string_lossy().starts_with('.') { continue; }
             if known.contains_key(dir.to_string_lossy().as_ref()) { continue; }
             if !dir.join("sushila-pack.json").exists() {
-                sc.problems.push(json!({ "folder": e.file_name().to_string_lossy(), "problem": "no sushila-pack.json: not a Sushila model pack (unzip the pack's file into its own folder)" }));
-                continue;
+                // the user's own GGUF (e.g. from Hugging Face): describe it as a custom pack, if nothing is still being copied
+                let busy = std::fs::read_dir(&dir).into_iter().flatten().flatten().any(|f| f.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map(|d| d.as_secs() < 10).unwrap_or(true));
+                if busy { continue; }
+                if let Err(er) = make_custom_meta(&dir, None) {
+                    sc.problems.push(json!({ "folder": e.file_name().to_string_lossy(), "problem": format!("not a model pack: {er} (a pack has sushila-pack.json; your own model needs a .gguf file)") }));
+                    continue;
+                }
             }
             let id = std::fs::read_to_string(dir.join("sushila-pack.json")).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).and_then(|m| m["id"].as_str().map(String::from)).unwrap_or_default();
             if self.packs().contains_key(&id) {
