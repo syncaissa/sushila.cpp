@@ -2,8 +2,8 @@
 # Wan 2.2 T2V-A14B at production settings (paper: "From Lab Settings to Production Quality", Video), one 80 GB GPU.
 # Engine: stable-diffusion.cpp 3f8527a46c54ecf4cb4ed6003da8e8982283c73c (the commit inside Sushila.cpp 0.1.1), sd-cli, CUDA.
 # Settings = Wan 2.2's official T2V-A14B configuration: 1280x720, 81 frames at 16 fps (5 s), 40 euler steps with the
-# switch from the high-noise to the low-noise expert at noise level 0.875 (sd.cpp's default when --high-noise-steps is
-# not given), guidance 4.0 (high noise) / 3.0 (low noise), flow shift 12, Wan's default negative prompt, Q8_0 files.
+# switch from the high-noise to the low-noise expert at noise level 0.875 (needs --high-noise-steps -1: without it
+# sd.cpp runs 20 extra high-noise steps on top of --steps, 60 in all), guidance 4.0 (high noise) / 3.0 (low noise), flow shift 12, Wan's default negative prompt, Q8_0 files.
 # Standard = uncached; Accelerated = EasyCache threshold 0.2 (the TI2V-5B pack's plan, reused, not recalibrated for A14B).
 #   W=/root/w bash run_wan_a14b.sh setup         build sd-cli, download the pinned model files (checks sha256 afterwards)
 #   W=/root/w bash run_wan_a14b.sh smoke         832x480, 17 frames, 20 steps: a quick look before the real runs
@@ -51,7 +51,7 @@ setup)
 smoke|run)
   M=$W/models; args=(-M vid_gen --diffusion-model $M/LowNoise/Wan2.2-T2V-A14B-LowNoise-Q8_0.gguf --high-noise-diffusion-model $M/HighNoise/Wan2.2-T2V-A14B-HighNoise-Q8_0.gguf
         --vae $M/split_files/vae/wan_2.1_vae.safetensors --t5xxl $M/umt5-xxl-encoder-Q8_0.gguf
-        --sampling-method euler --high-noise-sampling-method euler --cfg-scale 3.0 --high-noise-cfg-scale 4.0 --flow-shift 12.0
+        --sampling-method euler --high-noise-sampling-method euler --high-noise-steps -1 --cfg-scale 3.0 --high-noise-cfg-scale 4.0 --flow-shift 12.0
         -n "$NEG" --diffusion-fa --seed 42 --fps 16)
   if [ "$1" = smoke ]; then size=(-W 832 -H 480 --video-frames 17 --steps 20); n=1; else size=(-W 1280 -H 720 --video-frames 81 --steps 40); n=${2:-2}; fi
   nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader | tee -a $W/out/run.log

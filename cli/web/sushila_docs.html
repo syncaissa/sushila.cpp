@@ -27,7 +27,7 @@ td code{white-space:nowrap}.os{display:grid;grid-template-columns:repeat(auto-fi
 </style>
 </head>
 <body>
-<div class="top"><details class="menu"><summary aria-label="Menu">☰</summary><div><a href="/">Inference</a><a href="/admin" id="madmin">Admin</a><a href="/docs">Documentation</a><a href="#api">API</a><div class="where" id="mwhere"></div></div></details><b>Sushila</b><span class="sp"></span><span style="color:var(--mut)">Documentation</span></div>
+<div class="top"><details class="menu"><summary aria-label="Menu">☰</summary><div><a href="/">Inference</a><a href="/admin" id="madmin">Admin</a><a href="/docs">Documentation</a><a href="/#assistant">Ask Sushila</a><a href="#api">API</a><div class="where" id="mwhere"></div></div></details><b>Sushila</b><span class="sp"></span><span style="color:var(--mut)">Documentation</span></div>
 <div class="wrap">
 <nav class="toc">
   <a href="#start">Getting started</a><a href="#commands">All commands</a><a href="#os">Windows, macOS, Linux</a><a href="#serve">Serving and the web page</a>
@@ -58,11 +58,16 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><th>Command</th><th>What it does</th></tr>
 <tr><td><code>sushila</code> (no command, or double-click)</td><td>Starts the server and opens the web page in the browser.</td></tr>
 <tr><td><code>sushila selftest</code></td><td>End-to-end check: engine, the smallest model, one answer. Exit code 0 = everything works.</td></tr>
+<tr><td><code>sushila doctor</code></td><td>Checks this computer: GPU, driver, engine build, free disk, the port, the home folder, every pack file's SHA-256, the admin password. Each line says OK, WARN or FAIL, with the command that fixes it.</td></tr>
+<tr><td><code>sushila assistant ["&lt;question&gt;"]</code></td><td>Ask Sushila how Sushila works: answers from this documentation and live facts about this computer, by the largest installed text model (no question: keeps asking; <code>/exit</code> ends). Also in the ☰ menu (Ask Sushila) and in the server window.</td></tr>
 <tr><th colspan="2">Engine and model packs</th></tr>
 <tr><td><code>sushila engine install</code></td><td>Installs Sushila.cpp for this computer's GPU (CPU only when there is no usable GPU).</td></tr>
 <tr><td><code>sushila engine install --build cpu</code></td><td>Forces a build: <code>cpu</code>, <code>vulkan</code> or <code>cuda</code>.</td></tr>
 <tr><td><code>sushila engine info</code></td><td>Engine version, GPU, data folder.</td></tr>
 <tr><td><code>sushila packs</code></td><td>The model packs you can install (<code>--all</code> also lists packs for other hardware).</td></tr>
+<tr><td><code>sushila search &lt;words&gt; [--kind chat|code|image|music|video] [--fits]</code></td><td>Finds packs in the catalog by words and kind; <code>--fits</code>: only packs this computer can run.</td></tr>
+<tr><td><code>sushila show &lt;pack&gt;</code></td><td>Name, kind, license, size, every file with its SHA-256, what Accelerated adds (precomputed files, engine options, cache plan), installed or not.</td></tr>
+<tr><td><code>sushila license &lt;pack&gt;</code></td><td>The pack's license, its link, and the license files in the pack.</td></tr>
 <tr><td><code>sushila install &lt;pack&gt;</code></td><td>Downloads a pack and checks the Sushila signature and every file's SHA-256. Several packs at once are fine.</td></tr>
 <tr><td><code>sushila install &lt;file&gt;.sushilapack</code></td><td>Installs a pack file (from a USB drive or another computer), with the same checks.</td></tr>
 <tr><td><code>sushila install my-model.gguf</code></td><td>Your own GGUF model: becomes our pack if we precomputed it, else "your own model" (Standard mode).</td></tr>
@@ -70,6 +75,13 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila list</code></td><td>Installed packs.</td></tr>
 <tr><td><code>sushila verify [&lt;pack&gt;]</code></td><td>Checks every file of installed packs against its SHA-256.</td></tr>
 <tr><td><code>sushila remove &lt;pack&gt;</code></td><td>Removes a pack and its files.</td></tr>
+<tr><td><code>sushila update [--check]</code></td><td>A newer signed engine and packs whose files changed in the catalog: <code>--check</code> lists them, without it they are installed (only changed files are downloaded).</td></tr>
+<tr><td><code>sushila clean [--dry-run]</code></td><td>Removes leftovers: unfinished downloads (only while no server runs), old engine versions, outputs of removed queue jobs, stale checksum cache entries; prints the space freed.</td></tr>
+<tr><td><code>sushila du</code></td><td>Disk use per pack, engine, logs, outputs and in total.</td></tr>
+<tr><td><code>sushila export &lt;pack&gt; &lt;file.zip|.tar|.sushilapack&gt;</code></td><td>The pack as one file for another computer (with <code>sushila-pack.json</code>).</td></tr>
+<tr><td><code>sushila import &lt;file&gt;</code></td><td>Installs such a file; every file's SHA-256 is checked before anything is adopted (signed packs also against Sushila's signature).</td></tr>
+<tr><td><code>sushila convert &lt;hf-repo|folder&gt; [--out file.gguf] [--outtype q8_0]</code></td><td>Converts a Hugging Face model to GGUF with llama.cpp's converter (fetched at the version Sushila.cpp builds on) and adds it as your own model. Needs Python and the converter's packages; if they are missing it prints the exact steps.</td></tr>
+<tr><td><code>sushila precompute &lt;pack&gt;</code></td><td>Experimental: runs the repository's day-0 landscape pipeline (<code>scripts/day0_landscape.sh</code>) for a text pack; without the repository it prints what is needed.</td></tr>
 <tr><th colspan="2">Serving</th></tr>
 <tr><td><code>sushila serve [&lt;pack&gt;...]</code></td><td>Starts the server: web page, API and queue, and the named packs (default: the first installed one).</td></tr>
 <tr><td><code>sushila serve --port 8844</code></td><td>Another port (default 8765).</td></tr>
@@ -80,11 +92,30 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila stop &lt;pack&gt;</code></td><td>Stops a model.</td></tr>
 <tr><td><code>sushila stop</code></td><td>Stops the whole server.</td></tr>
 <tr><td><code>sushila status</code></td><td>What is installed, whether the server runs, which models run (Accelerated or Standard).</td></tr>
+<tr><td><code>sushila ps</code></td><td>Running models: mode, port, parallel slots, uptime, memory and GPU memory.</td></tr>
+<tr><td><code>sushila top [--interval 2]</code></td><td>The same, refreshed every 2 s, with GPU use and the last tokens/s (Ctrl+C ends).</td></tr>
+<tr><td><code>sushila mode &lt;pack&gt; standard|accelerated</code></td><td>Switches a running model at once; otherwise remembered for its next start.</td></tr>
+<tr><td><code>sushila idle &lt;minutes&gt;|off</code></td><td>Unloads models nobody used for that long; the next request loads them again (it waits while the model loads).</td></tr>
+<tr><td><code>sushila limit [--threads N] [--parallel N] [--context N] [--gpu-layers N]</code></td><td>Engine limits used when a model starts next (no flags: shows them).</td></tr>
+<tr><td><code>sushila config list | get &lt;key&gt; | set &lt;key&gt; &lt;value&gt;</code></td><td>The settings (port, enginePort, threads, contextSize, gpuLayers, parallel, idleMinutes, keepCopy, catalogUrl), checked before they are saved.</td></tr>
+<tr><td><code>sushila queue [list] | pause [&lt;id&gt;] | resume [&lt;id&gt;] | cancel &lt;id&gt;</code></td><td>The running server's background queue (without an id: the whole queue).</td></tr>
+<tr><td><code>sushila history [show &lt;id&gt;]</code></td><td>Past queue jobs with prompt, settings, seed, times and the output file.</td></tr>
+<tr><td><code>sushila open [admin|docs|assistant]</code></td><td>Opens the page in the browser.</td></tr>
+<tr><td><code>sushila example &lt;pack&gt; [curl|python|js]</code></td><td>A working API request for this computer (with its local token) and for other machines (with an access key).</td></tr>
+<tr><td><code>sushila share on [--open] | off | qr</code></td><td>Other machines: <code>on</code> makes the next <code>sushila serve</code> listen on the network (keys needed unless <code>--open</code>), <code>off</code> stops sharing at once, <code>qr</code> prints a QR code of the network address for a phone.</td></tr>
+<tr><td><code>sushila https &lt;domain&gt;</code></td><td>HTTPS for a domain: writes a Caddyfile (Caddy forwards to this server), allows that host name, prints the steps; offers to start Caddy if it is installed. Installs nothing itself.</td></tr>
 <tr><td><code>sushila home</code></td><td>Sushila's <b>home folder</b>: where <code>model-packs</code>, settings, logs and the engine live. Sushila remembers it in one small text file in your own settings folder, which every user can write without admin rights: Windows <code>%APPDATA%\sushila\home</code> (<code>C:\Users\&lt;you&gt;\AppData\Roaming\sushila\home</code>), macOS <code>~/Library/Application Support/sushila/home</code>, Linux <code>~/.config/sushila/home</code>. It holds one line, the folder's path, which you can also edit by hand; <code>sushila home</code> prints where it is. Sushila reads it at every start and goes straight there. It is the only file Sushila keeps outside its home folder. If it is deleted, Sushila searches again (and writes it again); if it finds no home, it asks for the folder of your existing home, or starts a new one when you press Enter. The first time, it searches the usual places (the system's app-data folder, next to the program, the current folder, <code>~/sushila</code>, Documents, Downloads); if it finds several homes it <b>asks</b> which one to use. <code>sushila home &lt;folder&gt;</code> makes another folder the home (replacing the remembered one); <code>sushila home --reset</code> forgets it so the next start searches again; <code>--data-dir &lt;folder&gt;</code> uses a folder for one command only. The home is also printed every time the server starts. (<code>sushila location</code> is the same command.)</td></tr>
 <tr><td><code>sushila url</code></td><td>The addresses: <b>Inference URL</b> (the page for using models, e.g. <code>http://localhost:8765/</code>), <b>Admin URL</b> (<code>http://localhost:8765/admin</code>, this computer only, password protected), the OpenAI-compatible API, and the address for other machines when serving on the network. The same block is printed every time the server starts, in the terminal or in the window that opens when you double-click <code>sushila</code>.</td></tr>
 <tr><th colspan="2">Generating from the terminal</th></tr>
 <tr><td><code>sushila run &lt;pack&gt; "&lt;prompt&gt;"</code></td><td>One answer (printed), or one picture, video or song (saved). Uses the running model if there is one.</td></tr>
 <tr><td><code>... --out file.png</code></td><td>Where to save; images also take <code>--size 1024x1024 --seed 42</code>, video <code>--size 1280x704 --frames 121</code>, music <code>--lyrics "..." --duration 60</code> (the prompt is the style).</td></tr>
+<tr><td><code>sushila chat [&lt;pack&gt;] [--standard]</code></td><td>Chat in the terminal, streamed; keeps the conversation. <code>/clear</code> forgets it, <code>/save &lt;file&gt;</code> saves it, <code>/exit</code> ends.</td></tr>
+<tr><td><code>sushila ask &lt;file&gt; "&lt;question&gt;" [--pack p]</code></td><td>Answers a question about a text, markdown or code file (long files are read in parts). PDF: convert it to text first.</td></tr>
+<tr><td><code>sushila batch &lt;pack&gt; &lt;prompts.txt&gt; [--out &lt;folder&gt;]</code></td><td>One prompt per line (<code>#</code> starts a comment): one output each, plus <code>index.json</code> with prompt, seed, settings and seconds.</td></tr>
+<tr><td><code>sushila watch &lt;folder&gt; [--pack p] [--once]</code></td><td>Each new <code>.txt</code> file in the folder is a prompt: the output is written next to it, the prompt renamed to <code>.txt.done</code>.</td></tr>
+<tr><td><code>sushila embed &lt;pack&gt; &lt;text|file&gt;</code></td><td>An embedding vector (<code>/v1/embeddings</code>). A chat engine does not compute embeddings, so a separate engine with <code>--embeddings</code> is started for it.</td></tr>
+<tr><td><code>sushila bench &lt;pack&gt; [--prompt ..] [--runs 3]</code></td><td>Speed on this computer in Standard and Accelerated (tokens/s for text, seconds for images, music and video), the speedup, saved in <code>bench/</code> in the home folder.</td></tr>
+<tr><td><code>sushila eval &lt;pack&gt; [--n 20]</code></td><td>Accuracy on 20 built-in grade-school math questions, in Standard and Accelerated.</td></tr>
 <tr><th colspan="2">Security and logs</th></tr>
 <tr><td><code>sushila password</code></td><td>Sets the admin password, or changes it (asks the current one first).</td></tr>
 <tr><td><code>sushila password --reset</code></td><td>Lost the password: sets a new one without the old one. Only on this computer.</td></tr>
@@ -93,6 +124,12 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila logs [-f] [-n 40]</code></td><td>The log of every action, from the web page, the commands and the queue (<code>-f</code> follows it).</td></tr>
 <tr><td><code>sushila service install [--packs a,b] [--public] [--port N]</code></td><td>Starts the server automatically (at boot or login).</td></tr>
 <tr><td><code>sushila service remove</code></td><td>Stops starting it automatically.</td></tr>
+<tr><td><code>sushila backup &lt;file.zip&gt; / sushila restore &lt;file.zip&gt;</code></td><td>Settings, access keys (their hashes), queue history and the admin password hash; never the model packs. Restore with the server stopped.</td></tr>
+<tr><td><code>sushila report [&lt;file&gt;]</code></td><td>A zip for bug reports: versions, GPU, settings, the last 300 log lines, crashes. Access keys, tokens and the password hash are removed.</td></tr>
+<tr><td><code>sushila version [--verify]</code></td><td>Versions of sushila and the engine; <code>--verify</code> prints this program's SHA-256 and checks it against Sushila's signed list of builds when one is published.</td></tr>
+<tr><td><code>sushila completion bash|zsh|fish|powershell</code></td><td>Tab completion for your shell.</td></tr>
+<tr><td><code>sushila reproduce [&lt;name&gt;]</code></td><td>The commands that reproduce the paper's results (e.g. <code>yue</code>, <code>zimage</code>, <code>wan</code>, <code>llama3.3-70b</code>) and the link to the full guide.</td></tr>
+<tr><td><code>sushila uninstall [--all] [--yes]</code></td><td>Removes the start-at-login service and the home pointer; <code>--all</code> also deletes the home folder after listing it and asking.</td></tr>
 </table>
 <div class="note">While a server runs, <code>install</code>, <code>remove</code>, <code>engine install</code>, <code>start</code> and <code>stop</code> are sent
 to it and you see its progress: the server is the one place that changes anything, so the web page and the commands always agree.</div>
@@ -127,6 +164,16 @@ NVIDIA: a recent driver is enough (the CUDA runtime comes with the engine).</div
 (8766, 8767, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
 <p><b>Accelerated or Standard</b>: Accelerated uses Sushila's precomputed files for the model (faster); Standard is the plain model,
 as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with <code>--standard</code>.</p>
+<h3 id="window">The server window</h3>
+<p>The window where <code>sushila serve</code> runs (it opens when you double-click <code>sushila</code>) takes typed lines:</p>
+<ul>
+  <li><b>A command</b>, with or without the word <code>sushila</code> (<code>ps</code>, <code>status</code>, <code>install qwen3-4b-instruct-2507</code>), runs right there. Commands that
+      delete or change things (remove, uninstall, clean, update, restore, import, share on, keys remove, password --reset, home &lt;folder&gt;) ask
+      <code>Run this? [y/N]</code> first. Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal: Ctrl+C here stops the server.</li>
+  <li><b>A question</b> (<code>how do I add a coding model?</code>) is answered by the Sushila assistant, with the sections it used.</li>
+  <li><b>A mistyped command</b> (<code>instal qwen</code>) gets a suggestion (<code>Did you mean `sushila install qwen`? Run it? [y/N]</code>); nothing runs without a yes.</li>
+  <li><code>?</code> lists the important commands, <code>urls</code> the addresses, <code>stop</code> stops the server.</li>
+</ul>
 
 <h2 id="network">Other machines and the internet</h2>
 <pre>sushila serve --public --port 8844      # listens on all addresses

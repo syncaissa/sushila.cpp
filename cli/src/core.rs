@@ -46,7 +46,7 @@ impl Ctx {
         let mut s: Value = raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(json!({}));
         if !s.is_object() { s = json!({}); }
         let defaults = json!({ "catalogUrl": CATALOG_URL, "port": 8765, "enginePort": 8766, "threads": 0, "contextSize": 4096, "gpuLayers": -1,
-                               "scope": "user", "parallel": 0, "keepCopy": true });
+                               "scope": "user", "parallel": 0, "keepCopy": true, "idleMinutes": 0 });
         let mut settings = defaults.as_object().unwrap().clone();
         if let Some(o) = s.get("settings").and_then(|x| x.as_object()) { for (k, v) in o { settings.insert(k.clone(), v.clone()); } }
         if settings.get("gpuLayers").and_then(|v| v.as_i64()) == Some(99) { settings.insert("gpuLayers".into(), json!(-1)); }
@@ -563,7 +563,9 @@ impl Ctx {
         if !self.engine_ok() { return Err("Sushila.cpp is not installed: run `sushila engine install`".into()); }
         let p = self.packs().get(id).cloned().ok_or(format!("{id} is not installed: run `sushila install {id}`"))?;
         if let Some(port) = self.state["running"][id]["port"].as_u64() { return Ok(Spawned { id: id.into(), port: port as u16, health: String::new(), log: PathBuf::new(), already: true }); }
-        let mode = mode.map(String::from).unwrap_or_else(|| if can_turbo(&p) { "turbo".into() } else { "regular".into() });
+        // no mode asked for: the pack's remembered choice (`sushila mode`), else Accelerated when it has precomputed files
+        let mode = mode.map(String::from).or_else(|| p["preferredMode"].as_str().filter(|m| *m == "regular" || (*m == "turbo" && can_turbo(&p))).map(String::from))
+            .unwrap_or_else(|| if can_turbo(&p) { "turbo".into() } else { "regular".into() });
         let port = self.free_port();
         let cpus = self.info["cpus"].as_u64().unwrap_or(2);
         let threads = self.setting("threads").as_u64().filter(|t| *t > 0).unwrap_or_else(|| (cpus.saturating_sub(1)).clamp(1, 16));

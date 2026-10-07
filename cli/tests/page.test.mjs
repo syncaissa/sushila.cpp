@@ -14,6 +14,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
   w.fetch = async (u, o = {}) => { u = String(u); if (o.method === 'POST') sent.push({ u, body: o.body, h: o.headers });
     if (u.includes('/api/admin/change')) { const b = JSON.parse(o.body); const good = b.current === 'correct horse'; return { ok: good, status: good ? 200 : 401, json: async () => ({ ok: good }), text: async () => good ? '' : 'wrong current password' }; }
     if (u.includes('/api/admin/setup') || u.includes('/api/admin/login')) { const pw = JSON.parse(o.body).password; if (pw !== 'correct horse') return { ok: false, status: 401, json: async () => ({}), text: async () => 'wrong password' }; A.passwordSet = true; A.loggedIn = true; return { ok: true, status: 200, json: async () => ({ session: 's'.repeat(48) }), text: async () => '' }; }
+    if (u.includes('/api/assistant')) { const b = JSON.parse(o.body); return { ok: true, status: 200, json: async () => ({ answer: 'Run sushila install qwen2.5-coder-7b (' + b.history.length + ')', model: 'qwen2.5-0.5b-q4km', sources: [{ title: 'Installing a model', source: 'notes' }] }), text: async () => '' }; }
     const j = u.includes('/api/admin') ? A : u.includes('/api/state') ? state : u.includes('/api/catalog') ? catalog : u.includes('/api/logs') ? { next: 20, text: '2026 [server] hello log\n' } : u.includes('/api/queue') ? { paused: false, jobs: [{ id: 'job-1', kind: 'text', model: 'qwen', status: 'ready', title: 'poem' }] } : u.includes('/api/control') ? { id: 'task-x' } : {};
     return { ok: true, status: 200, json: async () => j, text: async () => JSON.stringify(j) }; };
   w.eval(JS); await sleep(400);
@@ -55,6 +56,17 @@ const chg = async (cur) => { p.d.getElementById('pwcur').value = cur; p.d.getEle
   [...p.d.querySelectorAll('#manage button')].find((b) => b.textContent === 'Change password').click(); await sleep(400); };
 await chg('guess'); ok(p.d.body.textContent.includes('wrong current password'), 'change: a wrong current password is refused');
 await chg('correct horse'); ok(p.d.body.textContent.includes('Admin password changed'), 'change: with the current password it works');
-p = await page('tok123', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Admin,Documentation,API' && p.d.querySelector('.smenu a[href="/docs"]') && p.d.querySelector('.swhere').textContent.includes('/admin') && p.d.querySelector('.swhere').textContent.includes('/v1'), 'the ☰ menu: Inference, Admin, Documentation, API + the addresses');
-p = await page('', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Documentation,API' && !p.d.querySelector('#shome') && !p.d.querySelector('.swhere').textContent.includes('/admin'), 'remote visitor: ☰ menu without Admin or the home folder');
+p = await page('tok123', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Admin,Documentation,Ask Sushila,API' && p.d.querySelector('.smenu a[href="/docs"]') && p.d.querySelector('.swhere').textContent.includes('/admin') && p.d.querySelector('.swhere').textContent.includes('/v1'), 'the ☰ menu: Inference, Admin, Documentation, API + the addresses');
+p = await page('', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Documentation,Ask Sushila,API' && !p.d.querySelector('#shome') && !p.d.querySelector('.swhere').textContent.includes('/admin'), 'remote visitor: ☰ menu without Admin or the home folder');
+// Ask Sushila: the ☰ item opens the panel; a question goes to /api/assistant (with the token here, a key elsewhere); answer and sources shown
+p = await page('tok123', '#assistant'); await sleep(200);
+ok(p.d.getElementById('assistant') && !p.d.getElementById('manage').classList.contains('hidden') && p.d.getElementById('app').classList.contains('hidden'), 'Ask Sushila: #assistant opens the panel');
+p.d.getElementById('asstq').value = 'how do I install a coding model?'; p.d.getElementById('asstgo').click(); await sleep(300);
+let sa = p.sent.find((s) => s.u === '/api/assistant');
+ok(sa && JSON.parse(sa.body).question === 'how do I install a coding model?' && sa.h['x-sushila-token'] === 'tok123', 'Ask Sushila: sends the question with the token');
+ok(p.d.getElementById('asstlog').textContent.includes('sushila install qwen2.5-coder-7b') && p.d.querySelector('.asrc').textContent.includes('Installing a model'), 'Ask Sushila: shows the answer and its sources');
+p.d.getElementById('asstq').value = 'and then?'; p.d.getElementById('asstgo').click(); await sleep(300);
+ok(JSON.parse(p.sent.filter((s) => s.u === '/api/assistant')[1].body).history.length === 2 && p.d.getElementById('asstlog').textContent.includes('(2)'), 'Ask Sushila: follow-up questions carry the conversation');
+p = await page('', '#assistant'); await sleep(200);
+ok(p.d.getElementById('assistant') && p.d.querySelector('.smenu a[href="#assistant"]'), 'remote visitor: Ask Sushila is available too');
 console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0);

@@ -6,6 +6,7 @@
 //   sushila serve [<pack>...]         the inference page + OpenAI-compatible API on http://127.0.0.1:8765, models, the queue
 //   sushila run <pack> "<prompt>"     one answer, picture, video or song, printed or saved (for scripts and tests)
 //   sushila status | stop | list | verify | remove <pack> | service install | selftest
+//   sushila doctor | bench | chat | assistant | search | show | ps | top | ...   (sushila --help lists them; cmds.rs)
 //
 // The web page it serves (web/sushila_page.js) is the whole user interface: inference, and managing this computer's
 // Sushila (packs, engine, queue, logs) through the server, which alone changes anything (one source of truth).
@@ -16,6 +17,9 @@ mod core;
 mod jobs;
 mod util;
 mod locate;
+mod cmds;
+mod assistant;
+mod window;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -114,12 +118,104 @@ enum Cmd {
     Home { folder: Option<PathBuf>, #[arg(long)] reset: bool },
     /// End-to-end check: engine, the smallest model, one answer (exit code 0 = everything works)
     Selftest { #[arg(long, default_value = DEFAULT_MODEL)] pack: String },
+    /// Checks this computer: GPU, driver, engine build, disk, port, home folder, pack checksums, admin password (with the fix for each)
+    Doctor,
+    /// Speed on this computer, Standard vs Accelerated (tokens/s, or seconds per image/song/video); saved under <home>/bench/
+    Bench { pack: String, #[arg(long)] prompt: Option<String>, #[arg(long, default_value_t = 3)] runs: usize,
+            /// text: tokens per answer
+            #[arg(long, default_value_t = 256)] max_tokens: u64 },
+    /// Chat in the terminal (/exit ends, /clear forgets, /save <file> saves); default: the running or largest text pack
+    Chat { pack: Option<String>, #[arg(long)] standard: bool },
+    /// Ask Sushila how Sushila works (answers from its documentation): `assistant` (interactive) or `assistant "question"`
+    Assistant { question: Option<String> },
+    /// Finds packs in the catalog: `search <words> [--kind chat|code|image|music|video] [--fits]`
+    Search { text: Option<String>, #[arg(long)] kind: Option<String>, #[arg(long)] fits: bool },
+    /// Everything about a pack: files with sha256, license, size, what Accelerated does, installed or not
+    Show { pack: String },
+    /// A pack's license (name, link, and its license files)
+    License { pack: String },
+    /// Running models: mode, port, slots, uptime, memory, GPU memory
+    Ps,
+    /// Live view: running models, GPU use and memory, last tokens/s (Ctrl+C ends)
+    Top { #[arg(long, default_value_t = 2)] interval: u64, /// print once and exit
+          #[arg(long)] once: bool },
+    /// Standard or Accelerated for a pack: switches it now if it runs, else at its next start
+    Mode { pack: String, /// standard or accelerated
+           mode: String },
+    /// Unload models idle longer than this many minutes (they load again on the next request): `idle 30`, `idle off`
+    Idle { minutes: String },
+    /// Engine limits used at the next model start: `limit --threads N --parallel N --context N --gpu-layers N` (no flags: show)
+    Limit { #[arg(long)] threads: Option<i64>, #[arg(long)] parallel: Option<i64>, #[arg(long)] context: Option<i64>, #[arg(long, allow_hyphen_values = true)] gpu_layers: Option<i64> },
+    /// Settings: `config list`, `config get <key>`, `config set <key> <value>`
+    Config { #[command(subcommand)] act: ConfigCmd },
+    /// The background queue of the running server: `queue [list]`, `queue pause|resume [<id>]`, `queue cancel <id>`
+    Queue { #[command(subcommand)] act: Option<QueueCmd> },
+    /// Past queue jobs with prompt, settings, seed, time and output: `history`, `history show <id>`
+    History { #[command(subcommand)] act: Option<HistoryCmd> },
+    /// One prompt per line: `batch <pack> <prompts.txt> [--out <folder>]` writes each output and index.json
+    Batch { pack: String, prompts: PathBuf, #[arg(long)] out: Option<PathBuf>, #[arg(long)] standard: bool },
+    /// Watches a folder: each new .txt file is a prompt; the output is written next to it, the prompt renamed .txt.done
+    Watch { folder: PathBuf, #[arg(long)] pack: Option<String>, /// handle the files there now and exit
+            #[arg(long)] once: bool },
+    /// Answers a question about a text, markdown or code file (long files are read in parts)
+    Ask { file: PathBuf, question: String, #[arg(long)] pack: Option<String> },
+    /// Embedding vector of a text (or a file) from a text pack (/v1/embeddings)
+    Embed { pack: String, /// the text, or a file name
+            input: String },
+    /// Grade-school math accuracy (20 built-in questions) in Standard and Accelerated
+    Eval { pack: String, #[arg(long, default_value_t = 20)] n: usize },
+    /// A working API request for a pack: `example <pack> [curl|python|js]`
+    Example { pack: String, lang: Option<String> },
+    /// Opens the page in the browser: `open`, `open admin`, `open docs`, `open assistant`
+    Open { page: Option<String> },
+    /// Other machines: `share on [--open]` (serve on the network, keys needed unless --open), `share off`, `share qr` (QR code of the address)
+    Share { #[command(subcommand)] act: ShareCmd },
+    /// HTTPS for a domain: writes a Caddyfile (reverse proxy to this server) and prints the commands
+    Https { domain: String },
+    /// Newer signed engine and changed packs: `update --check` lists them, `update` installs them
+    Update { #[arg(long)] check: bool },
+    /// Removes leftovers: unfinished downloads, old engine versions, outputs of removed jobs (`--dry-run` only lists)
+    Clean { #[arg(long)] dry_run: bool },
+    /// Disk use per pack, engine, logs and outputs
+    Du,
+    /// A pack as one file for another computer: `export <pack> <file.zip|.tar|.sushilapack>`
+    Export { pack: String, file: PathBuf },
+    /// Installs an exported pack file (every file's sha256 is checked before anything is adopted)
+    Import { file: PathBuf },
+    /// Settings, access keys (hashes only), queue history and the admin password hash in one zip (never the packs)
+    Backup { file: PathBuf },
+    /// Restores a backup made with `sushila backup` (stop the server first)
+    Restore { file: PathBuf },
+    /// A zip for bug reports: versions, GPU, settings, recent log lines, crashes (no keys, tokens or password hashes)
+    Report { file: Option<PathBuf> },
+    /// Versions of sushila and the engine; `--verify` prints this program's sha256 and checks it against a signed list
+    Version { #[arg(long)] verify: bool },
+    /// Shell completion: `completion bash|zsh|fish|powershell` (e.g. sushila completion bash > ~/.local/share/bash-completion/completions/sushila)
+    Completion { shell: clap_complete::Shell },
+    /// The commands that reproduce the paper's results: `reproduce` lists them, `reproduce <name>` prints one
+    Reproduce { result: Option<String> },
+    /// Converts a Hugging Face model (repo or folder) to GGUF with llama.cpp's converter and adds it as your own model
+    Convert { source: String, #[arg(long)] out: Option<PathBuf>, /// f16, bf16, q8_0, f32 or auto
+              #[arg(long, default_value = "q8_0")] outtype: String },
+    /// EXPERIMENTAL: builds a text pack's precomputed landscape with the repository's day-0 pipeline (scripts/day0_landscape.sh)
+    Precompute { pack: String },
+    /// Removes the start-at-login service and the home pointer; `--all` also deletes the home folder (lists it and asks first)
+    Uninstall { #[arg(long)] all: bool, #[arg(long)] yes: bool },
 }
 #[derive(Subcommand)]
 enum EngineCmd { Install { /// cpu, vulkan, cuda, or a full key like linux-x86_64-vulkan
         #[arg(long)] build: Option<String> }, Info }
 #[derive(Subcommand)]
 enum KeysCmd { Add { name: String }, List, Remove { name: String } }
+#[derive(Subcommand)]
+enum QueueCmd { List, Pause { id: Option<String> }, Resume { id: Option<String> }, Cancel { id: String } }
+#[derive(Subcommand)]
+enum ConfigCmd { List, Get { key: String }, Set { key: String, #[arg(allow_hyphen_values = true)] value: String } }
+#[derive(Subcommand)]
+enum HistoryCmd { Show { id: String } }
+#[derive(Subcommand)]
+enum ShareCmd { On { /// no access key needed (trusted networks only)
+        #[arg(long)] open: bool }, Off, Qr }
 #[derive(Subcommand)]
 enum ServiceCmd { Install { #[arg(long)] packs: Option<String>, #[arg(long)] host: Option<String>, #[arg(long)] port: Option<u16>, #[arg(long)] public: bool }, Remove }
 
@@ -198,9 +294,9 @@ async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
         let up = t0.elapsed();
         if status.success() || stopping.load(std::sync::atomic::Ordering::SeqCst) { return ExitCode::SUCCESS; }
         if restarts == 0 && up < Duration::from_secs(8) && status.code() == Some(1) { return ExitCode::from(1); }  // did not start: the error is already printed
-        let mut reason = match status.code() { Some(c) => format!("exit code {c}"), None => "stopped by the operating system".into() };
+        let reason = match status.code() { Some(c) => format!("exit code {c}"), None => "stopped by the operating system".into() };
         #[cfg(unix)]
-        { use std::os::unix::process::ExitStatusExt; if let Some(sig) = status.signal() { reason = format!("killed by signal {sig}{}", match sig { 9 => " (SIGKILL: often out of memory)", 11 => " (SIGSEGV: memory fault)", 6 => " (SIGABRT)", _ => "" }); } }
+        let reason = { use std::os::unix::process::ExitStatusExt; match status.signal() { Some(sig) => format!("killed by signal {sig}{}", match sig { 9 => " (SIGKILL: often out of memory)", 11 => " (SIGSEGV: memory fault)", 6 => " (SIGABRT)", _ => "" }), None => reason } };
         let pf = data.join("logs").join("panic.txt");
         let panic = std::fs::read_to_string(&pf).ok().filter(|_| std::fs::metadata(&pf).and_then(|m| m.modified()).map(|m| m.elapsed().map(|e| e <= up + Duration::from_secs(2)).unwrap_or(false)).unwrap_or(false));
         let _ = std::fs::remove_file(&pf);
@@ -395,7 +491,7 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             ctx.save()?;
             let network = ctx.state["share"]["enabled"].as_bool().unwrap_or(false);
             let u = urls(port as u16, network);
-            out(j, json!({ "url": u["inference"], "urls": u }), || url_banner(&u).replace(" is running", "").replace(" Type ? (or man, help) for the important commands. Stop: Ctrl+C, type stop, or close this window\n", ""));
+            out(j, json!({ "url": u["inference"], "urls": u }), || url_banner(&u).replace(" is running", "").replace(" Type a command (e.g. install, ps, status), a question, or ? for help. Stop: Ctrl+C, type stop, or close this window\n", ""));
         }
         Cmd::Keys { act } => keys(ctx, act, j)?,
         Cmd::Home { .. } => {
@@ -493,6 +589,7 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             let v = json!({ "ok": true, "platform": ctx.platform_key(), "engine": ctx.state["engine"]["key"], "gpu": found, "gpuLayers": layers.map(|(a, b)| format!("{a}/{b}")), "pack": pack, "answer": text.trim(), "answer_seconds": gen_s, "total_seconds": t0.elapsed().as_secs_f64(), "steps": steps });
             out(j, v.clone(), || format!("{}\nanswer: {}\nPASS on {} with {} ({:.1} s)", steps.iter().map(|s| format!("ok  {s}")).collect::<Vec<_>>().join("\n"), text.trim(), ctx.platform_key(), Ctx::gpu_label(ctx.state["engine"]["key"].as_str().unwrap_or("")), t0.elapsed().as_secs_f64()));
         }
+        other => return cmds::run(other, ctx, j).await,
     }
     Ok(())
 }
@@ -598,25 +695,30 @@ fn urls(port: u16, network: bool) -> Value {
 }
 /// What `?`, `man` or `help` prints in the server's window: the commands people need most (all work from any terminal).
 fn quick_help() -> &'static str {
-    "\nImportant commands (type them in any terminal; `sushila --help` lists them all, the Documentation page explains each):
-  sushila packs                     model packs you can install
+    "\nImportant commands (type them in any terminal; `sushila --help` lists all of them, the Documentation page explains each):
+  sushila search <words>            model packs you can install (sushila packs: all of them)
   sushila install <pack>            download and verify a model pack, e.g. sushila install qwen3-4b-instruct-2507
-  sushila list                      installed packs
+  sushila list                      installed packs (sushila show <pack>: details)
+  sushila chat [<pack>]             chat in the terminal
   sushila run <pack> \"<prompt>\"     one answer, image, song or video from the command line
-  sushila status                    what is running, the queue, the addresses
+  sushila assistant \"<question>\"    ask Sushila how Sushila works
+  sushila status | ps               what is installed and running
+  sushila mode <pack> standard|accelerated
+  sushila bench <pack>              speed on this computer, Standard vs Accelerated
+  sushila doctor                    check GPU, driver, engine, disk, port (with fixes)
+  sushila share on | qr             let other machines (a phone) use it
   sushila logs -f                   follow the log
-  sushila home                      the home folder (model-packs, settings, logs); sushila home <folder> to change it
   sushila password                  set or change the Admin password (sushila password --reset if lost)
-  sushila selftest                  end-to-end check, including that the GPU is used
   sushila stop                      stop the server
-Typed here: ? or man or help = this list, urls = the addresses again, stop = stop the server.\n"
+Typed in the server window: any of these commands (without \"sushila\" if you like; changes ask first), a question
+for the assistant (e.g. how do I add a coding model?), ? = this list, urls = the addresses again, stop = stop the server.\n"
 }
 fn url_banner(u: &Value) -> String {
     let mut b = format!("\n==============================================================\n Sushila {} is running\n   Inference:      {}\n   Admin:          {}   (this computer only)\n   Documentation:  {}\n   API (OpenAI):   {}\n",
         env!("CARGO_PKG_VERSION"), u["inference"].as_str().unwrap_or(""), u["admin"].as_str().unwrap_or(""), u["docs"].as_str().unwrap_or(""), u["api"].as_str().unwrap_or(""));
     if let Some(n) = u["network"].as_str() { b += &format!("   Other machines: {n}   (Inference page and API; needs an access key unless --open)\n"); }
     if let Some(h) = u["home"].as_str().filter(|h| !h.is_empty()) { b += &format!("   Home folder:    {h}   (model-packs, settings, logs; change: sushila home <folder>)\n"); }
-    b + " Type ? (or man, help) for the important commands. Stop: Ctrl+C, type stop, or close this window\n==============================================================\n"
+    b + " Type a command (e.g. install, ps, status), a question, or ? for help. Stop: Ctrl+C, type stop, or close this window\n==============================================================\n"
 }
 fn local_ip() -> Option<String> { let s = std::net::UdpSocket::bind("0.0.0.0:0").ok()?; s.connect("8.8.8.8:80").ok()?; Some(s.local_addr().ok()?.ip().to_string()) }
 fn read_json(p: &std::path::Path) -> Option<Value> { std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()) }
@@ -721,10 +823,22 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
             "start" => { o.start(ctx, &pack, r["mode"].as_str(), Some(id.clone())).await?; Ok(ctx.state["running"][&pack]["ready"] == true) }
             "stop" => { ctx.stop_model(&pack).await; o.starting.remove(&pack); Ok(true) }
             "settings" => {
-                for k in ["threads", "contextSize", "gpuLayers", "parallel", "keepCopy", "enginePort"] {
+                for k in ["threads", "contextSize", "gpuLayers", "parallel", "keepCopy", "enginePort", "port", "idleMinutes"] {
                     if let Some(v) = r["values"].get(k) { if v.is_number() || v.is_boolean() { ctx.state["settings"][k] = v.clone(); } }
                 }
+                if let Some(u) = r["values"]["catalogUrl"].as_str() { crate::net::check_url(u, false)?; ctx.state["settings"]["catalogUrl"] = json!(u); ctx.catalog = None; }
                 ctx.save()?; Ok(true)
+            }
+            "share" => { cmds::apply_share(&mut ctx.state, &r["values"])?; ctx.save()?; Ok(true) }
+            // Standard / Accelerated: remembered for the pack's next start, and applied now if it runs in the other mode
+            "mode" => {
+                let m = r["mode"].as_str().filter(|m| *m == "turbo" || *m == "regular").ok_or("mode is turbo or regular")?.to_string();
+                if !ctx.packs().contains_key(&pack) { return Err(format!("{pack} is not installed")); }
+                ctx.state["packs"][&pack]["preferredMode"] = json!(m); ctx.save()?;
+                if ctx.state["running"][&pack].is_object() && ctx.state["running"][&pack]["mode"] != m.as_str() {
+                    ctx.stop_model(&pack).await; o.starting.remove(&pack);
+                    o.start(ctx, &pack, Some(&m), Some(id.clone())).await?; Ok(false)
+                } else { Ok(true) }
             }
             a => Err(format!("unknown action {a}")),
         }
@@ -743,7 +857,10 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     if !ctx.engine_ok() { ctx.install_engine(None).await?; }
     if let Some(p) = port { ctx.state["settings"]["port"] = json!(p); }
     let port = ctx.setting("port").as_u64().unwrap_or(8765) as u16;
-    let bind = host.unwrap_or_else(|| "127.0.0.1".into());
+    // `sushila share on` remembers serving on the network (share.listen; share.open: without keys)
+    let listen = host.is_none() && ctx.state["share"]["listen"] == true;
+    let open = open || (listen && ctx.state["share"]["open"] == true);
+    let bind = host.unwrap_or_else(|| if listen { "0.0.0.0".into() } else { "127.0.0.1".into() });
     let network = bind != "127.0.0.1" && bind != "localhost";
     ctx.state["share"]["open"] = json!(network && open);
     if network && open { eprintln!("--open: anyone who can reach port {port} can use the models without a key. Use it on trusted networks only."); }
@@ -766,22 +883,12 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) { if let Err(e) = ask_password(ctx, false) { ctx.log(&format!("admin password: {e}")); } }
         else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/admin on this computer to set it")); }
     }
-    // the server's own window takes a few typed commands (after the password question above, which reads the same input)
+    // the server's own window: typed commands run, questions go to the assistant, near-misses are suggested (window.rs);
+    // started after the password question above, which reads the same input
     if !j && std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        let (data, banner) = (ctx.data.clone(), url_banner(&u));
-        std::thread::spawn(move || {
-            use std::io::BufRead;
-            for line in std::io::stdin().lock().lines() {
-                let Ok(line) = line else { break };
-                match line.trim().to_lowercase().as_str() {
-                    "" => {}
-                    "?" | "man" | "help" | "h" => eprintln!("{}", quick_help()),
-                    "urls" | "url" => eprintln!("{banner}"),
-                    "stop" | "quit" | "exit" | "q" => { eprintln!("stopping..."); let _ = std::fs::write(data.join("shutdown-request.json"), "{}"); break; }
-                    other => eprintln!("unknown: {other}. Type ? for the important commands (commands like `sushila install` go in another terminal)."),
-                }
-            }
-        });
+        let w = window::Window { exe: std::env::current_exe().map_err(err)?, data: ctx.data.clone(), port, rt: tokio::runtime::Handle::current() };
+        let banner = url_banner(&u);
+        std::thread::spawn(move || window::read_loop(w, banner));
     }
     if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };
@@ -809,6 +916,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         tokio::spawn(async move { tokio::time::sleep(Duration::from_secs(secs.saturating_sub(1))).await; panic!("test panic (SUSHILA_TEST_PANIC_AFTER)"); });
     }
     let mut last_pub = std::time::Instant::now();
+    let mut last_idle = std::time::Instant::now();
     let mut crash_counts: std::collections::HashMap<String, Vec<std::time::Instant>> = Default::default();
     loop {
         let mut changed = false;
@@ -824,7 +932,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                     Done::Ready(t, id, r) => {
                         o.starting.remove(&id);
                         match r {
-                            Ok(()) => { let _ = ctx.model_ready(&id); if let Some(t) = t { o.finish(&t, &Ok(())); } }
+                            Ok(()) => { let _ = ctx.model_ready(&id); webserver::mark_idle(&id, false); if let Some(t) = t { o.finish(&t, &Ok(())); } }
                             Err(e) => {
                                 ctx.log(&format!("{e}")); ctx.model_failed(&id).await;
                                 if let Some(next) = ctx.fallback_for(&id, &e).await {
@@ -922,6 +1030,24 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                     ctx.log(&format!("{id}: switching to {}", if mode == "turbo" { "Accelerated" } else { "Standard" }));
                     ctx.stop_model(id).await; o.starting.remove(id);
                     if let Err(e) = o.start(ctx, id, Some(mode), None).await { ctx.log(&format!("{id}: {e}")); }
+                }
+            }
+        }
+        // idle models are unloaded (settings.idleMinutes); a request for one loads it again (webserver::reload_idle)
+        let idle = ctx.setting("idleMinutes").as_u64().unwrap_or(0);
+        if idle > 0 && last_idle.elapsed() > Duration::from_secs(5) {
+            last_idle = std::time::Instant::now();
+            let busy = current.as_ref().and_then(|c| q["jobs"].as_array().and_then(|a| a.iter().find(|x| x["id"] == c.0.as_str())).and_then(|x| x["model"].as_str().map(String::from)));
+            for (id, r) in ctx.state["running"].as_object().cloned().unwrap_or_default() {
+                if r["ready"] != true || o.starting.contains(&id) || busy.as_deref() == Some(id.as_str()) || webserver::in_flight(&id) > 0 { continue; }
+                // the last use: a request through this server, the engine's own log (CLI jobs talk to it directly), or the start
+                let log_t = std::fs::metadata(ctx.data.join("logs").join(format!("{id}.log"))).and_then(|m| m.modified()).ok();
+                let start_t = r["startedAt"].as_str().and_then(cmds::iso_secs).map(|s| std::time::UNIX_EPOCH + Duration::from_secs(s));
+                let last = [webserver::last_use(&id), log_t, start_t].into_iter().flatten().max();
+                if last.and_then(|t| t.elapsed().ok()).map(|e| e > Duration::from_secs(idle * 60)).unwrap_or(false) {
+                    ctx.log(&format!("{id}: idle for {idle} min: unloaded (it loads again on the next request)"));
+                    ctx.stop_model(&id).await;
+                    webserver::mark_idle(&id, true);
                 }
             }
         }

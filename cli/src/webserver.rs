@@ -26,12 +26,40 @@ pub struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std:
 #[derive(Default)]
 pub struct Metrics { requests: HashMap<(String, u16), u64>, inflight: HashMap<String, i64>, rejected: HashMap<String, u64>, seconds: HashMap<String, (f64, u64)> }
 
+/// Per model: requests in flight and the last use (for unloading idle models), and the models unloaded for being idle
+/// (a request for one starts it again). Shared with the owner loop, which runs in the same process.
+static USE: std::sync::LazyLock<std::sync::Mutex<HashMap<String, (i64, std::time::SystemTime)>>> = std::sync::LazyLock::new(Default::default);
+static IDLE: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet<String>>> = std::sync::LazyLock::new(Default::default);
+pub fn touch(model: &str, d: i64) { if let Ok(mut u) = USE.lock() { let e = u.entry(model.to_string()).or_insert((0, std::time::SystemTime::now())); e.0 += d; e.1 = std::time::SystemTime::now(); } }
+pub fn in_flight(model: &str) -> i64 { USE.lock().ok().and_then(|u| u.get(model).map(|x| x.0)).unwrap_or(0) }
+pub fn last_use(model: &str) -> Option<std::time::SystemTime> { USE.lock().ok().and_then(|u| u.get(model).map(|x| x.1)) }
+pub fn mark_idle(model: &str, idle: bool) { if let Ok(mut s) = IDLE.lock() { if idle { s.insert(model.to_string()); } else { s.remove(model); } } }
+fn was_idle(model: &str) -> bool { IDLE.lock().map(|s| s.contains(model)).unwrap_or(false) }
+
+/// Asks the owner to start a model (a control request, like the Admin tab's Start) and waits until it is ready.
+pub async fn start_and_wait(dir: &Path, model: &str, secs: u64) -> Option<Value> {
+    let st = read_state(dir);
+    if st.get("running").and_then(|r| r.get(model)).and_then(|r| r.get("ready")).and_then(|x| x.as_bool()) == Some(true) { return Some(st); }
+    if st.get("running").and_then(|r| r.get(model)).is_none() {
+        let id = new_id().replacen("job-", "task-", 1);
+        let cdir = dir.join("control-in"); let _ = std::fs::create_dir_all(&cdir);
+        let _ = std::fs::write(cdir.join(format!("{id}.json")), json!({ "id": id, "action": "start", "pack": model, "source": "on demand" }).to_string());
+    }
+    for _ in 0..secs * 2 {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let st = read_state(dir);
+        if st.get("running").and_then(|r| r.get(model)).and_then(|r| r.get("ready")).and_then(|x| x.as_bool()) == Some(true) { return Some(st); }
+    }
+    None
+}
+
 /// One forwarded request: counted while in flight (admission control), timed, and logged with its request id when it
 /// ends, including when a streamed answer finishes or the client disconnects.
 struct InFlight { s: Arc<Srv>, model: String, rid: String, who: String, what: String, t0: std::time::Instant, status: u16 }
 impl Drop for InFlight {
     fn drop(&mut self) {
         let secs = self.t0.elapsed().as_secs_f64();
+        touch(&self.model, -1);
         if let Ok(mut m) = self.s.metrics.lock() {
             *m.inflight.entry(self.model.clone()).or_default() -= 1;
             *m.requests.entry((self.model.clone(), self.status)).or_default() += 1;
@@ -256,6 +284,11 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     let bytes = match axum::body::to_bytes(body, 64 << 20).await { Ok(b) => b, Err(_) => return deny(axum::http::StatusCode::PAYLOAD_TOO_LARGE, "request too large") };
     let wanted = parts.headers.get("x-sushila-model").and_then(|h| h.to_str().ok()).map(String::from)
         .or_else(|| serde_json::from_slice::<Value>(&bytes).ok().and_then(|v| v.get("model").and_then(|m| m.as_str()).map(String::from)));
+    // a model unloaded for being idle is started again when asked for (named, or the only one when none runs)
+    let reload = match wanted.as_deref() { Some(m) if !running.contains_key(m) && was_idle(m) => Some(m.to_string()),
+        None if running.is_empty() => IDLE.lock().ok().filter(|s| s.len() == 1).and_then(|s| s.iter().next().cloned()), _ => None };
+    let st2 = match reload { Some(m) => { crate::core::log(true, &format!("{m}: requested while unloaded for being idle; loading it again")); start_and_wait(&s.data_dir, &m, 300).await } None => None };
+    let running = match &st2 { Some(x) => x.get("running").and_then(|r| r.as_object()).unwrap_or(&empty), None => running };
     let pick = match wanted.as_deref() {
         Some(m) if running.contains_key(m) => running.get(m),
         _ if running.len() == 1 => running.values().next(),
@@ -282,6 +315,7 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
             return r;
         }
         *n += 1;
+        touch(&model, 1);
         InFlight { s: s.clone(), model: model.clone(), rid: rid.clone(), who: who_s.clone(), what: format!("{} {}", parts.method, path), t0: std::time::Instant::now(), status: 0 }
     };
     let pq = parts.uri.path_and_query().map(|p| p.as_str().to_string()).unwrap_or(path.clone());
@@ -490,7 +524,7 @@ async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, re
     let Ok(bytes) = axum::body::to_bytes(body, 65536).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let Ok(mut v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("");
-    if !["engine-install", "install", "install-file", "install-hf", "remove", "start", "stop", "settings", "verify", "catalog"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
+    if !["engine-install", "install", "install-file", "install-hf", "remove", "start", "stop", "settings", "verify", "catalog", "share", "mode"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
     let id = new_id().replacen("job-", "task-", 1);
     v["id"] = json!(id);
     let dir = s.data_dir.join("control-in");
@@ -603,6 +637,38 @@ async fn srv_login(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum
     }
 }
 
+/// POST /api/assistant {question, history?} -> {answer, sources, model}: "Ask Sushila", answered by the largest installed
+/// text model from Sushila's documentation and live facts (webserver and CLI share assistant.rs). This computer's page,
+/// or (when sharing) a key; visitors from other machines never see local paths.
+async fn srv_assistant(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let (parts, body) = req.into_parts();
+    let st = read_state(&s.data_dir);
+    let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
+    let cors = |r: axum::response::Response| with_cors_for(r, &st, origin.as_deref());
+    if parts.method == axum::http::Method::OPTIONS { return cors(axum::http::StatusCode::NO_CONTENT.into_response()); }
+    if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    let Some(who) = caller(&parts.headers, &st) else { return cors((axum::http::StatusCode::UNAUTHORIZED, "an access key is required").into_response()) };
+    let local = who == "local" && local_host(&parts.headers, s.port);
+    if who != "local" {
+        let per_min = share(&st).and_then(|sh| sh.get("perMinute")).and_then(|v| v.as_u64()).unwrap_or(30).max(1) as u32;
+        let mut hits = s.hits.lock().unwrap();
+        let e = hits.entry(who.clone()).or_insert((0, std::time::Instant::now()));
+        if e.1.elapsed() > Duration::from_secs(60) { *e = (0, std::time::Instant::now()); }
+        e.0 += 1;
+        if e.0 > per_min { return cors((axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests; try again in a minute").into_response()); }
+    }
+    let Ok(bytes) = axum::body::to_bytes(body, 256 << 10).await else { return (axum::http::StatusCode::PAYLOAD_TOO_LARGE, "request too large").into_response() };
+    let v: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    let q: String = v.get("question").and_then(|x| x.as_str()).unwrap_or("").trim().chars().take(2000).collect();
+    if q.is_empty() { return cors((axum::http::StatusCode::BAD_REQUEST, "question required").into_response()); }
+    let history: Vec<Value> = v.get("history").and_then(|h| h.as_array()).cloned().unwrap_or_default();
+    match crate::assistant::answer_here(&s.data_dir, s.port, &q, &history, local).await {
+        Ok(r) => cors(axum::Json(r).into_response()),
+        Err(e) => cors((axum::http::StatusCode::SERVICE_UNAVAILABLE, e).into_response()),
+    }
+}
+
 /// Starts the web server on bind:port. Returns its address and the stop signal.
 pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, oneshot::Sender<()>), String> {
     let ip: std::net::IpAddr = bind.parse().map_err(|_| format!("not an IP address: {bind}"))?;
@@ -624,6 +690,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/admin/:what", axum::routing::post(srv_login))
         .route("/install/:pack", axum::routing::get(srv_install_link))
         .route("/admin", axum::routing::get(|| async { axum::response::Redirect::to("/#admin") }))
+        .route("/api/assistant", axum::routing::post(srv_assistant).options(srv_assistant))
         .route("/api/queue", axum::routing::get(srv_queue).post(srv_queue_add).options(srv_queue_add))
         .route("/api/queue/:id/output", axum::routing::get(srv_queue_output))
         .route("/api/queue/:id/:action", axum::routing::post(srv_queue_action).options(srv_queue_action))

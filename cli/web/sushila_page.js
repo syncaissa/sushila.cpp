@@ -95,6 +95,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .manage h2{font-size:18px;margin:18px 0 8px}.manage table td,.manage table th{font-size:14px}.manage .acts{display:flex;gap:6px;flex-wrap:wrap}
 .manage button{padding:5px 11px;font-size:13px}.task{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0;background:var(--card)}
 .task.failed{border-color:var(--err)}.logbox{background:var(--code);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;height:65vh;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.asst{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0;background:var(--card);white-space:pre-wrap}.asst.user{margin-left:12%;background:var(--accbg)}.asst.err{border-color:var(--err)}.asst .asrc{margin-top:6px;white-space:normal}
 .manage label{display:block;font-weight:600;font-size:13px;margin:10px 0 4px}.swhere{border-top:1px solid var(--line);margin-top:6px;padding:6px 10px 2px;font-size:12px;color:var(--mut);word-break:break-all;line-height:1.6}.manage .kv td:first-child{color:var(--mut);width:180px}`));
     // the ☰ menu on every page and tab: Inference, Admin (this computer), Documentation (/docs, the same file the website
     // uses), API; then the addresses and, on this computer, the home folder (the same lines the server prints at start)
@@ -106,7 +107,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const menu = el('details', { class: 'smenu' }, el('summary', { 'aria-label': 'Menu' }, '☰'),
       el('div', {}, el('a', { href: '#', onclick: close }, 'Inference'),
         local ? el('a', { href: '#admin', onclick: close }, 'Admin') : null,
-        el('a', { href: '/docs' }, 'Documentation'), el('a', { href: '/docs#api' }, 'API'), where));
+        el('a', { href: '/docs' }, 'Documentation'), el('a', { href: '#assistant', onclick: close }, 'Ask Sushila'), el('a', { href: '/docs#api' }, 'API'), where));
     if (local) api('/api/admin').then((r) => r.json()).then((a) => { const h = document.getElementById('shome'); if (h && a.home) h.textContent = 'Home folder: ' + a.home; }).catch(() => {});
     const nav = el('nav', { class: 'snav' }, menu, el('b', {}, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
       el('span', { style: 'flex:1' }), local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
@@ -253,11 +254,45 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('p', { class: 'sub' }, sh.enabled ? ('On' + (sh.open ? ', open to anyone who can reach the port (no key)' : ', ' + sh.keys + ' access key(s)')) : 'Off: only this computer can use it.'),
         el('pre', {}, 'sushila serve --public --port ' + (s.port || 8765) + '     # reachable at http://<this machine>:' + (s.port || 8765) + '/\nsushila keys add <name>                  # an access key for another machine or app')];
     }
+    // "Ask Sushila": questions about Sushila, answered by the installed text model from the documentation (POST /api/assistant);
+    // the sources (sections of the notes and documentation) are shown under each answer. One panel, kept while the page lives.
+    const asked = [];
+    let asstPanel = null;
+    function assistantPanel() {
+      if (asstPanel) return asstPanel;
+      const log = el('div', { id: 'asstlog' });
+      const q = el('textarea', { id: 'asstq', rows: 2, placeholder: 'e.g. How do I install a coding model? Which image model fits my GPU?' });
+      const btn = el('button', { id: 'asstgo', class: 'primary' }, 'Ask');
+      const add = (cls, text, extra) => { const d = el('div', { class: 'asst ' + cls }, el('div', {}, text), extra || null); log.append(d); d.scrollIntoView && d.scrollIntoView({ block: 'end' }); return d; };
+      async function go() {
+        const question = q.value.trim(); if (!question) return;
+        q.value = ''; add('user', question); const wait = add('bot', 'Thinking… (the first answer can take a while if the model has to load)');
+        btn.disabled = true;
+        try {
+          let keys = {}; try { keys = JSON.parse(localStorage.getItem('sushila-keys') || '{}') || {}; } catch (_) {}
+          let visitor = ''; try { visitor = JSON.parse(localStorage.getItem('sushila-visitor') || '""') || ''; } catch (_) {}
+          const h = Object.assign({ 'content-type': 'application/json', 'x-sushila-visitor': visitor }, token ? { 'x-sushila-token': token } : keys[''] ? { authorization: 'Bearer ' + keys[''] } : {});
+          const r = await fetch('/api/assistant', { method: 'POST', headers: h, body: JSON.stringify({ question, history: asked.slice(-4) }) });
+          if (!r.ok) throw new Error(r.status === 401 ? 'an access key is needed (enter it on the Use tab first)' : (await r.text()) || r.status);
+          const a = await r.json();
+          wait.replaceWith(add('bot', a.answer || '(no answer)', el('div', { class: 'sub asrc' }, 'Answered by ' + (a.model || '?') + ' from: ' + (a.sources || []).map((x) => x.title).join('; '))));
+          asked.push({ role: 'user', content: question }, { role: 'assistant', content: a.answer || '' });
+        } catch (e) { wait.replaceWith(add('bot err', 'The assistant could not answer: ' + e.message)); }
+        btn.disabled = false;
+      }
+      btn.addEventListener('click', go);
+      q.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); } });
+      asstPanel = el('div', { id: 'assistant' }, el('h2', {}, 'Ask Sushila'),
+        el('p', { class: 'sub' }, 'Questions about Sushila itself: what to install, how, what to expect. Answers come from Sushila\'s documentation and this computer\'s facts, written by the installed text model; check the sources. Full documentation: ', el('a', { href: '/docs' }, '/docs')),
+        log, el('div', { class: 'composer' }, q, btn));
+      return asstPanel;
+    }
     async function render() {
       const app = $('app'); if (!app) return;
       for (const a of nav.querySelectorAll('a')) a.classList.toggle('on', a.dataset.tab === view);
       if (!view) { app.classList.remove('hidden'); box.classList.add('hidden'); return; }
       app.classList.add('hidden'); box.classList.remove('hidden');
+      if (view === 'assistant') { const p = assistantPanel(); if (box.firstChild !== p || box.childNodes.length !== 1) box.replaceChildren(p); return; }
       if (document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && sub !== 'logs' && admin.loggedIn) return;  // do not redraw while typing
       if (!admin.loggedIn) { if (!(document.activeElement && box.contains(document.activeElement))) box.replaceChildren(note ? el('div', { class: 'msg err' }, note) : '', ...[].concat(loginView()).flat().filter(Boolean)); else if (note && !box.querySelector('.msg')) box.prepend(el('div', { class: 'msg err' }, note)); return; }
       const subnav = el('div', { class: 'snav', style: 'border:0;padding:6px 0' }, ...SUB.map(([h, t]) => el('a', { href: '#admin/' + h, class: h === sub ? 'on' : '' }, t)));
@@ -268,7 +303,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     }
     function route() {
       const h = location.hash.slice(1).split('/');
-      view = local && h[0] === 'admin' ? 'admin' : ''; sub = SUB.some(([x]) => x === h[1]) ? h[1] : 'packs'; note = '';
+      view = h[0] === 'assistant' ? 'assistant' : local && h[0] === 'admin' ? 'admin' : ''; sub = SUB.some(([x]) => x === h[1]) ? h[1] : 'packs'; note = '';
       if (sub === 'packs') catalog = null;
       poll();
     }
