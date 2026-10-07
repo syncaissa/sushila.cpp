@@ -1,0 +1,33 @@
+model:
+  target_model_path: "casperhansen/deepseek-r1-distill-llama-70b-awq"
+  draft_model_config: "/workspace/sushila/deepseek-r1-distill-llama-70b/pub_head/config.json"
+  draft_checkpoint_path: "/workspace/sushila/deepseek-r1-distill-llama-70b/pub_head"
+  vocab_mapping_path: "/workspace/sushila/deepseek-r1-distill-llama-70b/vocab_mapping.pt"
+  target_backend: "sglang"
+  embedding_key: "model.embed_tokens.weight"
+  torch_dtype: "bfloat16"
+  load_target_embedding: false
+data:
+  hidden_states_path: "/workspace/sushila/deepseek-r1-distill-llama-70b/hs"
+  max_length: 1024
+  chat_template: "deepseek-r1-distill"
+  cache_dir: "/workspace/sushila/deepseek-r1-distill-llama-70b/cache_chunk_00"
+training:
+  strategy: "eagle3"
+  num_epochs: 1
+  batch_size: 1
+  learning_rate: 0.00002
+  max_grad_norm: 0.5
+  ttt_length: 7
+  attention_backend: "sdpa"
+  save_interval: 100000
+  log_interval: 50
+  dist_timeout: 60
+  seed: 0
+run_id: "run-chunk_00"
+output_dir: "/workspace/sushila/deepseek-r1-distill-llama-70b/ckpt_chunk_00"
+deployment:
+  mode: local_colocated
+  trainer:
+    nnodes: 1
+    nproc_per_node: 1

@@ -1,0 +1,49 @@
+0.00.189.972 I llama_completion: llama backend init
+0.00.189.992 I llama_completion: load the model and apply lora adapter, if any
+0.10.694.489 I cmn          init: llama threadpool init, n_threads = 252
+0.10.787.113 I 
+0.10.787.265 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.10.787.273 I 
+0.10.787.423 I sampler seed: 2801351658
+0.10.787.446 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.10.787.456 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.10.787.457 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.10.787.458 I 
+user
+
+Explain how a bill becomes a law in the United States, step by step.assistant
+
+The process of how a bill becomes a law in the United States is a complex and multi-step process. Here's a step-by-step explanation:
+
+**Step 1: Introduction of a Bill**
+
+* A member of Congress (either the House of Representatives or the Senate) introduces a bill, which is a proposed law.
+* The bill is typically drafted by the member's staff, with input from experts, interest groups, and other stakeholders.
+* The bill is introduced in either the House or Senate, depending on the member's chamber.
+
+**Step 2: Referral to Committee**
+
+* The introduced bill is referred to a committee, which is a group of members who specialize in a particular area of policy.
+* The committee reviews the bill, holds hearings, and gathers input from experts and stakeholders.
+* The committee may also mark up the bill, which means they make changes or amendments to the original text.
+
+**Step 3: Committee Markup**
+
+* The committee debates and votes on the bill, and may make further changes or amendments.
+* If the committee approves the bill, it is sent to the full chamber for consideration.
+* If the committee rejects the bill, it may be sent back to the sponsor for revision or may die in committee.
+
+**Step 4:
+
+0.22.525.892 I common_perf_print:    sampling time =      56.91 ms
+0.22.525.893 I common_perf_print:    samplers time =      18.13 ms /   282 tokens
+0.22.525.902 I common_perf_print:        load time =    9763.33 ms
+0.22.525.904 I common_perf_print: prompt eval time =     125.22 ms /    26 tokens (    4.82 ms per token,   207.63 tokens per second)
+0.22.525.905 I common_perf_print:        eval time =   11549.42 ms /   255 runs   (   45.29 ms per token,    22.08 tokens per second)
+0.22.525.906 I common_perf_print:       total time =   11738.80 ms /   281 tokens
+0.22.525.907 I common_perf_print: unaccounted time =       7.24 ms /   0.1 %      (total - sampling - prompt eval - eval) / (total)
+0.22.525.907 I common_perf_print:    graphs reused =        253

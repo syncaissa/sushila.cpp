@@ -1,5 +1,5 @@
 #!/bin/bash
-# Wan 2.2 TI2V-5B, the paper's video result (1.65x, frame SSIM 0.93; results/video_quality_20261007): 5 prompts,
+# Wan 2.2 TI2V-5B, the paper's video result (1.62x by medians, 889 -> 549 s; frame SSIM 0.93; results/video_quality_20261007): 5 prompts,
 # 1280x704, 121 frames (5 s at 24 fps), seed 42, euler, 50 steps, guidance 5, flow shift 5 (Wan's own settings), Wan's
 # default negative prompt (wan_negative_prompt.json); Standard = uncached, Accelerated = the pack's cache plan
 # (EasyCache, threshold 0.2). One engine server (stable-diffusion.cpp in Sushila.cpp 0.1.1) with --offload-to-cpu.

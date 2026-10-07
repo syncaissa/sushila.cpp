@@ -1,0 +1,40 @@
+0.00.137.313 I llama_completion: llama backend init
+0.00.137.341 I llama_completion: load the model and apply lora adapter, if any
+0.02.406.997 I cmn          init: llama threadpool init, n_threads = 30
+0.02.489.557 I 
+0.02.489.716 I system_info: n_threads = 30 (n_threads_batch = 30) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.02.489.740 I 
+0.02.489.911 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.02.489.929 I sampler seed: 704198407
+0.02.489.942 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.02.489.950 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.02.489.951 I generate: n_ctx = 2048, n_batch = 2048, n_predict = 128, n_keep = 1
+0.02.489.951 I 
+system
+
+Cutting Knowledge Date: December 2023
+Today Date: 26 Jul 2024
+
+user
+
+Summarize the causes and consequences of the French Revolution.assistant
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here's a summary:
+
+**Causes of the French Revolution:**
+
+1.  **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, which led to a financial crisis and a burden on the common people.
+2.  **Social Inequality**: The French society was divided into three estates: the clergy, the nobility, and the commoners. The nobility and clergy held most of the power and wealth, while the commoners
+
+0.09.507.504 I common_perf_print:    sampling time =      42.24 ms
+0.09.507.506 I common_perf_print:    samplers time =      15.00 ms /   175 tokens
+0.09.507.513 I common_perf_print:        load time =    1551.43 ms
+0.09.507.515 I common_perf_print: prompt eval time =     415.52 ms /    47 tokens (    8.84 ms per token,   113.11 tokens per second)
+0.09.507.516 I common_perf_print:        eval time =    6551.58 ms /   127 runs   (   51.59 ms per token,    19.38 tokens per second)
+0.09.507.517 I common_perf_print:       total time =    7017.96 ms /   174 tokens
+0.09.507.518 I common_perf_print: unaccounted time =       8.62 ms /   0.1 %      (total - sampling - prompt eval - eval) / (total)
+0.09.507.518 I common_perf_print:    graphs reused =        126

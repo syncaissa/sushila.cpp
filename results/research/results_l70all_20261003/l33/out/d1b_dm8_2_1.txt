@@ -1,0 +1,59 @@
+0.13.221.811 I cmn          init: llama threadpool init, n_threads = 252
+0.13.319.696 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What are the main differences between TCP and UDP? Give examples of when to use each.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+**Overview of TCP and UDP**
+================================
+
+TCP (Transmission Control Protocol) and UDP (User Datagram Protocol) are two fundamental protocols used for data communication over the internet. While both protocols are used for data transfer, they have distinct differences in their approach, advantages, and use cases.
+
+**Key Differences**
+-------------------
+
+### 1. **Connection-Oriented vs Connectionless**
+
+*   **TCP**: Connection-oriented, meaning a connection is established between the sender and receiver before data is sent. This ensures that data is delivered in the correct order.
+*   **UDP**: Connectionless, meaning no connection is established before data is sent. This makes UDP faster but less reliable.
+
+### 2. **Reliability**
+
+*   **TCP**: Ensures reliable data transfer by using acknowledgments (ACKs) and retransmissions. If data is lost or corrupted, TCP retransmits the data.
+*   **UDP**: Does not guarantee reliable data transfer. If data is lost or corrupted, UDP does not retransmit the data.
+
+### 3. **Order of Delivery**
+
+*   **TCP**: Ensures that data is delivered in the correct order.
+*   **UDP**: Does not guarantee the order of delivery.
+
+### 4. **Error Detection and Correction**
+
+*   **TCP**: Uses checksum
+
+0.19.961.793 I encoded   27 tokens in    0.149 seconds, speed:  180.764 t/s
+0.19.961.794 I decoded  265 tokens in    5.561 seconds, speed:   47.653 t/s
+0.19.961.794 I 
+0.19.961.794 I n_draft   = 8
+0.19.961.795 I n_predict = 265
+0.19.961.795 I n_drafted = 427
+0.19.961.795 I n_accept  = 210
+0.19.961.795 I accept    = 49.180%
+0.19.961.796 I 
+0.19.961.796 I draft:
+
+0.19.961.843 I 
+0.19.961.843 I target:
+
+0.19.961.848 I common_perf_print:    sampling time =      58.34 ms
+0.19.961.849 I common_perf_print:    samplers time =      17.38 ms /   265 tokens
+0.19.961.857 I common_perf_print:        load time =   11871.89 ms
+0.19.961.859 I common_perf_print: prompt eval time =    4547.85 ms /   510 tokens (    8.92 ms per token,   112.14 tokens per second)
+0.19.961.860 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.19.961.860 I common_perf_print:       total time =    6642.34 ms /   511 tokens
+0.19.961.861 I common_perf_print: unaccounted time =    2036.15 ms /  30.7 %      (total - sampling - prompt eval - eval) / (total)
+0.19.961.861 I common_perf_print:    graphs reused =         51
+
+

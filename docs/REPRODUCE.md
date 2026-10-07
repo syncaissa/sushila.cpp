@@ -12,8 +12,9 @@ If a model tag or file has changed since our run, the script stops instead of ti
 ## Text models: one command
 
 You need one NVIDIA GPU with 80 GB (A100 or H100), Ubuntu 22.04 with root, about 200 GB of disk, and a driver for
-CUDA 13.0. Qwen3-235B needs two GPUs. On RunPod this is the `runpod/pytorch` image with
-`allowedCudaVersions: ["13.0"]`.
+CUDA 13.0. Qwen3-235B needs two GPUs. On RunPod, `scripts/bench70b/create_pod.sh` creates such a pod: image
+`runpod/base:1.4.0-ubuntu2204` with `allowedCudaVersions: ["13.0"]` (the scripts install the CUDA 13.0 compiler,
+SGLang and the rest themselves).
 
 ```sh
 git clone https://github.com/syncaissa/sushila.cpp.git && cd sushila.cpp
@@ -103,9 +104,9 @@ python3 scripts/reproduce/verify_signature.py qwen3-32b   # public key Z1PIla052
 | Model | Engine (pinned) | Model files (revision / sha256) | Script | Paper |
 |---|---|---|---|---|
 | Z-Image-Turbo | stable-diffusion.cpp `3f8527a46c54ecf4cb4ed6003da8e8982283c73c` | `leejet/Z-Image-Turbo-GGUF` Q4_K @ `c61c0e42` (`14b375ab…`), Qwen3-4B-Instruct-2507 Q4_K_M @ `a06e946b` (`3605803b…`), VAE `Comfy-Org/z_image_turbo` @ `6fc90a3b` (`afc8e282…`) | `scripts/cache/calibrate_cache_plan.py` | 1.10×, SSIM 0.98 |
-| Wan 2.2 TI2V-5B | same | `QuantStack/Wan2.2-TI2V-5B-GGUF` Q8_0 @ `57437632` (`57bece98…`), `city96/umt5-xxl-encoder-gguf` Q8_0 @ `b535255b` (`2521d4de…`), VAE @ `ee6f4a40` (`e40321bd…`) | `scripts/cache/calibrate_video_plan.py` | 1.65×, frame SSIM 0.93 (Wan settings: 50 steps, guidance 5, flow shift 5; `results/video_quality_20261007/`) |
+| Wan 2.2 TI2V-5B | same | `QuantStack/Wan2.2-TI2V-5B-GGUF` Q8_0 @ `57437632` (`57bece98…`), `city96/umt5-xxl-encoder-gguf` Q8_0 @ `b535255b` (`2521d4de…`), VAE @ `ee6f4a40` (`e40321bd…`) | `scripts/cache/calibrate_video_plan.py` | 1.62× (median 889 → 549 s over 5 prompts), frame SSIM 0.93 (Wan settings: 50 steps, guidance 5, flow shift 5; `results/video_quality_20261007/`) |
 | ACE-Step 1.5 | acestep.cpp `694ef0f2f7cbf1b8a45b061a1ff0a817f451420c` + `hoststation/patches/acestep/0001–0005` | `Serveurperso/ACE-Step-1.5-GGUF` @ `666ac702`: LM 4B Q8_0 (`972f9114…`), turbo DiT Q8_0 (`288f708a…`), embedding (`972f2325…`), VAE (`0599862a…`) | `scripts/music/run_music_eval.sh` | 1.27× |
-| YuE v1 | YuE `6d4f0b1f8ce6a55fb2392e959394c46e07ee334d`, xcodec `fe781a67815ab47b4a3a5fce1e8d0a692da7e4e5`, torch 2.4.1+cu124, transformers 4.48.3 | `m-a-p/YuE-s1-7B-anneal-en-cot` @ `454c20e1`, `m-a-p/YuE-s2-1B-general` @ `9dfa90b7`, draft `m-a-p/YuE-s1-0.5B` @ `65b4514e` | `scripts/music/yue/reproduce_yue.sh` (one command, ~1.5 h; step by step: [REPRODUCE_YUE.md](REPRODUCE_YUE.md)) | 4.60× (same distribution) |
+| YuE v1 | YuE `6d4f0b1f8ce6a55fb2392e959394c46e07ee334d`, xcodec `fe781a67815ab47b4a3a5fce1e8d0a692da7e4e5`, torch 2.4.1+cu124, transformers 4.48.3 | `m-a-p/YuE-s1-7B-anneal-en-cot` @ `454c20e1`, `m-a-p/YuE-s2-1B-general` @ `9dfa90b7`, draft `m-a-p/YuE-s1-0.5B` @ `65b4514e` | `scripts/music/yue/reproduce_yue.sh` (one command, ~1.5 h; step by step: [REPRODUCE_YUE.md](REPRODUCE_YUE.md)) | 4.77× on the same song (1,210 → 253 s, 59 s song; full 134 s song 3.29×, 2,353 → 715 s); stage 2 in float32 = the official float32 output, 4.56× faster than it (`results/yue_samesong_20261007/`) |
 
 The full image, video and music hashes are in `precomputed/<pack>/CHECKSUMS.json`, at the same public address.
 Each `results/<run>/README.md` lists prompts, seeds and settings.

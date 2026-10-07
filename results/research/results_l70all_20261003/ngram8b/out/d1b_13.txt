@@ -1,0 +1,40 @@
+0.03.342.809 I cmn          init: llama threadpool init, n_threads = 252
+0.03.404.633 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Give me a bulleted list of the the first five books in the bible new testament?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Here are the first five books of the New Testament in the Bible:
+
+* **Matthew**
+* **Mark**
+* **Luke**
+* **John**
+* **Acts**
+
+0.04.522.050 I encoded   28 tokens in    0.043 seconds, speed:  646.159 t/s
+0.04.522.051 I decoded   36 tokens in    0.167 seconds, speed:  215.222 t/s
+0.04.522.051 I 
+0.04.522.052 I n_draft   = 8
+0.04.522.052 I n_predict = 36
+0.04.522.052 I n_drafted = 32
+0.04.522.052 I n_accept  = 32
+0.04.522.053 I accept    = 100.000%
+0.04.522.053 I 
+0.04.522.053 I draft:
+
+0.04.522.092 I 
+0.04.522.092 I target:
+
+0.04.522.097 I common_perf_print:    sampling time =      13.03 ms
+0.04.522.098 I common_perf_print:    samplers time =       3.41 ms /    36 tokens
+0.04.522.105 I common_perf_print:        load time =    1838.83 ms
+0.04.522.106 I common_perf_print: prompt eval time =     124.04 ms /    65 tokens (    1.91 ms per token,   524.02 tokens per second)
+0.04.522.122 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.04.522.123 I common_perf_print:       total time =    1117.58 ms /    66 tokens
+0.04.522.124 I common_perf_print: unaccounted time =     980.51 ms /  87.7 %      (total - sampling - prompt eval - eval) / (total)
+0.04.522.124 I common_perf_print:    graphs reused =          4
+
+

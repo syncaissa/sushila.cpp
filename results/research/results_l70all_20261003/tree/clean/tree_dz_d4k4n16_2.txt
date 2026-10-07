@@ -1,0 +1,77 @@
+0.01.092.969 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.150.434 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.627.716 I cmn          init: llama threadpool init, n_threads = 252
+0.02.677.911 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.216.361 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+0.03.251.082 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.03.430.373 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.650.207 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.712.271 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.733.634 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.781.216 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.833.927 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.875.552 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.916.432 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.963.696 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.015.102 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.068.329 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.109.713 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.150.280 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.198.592 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.254.839 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.310.695 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.364.036 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.416.286 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.468.928 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.520.841 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.541.672 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.583.997 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.627.092 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.678.433 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.720.438 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.762.341 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.785.734 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.811.524 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.862.051 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.887.477 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.937.743 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.963.222 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.013.304 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.063.988 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.113.456 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.158.085 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.199.620 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.242.352 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.284.114 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.326.410 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.381.680 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.432.717 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.510.217 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.552.777 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.595.526 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.619.210 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.698.724 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.742.227 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.784.699 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.859.232 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.910.871 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.962.632 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here's a summary:
+
+**Causes of the French Revolution:**
+
+1.  **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, which led to a financial crisis and a burden on the common people.
+2.  **Social Inequality**: The French society was divided into three estates: the clergy, the nobility, and the commoners. The nobility and clergy held most of the power and wealth, while the commoners were burdened with heavy taxes and had limited rights.
+3.  **Enlightenment Ideas**: The ideas of the Enlightenment, such as liberty, equality, and fraternity, spread throughout France, inspiring the people to demand reforms and challenge the existing social order.
+4.  **Food Shortages and Economic Hardship**: A series of crop failures and food shortages led to widespread poverty and discontent among the common people.
+5.  **Absolute Monarchy**: The absolute power of King Louis XVI, who was seen as out of touch with the people and their needs, contributed to the growing discontent.
+
+**Consequences of the French Revolution:**
+
+
+
+0.05.963.160 I sushila-tree: depth=4 k=4 nt=16 generated 256 tokens in 2.371 s, 107.553 t/s; cycles=97 accepted/cycle=1.64 tokens/cycle=2.64 tree=16.0
+0.05.963.161 I sushila-tree: ms/cycle draft 7.10 verify 16.68 commit 0.66

@@ -1,0 +1,74 @@
+0.01.180.308 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.244.211 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.715.115 I cmn          init: llama threadpool init, n_threads = 252
+0.02.780.889 I common_speculative_init_result: loading draft model '/workspace/tree/dzfull.gguf'
+0.03.381.126 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+0.03.408.905 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.03.582.120 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.804.099 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.876.927 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.902.217 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.949.262 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.990.555 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.035.626 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.110.020 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.161.184 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.211.977 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.287.510 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.337.917 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.387.664 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.438.099 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.488.384 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.544.020 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.594.138 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.645.078 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.695.087 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.745.030 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.794.869 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.845.131 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.894.569 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.919.593 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.970.161 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.044.582 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.086.220 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.150.922 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.201.328 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.251.672 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.302.153 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.352.324 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.402.731 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.453.289 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.503.947 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.554.094 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.604.066 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.668.418 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.713.661 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.757.396 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.802.007 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.844.303 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.887.929 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.940.116 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.985.096 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.028.329 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.074.054 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.116.909 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.159.982 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here's a summary:
+
+**Causes of the French Revolution:**
+
+1.  **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, which led to a financial crisis and a burden on the common people.
+2.  **Social Inequality**: The French society was divided into three estates: the clergy, the nobility, and the commoners. The nobility and clergy held most of the power and wealth, while the commoners were burdened with heavy taxes and had limited rights.
+3. **Food Shortages and Economic Hardship**: A series of crop failures and food shortages led to widespread poverty and discontent among the common people.
+4.  **Enlightenment Ideas**: The ideas of the Enlightenment, such as liberty, equality, and fraternity, spread among the common people, inspiring them to demand change.
+5.  **Weak Leadership**: King Louis XVI was seen as ineffective and out of touch with the people, leading to a loss of confidence in the monarchy.
+
+**Consequences of the French Revolution:**
+
+1.  **Establishment of the First Republic
+
+0.06.160.304 I sushila-tree: depth=4 k=4 nt=16 generated 256 tokens in 2.410 s, 105.796 t/s; cycles=97 accepted/cycle=1.64 tokens/cycle=2.64 tree=16.0
+0.06.160.305 I sushila-tree: ms/cycle draft 7.25 verify 16.93 commit 0.66

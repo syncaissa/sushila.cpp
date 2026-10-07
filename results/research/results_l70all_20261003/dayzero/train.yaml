@@ -1,0 +1,32 @@
+model:
+  target_model_path: "unsloth/Llama-3.1-8B-Instruct"
+  draft_model_config: "/workspace/dz/lmsys_head/config.json"
+  draft_checkpoint_path: "/workspace/dz/lmsys_head"
+  vocab_mapping_path: "/workspace/dz/lmsys_vocab_mapping.pt"
+  target_backend: "sglang"
+  embedding_key: "model.embed_tokens.weight"
+  torch_dtype: "bfloat16"
+data:
+  hidden_states_path: "/workspace/dz/hs"
+  max_length: 1024
+  chat_template: "llama3"
+  cache_dir: "/workspace/dz/cache"
+training:
+  strategy: "eagle3"
+  num_epochs: 2
+  batch_size: 1
+  learning_rate: 0.00002
+  max_grad_norm: 0.5
+  ttt_length: 7
+  attention_backend: "sdpa"
+  save_interval: 100000
+  log_interval: 100
+  dist_timeout: 20
+  seed: 0
+run_id: "dayzero-llama3.1-8b"
+output_dir: "/workspace/dz/train_out"
+deployment:
+  mode: local_colocated
+  trainer:
+    nnodes: 1
+    nproc_per_node: 1

@@ -1,0 +1,5 @@
+dense qwen7b stock: 3.43.572.527 I Final estimate: PPL = 7.4858 +/- 0.27817
+dense qwen7b per-neuron b=0.7: 5.09.969.741 I Final estimate: PPL = 7.4820 +/- 0.27858
+dense qwen7b per-neuron b=0.5: 5.33.191.770 I Final estimate: PPL = 7.5687 +/- 0.28297
+dense qwen7b per-neuron b=0.3: 6.03.034.037 I Final estimate: PPL = 8.1557 +/- 0.31052
+DENSE1_DONE

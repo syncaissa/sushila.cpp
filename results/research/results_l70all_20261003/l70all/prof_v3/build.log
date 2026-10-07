@@ -1,0 +1,30 @@
+Consolidate compiler generated dependencies of target llama-common-base
+Consolidate compiler generated dependencies of target cpp-httplib
+Consolidate compiler generated dependencies of target ggml-base
+[  2%] Built target llama-common-base
+[  2%] Built target cpp-httplib
+[ 11%] Built target ggml-base
+Consolidate compiler generated dependencies of target ggml-cpu
+[ 11%] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/landscape-sparse.c.o
+/workspace/src2/llama.cpp/ggml/src/ggml-cpu/landscape-sparse.c: In function ‘sp_build’:
+/workspace/src2/llama.cpp/ggml/src/ggml-cpu/landscape-sparse.c:269:39: warning: implicit conversion from ‘float’ to ‘double’ to match other operand of binary expression [-Wdouble-promotion]
+  269 |                 s2 += (double) col[n] * col[n];
+      |                                       ^
+/workspace/src2/llama.cpp/ggml/src/ggml-cpu/landscape-sparse.c: In function ‘ggml_sparse_mul_mat’:
+/workspace/src2/llama.cpp/ggml/src/ggml-cpu/landscape-sparse.c:617:75: warning: implicit conversion from ‘float’ to ‘double’ to match other operand of binary expression [-Wdouble-promotion]
+  617 |                 for (int c = 0; c < nk; c++) { r += (double) row[kept[c]] * xk[c]; }
+      |                                                                           ^
+[ 13%] Linking CXX shared library ../../bin/libggml-cpu.so
+[ 27%] Built target ggml-cpu
+Consolidate compiler generated dependencies of target ggml
+[ 27%] Linking CXX shared library ../../bin/libggml.so
+[ 29%] Built target ggml
+Consolidate compiler generated dependencies of target llama
+[ 29%] Linking CXX shared library ../bin/libllama.so
+[ 61%] Built target llama
+Consolidate compiler generated dependencies of target llama-common
+[ 61%] Linking CXX shared library ../bin/libllama-common.so
+[100%] Built target llama-common
+Consolidate compiler generated dependencies of target llama-sushila-spec
+[100%] Linking CXX executable ../../bin/llama-sushila-spec
+[100%] Built target llama-sushila-spec

@@ -1,0 +1,131 @@
+0.11.955.254 I cmn          init: llama threadpool init, n_threads = 252
+0.12.049.132 I common_speculative_init_result: loading draft model '/workspace/l33/eagle3.gguf'
+0.12.830.952 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Summarize the causes and consequences of the French Revolution.<|eot_id|><|start_header_id|>assistant<|end_header_id|>0.13.263.619 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.871.870 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+0.14.008.660 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+The French Revolution,0.14.100.865 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ which lasted from 17890.14.191.967 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to 17990.14.284.901 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, was a complex0.14.373.897 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and multifac0.14.462.245 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+eted event that had0.14.551.118 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ far0.14.639.395 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+-reaching0.14.727.587 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ causes and consequences. Here is0.14.816.918 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a summary0.14.907.375 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+:
+
+**Causes0.14.996.798 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+:**
+
+1. **Financial0.15.088.126 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Crisis**:0.15.176.432 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ France was deeply in0.15.265.617 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ debt0.15.354.292 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ from the Seven0.15.443.179 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Years0.15.531.826 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+' War0.15.620.413 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and the American Revolutionary0.15.708.904 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ War, leading to0.15.797.248 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a severe financial crisis.
+2.0.15.888.876 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ **Social Inequality0.15.977.485 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: The0.16.066.758 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ French0.16.155.277 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ society was divided into three0.16.244.909 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ estates: the nobility0.16.335.391 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, the clergy, and the common0.16.425.115 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ers. The nob0.16.513.705 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ility0.16.606.809 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and clergy held vast amounts0.16.696.413 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of power and wealth0.16.787.453 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, while the commoners0.16.876.197 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ were burdened with0.16.965.025 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ heavy0.17.054.416 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ taxes and0.17.143.307 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ limited opportunities0.17.232.148 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+3. **Enlight0.17.320.991 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+enment0.17.409.564 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Ideas**: The writings0.17.499.471 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of Enlightenment thinkers such as0.17.589.113 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Rousse0.17.678.424 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+au0.17.770.187 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, Voltaire0.17.859.603 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, and Montes0.17.948.898 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+qu0.18.038.011 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ieu spread ideas of liberty0.18.126.498 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, equality, and democracy, inspiring0.18.215.937 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the French0.18.304.501 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ people to challenge the existing0.18.395.048 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ social and0.18.484.845 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ political order.
+4. **Food Short0.18.574.047 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ages0.18.663.927 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: A series0.18.765.436 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of crop failures0.18.854.423 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and food shortages in0.18.944.969 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the0.19.034.707 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ late 0.19.123.617 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+18th0.19.212.307 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ century led0.19.300.627 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to widespread poverty0.19.391.429 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and discontent among the population0.19.482.285 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+0.19.572.875 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+5. **Absolute0.19.662.485 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Monarchy0.19.752.369 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: The0.19.841.792 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ French0.19.930.595 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ monarchy0.20.019.386 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, led0.20.107.721 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ by King Louis XVI0.20.196.431 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, was seen as0.20.308.063 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ out0.20.409.616 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of touch0.20.499.785 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ with the people and resistant0.20.590.578 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to0.20.679.418 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ reform.
+
+0.20.769.303 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**Consequences0.20.857.959 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+:**
+
+1. **Establish0.21.003.506 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ment of the0.21.113.607 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ First0.21.215.783 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Republic0.21.297.849 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: The0.21.398.096 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ French Revolution led to
+
+0.21.400.722 I encoded   21 tokens in    0.574 seconds, speed:   36.616 t/s
+0.21.400.729 I decoded  259 tokens in    7.898 seconds, speed:   32.791 t/s
+0.21.400.729 I 
+0.21.400.730 I n_draft   = 8
+0.21.400.730 I n_predict = 259
+0.21.400.730 I n_drafted = 648
+0.21.400.731 I n_accept  = 176
+0.21.400.731 I accept    = 27.160%
+0.21.400.731 I 
+0.21.400.731 I draft:
+
+0.21.400.772 I 
+0.21.400.772 I target:
+
+0.21.400.778 I common_perf_print:    sampling time =      67.14 ms
+0.21.400.778 I common_perf_print:    samplers time =      25.75 ms /   259 tokens
+0.21.400.784 I common_perf_print:        load time =   10659.35 ms
+0.21.400.786 I common_perf_print: prompt eval time =    6538.15 ms /   753 tokens (    8.68 ms per token,   115.17 tokens per second)
+0.21.400.787 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.21.400.788 I common_perf_print:       total time =    9351.76 ms /   754 tokens
+0.21.400.788 I common_perf_print: unaccounted time =    2746.46 ms /  29.4 %      (total - sampling - prompt eval - eval) / (total)
+0.21.400.789 I common_perf_print:    graphs reused =         77
+
+

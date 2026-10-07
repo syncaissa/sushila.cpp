@@ -395,7 +395,7 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             ctx.save()?;
             let network = ctx.state["share"]["enabled"].as_bool().unwrap_or(false);
             let u = urls(port as u16, network);
-            out(j, json!({ "url": u["inference"], "urls": u }), || url_banner(&u).replace(" is running", "").replace(" Stop: Ctrl+C or close this window\n", ""));
+            out(j, json!({ "url": u["inference"], "urls": u }), || url_banner(&u).replace(" is running", "").replace(" Type ? (or man, help) for the important commands. Stop: Ctrl+C, type stop, or close this window\n", ""));
         }
         Cmd::Keys { act } => keys(ctx, act, j)?,
         Cmd::Home { .. } => {
@@ -594,14 +594,29 @@ fn urls(port: u16, network: bool) -> Value {
     let home = std::env::var("SUSHILA_HOME").unwrap_or_default();
     let lan = if network { local_ip() } else { None };
     json!({ "inference": format!("http://localhost:{port}/"), "admin": format!("http://localhost:{port}/admin"),
-            "api": format!("http://localhost:{port}/v1"), "network": lan.map(|ip| format!("http://{ip}:{port}/")), "home": home })
+            "docs": format!("http://localhost:{port}/docs"), "api": format!("http://localhost:{port}/v1"), "network": lan.map(|ip| format!("http://{ip}:{port}/")), "home": home })
+}
+/// What `?`, `man` or `help` prints in the server's window: the commands people need most (all work from any terminal).
+fn quick_help() -> &'static str {
+    "\nImportant commands (type them in any terminal; `sushila --help` lists them all, the Documentation page explains each):
+  sushila packs                     model packs you can install
+  sushila install <pack>            download and verify a model pack, e.g. sushila install qwen3-4b-instruct-2507
+  sushila list                      installed packs
+  sushila run <pack> \"<prompt>\"     one answer, image, song or video from the command line
+  sushila status                    what is running, the queue, the addresses
+  sushila logs -f                   follow the log
+  sushila home                      the home folder (model-packs, settings, logs); sushila home <folder> to change it
+  sushila password                  set or change the Admin password (sushila password --reset if lost)
+  sushila selftest                  end-to-end check, including that the GPU is used
+  sushila stop                      stop the server
+Typed here: ? or man or help = this list, urls = the addresses again, stop = stop the server.\n"
 }
 fn url_banner(u: &Value) -> String {
-    let mut b = format!("\n==============================================================\n Sushila {} is running\n   Inference URL:  {}\n   Admin URL:      {}   (this computer only)\n   API (OpenAI):   {}\n",
-        env!("CARGO_PKG_VERSION"), u["inference"].as_str().unwrap_or(""), u["admin"].as_str().unwrap_or(""), u["api"].as_str().unwrap_or(""));
+    let mut b = format!("\n==============================================================\n Sushila {} is running\n   Inference:      {}\n   Admin:          {}   (this computer only)\n   Documentation:  {}\n   API (OpenAI):   {}\n",
+        env!("CARGO_PKG_VERSION"), u["inference"].as_str().unwrap_or(""), u["admin"].as_str().unwrap_or(""), u["docs"].as_str().unwrap_or(""), u["api"].as_str().unwrap_or(""));
     if let Some(n) = u["network"].as_str() { b += &format!("   Other machines: {n}   (Inference page and API; needs an access key unless --open)\n"); }
     if let Some(h) = u["home"].as_str().filter(|h| !h.is_empty()) { b += &format!("   Home folder:    {h}   (model-packs, settings, logs; change: sushila home <folder>)\n"); }
-    b + " Stop: Ctrl+C or close this window\n==============================================================\n"
+    b + " Type ? (or man, help) for the important commands. Stop: Ctrl+C, type stop, or close this window\n==============================================================\n"
 }
 fn local_ip() -> Option<String> { let s = std::net::UdpSocket::bind("0.0.0.0:0").ok()?; s.connect("8.8.8.8:80").ok()?; Some(s.local_addr().ok()?.ip().to_string()) }
 fn read_json(p: &std::path::Path) -> Option<Value> { std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()) }
@@ -750,6 +765,23 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     if !webserver::password_set(&ctx.data) {
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) { if let Err(e) = ask_password(ctx, false) { ctx.log(&format!("admin password: {e}")); } }
         else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/admin on this computer to set it")); }
+    }
+    // the server's own window takes a few typed commands (after the password question above, which reads the same input)
+    if !j && std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        let (data, banner) = (ctx.data.clone(), url_banner(&u));
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            for line in std::io::stdin().lock().lines() {
+                let Ok(line) = line else { break };
+                match line.trim().to_lowercase().as_str() {
+                    "" => {}
+                    "?" | "man" | "help" | "h" => eprintln!("{}", quick_help()),
+                    "urls" | "url" => eprintln!("{banner}"),
+                    "stop" | "quit" | "exit" | "q" => { eprintln!("stopping..."); let _ = std::fs::write(data.join("shutdown-request.json"), "{}"); break; }
+                    other => eprintln!("unknown: {other}. Type ? for the important commands (commands like `sushila install` go in another terminal)."),
+                }
+            }
+        });
     }
     if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };

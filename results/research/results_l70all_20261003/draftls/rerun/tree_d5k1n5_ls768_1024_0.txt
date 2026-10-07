@@ -1,0 +1,82 @@
+0.01.103.291 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.171.498 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.667.096 I cmn          init: llama threadpool init, n_threads = 30
+landscape: /workspace/dl/draft.mclp preview vocab=32000 hidden=4096 width=768 candidates=1024 type=q4_0 check=0
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+0.02.916.749 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.355.676 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.03.878.362 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.368.159 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.523.011 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.675.447 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.826.357 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.978.451 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.389.039 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.677.676 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.966.441 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.120.758 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.272.742 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.554.881 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.699.129 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.851.724 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.278.379 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.431.641 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.718.492 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.004.805 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.158.206 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.310.517 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.462.731 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.613.671 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.893.467 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.031.564 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.449.940 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.732.945 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+The process of how a bill becomes a law in the United States is as follows:
+
+**Step 1: Introduction of the Bill**
+
+- A member of Congress introduces a bill in either the House of Representatives or the Senate. The bill can be introduced by a single member or a group of members.
+- The bill is then referred to a committee, which is a group of members responsible for reviewing and debating the bill.
+
+**Step 2: Committee Review**
+
+- The committee reviews the bill, holds hearings, and gathers information from experts and stakeholders.
+- The committee may mark up the bill, which means they make changes to the original
+
+0.09.741.452 I sushila-tree: depth=5 k=1 nt=5 generated 128 tokens in 5.647 s, 22.489 t/s; cycles=39 accepted/cycle=2.26 tokens/cycle=3.26 tree=5.0
+0.09.741.455 I sushila-tree: ms/cycle draft 48.71 verify 90.13 (target decode 89.88) commit 5.95
+landscape: tokens=283 survivors/token=1464.0 stages/token=0.0 read_frac=0.1225 (weights 0.0458 + landscape 0.0767)
+landscape: us/token total=517 setup=156 init=113 stages=19 final=230
+landscape: mean alive after stage k=1..8: 0 0 0 0 0 0 0 0

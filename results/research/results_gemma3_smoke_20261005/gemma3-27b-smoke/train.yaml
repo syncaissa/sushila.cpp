@@ -1,0 +1,34 @@
+model:
+  target_model_path: "gaunernst/gemma-3-27b-it-int4-awq"
+  draft_model_config: "/workspace/sushila/gemma3-27b-smoke/pub_head/config.json"
+  draft_checkpoint_path: "PREV"
+  vocab_mapping_path: "/workspace/sushila/gemma3-27b-smoke/vocab_mapping.pt"
+  target_backend: "sglang"
+  embedding_key: "language_model.model.embed_tokens.weight"
+  lm_head_key: "language_model.model.embed_tokens.weight"
+  torch_dtype: "bfloat16"
+  load_target_embedding: true
+data:
+  hidden_states_path: "/workspace/sushila/gemma3-27b-smoke/hs"
+  max_length: 1024
+  chat_template: "gemma"
+  cache_dir: "CACHE"
+training:
+  strategy: "eagle3"
+  num_epochs: 1
+  batch_size: 1
+  learning_rate: 0.00002
+  max_grad_norm: 0.5
+  ttt_length: 7
+  attention_backend: "sdpa"
+  save_interval: 100000
+  log_interval: 50
+  dist_timeout: 60
+  seed: 0
+run_id: "RUNID"
+output_dir: "OUTDIR"
+deployment:
+  mode: local_colocated
+  trainer:
+    nnodes: 1
+    nproc_per_node: 1

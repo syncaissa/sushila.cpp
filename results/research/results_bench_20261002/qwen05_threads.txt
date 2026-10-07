@@ -1,0 +1,36 @@
+t=4 run=1 mode=legacy 0.02.652.737 I common_perf_print:        eval time =    1862.39 ms /   127 runs   (   14.66 ms per token,    68.19 tokens per second) 
+t=4 run=1 mode=q8_0 0.02.081.735 I common_perf_print:        eval time =    1173.27 ms /   127 runs   (    9.24 ms per token,   108.24 tokens per second) landscape: us/token total=1228 setup=48 init=555 stages=249 final=376 
+t=4 run=1 mode=q4_0 0.02.142.377 I common_perf_print:        eval time =    1163.12 ms /   127 runs   (    9.16 ms per token,   109.19 tokens per second) landscape: us/token total=1303 setup=49 init=684 stages=201 final=369 
+t=4 run=2 mode=legacy 0.02.573.360 I common_perf_print:        eval time =    1788.49 ms /   127 runs   (   14.08 ms per token,    71.01 tokens per second) 
+t=4 run=2 mode=q8_0 0.02.518.763 I common_perf_print:        eval time =    1590.00 ms /   127 runs   (   12.52 ms per token,    79.87 tokens per second) landscape: us/token total=1848 setup=50 init=532 stages=891 final=375 
+t=4 run=2 mode=q4_0 0.02.192.007 I common_perf_print:        eval time =    1221.46 ms /   127 runs   (    9.62 ms per token,   103.97 tokens per second) landscape: us/token total=1411 setup=49 init=802 stages=185 final=375 
+t=4 run=3 mode=legacy 0.02.141.512 I common_perf_print:        eval time =    1368.31 ms /   127 runs   (   10.77 ms per token,    92.82 tokens per second) 
+t=4 run=3 mode=q8_0 0.02.508.381 I common_perf_print:        eval time =    1555.38 ms /   127 runs   (   12.25 ms per token,    81.65 tokens per second) landscape: us/token total=1943 setup=50 init=1263 stages=217 final=413 
+t=4 run=3 mode=q4_0 0.02.547.334 I common_perf_print:        eval time =    1567.26 ms /   127 runs   (   12.34 ms per token,    81.03 tokens per second) landscape: us/token total=1766 setup=49 init=694 stages=648 final=373 
+t=8 run=1 mode=legacy 0.01.952.957 I common_perf_print:        eval time =    1140.46 ms /   127 runs   (    8.98 ms per token,   111.36 tokens per second) 
+t=8 run=1 mode=q8_0 0.01.726.890 I common_perf_print:        eval time =     808.02 ms /   127 runs   (    6.36 ms per token,   157.18 tokens per second) landscape: us/token total=1020 setup=26 init=275 stages=424 final=295 
+t=8 run=1 mode=q4_0 0.02.014.589 I common_perf_print:        eval time =    1026.51 ms /   127 runs   (    8.08 ms per token,   123.72 tokens per second) landscape: us/token total=1176 setup=28 init=579 stages=255 final=314 
+t=8 run=2 mode=legacy 0.01.714.729 I common_perf_print:        eval time =     977.77 ms /   127 runs   (    7.70 ms per token,   129.89 tokens per second) 
+t=8 run=2 mode=q8_0 0.01.863.089 I common_perf_print:        eval time =     910.72 ms /   127 runs   (    7.17 ms per token,   139.45 tokens per second) landscape: us/token total=1163 setup=27 init=274 stages=571 final=291 
+t=8 run=2 mode=q4_0 0.02.053.036 I common_perf_print:        eval time =     944.59 ms /   127 runs   (    7.44 ms per token,   134.45 tokens per second) landscape: us/token total=1138 setup=27 init=351 stages=471 final=289 
+t=8 run=3 mode=legacy 0.01.991.734 I common_perf_print:        eval time =    1175.89 ms /   127 runs   (    9.26 ms per token,   108.00 tokens per second) 
+t=8 run=3 mode=q8_0 0.02.901.209 I common_perf_print:        eval time =    1099.90 ms /   127 runs   (    8.66 ms per token,   115.47 tokens per second) landscape: us/token total=1306 setup=29 init=577 stages=387 final=313 
+t=8 run=3 mode=q4_0 0.02.292.887 I common_perf_print:        eval time =    1042.26 ms /   127 runs   (    8.21 ms per token,   121.85 tokens per second) landscape: us/token total=1156 setup=27 init=355 stages=483 final=291 
+t=16 run=1 mode=legacy 0.01.763.710 I common_perf_print:        eval time =     737.91 ms /   127 runs   (    5.81 ms per token,   172.11 tokens per second) 
+t=16 run=1 mode=q8_0 0.01.722.765 I common_perf_print:        eval time =     741.32 ms /   127 runs   (    5.84 ms per token,   171.32 tokens per second) landscape: us/token total=1017 setup=16 init=139 stages=654 final=209 
+t=16 run=1 mode=q4_0 0.03.038.039 I common_perf_print:        eval time =     743.36 ms /   127 runs   (    5.85 ms per token,   170.85 tokens per second) landscape: us/token total=900 setup=17 init=179 stages=501 final=203 
+t=16 run=2 mode=legacy 0.01.480.072 I common_perf_print:        eval time =     716.42 ms /   127 runs   (    5.64 ms per token,   177.27 tokens per second) 
+t=16 run=2 mode=q8_0 0.02.039.546 I common_perf_print:        eval time =     699.22 ms /   127 runs   (    5.51 ms per token,   181.63 tokens per second) landscape: us/token total=957 setup=16 init=137 stages=601 final=202 
+t=16 run=2 mode=q4_0 0.02.707.040 I common_perf_print:        eval time =     703.21 ms /   127 runs   (    5.54 ms per token,   180.60 tokens per second) landscape: us/token total=914 setup=16 init=294 stages=390 final=214 
+t=16 run=3 mode=legacy 0.01.643.924 I common_perf_print:        eval time =     770.62 ms /   127 runs   (    6.07 ms per token,   164.80 tokens per second) 
+t=16 run=3 mode=q8_0 0.01.937.522 I common_perf_print:        eval time =     767.33 ms /   127 runs   (    6.04 ms per token,   165.51 tokens per second) landscape: us/token total=990 setup=18 init=315 stages=436 final=221 
+t=16 run=3 mode=q4_0 0.01.694.331 I common_perf_print:        eval time =     742.77 ms /   127 runs   (    5.85 ms per token,   170.98 tokens per second) landscape: us/token total=907 setup=16 init=179 stages=510 final=203 
+t=32 run=1 mode=legacy 0.04.859.866 I common_perf_print:        eval time =     567.08 ms /   127 runs   (    4.47 ms per token,   223.95 tokens per second) 
+t=32 run=1 mode=q8_0 0.05.647.005 I common_perf_print:        eval time =     610.54 ms /   127 runs   (    4.81 ms per token,   208.01 tokens per second) landscape: us/token total=1321 setup=100 init=160 stages=869 final=193 
+t=32 run=1 mode=q4_0 0.02.682.664 I common_perf_print:        eval time =     607.48 ms /   127 runs   (    4.78 ms per token,   209.06 tokens per second) landscape: us/token total=1063 setup=11 init=154 stages=755 final=143 
+t=32 run=2 mode=legacy 0.01.866.798 I common_perf_print:        eval time =     565.15 ms /   127 runs   (    4.45 ms per token,   224.72 tokens per second) 
+t=32 run=2 mode=q8_0 0.02.078.586 I common_perf_print:        eval time =     585.68 ms /   127 runs   (    4.61 ms per token,   216.84 tokens per second) landscape: us/token total=1047 setup=11 init=145 stages=752 final=139 
+t=32 run=2 mode=q4_0 0.02.700.542 I common_perf_print:        eval time =     547.58 ms /   127 runs   (    4.31 ms per token,   231.93 tokens per second) landscape: us/token total=1008 setup=11 init=142 stages=721 final=133 
+t=32 run=3 mode=legacy 0.01.868.088 I common_perf_print:        eval time =     504.64 ms /   127 runs   (    3.97 ms per token,   251.66 tokens per second) 
+t=32 run=3 mode=q8_0 0.02.121.485 I common_perf_print:        eval time =     588.23 ms /   127 runs   (    4.63 ms per token,   215.90 tokens per second) landscape: us/token total=1045 setup=11 init=145 stages=750 final=139 
+t=32 run=3 mode=q4_0 0.02.600.160 I common_perf_print:        eval time =     577.19 ms /   127 runs   (    4.54 ms per token,   220.03 tokens per second) landscape: us/token total=985 setup=12 init=133 stages=723 final=117 

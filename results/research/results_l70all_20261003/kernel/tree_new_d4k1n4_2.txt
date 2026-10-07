@@ -1,0 +1,96 @@
+0.01.063.440 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.106.792 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.442.948 I cmn          init: llama threadpool init, n_threads = 8
+0.02.488.850 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.02.963.035 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+0.02.982.886 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.03.118.553 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.336.245 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.360.796 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.378.167 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.396.075 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.413.167 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.462.186 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.525.183 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.686.271 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.715.460 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.743.987 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.758.941 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.774.165 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.789.055 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.832.232 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.847.265 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.862.126 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.878.201 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.895.539 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.927.635 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.943.106 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.972.199 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.987.130 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.002.081 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.017.967 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.066.574 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.095.270 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.109.820 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.124.365 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.139.137 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.153.815 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.168.545 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.199.898 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.214.904 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.243.899 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.258.887 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.304.544 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.401.701 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.416.801 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.445.839 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.474.545 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.503.460 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.518.173 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.532.980 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.617.917 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.633.040 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.648.232 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.663.207 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.678.015 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.693.075 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.708.311 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.725.226 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.742.502 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.757.846 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.772.937 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.802.069 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.817.086 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.846.628 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.861.930 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.891.239 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.920.870 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.965.111 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.980.610 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.995.974 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.011.150 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.040.377 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+
+TCP and UDP are two fundamental transport-layer protocols used in the Internet Protocol Suite (TCP/IP). While both protocols are used for data transfer, they have distinct differences in their design, functionality, and use cases.
+
+**TCP (Transmission Control Protocol)**
+
+* **Connection-oriented**: Establishes a connection between the sender and receiver before data transfer begins.
+* **Reliable**: Ensures data is delivered in the correct order, with error-checking and correction mechanisms.
+* **Ordered**: Data is delivered in the order it was sent.
+* **Flow control**: Regulates the amount of data sent to prevent network congestion.
+* **Error detection and correction**: Uses sequence numbers, acknowledgments, and retransmissions to ensure data integrity.
+* **Connection termination**: Requires a three-way handshake to establish and terminate connections.
+
+**UDP (User Datagram Protocol)**
+
+* **Connectionless**: Does not establish a connection before data transfer begins.
+* **Unreliable**: Does not guarantee data delivery or order.
+* **Fast**: Faster than TCP, as it does not require the overhead of establishing and maintaining connections.
+* **Error-prone**: Does not perform error-checking or correction.
+* **No flow control**:
+
+0.05.041.030 I sushila-tree: depth=4 k=1 nt=4 generated 256 tokens in 1.794 s, 142.116 t/s; cycles=115 accepted/cycle=1.23 tokens/cycle=2.23 tree=4.0
+0.05.041.033 I sushila-tree: ms/cycle draft 3.96 verify 11.07 (target decode 10.94) commit 0.57

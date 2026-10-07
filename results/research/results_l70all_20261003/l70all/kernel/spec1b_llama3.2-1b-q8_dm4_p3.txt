@@ -1,0 +1,43 @@
+warning: no usable GPU found, --gpu-layers option will be ignored
+warning: one possible reason is that llama.cpp was compiled without GPU support
+warning: consult docs/build.md for compilation instructions
+0.07.255.408 I cmn          init: llama threadpool init, n_threads = 30
+0.07.732.648 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Summarize the causes and consequences of the French Revolution.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here is a summary:
+
+**Causes:**
+
+1. **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, leading to a severe financial crisis.
+2. **Social Inequality**: The French society was divided into three estates: the clergy, the nobility, and the commoners. The nobility and clergy held vast powers and privileges, while the commoners were burdened with heavy taxes and limited opportunities.
+3. **Enlightenment Ideas**: The
+
+0.32.850.681 I encoded   21 tokens in    2.312 seconds, speed:    9.084 t/s
+0.32.850.682 I decoded  132 tokens in   21.662 seconds, speed:    6.094 t/s
+0.32.850.683 I 
+0.32.850.683 I n_draft   = 4
+0.32.850.683 I n_predict = 132
+0.32.850.683 I n_drafted = 116
+0.32.850.683 I n_accept  = 103
+0.32.850.684 I accept    = 88.793%
+0.32.850.684 I 
+0.32.850.684 I draft:
+
+0.32.850.724 I 
+0.32.850.725 I target:
+
+0.32.850.730 I common_perf_print:    sampling time =      32.36 ms
+0.32.850.730 I common_perf_print:    samplers time =      12.69 ms /   132 tokens
+0.32.850.735 I common_perf_print:        load time =    6757.98 ms
+0.32.850.737 I common_perf_print: prompt eval time =   20774.97 ms /   167 tokens (  124.40 ms per token,     8.04 tokens per second)
+0.32.850.738 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.32.850.739 I common_perf_print:       total time =   25118.14 ms /   168 tokens
+0.32.850.740 I common_perf_print: unaccounted time =    4310.81 ms /  17.2 %      (total - sampling - prompt eval - eval) / (total)
+0.32.850.740 I common_perf_print:    graphs reused =         29
+
+

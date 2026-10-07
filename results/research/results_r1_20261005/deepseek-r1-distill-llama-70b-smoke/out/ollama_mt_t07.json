@@ -1,0 +1,68 @@
+[
+ {
+  "id": 0,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 10.758899123,
+  "decode_seconds": 10.610069,
+  "decode_tok_s": 24.128024049607973,
+  "wall_tok_s": 23.794255998992693,
+  "text": ""
+ },
+ {
+  "id": 1,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 10.793495457,
+  "decode_seconds": 10.620527,
+  "decode_tok_s": 24.104265259153337,
+  "wall_tok_s": 23.717988395869853,
+  "text": ""
+ },
+ {
+  "id": 2,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 10.816188339,
+  "decode_seconds": 10.610142,
+  "decode_tok_s": 24.1278580437472,
+  "wall_tok_s": 23.668226918436613,
+  "text": ""
+ },
+ {
+  "id": 3,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 10.779669776,
+  "decode_seconds": 10.605754,
+  "decode_tok_s": 24.137840647633354,
+  "wall_tok_s": 23.7484083761046,
+  "text": ""
+ },
+ {
+  "id": 4,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 10.730769412,
+  "decode_seconds": 10.595721,
+  "decode_tok_s": 24.16069656798249,
+  "wall_tok_s": 23.85663042146078,
+  "text": ""
+ },
+ {
+  "id": 5,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 10.745888379,
+  "decode_seconds": 10.597754,
+  "decode_tok_s": 24.156061746668207,
+  "wall_tok_s": 23.82306524794026,
+  "text": ""
+ }
+]

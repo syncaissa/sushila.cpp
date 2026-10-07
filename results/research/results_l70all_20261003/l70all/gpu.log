@@ -1,0 +1,97 @@
+[02:13:36] cmake failed
+[02:34:07] stock p0 r1: eval time =   11429.30 ms /   255 runs   (   44.82 ms per token,    22.31 tokens per second)
+[02:34:21] spec llama3.2-1b-q8 dm8 p0 r1: 
+[02:34:34] spec llama3.2-1b-q8 dm16 p0 r1: 
+[02:34:48] spec llama3.2-3b-q4km dm8 p0 r1: 
+[02:35:02] spec llama3.2-3b-q4km dm16 p0 r1: 
+[02:35:17] spec llama3.1-8b-q4km dm8 p0 r1: 
+[02:35:31] spec llama3.1-8b-q4km dm16 p0 r1: 
+[02:35:54] stock p1 r1: eval time =   11498.08 ms /   255 runs   (   45.09 ms per token,    22.18 tokens per second)
+[02:36:06] spec llama3.2-1b-q8 dm8 p1 r1: 
+[02:36:20] spec llama3.2-1b-q8 dm16 p1 r1: 
+[02:36:34] spec llama3.2-3b-q4km dm8 p1 r1: 
+[02:37:43] stock p0 r1: eval time =   11489.23 ms /   255 runs   (   45.06 ms per token,    22.19 tokens per second)
+[02:38:01] spec llama3.2-1b-q8 dm8 p0 r1: 0.17.212.139 I decoded 260 tokens in 3.878 seconds, speed: 67.051 t/s 0.17.212.140 I n_accept = 222 0.17.212.140 I accept = 74.497% 
+[02:38:16] spec llama3.2-1b-q8 dm16 p0 r1: 0.14.658.873 I decoded 260 tokens in 3.524 seconds, speed: 73.787 t/s 0.14.658.874 I n_accept = 234 0.14.658.875 I accept = 58.065% 
+[02:38:32] spec llama3.2-3b-q4km dm8 p0 r1: 0.15.569.011 I decoded 260 tokens in 4.406 seconds, speed: 59.012 t/s 0.15.569.012 I n_accept = 223 0.15.569.013 I accept = 76.897% 
+[02:38:48] spec llama3.2-3b-q4km dm16 p0 r1: 0.15.453.456 I decoded 260 tokens in 4.008 seconds, speed: 64.878 t/s 0.15.453.457 I n_accept = 236 0.15.453.458 I accept = 63.612% 
+[02:39:07] spec llama3.1-8b-q4km dm8 p0 r1: 0.17.660.014 I decoded 257 tokens in 5.924 seconds, speed: 43.381 t/s 0.17.660.015 I n_accept = 215 0.17.660.016 I accept = 65.350% 
+[02:39:28] spec llama3.1-8b-q4km dm16 p0 r1: 0.20.775.516 I decoded 257 tokens in 6.449 seconds, speed: 39.852 t/s 0.20.775.518 I n_accept = 226 0.20.775.519 I accept = 47.579% 
+[02:39:51] stock p1 r1: eval time =   11553.70 ms /   255 runs   (   45.31 ms per token,    22.07 tokens per second)
+[02:40:07] spec llama3.2-1b-q8 dm8 p1 r1: 0.15.927.459 I decoded 265 tokens in 3.257 seconds, speed: 81.356 t/s 0.15.927.460 I n_accept = 234 0.15.927.460 I accept = 94.737% 
+[02:40:22] spec llama3.2-1b-q8 dm16 p1 r1: 0.14.098.738 I decoded 273 tokens in 2.487 seconds, speed: 109.754 t/s 0.14.098.739 I n_accept = 255 0.14.098.740 I accept = 91.398% 
+[02:40:40] spec llama3.2-3b-q4km dm8 p1 r1: 0.17.052.448 I decoded 265 tokens in 3.707 seconds, speed: 71.477 t/s 0.17.052.449 I n_accept = 234 0.17.052.450 I accept = 95.902% 
+[02:40:57] spec llama3.2-3b-q4km dm16 p1 r1: 0.16.559.890 I decoded 272 tokens in 2.891 seconds, speed: 94.098 t/s 0.16.559.891 I n_accept = 255 0.16.559.892 I accept = 93.750% 
+[02:41:15] spec llama3.1-8b-q4km dm8 p1 r1: 0.18.148.599 I decoded 265 tokens in 4.543 seconds, speed: 58.333 t/s 0.18.148.600 I n_accept = 234 0.18.148.601 I accept = 94.737% 
+[02:41:33] spec llama3.1-8b-q4km dm16 p1 r1: 0.16.652.072 I decoded 273 tokens in 3.907 seconds, speed: 69.882 t/s 0.16.652.073 I n_accept = 255 0.16.652.074 I accept = 91.398% 
+[02:41:57] stock p2 r1: eval time =   11552.31 ms /   255 runs   (   45.30 ms per token,    22.07 tokens per second)
+[02:42:14] spec llama3.2-1b-q8 dm8 p2 r1: 0.16.928.773 I decoded 262 tokens in 5.531 seconds, speed: 47.369 t/s 0.16.928.774 I n_accept = 208 0.16.928.775 I accept = 48.485% 
+[02:42:34] spec llama3.2-1b-q8 dm16 p2 r1: 0.18.721.535 I decoded 262 tokens in 5.946 seconds, speed: 44.062 t/s 0.18.721.547 I n_accept = 217 0.18.721.547 I accept = 31.044% 
+[02:42:52] spec llama3.2-3b-q4km dm8 p2 r1: 0.17.906.894 I decoded 262 tokens in 5.245 seconds, speed: 49.950 t/s 0.17.906.896 I n_accept = 218 0.17.906.897 I accept = 62.464% 
+[02:43:12] spec llama3.2-3b-q4km dm16 p2 r1: 0.19.011.582 I decoded 262 tokens in 6.104 seconds, speed: 42.923 t/s 0.19.011.583 I n_accept = 225 0.19.011.584 I accept = 39.613% 
+[02:43:32] spec llama3.1-8b-q4km dm8 p2 r1: 0.19.649.437 I decoded 262 tokens in 6.597 seconds, speed: 39.713 t/s 0.19.649.441 I n_accept = 216 0.19.649.442 I accept = 59.178% 
+[02:43:52] spec llama3.1-8b-q4km dm16 p2 r1: 0.19.571.226 I decoded 262 tokens in 7.398 seconds, speed: 35.416 t/s 0.19.571.228 I n_accept = 227 0.19.571.228 I accept = 41.805% 
+[02:44:17] stock p3 r1: eval time =   11576.43 ms /   255 runs   (   45.40 ms per token,    22.03 tokens per second)
+[02:44:36] spec llama3.2-1b-q8 dm8 p3 r1: 0.19.214.492 I decoded 257 tokens in 7.606 seconds, speed: 33.788 t/s 0.19.214.496 I n_accept = 183 0.19.214.496 I accept = 31.229% 
+[02:44:58] spec llama3.2-1b-q8 dm16 p3 r1: 0.21.459.172 I decoded 257 tokens in 9.198 seconds, speed: 27.940 t/s 0.21.459.174 I n_accept = 188 0.21.459.174 I accept = 17.753% 
+[02:45:20] spec llama3.2-3b-q4km dm8 p3 r1: 0.20.808.630 I decoded 264 tokens in 7.178 seconds, speed: 36.781 t/s 0.20.808.631 I n_accept = 204 0.20.808.631 I accept = 43.312% 
+[02:45:41] spec llama3.2-3b-q4km dm16 p3 r1: 0.20.629.644 I decoded 270 tokens in 8.435 seconds, speed: 32.010 t/s 0.20.629.646 I n_accept = 218 0.20.629.646 I accept = 27.806% 
+[02:46:05] spec llama3.1-8b-q4km dm8 p3 r1: 0.22.809.711 I decoded 264 tokens in 8.953 seconds, speed: 29.488 t/s 0.22.809.712 I n_accept = 202 0.22.809.712 I accept = 41.736% 
+[02:46:31] spec llama3.1-8b-q4km dm16 p3 r1: 0.26.194.590 I decoded 270 tokens in 11.441 seconds, speed: 23.599 t/s 0.26.194.591 I n_accept = 215 0.26.194.591 I accept = 26.188% 
+[02:46:54] stock p4 r1: eval time =   11597.07 ms /   255 runs   (   45.48 ms per token,    21.99 tokens per second)
+[02:47:11] spec llama3.2-1b-q8 dm8 p4 r1: 0.17.368.376 I decoded 264 tokens in 3.676 seconds, speed: 71.814 t/s 0.17.368.377 I n_accept = 228 0.17.368.378 I accept = 80.000% 
+[02:47:27] spec llama3.2-1b-q8 dm16 p4 r1: 0.15.137.866 I decoded 267 tokens in 3.482 seconds, speed: 76.676 t/s 0.15.137.867 I n_accept = 241 0.15.137.868 I accept = 61.013% 
+[02:47:46] spec llama3.2-3b-q4km dm8 p4 r1: 0.17.758.747 I decoded 264 tokens in 4.219 seconds, speed: 62.572 t/s 0.17.758.748 I n_accept = 229 0.17.758.749 I accept = 81.786% 
+[02:48:02] spec llama3.2-3b-q4km dm16 p4 r1: 0.15.564.504 I decoded 268 tokens in 3.816 seconds, speed: 70.236 t/s 0.15.564.505 I n_accept = 245 0.15.564.505 I accept = 67.680% 
+[02:48:22] spec llama3.1-8b-q4km dm8 p4 r1: 0.20.276.191 I decoded 264 tokens in 5.608 seconds, speed: 47.075 t/s 0.20.276.192 I n_accept = 225 0.20.276.193 I accept = 72.115% 
+[02:48:42] spec llama3.1-8b-q4km dm16 p4 r1: 0.19.148.750 I decoded 267 tokens in 5.345 seconds, speed: 49.953 t/s 0.19.148.857 I n_accept = 242 0.19.148.879 I accept = 61.735% 
+[02:49:02] stock p5 r1: eval time =    9346.52 ms /   206 runs   (   45.37 ms per token,    22.04 tokens per second)
+[02:49:20] spec llama3.2-1b-q8 dm8 p5 r1: 0.16.894.621 I decoded 211 tokens in 5.161 seconds, speed: 40.884 t/s 0.16.894.623 I n_accept = 160 0.16.894.623 I accept = 39.216% 
+[02:49:38] spec llama3.2-1b-q8 dm16 p5 r1: 0.17.318.201 I decoded 211 tokens in 6.004 seconds, speed: 35.145 t/s 0.17.318.202 I n_accept = 166 0.17.318.203 I accept = 23.056% 
+[02:49:57] spec llama3.2-3b-q4km dm8 p5 r1: 0.19.140.008 I decoded 207 tokens in 5.556 seconds, speed: 37.255 t/s 0.19.140.009 I n_accept = 160 0.19.140.009 I accept = 42.553% 
+[02:50:17] spec llama3.2-3b-q4km dm16 p5 r1: 0.19.026.180 I decoded 211 tokens in 7.128 seconds, speed: 29.600 t/s 0.19.026.181 I n_accept = 168 0.19.026.182 I accept = 24.419% 
+[02:50:39] spec llama3.1-8b-q4km dm8 p5 r1: 0.21.390.871 I decoded 211 tokens in 6.754 seconds, speed: 31.241 t/s 0.21.390.873 I n_accept = 164 0.21.390.873 I accept = 43.617% 
+[02:51:02] spec llama3.1-8b-q4km dm16 p5 r1: 0.22.522.573 I decoded 211 tokens in 8.313 seconds, speed: 25.382 t/s 0.22.522.579 I n_accept = 172 0.22.522.580 I accept = 27.564% 
+[02:51:26] stock p0 r2: eval time =   11584.63 ms /   255 runs   (   45.43 ms per token,    22.01 tokens per second)
+[02:51:44] spec llama3.2-1b-q8 dm8 p0 r2: 0.17.520.136 I decoded 260 tokens in 3.844 seconds, speed: 67.641 t/s 0.17.520.138 I n_accept = 222 0.17.520.138 I accept = 74.497% 
+[02:52:00] spec llama3.2-1b-q8 dm16 p0 r2: 0.15.478.569 I decoded 260 tokens in 3.488 seconds, speed: 74.538 t/s 0.15.478.570 I n_accept = 234 0.15.478.571 I accept = 58.065% 
+[02:52:18] spec llama3.2-3b-q4km dm8 p0 r2: 0.16.671.798 I decoded 260 tokens in 4.387 seconds, speed: 59.270 t/s 0.16.671.799 I n_accept = 223 0.16.671.800 I accept = 76.897% 
+[02:52:35] spec llama3.2-3b-q4km dm16 p0 r2: 0.16.371.743 I decoded 260 tokens in 3.975 seconds, speed: 65.409 t/s 0.16.371.744 I n_accept = 236 0.16.371.745 I accept = 63.612% 
+[02:52:54] spec llama3.1-8b-q4km dm8 p0 r2: 0.18.508.443 I decoded 257 tokens in 5.945 seconds, speed: 43.231 t/s 0.18.508.445 I n_accept = 215 0.18.508.446 I accept = 65.350% 
+[02:53:13] spec llama3.1-8b-q4km dm16 p0 r2: 0.18.596.646 I decoded 257 tokens in 6.451 seconds, speed: 39.839 t/s 0.18.596.648 I n_accept = 226 0.18.596.648 I accept = 47.579% 
+[02:53:35] stock p1 r2: eval time =   11562.36 ms /   255 runs   (   45.34 ms per token,    22.05 tokens per second)
+[02:53:52] spec llama3.2-1b-q8 dm8 p1 r2: 0.16.477.870 I decoded 265 tokens in 3.271 seconds, speed: 81.027 t/s 0.16.477.871 I n_accept = 234 0.16.477.872 I accept = 94.737% 
+[02:54:08] spec llama3.2-1b-q8 dm16 p1 r2: 0.14.599.283 I decoded 273 tokens in 2.527 seconds, speed: 108.042 t/s 0.14.599.284 I n_accept = 255 0.14.599.284 I accept = 91.398% 
+[02:54:26] spec llama3.2-3b-q4km dm8 p1 r2: 0.17.874.212 I decoded 265 tokens in 3.751 seconds, speed: 70.654 t/s 0.17.874.213 I n_accept = 234 0.17.874.214 I accept = 95.902% 
+[02:54:43] spec llama3.2-3b-q4km dm16 p1 r2: 0.16.464.533 I decoded 272 tokens in 2.931 seconds, speed: 92.806 t/s 0.16.464.534 I n_accept = 255 0.16.464.535 I accept = 93.750% 
+[02:55:00] spec llama3.1-8b-q4km dm8 p1 r2: 0.16.705.335 I decoded 265 tokens in 4.548 seconds, speed: 58.263 t/s 0.16.705.336 I n_accept = 234 0.16.705.337 I accept = 94.737% 
+[02:55:17] spec llama3.1-8b-q4km dm16 p1 r2: 0.15.865.994 I decoded 273 tokens in 3.901 seconds, speed: 69.987 t/s 0.15.865.996 I n_accept = 255 0.15.865.997 I accept = 91.398% 
+[02:55:39] stock p2 r2: eval time =   11563.55 ms /   255 runs   (   45.35 ms per token,    22.05 tokens per second)
+[02:55:57] spec llama3.2-1b-q8 dm8 p2 r2: 0.17.951.342 I decoded 262 tokens in 5.496 seconds, speed: 47.669 t/s 0.17.951.450 I n_accept = 208 0.17.951.471 I accept = 48.485% 
+[02:56:16] spec llama3.2-1b-q8 dm16 p2 r2: 0.17.531.886 I decoded 262 tokens in 6.004 seconds, speed: 43.637 t/s 0.17.531.887 I n_accept = 217 0.17.531.888 I accept = 31.044% 
+[02:56:33] spec llama3.2-3b-q4km dm8 p2 r2: 0.17.384.255 I decoded 262 tokens in 5.234 seconds, speed: 50.054 t/s 0.17.384.256 I n_accept = 218 0.17.384.256 I accept = 62.464% 
+[02:56:52] spec llama3.2-3b-q4km dm16 p2 r2: 0.18.145.001 I decoded 262 tokens in 6.068 seconds, speed: 43.174 t/s 0.18.145.002 I n_accept = 225 0.18.145.003 I accept = 39.613% 
+[02:57:12] spec llama3.1-8b-q4km dm8 p2 r2: 0.19.188.700 I decoded 262 tokens in 6.603 seconds, speed: 39.678 t/s 0.19.188.701 I n_accept = 216 0.19.188.701 I accept = 59.178% 
+[02:57:33] spec llama3.1-8b-q4km dm16 p2 r2: 0.20.091.392 I decoded 262 tokens in 7.395 seconds, speed: 35.428 t/s 0.20.091.393 I n_accept = 227 0.20.091.393 I accept = 41.805% 
+[02:57:55] stock p3 r2: eval time =   11580.60 ms /   255 runs   (   45.41 ms per token,    22.02 tokens per second)
+[02:58:15] spec llama3.2-1b-q8 dm8 p3 r2: 0.19.255.207 I decoded 257 tokens in 7.539 seconds, speed: 34.088 t/s 0.19.255.211 I n_accept = 183 0.19.255.212 I accept = 31.229% 
+[02:58:38] spec llama3.2-1b-q8 dm16 p3 r2: 0.22.697.310 I decoded 257 tokens in 9.164 seconds, speed: 28.045 t/s 0.22.697.312 I n_accept = 188 0.22.697.312 I accept = 17.753% 
+[02:58:59] spec llama3.2-3b-q4km dm8 p3 r2: 0.20.650.840 I decoded 264 tokens in 7.150 seconds, speed: 36.921 t/s 0.20.650.842 I n_accept = 204 0.20.650.843 I accept = 43.312% 
+[02:59:22] spec llama3.2-3b-q4km dm16 p3 r2: 0.22.269.050 I decoded 270 tokens in 8.435 seconds, speed: 32.008 t/s 0.22.269.051 I n_accept = 218 0.22.269.052 I accept = 27.806% 
+[02:59:44] spec llama3.1-8b-q4km dm8 p3 r2: 0.21.186.133 I decoded 264 tokens in 8.923 seconds, speed: 29.586 t/s 0.21.186.134 I n_accept = 202 0.21.186.134 I accept = 41.736% 
+[03:00:09] spec llama3.1-8b-q4km dm16 p3 r2: 0.24.615.605 I decoded 270 tokens in 11.424 seconds, speed: 23.635 t/s 0.24.615.608 I n_accept = 215 0.24.615.608 I accept = 26.188% 
+[03:00:32] stock p4 r2: eval time =   11589.38 ms /   255 runs   (   45.45 ms per token,    22.00 tokens per second)
+[03:00:47] spec llama3.2-1b-q8 dm8 p4 r2: 0.15.223.921 I decoded 264 tokens in 3.696 seconds, speed: 71.427 t/s 0.15.223.923 I n_accept = 228 0.15.223.923 I accept = 80.000% 
+[03:01:03] spec llama3.2-1b-q8 dm16 p4 r2: 0.15.284.025 I decoded 267 tokens in 3.490 seconds, speed: 76.497 t/s 0.15.284.026 I n_accept = 241 0.15.284.027 I accept = 61.013% 
+[03:01:20] spec llama3.2-3b-q4km dm8 p4 r2: 0.16.114.093 I decoded 264 tokens in 4.220 seconds, speed: 62.564 t/s 0.16.114.095 I n_accept = 229 0.16.114.096 I accept = 81.786% 
+[03:01:36] spec llama3.2-3b-q4km dm16 p4 r2: 0.15.821.160 I decoded 268 tokens in 3.851 seconds, speed: 69.595 t/s 0.15.821.162 I n_accept = 245 0.15.821.162 I accept = 67.680% 
+[03:01:55] spec llama3.1-8b-q4km dm8 p4 r2: 0.18.362.347 I decoded 264 tokens in 5.589 seconds, speed: 47.232 t/s 0.18.362.348 I n_accept = 225 0.18.362.349 I accept = 72.115% 
+[03:02:14] spec llama3.1-8b-q4km dm16 p4 r2: 0.17.873.626 I decoded 267 tokens in 5.303 seconds, speed: 50.353 t/s 0.17.873.627 I n_accept = 242 0.17.873.628 I accept = 61.735% 
+[03:02:34] stock p5 r2: eval time =    9329.29 ms /   206 runs   (   45.29 ms per token,    22.08 tokens per second)
+[03:02:53] spec llama3.2-1b-q8 dm8 p5 r2: 0.18.425.548 I decoded 211 tokens in 5.144 seconds, speed: 41.018 t/s 0.18.425.550 I n_accept = 160 0.18.425.550 I accept = 39.216% 
+[03:03:12] spec llama3.2-1b-q8 dm16 p5 r2: 0.18.676.561 I decoded 211 tokens in 6.023 seconds, speed: 35.034 t/s 0.18.676.562 I n_accept = 166 0.18.676.563 I accept = 23.056% 
+[03:03:32] spec llama3.2-3b-q4km dm8 p5 r2: 0.18.501.788 I decoded 207 tokens in 5.545 seconds, speed: 37.328 t/s 0.18.501.790 I n_accept = 160 0.18.501.790 I accept = 42.553% 
+[03:03:53] spec llama3.2-3b-q4km dm16 p5 r2: 0.20.571.819 I decoded 211 tokens in 7.090 seconds, speed: 29.762 t/s 0.20.571.821 I n_accept = 168 0.20.571.821 I accept = 24.419% 
+[03:04:13] spec llama3.1-8b-q4km dm8 p5 r2: 0.19.917.196 I decoded 211 tokens in 6.721 seconds, speed: 31.392 t/s 0.19.917.198 I n_accept = 164 0.19.917.199 I accept = 43.617% 
+[03:04:35] spec llama3.1-8b-q4km dm16 p5 r2: 0.20.926.838 I decoded 211 tokens in 8.303 seconds, speed: 25.413 t/s 0.20.926.840 I n_accept = 172 0.20.926.841 I accept = 27.564% 
+[03:04:35] GPU_DONE

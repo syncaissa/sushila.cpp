@@ -551,7 +551,9 @@ async fn srv_admin(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
     let st = read_state(&s.data_dir);
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     let remote_ok = share(&st).and_then(|sh| sh.get("remoteAdmin")).and_then(|v| v.as_bool()).unwrap_or(false);
-    axum::Json(json!({ "passwordSet": password_set(&s.data_dir), "loggedIn": admin_ok(&s, &headers, &st), "allowed": local_host(&headers, s.port) || remote_ok })).into_response()
+    // the home folder only for the computer itself (the ☰ menu shows it there; other machines never see local paths)
+    let home = if local_host(&headers, s.port) { Some(s.data_dir.to_string_lossy().to_string()) } else { None };
+    axum::Json(json!({ "passwordSet": password_set(&s.data_dir), "loggedIn": admin_ok(&s, &headers, &st), "allowed": local_host(&headers, s.port) || remote_ok, "home": home })).into_response()
 }
 /// POST /api/login {password} -> {session}; POST /api/setup {password}: the first password, only from this computer
 /// and only while none is set; POST /api/admin/change {current, password} (logged in + the current password); POST /api/admin/logout.

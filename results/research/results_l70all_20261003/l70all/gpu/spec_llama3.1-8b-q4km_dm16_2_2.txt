@@ -1,0 +1,55 @@
+0.10.416.621 I cmn          init: llama threadpool init, n_threads = 252
+0.10.527.978 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.1-8b-q4km.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What are the main differences between TCP and UDP? Give examples of when to use each.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+===========================================================
+
+TCP and UDP are two fundamental protocols in the Internet Protocol Suite (TCP/IP) that enable data communication over the internet. While both protocols are used for data transfer, they have distinct differences in their approach, advantages, and use cases.
+
+**TCP (Transmission Control Protocol)**
+------------------------------------
+
+TCP is a connection-oriented protocol, which means that a connection is established between the sender and receiver before data is sent. This connection is maintained throughout the data transfer process.
+
+**Key characteristics:**
+
+* **Reliable**: TCP ensures that data is delivered in the correct order and retransmits lost or corrupted packets.
+* **Ordered**: TCP guarantees that packets are delivered in the order they were sent.
+* **Error-checked**: TCP performs error-checking to ensure data integrity.
+* **Connection-oriented**: A connection is established before data is sent.
+
+**When to use TCP:**
+
+* **File transfers**: TCP is ideal for transferring large files, such as documents, images, and videos, where data integrity is crucial.
+* **Web browsing**: TCP is used for HTTP (Hypertext Transfer Protocol) requests, ensuring that web pages are loaded correctly and in the right order.
+* **Email**: TCP is used for email protocols
+
+0.20.091.391 I encoded   27 tokens in    0.143 seconds, speed:  189.324 t/s
+0.20.091.392 I decoded  262 tokens in    7.395 seconds, speed:   35.428 t/s
+0.20.091.392 I 
+0.20.091.392 I n_draft   = 16
+0.20.091.393 I n_predict = 262
+0.20.091.393 I n_drafted = 543
+0.20.091.393 I n_accept  = 227
+0.20.091.393 I accept    = 41.805%
+0.20.091.394 I 
+0.20.091.394 I draft:
+
+0.20.091.440 I 
+0.20.091.441 I target:
+
+0.20.091.445 I common_perf_print:    sampling time =      61.16 ms
+0.20.091.446 I common_perf_print:    samplers time =      23.38 ms /   262 tokens
+0.20.091.452 I common_perf_print:        load time =    9052.32 ms
+0.20.091.454 I common_perf_print: prompt eval time =    3774.67 ms /   606 tokens (    6.23 ms per token,   160.54 tokens per second)
+0.20.091.455 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.20.091.455 I common_perf_print:       total time =    9563.62 ms /   607 tokens
+0.20.091.456 I common_perf_print: unaccounted time =    5727.79 ms /  59.9 %      (total - sampling - prompt eval - eval) / (total)
+0.20.091.469 I common_perf_print:    graphs reused =         31
+
+

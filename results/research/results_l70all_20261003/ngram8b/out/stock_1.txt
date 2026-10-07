@@ -1,0 +1,44 @@
+0.00.085.921 I llama_completion: llama backend init
+0.00.085.971 I llama_completion: load the model and apply lora adapter, if any
+0.02.785.981 I cmn          init: llama threadpool init, n_threads = 252
+0.02.843.554 I 
+0.02.843.737 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.02.843.752 I 
+0.02.843.883 I sampler seed: 1205345193
+0.02.843.905 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.02.843.914 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.02.843.915 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.02.843.915 I 
+user
+
+are new year resolutions effective?assistant
+
+New Year's resolutions can be effective, but their success rate is often debated. Here's a balanced look at the pros and cons:
+
+**Why resolutions can be effective:**
+
+1. **Fresh start**: A new year provides a clean slate, allowing people to reflect on their goals and make positive changes.
+2. **Motivation**: Resolutions can be a powerful motivator, especially when combined with a sense of accountability and a clear plan.
+3. **Goal-setting**: Resolving to make a change can help individuals set specific, achievable goals, which can lead to progress and success.
+4. **Accountability**: Sharing resolutions with friends or family can provide an added sense of responsibility and motivation.
+
+**Why resolutions often fail:**
+
+1. **Overly ambitious goals**: Setting unrealistic expectations can lead to disappointment and frustration when progress is slow or nonexistent.
+2. **Lack of planning**: Without a clear plan and strategy, resolutions can quickly fall by the wayside.
+3. **Unrealistic expectations**: Assuming that a single resolution will solve all problems or lead to significant changes can be unrealistic.
+4. **Lack of follow-through**: Without a system in place to track progress and maintain momentum, resolutions can quickly become forgotten.
+5. **Unhealthy relationship with goals
+
+0.04.619.589 I common_perf_print:    sampling time =      66.65 ms
+0.04.619.590 I common_perf_print:    samplers time =      26.06 ms /   272 tokens
+0.04.619.600 I common_perf_print:        load time =    1774.64 ms
+0.04.619.602 I common_perf_print: prompt eval time =      34.74 ms /    16 tokens (    2.17 ms per token,   460.62 tokens per second)
+0.04.619.604 I common_perf_print:        eval time =    1666.84 ms /   255 runs   (    6.54 ms per token,   152.98 tokens per second)
+0.04.619.605 I common_perf_print:       total time =    1776.05 ms /   271 tokens
+0.04.619.606 I common_perf_print: unaccounted time =       7.83 ms /   0.4 %      (total - sampling - prompt eval - eval) / (total)
+0.04.619.606 I common_perf_print:    graphs reused =        253

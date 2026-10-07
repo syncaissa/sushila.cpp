@@ -1,0 +1,49 @@
+[15:53:06] p0 old stock: 158.79 tokens per second
+[15:53:11] p0 old tree d4k1n4: generated 256 tokens in 1.601 s, 159.246 t/s; cycles=92 accepted/cycle=1.78 tokens/cycle=2.78 tree=4.0 ms/cycle draft 4.24 verify 12.45 (target decode 12.30) commit 0.72 
+[15:53:17] p0 old tree d5k1n5: generated 256 tokens in 1.813 s, 140.655 t/s; cycles=89 accepted/cycle=1.88 tokens/cycle=2.88 tree=5.0 ms/cycle draft 5.54 verify 14.02 (target decode 13.87) commit 0.81 
+[15:53:22] p0 old tree d7k1n7: generated 256 tokens in 2.048 s, 124.531 t/s; cycles=86 accepted/cycle=1.98 tokens/cycle=2.98 tree=7.0 ms/cycle draft 6.47 verify 16.43 (target decode 16.26) commit 0.91 
+[15:53:27] p0 old tree d4k2n7: generated 256 tokens in 1.769 s, 144.113 t/s; cycles=82 accepted/cycle=2.12 tokens/cycle=3.12 tree=7.0 ms/cycle draft 4.28 verify 16.61 (target decode 16.44) commit 0.68 
+[15:53:33] p0 old tree d5k8n32: generated 256 tokens in 1.842 s, 138.473 t/s; cycles=56 accepted/cycle=3.57 tokens/cycle=4.57 tree=32.0 ms/cycle draft 10.54 verify 21.11 (target decode 20.70) commit 1.23 
+[15:53:37] p0 new stock: 153.70 tokens per second
+[15:53:42] p0 new tree d4k1n4: generated 256 tokens in 1.570 s, 162.452 t/s; cycles=93 accepted/cycle=1.75 tokens/cycle=2.75 tree=4.0 ms/cycle draft 4.48 verify 11.64 (target decode 11.50) commit 0.75 
+[15:53:47] p0 new tree d5k1n5: generated 256 tokens in 1.625 s, 156.964 t/s; cycles=89 accepted/cycle=1.88 tokens/cycle=2.88 tree=5.0 ms/cycle draft 5.55 verify 11.92 (target decode 11.77) commit 0.79 
+[15:53:52] p0 new tree d7k1n7: generated 256 tokens in 1.461 s, 174.537 t/s; cycles=84 accepted/cycle=2.05 tokens/cycle=3.05 tree=7.0 ms/cycle draft 5.78 verify 10.82 (target decode 10.67) commit 0.79 
+[15:53:57] p0 new tree d4k2n7: generated 256 tokens in 1.607 s, 158.692 t/s; cycles=82 accepted/cycle=2.12 tokens/cycle=3.12 tree=7.0 ms/cycle draft 5.92 verify 12.85 (target decode 12.67) commit 0.82 
+[15:54:02] p0 new tree d5k8n32: generated 256 tokens in 1.589 s, 160.482 t/s; cycles=56 accepted/cycle=3.57 tokens/cycle=4.57 tree=32.0 ms/cycle draft 8.20 verify 18.95 (target decode 18.53) commit 1.22 
+[15:54:06] p1 old stock: 157.72 tokens per second
+[15:54:11] p1 old tree d4k1n4: generated 256 tokens in 1.151 s, 221.632 t/s; cycles=71 accepted/cycle=2.61 tokens/cycle=3.61 tree=4.0 ms/cycle draft 3.68 verify 11.75 (target decode 11.57) commit 0.77 
+[15:54:15] p1 old tree d5k1n5: generated 256 tokens in 1.224 s, 208.314 t/s; cycles=64 accepted/cycle=2.98 tokens/cycle=3.98 tree=5.0 ms/cycle draft 5.21 verify 12.89 (target decode 12.69) commit 1.02 
+[15:54:20] p1 old tree d7k1n7: generated 256 tokens in 1.429 s, 178.428 t/s; cycles=55 accepted/cycle=3.65 tokens/cycle=4.65 tree=7.0 ms/cycle draft 7.00 verify 17.70 (target decode 17.48) commit 1.28 
+[15:54:25] p1 old tree d4k2n7: generated 256 tokens in 1.401 s, 181.960 t/s; cycles=64 accepted/cycle=3.00 tokens/cycle=4.00 tree=7.0 ms/cycle draft 4.37 verify 16.73 (target decode 16.51) commit 0.79 
+[15:54:30] p1 old tree d5k8n32: generated 256 tokens in 1.475 s, 172.939 t/s; cycles=50 accepted/cycle=4.12 tokens/cycle=5.12 tree=32.0 ms/cycle draft 8.93 verify 19.12 (target decode 18.70) commit 1.43 
+[15:54:34] p1 new stock: 153.22 tokens per second
+[15:54:38] p1 new tree d4k1n4: generated 256 tokens in 1.082 s, 235.758 t/s; cycles=72 accepted/cycle=2.56 tokens/cycle=3.56 tree=4.0 ms/cycle draft 3.64 verify 10.63 (target decode 10.45) commit 0.75 
+[15:54:43] p1 new tree d5k1n5: generated 256 tokens in 1.195 s, 213.406 t/s; cycles=63 accepted/cycle=3.06 tokens/cycle=4.06 tree=5.0 ms/cycle draft 5.69 verify 12.18 (target decode 11.98) commit 1.10 
+[15:54:48] p1 new tree d7k1n7: generated 256 tokens in 1.225 s, 208.121 t/s; cycles=55 accepted/cycle=3.64 tokens/cycle=4.64 tree=7.0 ms/cycle draft 7.99 verify 12.94 (target decode 12.69) commit 1.35 
+[15:54:52] p1 new tree d4k2n7: generated 256 tokens in 1.051 s, 242.683 t/s; cycles=64 accepted/cycle=3.00 tokens/cycle=4.00 tree=7.0 ms/cycle draft 4.45 verify 11.16 (target decode 10.95) commit 0.81 
+[15:54:57] p1 new tree d5k8n32: generated 256 tokens in 1.432 s, 178.075 t/s; cycles=50 accepted/cycle=4.12 tokens/cycle=5.12 tree=32.0 ms/cycle draft 8.33 verify 19.07 (target decode 18.65) commit 1.23 
+[15:55:01] p2 old stock: 152.91 tokens per second
+[15:55:06] p2 old tree d4k1n4: generated 256 tokens in 1.740 s, 146.547 t/s; cycles=111 accepted/cycle=1.30 tokens/cycle=2.30 tree=4.0 ms/cycle draft 3.43 verify 11.70 (target decode 11.57) commit 0.55 
+[15:55:12] p2 old tree d5k1n5: generated 256 tokens in 1.916 s, 133.093 t/s; cycles=103 accepted/cycle=1.48 tokens/cycle=2.48 tree=5.0 ms/cycle draft 5.06 verify 12.80 (target decode 12.66) commit 0.74 
+[15:55:17] p2 old tree d7k1n7: generated 256 tokens in 2.191 s, 116.365 t/s; cycles=95 accepted/cycle=1.68 tokens/cycle=2.68 tree=7.0 ms/cycle draft 5.80 verify 16.44 (target decode 16.29) commit 0.82 
+[15:55:23] p2 old tree d4k2n7: generated 256 tokens in 2.185 s, 116.684 t/s; cycles=90 accepted/cycle=1.83 tokens/cycle=2.83 tree=7.0 ms/cycle draft 5.51 verify 18.03 (target decode 17.86) commit 0.74 
+[15:55:29] p2 old tree d5k8n32: generated 256 tokens in 2.240 s, 113.863 t/s; cycles=68 accepted/cycle=2.76 tokens/cycle=3.76 tree=32.0 ms/cycle draft 10.59 verify 21.29 (target decode 20.90) commit 1.06 
+[15:55:33] p2 new stock: 153.33 tokens per second
+[15:55:38] p2 new tree d4k1n4: generated 256 tokens in 1.794 s, 142.116 t/s; cycles=115 accepted/cycle=1.23 tokens/cycle=2.23 tree=4.0 ms/cycle draft 3.96 verify 11.07 (target decode 10.94) commit 0.57 
+[15:55:43] p2 new tree d5k1n5: generated 256 tokens in 1.695 s, 150.414 t/s; cycles=108 accepted/cycle=1.37 tokens/cycle=2.37 tree=5.0 ms/cycle draft 4.46 verify 10.58 (target decode 10.45) commit 0.65 
+[15:55:49] p2 new tree d7k1n7: generated 256 tokens in 1.883 s, 135.399 t/s; cycles=103 accepted/cycle=1.49 tokens/cycle=2.49 tree=7.0 ms/cycle draft 6.37 verify 11.18 (target decode 11.05) commit 0.73 
+[15:55:53] p2 new tree d4k2n7: generated 256 tokens in 1.450 s, 175.899 t/s; cycles=91 accepted/cycle=1.80 tokens/cycle=2.80 tree=7.0 ms/cycle draft 4.24 verify 11.00 (target decode 10.84) commit 0.69 
+[15:55:59] p2 new tree d5k8n32: generated 256 tokens in 1.901 s, 134.135 t/s; cycles=68 accepted/cycle=2.76 tokens/cycle=3.76 tree=32.0 ms/cycle draft 8.07 verify 18.87 (target decode 18.49) commit 1.02 
+[15:56:03] p3 old stock: 156.74 tokens per second
+[15:56:08] p3 old tree d4k1n4: generated 256 tokens in 1.418 s, 179.824 t/s; cycles=82 accepted/cycle=2.11 tokens/cycle=3.11 tree=4.0 ms/cycle draft 4.27 verify 12.22 (target decode 12.06) commit 0.80 
+[15:56:13] p3 old tree d5k1n5: generated 256 tokens in 1.453 s, 175.482 t/s; cycles=74 accepted/cycle=2.45 tokens/cycle=3.45 tree=5.0 ms/cycle draft 5.06 verify 13.66 (target decode 13.47) commit 0.92 
+[15:56:18] p3 old tree d7k1n7: generated 256 tokens in 1.728 s, 147.559 t/s; cycles=68 accepted/cycle=2.75 tokens/cycle=3.75 tree=7.0 ms/cycle draft 6.97 verify 17.38 (target decode 17.18) commit 1.06 
+[15:56:23] p3 old tree d4k2n7: generated 256 tokens in 1.648 s, 154.689 t/s; cycles=70 accepted/cycle=2.64 tokens/cycle=3.64 tree=7.0 ms/cycle draft 5.17 verify 17.55 (target decode 17.33) commit 0.83 
+[15:56:29] p3 old tree d5k8n32: generated 256 tokens in 1.773 s, 143.859 t/s; cycles=54 accepted/cycle=3.74 tokens/cycle=4.74 tree=32.0 ms/cycle draft 10.67 verify 20.86 (target decode 20.41) commit 1.29 
+[15:56:33] p3 new stock: 153.23 tokens per second
+[15:56:38] p3 new tree d4k1n4: generated 256 tokens in 1.291 s, 197.541 t/s; cycles=75 accepted/cycle=2.41 tokens/cycle=3.41 tree=4.0 ms/cycle draft 4.61 verify 11.71 (target decode 11.53) commit 0.89 
+[15:56:44] p3 new tree d5k1n5: generated 256 tokens in 1.322 s, 192.842 t/s; cycles=69 accepted/cycle=2.71 tokens/cycle=3.71 tree=5.0 ms/cycle draft 5.98 verify 12.06 (target decode 11.85) commit 1.12 
+[15:56:48] p3 new tree d7k1n7: generated 256 tokens in 1.186 s, 215.097 t/s; cycles=60 accepted/cycle=3.27 tokens/cycle=4.27 tree=7.0 ms/cycle draft 6.88 verify 11.76 (target decode 11.56) commit 1.12 
+[15:56:53] p3 new tree d4k2n7: generated 256 tokens in 1.151 s, 221.543 t/s; cycles=71 accepted/cycle=2.61 tokens/cycle=3.61 tree=7.0 ms/cycle draft 4.36 verify 11.11 (target decode 10.90) commit 0.73 
+[15:56:58] p3 new tree d5k8n32: generated 256 tokens in 1.553 s, 164.170 t/s; cycles=54 accepted/cycle=3.74 tokens/cycle=4.74 tree=32.0 ms/cycle draft 8.48 verify 19.07 (target decode 18.61) commit 1.21 
+[15:56:58] T_DONE

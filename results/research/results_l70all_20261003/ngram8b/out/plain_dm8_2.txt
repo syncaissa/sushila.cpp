@@ -1,0 +1,32 @@
+0.02.868.474 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Hugh Lofting created which famous character<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Hugh Lofting created the famous character "Dr. Dolittle".<|eot_id|>
+
+0.03.057.633 I encoded   17 tokens in    0.035 seconds, speed:  897.406 t/s
+0.03.057.635 I decoded   14 tokens in    0.095 seconds, speed:  146.784 t/s
+0.03.057.635 I 
+0.03.057.635 I n_draft      = 8
+0.03.057.636 I n_predict    = 14
+0.03.057.636 I n_drafted    = 8
+0.03.057.636 I t_draft_flat = 0.03 ms
+0.03.057.637 I t_draft      = 0.05 ms, 6.50 us per token, 153846.15 tokens per second
+0.03.057.637 I n_accept     = 3
+0.03.057.638 I accept       = 37.500%
+0.03.057.638 I 
+target:
+
+0.03.057.644 I common_perf_print:    sampling time =       4.82 ms
+0.03.057.644 I common_perf_print:    samplers time =       1.61 ms /    14 tokens
+0.03.057.650 I common_perf_print:        load time =    1912.88 ms
+0.03.057.652 I common_perf_print: prompt eval time =      39.32 ms /    26 tokens (    1.51 ms per token,   661.27 tokens per second)
+0.03.057.653 I common_perf_print:        eval time =      66.27 ms /     9 runs   (    7.36 ms per token,   135.81 tokens per second)
+0.03.057.653 I common_perf_print:       total time =     130.48 ms /    35 tokens
+0.03.057.654 I common_perf_print: unaccounted time =      20.07 ms /  15.4 %      (total - sampling - prompt eval - eval) / (total)
+0.03.057.654 I common_perf_print:    graphs reused =          8
+
+

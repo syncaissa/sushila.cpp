@@ -1,0 +1,2 @@
+qwen2.5-7b-q4km.gguf output.weight 152064x3584 Q6_K, G=32 (112 groups), landscape 7.6%, tokens=2000, K=1
+  cal:1          top1  99.5%  recall@1  99.5%  TV(T=0.7) 0.0050  TV(T=1.0) 0.0050  read  22.7%  (859s)

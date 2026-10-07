@@ -1,0 +1,51 @@
+0.02.652.561 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Classify the below car manufacturing companies based on their countries of origin.
+Mazda, KIA, Hyundai, Ford, Honda, Toyota, Chevrolet<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Here are the car manufacturing companies classified by their countries of origin:
+
+**Japan:**
+
+1. Mazda
+2. Honda
+3. Toyota
+
+**South Korea:**
+
+1. KIA
+2. Hyundai
+
+**United States:**
+
+1. Ford
+2. Chevrolet (owned by General Motors, an American company)
+
+Let me know if you have any further questions!<|eot_id|>
+
+0.03.302.288 I encoded   40 tokens in    0.043 seconds, speed: 2713.070 t/s
+0.03.302.314 I decoded   76 tokens in    0.547 seconds, speed:  138.921 t/s
+0.03.302.353 I 
+0.03.302.375 I n_draft      = 8
+0.03.302.396 I n_predict    = 76
+0.03.302.417 I n_drafted    = 48
+0.03.302.439 I t_draft_flat = 0.07 ms
+0.03.302.461 I t_draft      = 0.35 ms, 7.25 us per token, 137931.03 tokens per second
+0.03.302.504 I n_accept     = 7
+0.03.302.525 I accept       = 14.583%
+0.03.302.547 I 
+target:
+
+0.03.302.575 I common_perf_print:    sampling time =      25.98 ms
+0.03.302.597 I common_perf_print:    samplers time =       7.55 ms /    76 tokens
+0.03.302.625 I common_perf_print:        load time =    1810.86 ms
+0.03.302.648 I common_perf_print: prompt eval time =     118.09 ms /    94 tokens (    1.26 ms per token,   795.97 tokens per second)
+0.03.302.669 I common_perf_print:        eval time =     419.42 ms /    62 runs   (    6.76 ms per token,   147.82 tokens per second)
+0.03.302.691 I common_perf_print:       total time =     591.12 ms /   156 tokens
+0.03.302.713 I common_perf_print: unaccounted time =      27.62 ms /   4.7 %      (total - sampling - prompt eval - eval) / (total)
+0.03.302.734 I common_perf_print:    graphs reused =         56
+
+

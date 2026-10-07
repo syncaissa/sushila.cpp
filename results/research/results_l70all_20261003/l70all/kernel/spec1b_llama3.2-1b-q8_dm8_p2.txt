@@ -1,0 +1,48 @@
+warning: no usable GPU found, --gpu-layers option will be ignored
+warning: one possible reason is that llama.cpp was compiled without GPU support
+warning: consult docs/build.md for compilation instructions
+0.07.357.635 I cmn          init: llama threadpool init, n_threads = 30
+0.07.844.611 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What are the main differences between TCP and UDP? Give examples of when to use each.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+===========================================================
+
+TCP and UDP are two fundamental protocols in the Internet Protocol Suite (TCP/IP) that enable data communication over the internet. While both protocols are used for data transfer, they have distinct differences in their approach, advantages, and use cases.
+
+**TCP (Transmission Control Protocol)**
+------------------------------------
+
+TCP is a connection-oriented protocol that ensures reliable, error-checked, and sequential delivery of data between devices. Here are its key characteristics:
+
+*   **Connection-oriented**: Establishes a connection between the sender and receiver before data transfer.
+*   **Reliable**: Guarantees delivery of data packets
+
+0.54.529.723 I encoded   27 tokens in    2.369 seconds, speed:   11.400 t/s
+0.54.529.724 I decoded  135 tokens in   43.202 seconds, speed:    3.125 t/s
+0.54.529.724 I 
+0.54.529.725 I n_draft   = 8
+0.54.529.725 I n_predict = 135
+0.54.529.725 I n_drafted = 213
+0.54.529.725 I n_accept  = 108
+0.54.529.726 I accept    = 50.704%
+0.54.529.726 I 
+0.54.529.726 I draft:
+
+0.54.529.766 I 
+0.54.529.766 I target:
+
+0.54.529.770 I common_perf_print:    sampling time =      26.22 ms
+0.54.529.771 I common_perf_print:    samplers time =      10.17 ms /   135 tokens
+0.54.529.777 I common_perf_print:        load time =    6858.48 ms
+0.54.529.778 I common_perf_print: prompt eval time =   38502.33 ms /   268 tokens (  143.67 ms per token,     6.96 tokens per second)
+0.54.529.779 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.54.529.780 I common_perf_print:       total time =   46685.23 ms /   269 tokens
+0.54.529.781 I common_perf_print: unaccounted time =    8156.68 ms /  17.5 %      (total - sampling - prompt eval - eval) / (total)
+0.54.529.781 I common_perf_print:    graphs reused =         25
+
+

@@ -1,0 +1,39 @@
+0.02.925.719 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What is the correlation between interest rates and bond prices?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The correlation between interest rates and bond prices is a fundamental concept in finance. When interest rates rise, bond prices tend to fall, and when interest rates fall, bond prices tend to rise. This is because the value of a bond is inversely related to the level of interest rates.
+
+Here's why:
+
+1. **Interest rates and bond yields**: When interest rates rise, the yield on a bond (the return an investor earns from the bond) also rises. This is because the bond's coupon rate (the interest rate paid by the bond issuer) is typically fixed, so the bond's yield increases to reflect the higher market interest rate.
+2. **Bond prices and yields**: When a bond's yield increases, its price must decrease to compensate for the higher return. Conversely, when a bond's yield decreases, its price must increase to reflect the lower return.
+3. **Time value of money**: When interest rates rise, the present value of future cash flows (such as interest payments and principal repayment) decreases. This means that the bond's price must decrease to reflect the lower present value of its future cash flows.
+4. **Investor demand**: When interest rates rise, investors may become less willing to buy bonds, as they can earn higher returns from other investments.
+
+0.05.360.090 I encoded   21 tokens in    0.037 seconds, speed: 7491.041 t/s
+0.05.360.091 I decoded  257 tokens in    1.833 seconds, speed:  140.215 t/s
+0.05.360.091 I 
+0.05.360.092 I n_draft      = 4
+0.05.360.092 I n_predict    = 257
+0.05.360.093 I n_drafted    = 187
+0.05.360.093 I t_draft_flat = 490.12 ms
+0.05.360.094 I t_draft      = 5.34 ms, 28.58 us per token, 34985.97 tokens per second
+0.05.360.095 I n_accept     = 60
+0.05.360.095 I accept       = 32.086%
+0.05.360.095 I 
+target:
+
+0.05.360.102 I common_perf_print:    sampling time =      67.53 ms
+0.05.360.103 I common_perf_print:    samplers time =      25.77 ms /   257 tokens
+0.05.360.110 I common_perf_print:        load time =    1897.05 ms
+0.05.360.111 I common_perf_print: prompt eval time =     801.80 ms /   274 tokens (    2.93 ms per token,   341.73 tokens per second)
+0.05.360.112 I common_perf_print:        eval time =     966.42 ms /   130 runs   (    7.43 ms per token,   134.52 tokens per second)
+0.05.360.113 I common_perf_print:       total time =    2361.14 ms /   404 tokens
+0.05.360.114 I common_perf_print: unaccounted time =     525.39 ms /  22.3 %      (total - sampling - prompt eval - eval) / (total)
+0.05.360.114 I common_perf_print:    graphs reused =        100
+
+

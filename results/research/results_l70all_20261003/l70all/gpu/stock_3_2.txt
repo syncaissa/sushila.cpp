@@ -1,0 +1,35 @@
+0.00.107.801 I llama_completion: llama backend init
+0.00.107.869 I llama_completion: load the model and apply lora adapter, if any
+0.10.052.489 I cmn          init: llama threadpool init, n_threads = 252
+0.10.161.907 I 
+0.10.162.084 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.10.162.092 I 
+0.10.162.253 I sampler seed: 2240069127
+0.10.162.274 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.10.162.284 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.10.162.285 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.10.162.285 I 
+user
+
+Write a short story about a lighthouse keeper who finds a message in a bottle.assistant
+
+The sun was setting over the rocky coastline, casting a warm orange glow over the lighthouse and its keeper, Jack. He had spent the day tending to the light, making sure it was in good working order to guide the ships safely through the treacherous waters. As he walked along the shore, he noticed a piece of flotsam washing up on the beach. As he drew closer, he saw that it was a bottle, partially buried in the sand.
+
+Jack picked up the bottle and examined it. It was old, with a worn label and a cork that had been sealed for years. He carefully removed the cork and pulled out a piece of paper that had been rolled up inside. Unfurling it, he saw that it was a message, written in a flowing script.
+
+"To whoever finds this," the message read. "I am writing this on the eve of my departure from the world. I have spent my life at sea, and I am tired. I am leaving behind a legacy of love and loss, of adventure and heartache. I hope that whoever finds this will be inspired to follow their own dreams, no matter how impossible they may seem. Fair winds and following seas. - A sailor, 1850"
+
+Jack felt a
+
+0.21.952.917 I common_perf_print:    sampling time =      67.75 ms
+0.21.952.918 I common_perf_print:    samplers time =      22.42 ms /   282 tokens
+0.21.952.926 I common_perf_print:        load time =    9102.94 ms
+0.21.952.928 I common_perf_print: prompt eval time =     129.61 ms /    26 tokens (    4.99 ms per token,   200.60 tokens per second)
+0.21.952.929 I common_perf_print:        eval time =   11580.60 ms /   255 runs   (   45.41 ms per token,    22.02 tokens per second)
+0.21.952.930 I common_perf_print:       total time =   11791.03 ms /   281 tokens
+0.21.952.931 I common_perf_print: unaccounted time =      13.06 ms /   0.1 %      (total - sampling - prompt eval - eval) / (total)
+0.21.952.931 I common_perf_print:    graphs reused =        253

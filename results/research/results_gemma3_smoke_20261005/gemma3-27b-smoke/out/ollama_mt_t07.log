@@ -1,0 +1,7 @@
+p0: 256 tokens, decode 45.3 tok/s, with prompt 42.8 tok/s
+p1: 81 tokens, decode 44.9 tok/s, with prompt 38.5 tok/s
+p2: 256 tokens, decode 45.0 tok/s, with prompt 43.4 tok/s
+p3: 188 tokens, decode 45.4 tok/s, with prompt 41.8 tok/s
+p4: 256 tokens, decode 45.4 tok/s, with prompt 43.7 tok/s
+p5: 190 tokens, decode 45.5 tok/s, with prompt 42.8 tok/s
+1227 tokens: 42.6 tok/s with prompt processing (28.8 s), 45.3 tok/s decode only

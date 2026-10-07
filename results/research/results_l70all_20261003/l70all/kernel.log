@@ -1,0 +1,47 @@
+[03:44:41] stage A paused after A1
+[03:52:55] warm p0: copies built in 355.5 s (not counted) mode=lossy-sparse generated 128 tokens in 48.721 s, 2.607 t/s 
+[03:54:00] warm p1: copies built in 4.7 s (not counted) mode=lossy-sparse generated 128 tokens in 46.221 s, 2.748 t/s 
+[03:55:01] warm p2: copies built in 0.5 s (not counted) mode=lossy-sparse generated 128 tokens in 46.060 s, 2.757 t/s 
+[03:56:03] warm p3: copies built in 0.5 s (not counted) mode=lossy-sparse generated 128 tokens in 45.518 s, 2.790 t/s 
+[03:57:01] stock p0: mode=stock generated 128 tokens in 46.253 s, 2.746 t/s 
+[03:58:00] stock p1: mode=stock generated 128 tokens in 46.096 s, 2.755 t/s 
+[03:59:00] stock p2: mode=stock generated 128 tokens in 46.474 s, 2.733 t/s 
+[03:59:59] stock p3: mode=stock generated 128 tokens in 46.693 s, 2.720 t/s 
+[04:01:07] spec_b0.5_k3 p0: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 53.528 s, 2.373 t/s draft-max=3 cycles=33 drafted=99 accepted=95 accept=0.960 tokens/cycle=3.88 
+[04:02:16] spec_b0.5_k3 p1: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 53.164 s, 2.389 t/s draft-max=3 cycles=33 drafted=99 accepted=95 accept=0.960 tokens/cycle=3.88 
+[04:03:28] spec_b0.5_k3 p2: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 56.667 s, 2.241 t/s draft-max=3 cycles=35 drafted=105 accepted=93 accept=0.886 tokens/cycle=3.66 
+[04:04:38] spec_b0.5_k3 p3: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 56.508 s, 2.247 t/s draft-max=3 cycles=35 drafted=105 accepted=93 accept=0.886 tokens/cycle=3.66 
+[04:05:51] spec_b0.5_k5 p0: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 57.239 s, 2.219 t/s draft-max=5 cycles=23 drafted=115 accepted=105 accept=0.913 tokens/cycle=5.57 
+[04:07:01] spec_b0.5_k5 p1: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 54.822 s, 2.317 t/s draft-max=5 cycles=22 drafted=110 accepted=105 accept=0.955 tokens/cycle=5.77 
+[04:08:20] spec_b0.5_k5 p2: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 64.555 s, 1.967 t/s draft-max=5 cycles=26 drafted=130 accepted=102 accept=0.785 tokens/cycle=4.92 
+[04:09:37] spec_b0.5_k5 p3: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 62.369 s, 2.036 t/s draft-max=5 cycles=25 drafted=125 accepted=103 accept=0.824 tokens/cycle=5.12 
+[04:10:46] spec_b0.4_k3 p0: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 53.289 s, 2.383 t/s draft-max=3 cycles=36 drafted=108 accepted=92 accept=0.852 tokens/cycle=3.56 
+[04:11:54] spec_b0.4_k3 p1: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 51.405 s, 2.471 t/s draft-max=3 cycles=33 drafted=99 accepted=95 accept=0.960 tokens/cycle=3.88 
+[04:13:01] spec_b0.4_k3 p2: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 53.496 s, 2.374 t/s draft-max=3 cycles=37 drafted=111 accepted=91 accept=0.820 tokens/cycle=3.46 
+[04:14:06] spec_b0.4_k3 p3: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 50.669 s, 2.506 t/s draft-max=3 cycles=35 drafted=105 accepted=93 accept=0.886 tokens/cycle=3.66 
+[04:15:20] spec_b0.4_k5 p0: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 59.736 s, 2.126 t/s draft-max=5 cycles=27 drafted=135 accepted=101 accept=0.748 tokens/cycle=4.74 
+[04:16:27] spec_b0.4_k5 p1: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 51.352 s, 2.473 t/s draft-max=5 cycles=23 drafted=115 accepted=104 accept=0.904 tokens/cycle=5.52 
+[04:17:50] spec_b0.4_k5 p2: copies built in 0.4 s (not counted) mode=self-speculative generated 128 tokens in 69.268 s, 1.833 t/s draft-max=5 cycles=31 drafted=155 accepted=97 accept=0.626 tokens/cycle=4.13 
+[04:19:04] spec_b0.4_k5 p3: copies built in 0.5 s (not counted) mode=self-speculative generated 128 tokens in 58.884 s, 2.157 t/s draft-max=5 cycles=26 drafted=130 accepted=102 accept=0.785 tokens/cycle=4.92 
+[04:20:10] lossy_b0.6 p0: copies built in 0.5 s (not counted) mode=lossy-sparse generated 128 tokens in 51.031 s, 2.489 t/s 
+[04:21:17] lossy_b0.6 p1: copies built in 0.6 s (not counted) mode=lossy-sparse generated 128 tokens in 50.906 s, 2.495 t/s 
+[04:22:25] lossy_b0.6 p2: copies built in 0.5 s (not counted) mode=lossy-sparse generated 128 tokens in 51.063 s, 2.487 t/s 
+[04:23:30] lossy_b0.6 p3: copies built in 0.5 s (not counted) mode=lossy-sparse generated 128 tokens in 51.139 s, 2.483 t/s 
+[04:24:32] lossy_b0.5 p0: copies built in 0.5 s (not counted) mode=lossy-sparse generated 128 tokens in 45.142 s, 2.813 t/s 
+[04:25:34] lossy_b0.5 p1: copies built in 0.5 s (not counted) mode=lossy-sparse generated 128 tokens in 45.512 s, 2.790 t/s 
+[04:26:35] lossy_b0.5 p2: copies built in 0.5 s (not counted) mode=lossy-sparse generated 128 tokens in 45.331 s, 2.802 t/s 
+[04:27:34] lossy_b0.5 p3: copies built in 0.5 s (not counted) mode=lossy-sparse generated 128 tokens in 45.129 s, 2.814 t/s 
+[04:28:09] draft llama3.2-1b-q8 dm4 p0: 0.31.591.949 I decoded 133 tokens in 20.547 seconds, speed: 6.473 t/s 0.31.591.950 I n_accept = 104 0.31.591.951 I accept = 92.035% 
+[04:28:44] draft llama3.2-1b-q8 dm4 p1: 0.31.059.951 I decoded 133 tokens in 20.948 seconds, speed: 6.349 t/s 0.31.059.952 I n_accept = 104 0.31.059.952 I accept = 91.228% 
+[04:29:20] draft llama3.2-1b-q8 dm4 p2: 0.33.937.003 I decoded 132 tokens in 23.809 seconds, speed: 5.544 t/s 0.33.937.004 I n_accept = 99 0.33.937.005 I accept = 76.154% 
+[04:29:56] draft llama3.2-1b-q8 dm4 p3: 0.32.850.682 I decoded 132 tokens in 21.662 seconds, speed: 6.094 t/s 0.32.850.683 I n_accept = 103 0.32.850.684 I accept = 88.793% 
+[04:30:39] draft llama3.2-1b-q8 dm8 p0: 0.40.646.356 I decoded 133 tokens in 30.135 seconds, speed: 4.413 t/s 0.40.646.358 I n_accept = 114 0.40.646.359 I accept = 76.000% 
+[04:31:21] draft llama3.2-1b-q8 dm8 p1: 0.38.166.579 I decoded 137 tokens in 26.628 seconds, speed: 5.145 t/s 0.38.166.580 I n_accept = 120 0.38.166.581 I accept = 90.226% 
+[04:32:19] draft llama3.2-1b-q8 dm8 p2: 0.54.529.724 I decoded 135 tokens in 43.202 seconds, speed: 3.125 t/s 0.54.529.725 I n_accept = 108 0.54.529.726 I accept = 50.704% 
+[04:33:00] draft llama3.2-1b-q8 dm8 p3: 0.39.101.895 I decoded 137 tokens in 28.302 seconds, speed: 4.841 t/s 0.39.101.896 I n_accept = 119 0.39.101.897 I accept = 84.397% 
+[04:33:59] stock2 p0: mode=stock generated 128 tokens in 46.310 s, 2.742 t/s 
+[04:34:58] stock2 p1: mode=stock generated 128 tokens in 46.427 s, 2.735 t/s 
+[04:35:58] stock2 p2: mode=stock generated 128 tokens in 47.979 s, 2.647 t/s 
+[04:36:59] stock2 p3: mode=stock generated 128 tokens in 47.887 s, 2.652 t/s 
+[04:36:59] copy cache: 37G
+[04:36:59] KERNEL_DONE

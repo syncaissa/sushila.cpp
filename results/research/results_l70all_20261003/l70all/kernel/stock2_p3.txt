@@ -1,0 +1,13 @@
+0.06.624.607 I cmn          init: llama threadpool init, n_threads = 30
+
+
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here is a summary:
+
+**Causes:**
+
+1. **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, leading to a severe financial crisis.
+2. **Social Inequality**: The French society was divided into three estates: the clergy, the nobility, and the commoners. The nobility and clergy held vast powers and privileges, while the commoners were burdened with heavy taxes and limited opportunities.
+3. **Enlight
+
+0.57.288.985 I sushila-spec: mode=stock generated 128 tokens in 47.887 s, 2.652 t/s

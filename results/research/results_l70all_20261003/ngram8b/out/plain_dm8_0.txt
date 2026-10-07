@@ -1,0 +1,44 @@
+0.03.022.514 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+If you were the last person on Earth, what thoughts would you leave behind in a diary if future life were to find it?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+What a poignant and thought-provoking question! As the last person on Earth, I would pour my heart and soul into this diary, leaving behind a testament to the human experience. Here's a glimpse into my thoughts:
+
+**March 15, 2023**
+
+I can barely believe it's come to this. The world I knew, the world I loved, is gone. I'm left alone, surrounded by the eerie silence of a desolate landscape. The memories of loved ones, friends, and strangers who once filled the streets are now nothing but echoes in my mind. I'm not sure how much longer I can hold on.
+
+**April 1, 2023**
+
+I've been trying to find ways to occupy myself, to keep my mind from unraveling. I've taken to exploring the ruins of cities, marveling at the beauty of nature reclaiming what was once human-made. I've seen birds nesting in skyscrapers, vines crawling up buildings, and trees sprouting through cracked sidewalks. It's a bittersweet reminder of the transience of human existence.
+
+**May 10, 2023**
+
+I've been experimenting with art, trying to capture the essence of what's been lost. I've painted, drawn, and sculpted,
+
+0.04.965.696 I encoded   36 tokens in    0.042 seconds, speed: 7020.655 t/s
+0.04.965.698 I decoded  257 tokens in    1.845 seconds, speed:  139.275 t/s
+0.04.965.698 I 
+0.04.965.698 I n_draft      = 8
+0.04.965.699 I n_predict    = 257
+0.04.965.699 I n_drafted    = 104
+0.04.965.700 I t_draft_flat = 0.08 ms
+0.04.965.701 I t_draft      = 2.36 ms, 22.71 us per token, 44030.48 tokens per second
+0.04.965.701 I n_accept     = 13
+0.04.965.702 I accept       = 12.500%
+0.04.965.702 I 
+target:
+
+0.04.965.708 I common_perf_print:    sampling time =      70.47 ms
+0.04.965.709 I common_perf_print:    samplers time =      26.42 ms /   257 tokens
+0.04.965.716 I common_perf_print:        load time =    1901.83 ms
+0.04.965.717 I common_perf_print: prompt eval time =     228.62 ms /   153 tokens (    1.49 ms per token,   669.24 tokens per second)
+0.04.965.718 I common_perf_print:        eval time =    1548.17 ms /   230 runs   (    6.73 ms per token,   148.56 tokens per second)
+0.04.965.719 I common_perf_print:       total time =    1888.34 ms /   383 tokens
+0.04.965.720 I common_perf_print: unaccounted time =      41.08 ms /   2.2 %      (total - sampling - prompt eval - eval) / (total)
+0.04.965.720 I common_perf_print:    graphs reused =        218
+
+

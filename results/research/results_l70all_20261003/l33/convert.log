@@ -1,0 +1,165 @@
+INFO:hf-to-gguf:Loading model: head
+INFO:hf-to-gguf:Model architecture: LlamaForCausalLM
+INFO:hf-to-gguf:gguf: indexing model part 'pytorch_model.bin'
+INFO:hf-to-gguf:EAGLE-3: renaming midlayer.* / layers.0.* to model.layers.0.*
+INFO:gguf.gguf_writer:gguf: This GGUF file is for Little Endian only
+INFO:hf-to-gguf:Detected EAGLE-3 draft model, switching to EAGLE3 architecture
+WARNING:gguf.gguf_writer:Duplicated key name 'general.architecture', overwriting it with new value 'eagle3' of type STRING
+INFO:hf-to-gguf:EAGLE-3: target_layers = [2, 40, 77] (target model has 80 layers)
+INFO:hf-to-gguf:EAGLE-3: target_hidden_size = 8192 (from EAGLE-3 config)
+INFO:hf-to-gguf:EAGLE-3: norm_before_residual = False
+INFO:hf-to-gguf:EAGLE-3: norm_before_fc = False
+INFO:hf-to-gguf:Exporting model...
+INFO:hf-to-gguf:blk.0.attn_q.weight,      torch.float16 --> BF16, shape = {12288, 6144}
+INFO:hf-to-gguf:blk.0.attn_k.weight,      torch.float16 --> BF16, shape = {12288, 1024}
+INFO:hf-to-gguf:blk.0.attn_v.weight,      torch.float16 --> BF16, shape = {12288, 1024}
+INFO:hf-to-gguf:blk.0.attn_output.weight, torch.float16 --> BF16, shape = {6144, 6144}
+INFO:hf-to-gguf:blk.0.ffn_gate.weight,    torch.float16 --> BF16, shape = {6144, 16384}
+INFO:hf-to-gguf:blk.0.ffn_up.weight,      torch.float16 --> BF16, shape = {6144, 16384}
+INFO:hf-to-gguf:blk.0.ffn_down.weight,    torch.float16 --> BF16, shape = {16384, 6144}
+INFO:hf-to-gguf:blk.0.attn_norm_2.weight, torch.float16 --> F32, shape = {6144}
+INFO:hf-to-gguf:blk.0.attn_norm.weight,   torch.float16 --> F32, shape = {6144}
+INFO:hf-to-gguf:blk.0.ffn_norm.weight,    torch.float16 --> F32, shape = {6144}
+INFO:hf-to-gguf:output_norm.weight,       torch.float16 --> F32, shape = {6144}
+INFO:hf-to-gguf:fc.weight,                torch.float16 --> BF16, shape = {24576, 6144}
+INFO:hf-to-gguf:token_embd.weight,        torch.float16 --> BF16, shape = {6144, 128256}
+INFO:hf-to-gguf:output.weight,            torch.float16 --> BF16, shape = {6144, 32000}
+INFO:hf-to-gguf:d2t,                           torch.int64 --> I64, shape = {32000}
+INFO:hf-to-gguf:Set meta model
+INFO:hf-to-gguf:Set model parameters
+INFO:hf-to-gguf:gguf: context length = 2048
+INFO:hf-to-gguf:gguf: embedding length = 6144
+INFO:hf-to-gguf:gguf: feed forward length = 16384
+INFO:hf-to-gguf:gguf: head count = 48
+INFO:hf-to-gguf:gguf: key-value head count = 8
+WARNING:hf-to-gguf:Unknown RoPE type: default
+INFO:hf-to-gguf:gguf: rope scaling type = NONE
+INFO:hf-to-gguf:gguf: rope theta = 10000.0
+INFO:hf-to-gguf:gguf: rms norm epsilon = 1e-05
+INFO:hf-to-gguf:gguf: file type = 32
+INFO:hf-to-gguf:Set model quantization version
+INFO:hf-to-gguf:Set model tokenizer
+INFO:hf-to-gguf:EAGLE-3: Using tokenizer from target model: /workspace/l33/target_cfg
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+WARNING:gguf.vocab:Unknown separator token '<|begin_of_text|>' in TemplateProcessing<pair>
+INFO:gguf.vocab:Adding 280147 merge(s).
+INFO:gguf.vocab:Setting special token type bos to 128000
+INFO:gguf.vocab:Setting special token type eos to 128009
+INFO:gguf.vocab:Setting special token type pad to 128004
+INFO:gguf.vocab:Setting add_bos_token to True
+INFO:gguf.vocab:Setting add_eos_token to False
+INFO:gguf.vocab:Setting add_sep_token to False
+INFO:gguf.vocab:Setting chat_template to {{- bos_token }}
+{%- if custom_tools is defined %}
+    {%- set tools = custom_tools %}
+{%- endif %}
+{%- if not tools_in_user_message is defined %}
+    {%- set tools_in_user_message = true %}
+{%- endif %}
+{%- if not date_string is defined %}
+    {%- set date_string = "26 Jul 2024" %}
+{%- endif %}
+{%- if not tools is defined %}
+    {%- set tools = none %}
+{%- endif %}
+
+{#- This block extracts the system message, so we can slot it into the right place. #}
+{%- if messages[0]['role'] == 'system' %}
+    {%- set system_message = messages[0]['content']|trim %}
+    {%- set messages = messages[1:] %}
+{%- else %}
+    {%- set system_message = "" %}
+{%- endif %}
+
+{#- System message + builtin tools #}
+{{- "<|start_header_id|>system<|end_header_id|>\n\n" }}
+{%- if builtin_tools is defined or tools is not none %}
+    {{- "Environment: ipython\n" }}
+{%- endif %}
+{%- if builtin_tools is defined %}
+    {{- "Tools: " + builtin_tools | reject('equalto', 'code_interpreter') | join(", ") + "\n\n"}}
+{%- endif %}
+{{- "Cutting Knowledge Date: December 2023\n" }}
+{{- "Today Date: " + date_string + "\n\n" }}
+{%- if tools is not none and not tools_in_user_message %}
+    {{- "You have access to the following functions. To call a function, please respond with JSON for a function call." }}
+    {{- 'Respond in the format {"name": function name, "parameters": dictionary of argument name and its value}.' }}
+    {{- "Do not use variables.\n\n" }}
+    {%- for t in tools %}
+        {{- t | tojson(indent=4) }}
+        {{- "\n\n" }}
+    {%- endfor %}
+{%- endif %}
+{{- system_message }}
+{{- "<|eot_id|>" }}
+
+{#- Custom tools are passed in a user message with some extra guidance #}
+{%- if tools_in_user_message and not tools is none %}
+    {#- Extract the first user message so we can plug it in here #}
+    {%- if messages | length != 0 %}
+        {%- set first_user_message = messages[0]['content']|trim %}
+        {%- set messages = messages[1:] %}
+    {%- else %}
+        {{- raise_exception("Cannot put tools in the first user message when there's no first user message!") }}
+{%- endif %}
+    {{- '<|start_header_id|>user<|end_header_id|>\n\n' -}}
+    {{- "Given the following functions, please respond with a JSON for a function call " }}
+    {{- "with its proper arguments that best answers the given prompt.\n\n" }}
+    {{- 'Respond in the format {"name": function name, "parameters": dictionary of argument name and its value}.' }}
+    {{- "Do not use variables.\n\n" }}
+    {%- for t in tools %}
+        {{- t | tojson(indent=4) }}
+        {{- "\n\n" }}
+    {%- endfor %}
+    {{- first_user_message + "<|eot_id|>"}}
+{%- endif %}
+
+{%- for message in messages %}
+    {%- if not (message.role == 'ipython' or message.role == 'tool' or 'tool_calls' in message) %}
+        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' }}
+    {%- elif 'tool_calls' in message %}
+        {%- if not message.tool_calls|length == 1 %}
+            {{- raise_exception("This model only supports single tool-calls at once!") }}
+        {%- endif %}
+        {%- set tool_call = message.tool_calls[0].function %}
+        {%- if builtin_tools is defined and tool_call.name in builtin_tools %}
+            {{- '<|start_header_id|>assistant<|end_header_id|>\n\n' -}}
+            {{- "<|python_tag|>" + tool_call.name + ".call(" }}
+            {%- for arg_name, arg_val in tool_call.arguments | items %}
+                {{- arg_name + '="' + arg_val + '"' }}
+                {%- if not loop.last %}
+                    {{- ", " }}
+                {%- endif %}
+                {%- endfor %}
+            {{- ")" }}
+        {%- else  %}
+            {{- '<|start_header_id|>assistant<|end_header_id|>\n\n' -}}
+            {{- '{"name": "' + tool_call.name + '", ' }}
+            {{- '"parameters": ' }}
+            {{- tool_call.arguments | tojson }}
+            {{- "}" }}
+        {%- endif %}
+        {%- if builtin_tools is defined %}
+            {#- This means we're in ipython mode #}
+            {{- "<|eom_id|>" }}
+        {%- else %}
+            {{- "<|eot_id|>" }}
+        {%- endif %}
+    {%- elif message.role == "tool" or message.role == "ipython" %}
+        {{- "<|start_header_id|>ipython<|end_header_id|>\n\n" }}
+        {%- if message.content is mapping or message.content is iterable %}
+            {{- message.content | tojson }}
+        {%- else %}
+            {{- message.content }}
+        {%- endif %}
+        {{- "<|eot_id|>" }}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+    {{- '<|start_header_id|>assistant<|end_header_id|>\n\n' }}
+{%- endif %}
+
+INFO:gguf.gguf_writer:Writing the following files:
+INFO:gguf.gguf_writer:/workspace/l33/eagle3.gguf: n_tensors = 15, total_size = 3.2G
+Writing:   0%|          | 0.00/3.15G [00:00<?, ?byte/s]Writing:   5%|▍         | 151M/3.15G [00:00<00:12, 238Mbyte/s]Writing:   6%|▌         | 176M/3.15G [00:00<00:12, 231Mbyte/s]Writing:   9%|▉         | 277M/3.15G [00:01<00:10, 275Mbyte/s]Writing:  15%|█▌        | 478M/3.15G [00:01<00:08, 311Mbyte/s]Writing:  22%|██▏       | 679M/3.15G [00:02<00:07, 320Mbyte/s]Writing:  28%|██▊       | 881M/3.15G [00:02<00:07, 319Mbyte/s]Writing:  38%|███▊      | 1.18G/3.15G [00:03<00:06, 305Mbyte/s]Writing:  88%|████████▊ | 2.76G/3.15G [00:10<00:01, 248Mbyte/s]Writing: 100%|█████████▉| 3.15G/3.15G [00:12<00:00, 248Mbyte/s]Writing: 100%|██████████| 3.15G/3.15G [00:12<00:00, 258Mbyte/s]
+INFO:hf-to-gguf:Model successfully exported to /workspace/l33/eagle3.gguf

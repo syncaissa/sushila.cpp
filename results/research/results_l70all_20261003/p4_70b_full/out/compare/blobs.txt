@@ -1,0 +1,4 @@
+llama3.2:1b /workspace/ollama_models/blobs/sha256-74701a8c35f6c8d9a4b91f3f3497643001d63e0c7a84e085bed452548fa88d45
+llama3.2:3b /workspace/ollama_models/blobs/sha256-dde5aa3fc5ffc17176b5e8bdc82f587b24b2678c6c66101bf7da77af9f7ccdff
+llama3.1:8b /workspace/ollama_models/blobs/sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+llama3.1:70b /workspace/ollama_models/blobs/sha256-de20d2cf2dc430b1717a8b07a9df029d651f3895dbffec4729a3902a6fe344c9

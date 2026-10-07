@@ -45,3 +45,4 @@ offload and the right settings (E4) the tiled decode looks fine.
 | ocean | 885 | 529 | 0.939 |
 | city | 893 | 553 | 0.938 |
 | **mean** | **892** | **542 (1.65x)** | **0.929** |
+| **median** (the paper's figure) | **889** | **549 (1.62x)** | |

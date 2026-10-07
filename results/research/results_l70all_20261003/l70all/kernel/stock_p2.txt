@@ -1,0 +1,18 @@
+0.07.117.880 I cmn          init: llama threadpool init, n_threads = 30
+
+
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+====================================================================
+
+TCP and UDP are two fundamental protocols in the Internet Protocol Suite (TCP/IP) that enable data communication over the internet. While both protocols are used for data transfer, they have distinct differences in their approach, advantages, and use cases.
+
+**TCP (Transmission Control Protocol)**
+--------------------------------------
+
+TCP is a connection-oriented protocol that ensures reliable, error-checked, and sequential delivery of data between devices. Here are its key characteristics:
+
+*   **Connection-oriented**: Establishes a connection between the sender and receiver before data transfer.
+*   **Reliable**:
+
+0.56.412.709 I sushila-spec: mode=stock generated 128 tokens in 46.474 s, 2.733 t/s

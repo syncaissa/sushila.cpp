@@ -1,0 +1,29 @@
+[14:31:27] p0 stock: eval time =    6239.35 ms /   127 runs   (   49.13 ms per token,    20.35 tokens per second)
+[14:31:40] p0 tree d5k1n5 dense: depth=5 k=1 nt=5 generated 128 tokens in 7.183 s, 17.681 t/s; cycles=39 accepted/cycle=2.26 tokens/cycle=3.26 tree=5.0 ms/cycle draft 87.60 verify 89.38 (target decode 89.11) commit 7.19 
+[14:31:50] p0 tree d5k1n5 ls768_1024: depth=5 k=1 nt=5 generated 128 tokens in 5.647 s, 22.489 t/s; cycles=39 accepted/cycle=2.26 tokens/cycle=3.26 tree=5.0 ms/cycle draft 48.71 verify 90.13 (target decode 89.88) commit 5.95 
+[14:32:01] p0 tree d5k1n5 ls512_1024: depth=5 k=1 nt=5 generated 128 tokens in 5.711 s, 22.237 t/s; cycles=39 accepted/cycle=2.26 tokens/cycle=3.26 tree=5.0 ms/cycle draft 50.23 verify 90.19 (target decode 89.96) commit 6.01 
+[14:32:16] p0 tree d4k4n16 dense: depth=4 k=4 nt=16 generated 128 tokens in 10.866 s, 11.688 t/s; cycles=30 accepted/cycle=3.23 tokens/cycle=4.23 tree=16.0 ms/cycle draft 80.06 verify 273.05 (target decode 272.70) commit 9.07 
+[14:32:32] p0 tree d4k4n16 ls768_1024: depth=4 k=4 nt=16 generated 128 tokens in 10.476 s, 12.123 t/s; cycles=30 accepted/cycle=3.23 tokens/cycle=4.23 tree=16.0 ms/cycle draft 65.87 verify 275.03 (target decode 274.63) commit 8.28 
+[14:32:48] p0 tree d4k4n16 ls512_1024: depth=4 k=4 nt=16 generated 128 tokens in 10.937 s, 11.612 t/s; cycles=30 accepted/cycle=3.23 tokens/cycle=4.23 tree=16.0 ms/cycle draft 68.40 verify 288.14 (target decode 287.74) commit 8.03 
+[14:33:04] p1 stock: eval time =    6178.15 ms /   127 runs   (   48.65 ms per token,    20.56 tokens per second)
+[14:33:15] p1 tree d5k1n5 dense: depth=5 k=1 nt=5 generated 128 tokens in 5.956 s, 21.323 t/s; cycles=31 accepted/cycle=3.10 tokens/cycle=4.10 tree=5.0 ms/cycle draft 89.13 verify 94.69 (target decode 94.38) commit 8.31 
+[14:33:25] p1 tree d5k1n5 ls768_1024: depth=5 k=1 nt=5 generated 128 tokens in 4.590 s, 27.667 t/s; cycles=31 accepted/cycle=3.10 tokens/cycle=4.10 tree=5.0 ms/cycle draft 48.15 verify 92.35 (target decode 92.04) commit 7.57 
+[14:33:35] p1 tree d5k1n5 ls512_1024: depth=5 k=1 nt=5 generated 128 tokens in 4.874 s, 26.059 t/s; cycles=32 accepted/cycle=2.97 tokens/cycle=3.97 tree=5.0 ms/cycle draft 51.31 verify 93.59 (target decode 93.29) commit 7.40 
+[14:33:51] p1 tree d4k4n16 dense: depth=4 k=4 nt=16 generated 128 tokens in 11.765 s, 10.794 t/s; cycles=32 accepted/cycle=3.00 tokens/cycle=4.00 tree=16.0 ms/cycle draft 82.10 verify 277.07 (target decode 276.71) commit 8.48 
+[14:34:08] p1 tree d4k4n16 ls768_1024: depth=4 k=4 nt=16 generated 128 tokens in 11.152 s, 11.388 t/s; cycles=32 accepted/cycle=3.00 tokens/cycle=4.00 tree=16.0 ms/cycle draft 61.99 verify 278.74 (target decode 278.38) commit 7.77 
+[14:34:25] p1 tree d4k4n16 ls512_1024: depth=4 k=4 nt=16 generated 128 tokens in 11.893 s, 10.679 t/s; cycles=32 accepted/cycle=3.00 tokens/cycle=4.00 tree=16.0 ms/cycle draft 66.10 verify 297.99 (target decode 297.59) commit 7.55 
+[14:34:43] p2 stock: eval time =    6614.75 ms /   127 runs   (   52.08 ms per token,    19.20 tokens per second)
+[14:34:58] p2 tree d5k1n5 dense: depth=5 k=1 nt=5 generated 128 tokens in 9.816 s, 12.938 t/s; cycles=55 accepted/cycle=1.33 tokens/cycle=2.33 tree=5.0 ms/cycle draft 82.04 verify 90.80 (target decode 90.60) commit 5.62 
+[14:35:11] p2 tree d5k1n5 ls768_1024: depth=5 k=1 nt=5 generated 128 tokens in 8.005 s, 15.866 t/s; cycles=58 accepted/cycle=1.21 tokens/cycle=2.21 tree=5.0 ms/cycle draft 43.51 verify 89.96 (target decode 89.77) commit 4.54 
+[14:35:25] p2 tree d5k1n5 ls512_1024: depth=5 k=1 nt=5 generated 128 tokens in 8.171 s, 15.543 t/s; cycles=58 accepted/cycle=1.21 tokens/cycle=2.21 tree=5.0 ms/cycle draft 45.03 verify 91.36 (target decode 91.18) commit 4.48 
+[14:35:46] p2 tree d4k4n16 dense: depth=4 k=4 nt=16 generated 128 tokens in 15.897 s, 7.989 t/s; cycles=42 accepted/cycle=2.02 tokens/cycle=3.02 tree=16.0 ms/cycle draft 85.30 verify 285.48 (target decode 285.17) commit 7.71 
+[14:36:07] p2 tree d4k4n16 ls768_1024: depth=4 k=4 nt=16 generated 128 tokens in 16.232 s, 7.824 t/s; cycles=46 accepted/cycle=1.78 tokens/cycle=2.78 tree=16.0 ms/cycle draft 61.35 verify 285.27 (target decode 284.97) commit 6.24 
+[14:36:29] p2 tree d4k4n16 ls512_1024: depth=4 k=4 nt=16 generated 128 tokens in 16.220 s, 7.830 t/s; cycles=46 accepted/cycle=1.78 tokens/cycle=2.78 tree=16.0 ms/cycle draft 59.01 verify 287.44 (target decode 287.14) commit 6.14 
+[14:36:46] p3 stock: eval time =    6551.58 ms /   127 runs   (   51.59 ms per token,    19.38 tokens per second)
+[14:36:58] p3 tree d5k1n5 dense: depth=5 k=1 nt=5 generated 128 tokens in 6.181 s, 20.546 t/s; cycles=33 accepted/cycle=2.88 tokens/cycle=3.88 tree=5.0 ms/cycle draft 87.59 verify 91.78 (target decode 91.49) commit 7.93 
+[14:37:08] p3 tree d5k1n5 ls768_1024: depth=5 k=1 nt=5 generated 128 tokens in 4.971 s, 25.546 t/s; cycles=33 accepted/cycle=2.88 tokens/cycle=3.88 tree=5.0 ms/cycle draft 52.37 verify 90.54 (target decode 90.24) commit 7.73 
+[14:37:19] p3 tree d5k1n5 ls512_1024: depth=5 k=1 nt=5 generated 128 tokens in 4.873 s, 26.062 t/s; cycles=33 accepted/cycle=2.88 tokens/cycle=3.88 tree=5.0 ms/cycle draft 49.94 verify 90.40 (target decode 90.14) commit 7.32 
+[14:37:35] p3 tree d4k4n16 dense: depth=4 k=4 nt=16 generated 128 tokens in 10.909 s, 11.642 t/s; cycles=29 accepted/cycle=3.41 tokens/cycle=4.41 tree=16.0 ms/cycle draft 79.43 verify 287.98 (target decode 287.59) commit 8.74 
+[14:37:50] p3 tree d4k4n16 ls768_1024: depth=4 k=4 nt=16 generated 128 tokens in 10.135 s, 12.531 t/s; cycles=29 accepted/cycle=3.41 tokens/cycle=4.41 tree=16.0 ms/cycle draft 64.07 verify 277.32 (target decode 276.93) commit 8.07 
+[14:38:06] p3 tree d4k4n16 ls512_1024: depth=4 k=4 nt=16 generated 128 tokens in 10.532 s, 12.058 t/s; cycles=30 accepted/cycle=3.27 tokens/cycle=4.27 tree=16.0 ms/cycle draft 62.27 verify 280.58 (target decode 280.21) commit 8.20 
+[14:38:06] RERUN_DONE

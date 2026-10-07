@@ -1,0 +1,44 @@
+0.02.757.923 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Summarize the causes and consequences of the French Revolution.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event that had far-reaching causes and consequences. Here is a summary:
+
+**Causes of the French Revolution:**
+
+1. **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, which led to a financial crisis and a burden on the common people.
+2. **Social Inequality**: The French society was divided into three estates: the clergy, the nobility, and the commoners. The nobility and clergy held most of the power and wealth, while the commoners were burdened with heavy taxes and had limited rights.
+3. **Enlightenment Ideas**: The ideas of the Enlightenment, such as liberty, equality, and fraternity, spread throughout France and inspired the people to demand change.
+4. **Food Shortages**: A series of crop failures and food shortages in the late 18th century led to widespread poverty and discontent.
+5. **Absolute Monarchy**: The absolute monarchy of King Louis XVI was seen as outdated and oppressive, leading to a desire for constitutional monarchy or even republicanism.
+
+**Consequences of the French Revolution:**
+
+1. **Establishment of the First Republic**: The National Assembly adopted
+
+0.04.732.238 I encoded   22 tokens in    0.045 seconds, speed: 6253.643 t/s
+0.04.732.270 I decoded  257 tokens in    1.853 seconds, speed:  138.715 t/s
+0.04.732.297 I 
+0.04.732.324 I n_draft      = 8
+0.04.732.351 I n_predict    = 257
+0.04.732.377 I n_drafted    = 121
+0.04.732.404 I t_draft_flat = 0.05 ms
+0.04.732.432 I t_draft      = 1.88 ms, 15.54 us per token, 64361.70 tokens per second
+0.04.732.459 I n_accept     = 13
+0.04.732.486 I accept       = 10.744%
+0.04.732.512 I 
+target:
+
+0.04.732.545 I common_perf_print:    sampling time =      71.78 ms
+0.04.732.572 I common_perf_print:    samplers time =      26.08 ms /   257 tokens
+0.04.732.630 I common_perf_print:        load time =    1750.59 ms
+0.04.732.661 I common_perf_print: prompt eval time =     263.04 ms /   159 tokens (    1.65 ms per token,   604.47 tokens per second)
+0.04.732.690 I common_perf_print:        eval time =    1530.07 ms /   227 runs   (    6.74 ms per token,   148.36 tokens per second)
+0.04.732.717 I common_perf_print:       total time =    1899.13 ms /   386 tokens
+0.04.732.745 I common_perf_print: unaccounted time =      34.24 ms /   1.8 %      (total - sampling - prompt eval - eval) / (total)
+0.04.732.773 I common_perf_print:    graphs reused =        210
+
+

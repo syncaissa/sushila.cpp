@@ -1,6 +1,6 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-07T02:47Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-07T02:47Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by the `sushila` program.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
@@ -107,10 +107,10 @@ EAGLE-3 draft head for the reasoning model, refitted from the Llama-3.3-70B head
 
 ### `qwen2.5-0.5b-q4km`
 
-Output-layer landscape for Qwen2.5-0.5B-Instruct Q4_K_M (CPU decoding 1.13-1.26x faster with identical output; the paper's per-model pipeline example). Default model of Sushila Host Station.
+Output-layer landscape for Qwen2.5-0.5B-Instruct Q4_K_M (CPU decoding 1.07-1.26x faster, same greedy output on our test prompts; the paper's per-model pipeline example). Used in the examples of the `sushila` program (`sushila run qwen2.5-0.5b-q4km ...`).
 
-- **Use:** Sushila.cpp reads it automatically: put landscape/{manifest.json,landscape.mclp} in <model>.gguf.sushila/ next to weights/gguf/qwen2.5-0.5b-q4km.gguf (or install the Host Station pack qwen2.5-0.5b-q4km).
-- **Results:** paper: output-layer landscape sections; Paper/notes/landscape (B2 results/paper-notes-landscape/)
+- **Use:** Sushila.cpp reads it automatically: put landscape/{manifest.json,landscape.mclp} in <model>.gguf.sushila/ next to weights/gguf/qwen2.5-0.5b-q4km.gguf (or `sushila install qwen2.5-0.5b-q4km`).
+- **Results:** paper: output-layer landscape sections; results/research/ in this repository (B2 results/paper-notes-landscape/)
 - **Bound to:** `null`
 - **Folders:**
   - `landscape/` (48 files, 0.20 GB): the precomputed output-layer landscape (manifest.json + .mclp) and its held-out validation data
@@ -160,7 +160,7 @@ EAGLE-3 draft head refitted to Qwen3-30B-A3B (MoE) (warm start AngelSlim/Qwen3-a
 
 EAGLE-3 draft head refitted to Qwen3-32B's own answers (warm start thoughtworks/Qwen3-32B-Eagle3); 3.14x vs Ollama.
 
-- **Use:** SGLang: --speculative-algorithm EAGLE3 --speculative-num-steps 4 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --speculative-draft-model-path draft-head/ with weights/sglang/ (Qwen/Qwen3-32B-AWQ). Host Station pack: GGUF only.
+- **Use:** SGLang: --speculative-algorithm EAGLE3 --speculative-num-steps 4 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --speculative-draft-model-path draft-head/ with weights/sglang/ (Qwen/Qwen3-32B-AWQ). Sushila pack: GGUF only.
 - **Results:** results/qwen3-32b/ and forGithub/results/qwen3_20261004/
 - **Bound to:** `{"sglang_target": {"repo": "Qwen/Qwen3-32B-AWQ", "revision": "0499c3ac83fdef8810b907a23894ba91e95eddd8"}, "warm_start_head": {"repo": "thoughtworks/Qwen3-32B-Eagle3", "revision": "ba10360e72cc5208048695e713c2d45781921013"}, "ollama_gguf": {"tag": "qwen3:32b", "sha256": "3291abe70f16ee9682de7bfae08db5373ea9d6497e614aaad63340ad421d6312"}}`
 - **Folders:**
@@ -208,7 +208,7 @@ EAGLE-3 draft head refitted to Qwen3-32B's own answers (warm start thoughtworks/
 
 Image pack (no Sushila artifacts yet): Z-Image-Turbo Q4_K + Qwen3-4B text encoder + FLUX VAE, mirrored from Hugging Face at pinned revisions.
 
-- **Use:** stable-diffusion.cpp sd-server --diffusion-model z_image_turbo-Q4_K.gguf --llm Qwen3-4B-Instruct-2507-Q4_K_M.gguf --vae ae.safetensors --cfg-scale 1.0 --steps 8 (or Host Station pack z-image-turbo).
+- **Use:** stable-diffusion.cpp sd-server --diffusion-model z_image_turbo-Q4_K.gguf --llm Qwen3-4B-Instruct-2507-Q4_K_M.gguf --vae ae.safetensors --cfg-scale 1.0 --steps 8 (or `sushila install z-image-turbo`).
 - **Results:** speed work in progress (sub-second plan): scripts/image/
 - **Bound to:** `{"huggingface": [{"repo": "leejet/Z-Image-Turbo-GGUF", "file": "z_image_turbo-Q4_K.gguf", "revision": "c61c0e422dc8b541b7548cf33a4ef8302b0f8085", "sha256": "14b375ab4f226bc5378f68f37e899ef3c2242b8541e61e2bc1aff40976086fbd", "license": "apache-2.0"}, {"repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF", "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "revision": "a06e946bb6b655725eafa393f4a9745d460374c9", `
 - **Folders:**
@@ -238,7 +238,7 @@ Image pack (no Sushila artifacts yet): Z-Image-Turbo Q4_K + Qwen3-4B text encode
 
 Image pack, 8-bit Z-Image-Turbo (near-original quality); same text encoder and VAE.
 
-- **Use:** as z-image-turbo with z_image_turbo-Q8_0.gguf (Host Station pack z-image-turbo-q8).
+- **Use:** as z-image-turbo with z_image_turbo-Q8_0.gguf (Sushila pack z-image-turbo-q8).
 - **Results:** -
 - **Bound to:** `{"huggingface": [{"repo": "leejet/Z-Image-Turbo-GGUF", "file": "z_image_turbo-Q8_0.gguf", "revision": "c61c0e422dc8b541b7548cf33a4ef8302b0f8085", "sha256": "df1c5baa86d1398c979495a6072dbcee79444fdb884a2445582ba0769c44e9a1", "license": "apache-2.0"}, {"repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF", "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "revision": "a06e946bb6b655725eafa393f4a9745d460374c9", `
 - **Folders:**

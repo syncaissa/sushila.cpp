@@ -1,0 +1,14 @@
+[15:44:05] cuda: Build cuda_12.8.r12.8/compiler.35583870_0
+[15:47:42] built; model total 4805412
+drwxr-xr-x 2 root root         35 Oct  3 15:45 .
+drwxr-xr-x 5 root root         61 Oct  3 15:44 ..
+-rw-r--r-- 1 root root 4920738944 Oct  3 15:44 llama3.1-8b-q4km.gguf
+[15:47:59] override default: B1=6.67ms B2=7.42ms B3=9.38ms B4=10.97ms B5=13.05ms B6=13.98ms B8=18.55ms B10=14.67ms B12=14.22ms B16=14.98ms 
+[15:48:17] override 0: B1=7.84ms B2=10.67ms B3=11.36ms B4=11.75ms B5=12.16ms B6=12.34ms B8=13.08ms B10=15.00ms B12=15.41ms B16=15.30ms 
+[15:48:34] override 2: B1=6.77ms B2=7.47ms B3=10.70ms B4=11.39ms B5=12.06ms B6=12.31ms B8=12.55ms B10=15.12ms B12=16.00ms B16=15.89ms 
+[15:48:50] override 3: B1=6.70ms B2=7.34ms B3=9.09ms B4=10.44ms B5=11.20ms B6=11.28ms B8=11.50ms B10=13.55ms B12=13.72ms B16=14.17ms 
+[15:49:05] override 4: B1=6.69ms B2=7.36ms B3=9.12ms B4=10.73ms B5=10.73ms B6=11.19ms B8=11.44ms B10=13.47ms B12=13.66ms B16=14.12ms 
+[15:49:22] override 5: B1=6.70ms B2=7.38ms B3=9.14ms B4=10.78ms B5=12.61ms B6=10.80ms B8=11.45ms B10=13.50ms B12=13.69ms B16=14.14ms 
+[15:49:39] override 6: B1=6.84ms B2=7.72ms B3=9.53ms B4=11.48ms B5=13.64ms B6=15.05ms B8=12.39ms B10=15.19ms B12=15.84ms B16=15.39ms 
+[15:49:56] override 8: B1=6.89ms B2=7.73ms B3=9.56ms B4=11.31ms B5=13.38ms B6=14.97ms B8=18.44ms B10=14.00ms B12=13.94ms B16=14.95ms 
+[15:49:56] K_DONE

@@ -1,0 +1,152 @@
+0.10.910.303 I cmn          init: llama threadpool init, n_threads = 252
+0.11.030.683 I common_speculative_init_result: loading draft model '/workspace/l33/eagle3.gguf'
+0.11.889.796 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Write a Python function that merges two sorted lists into one sorted list, with comments.<|eot_id|><|start_header_id|>assistant<|end_header_id|>0.12.406.162 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.039.129 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+0.13.171.062 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+###0.13.263.070 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Merging0.13.355.740 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Two Sorted0.13.447.815 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Lists
+0.13.539.517 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+#### Function Description0.13.631.056 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+0.13.723.106 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+The0.13.814.701 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ following0.13.906.203 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Python function merges0.13.997.248 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ two sorted lists into one sorted list0.14.089.538 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+. It uses0.14.180.623 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a two0.14.272.014 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+-pointer0.14.363.027 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ technique0.14.454.060 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to0.14.545.178 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ compare elements0.14.636.670 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ from both0.14.728.223 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ lists and append0.14.818.418 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the0.14.906.838 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ smaller one0.14.997.545 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to the result0.15.088.879 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ list.
+
+#### Code
+```python0.15.180.892 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+def merge_sorted0.15.272.122 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+_lists0.15.363.234 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+(list1,0.15.454.556 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ list2):
+   0.15.546.059 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ """
+    Merge0.15.638.315 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ two sorted lists into one sorted list.
+
+   0.15.731.085 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Args:
+       0.15.823.113 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ list1 (list0.15.913.715 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+): The first sorted list.
+0.16.002.613 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+        list2 (list): The second0.16.091.822 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ sorted list.
+
+    Returns:
+       0.16.183.224 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ list: A0.16.275.621 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ new0.16.367.368 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ sorted list containing0.16.458.879 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ all0.16.550.239 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ elements from both0.16.639.991 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ input lists.
+    """
+    #0.16.730.420 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Initialize the0.16.822.538 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ result list
+    merged0.16.915.076 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+_list0.17.006.782 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ = []
+0.17.097.950 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+    
+    # Initialize0.17.189.288 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ pointers0.17.280.501 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ for both0.17.371.699 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ lists
+0.17.462.912 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+    i,0.17.552.499 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ j = 00.17.642.327 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, 0.17.733.704 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+00.17.825.783 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+    
+    # Merge0.17.918.089 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ smaller0.18.011.009 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ elements first0.18.099.920 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+    while i <0.18.190.208 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ len(list0.18.282.236 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+1) and j < len(list20.18.374.958 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+):
+       0.18.466.705 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ # Compare0.18.557.887 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ current0.18.649.124 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ elements and0.18.740.349 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ append the smaller0.18.832.104 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ one
+0.18.923.901 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+        if list1[i]0.19.016.474 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ < list2[j]:
+0.19.108.084 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+            merged_list.append(list0.19.199.505 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+1[i])
+            #0.19.290.858 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Move the0.19.381.977 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ pointer in0.19.473.241 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the first0.19.564.652 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ list
+            i += 0.19.656.233 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+1
+0.19.746.558 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+        else:
+0.19.839.699 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+            merged_list.append(list2[j])
+0.19.945.132 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+            # Move the pointer in the second0.20.039.591 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ list
+            j += 1
+    
+0.20.130.749 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+    # Append any0.20.233.590 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ remaining elements from the first0.20.350.234 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ list
+    while i
+
+0.20.353.124 I encoded   26 tokens in    0.655 seconds, speed:   39.697 t/s
+0.20.353.125 I decoded  261 tokens in    7.690 seconds, speed:   33.940 t/s
+0.20.353.125 I 
+0.20.353.126 I n_draft   = 8
+0.20.353.126 I n_predict = 261
+0.20.353.129 I n_drafted = 636
+0.20.353.130 I n_accept  = 181
+0.20.353.130 I accept    = 28.459%
+0.20.353.130 I 
+0.20.353.130 I draft:
+
+0.20.353.194 I 
+0.20.353.194 I target:
+
+0.20.353.200 I common_perf_print:    sampling time =      56.20 ms
+0.20.353.201 I common_perf_print:    samplers time =      19.06 ms /   261 tokens
+0.20.353.211 I common_perf_print:        load time =    9711.75 ms
+0.20.353.213 I common_perf_print: prompt eval time =    6290.17 ms /   743 tokens (    8.47 ms per token,   118.12 tokens per second)
+0.20.353.213 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.20.353.214 I common_perf_print:       total time =    9322.69 ms /   744 tokens
+0.20.353.215 I common_perf_print: unaccounted time =    2976.33 ms /  31.9 %      (total - sampling - prompt eval - eval) / (total)
+0.20.353.215 I common_perf_print:    graphs reused =         77
+
+

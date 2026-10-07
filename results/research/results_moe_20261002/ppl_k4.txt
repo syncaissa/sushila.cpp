@@ -1,0 +1,14 @@
+warning: no usable GPU found, --gpu-layers option will be ignored
+warning: one possible reason is that llama.cpp was compiled without GPU support
+warning: consult docs/build.md for compilation instructions
+0.00.530.840 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.02.920.539 I cmn          init: llama threadpool init, n_threads = 32
+0.09.727.022 I 
+0.09.727.174 I system_info: n_threads = 32 (n_threads_batch = 32) / 128 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.09.727.198 I perplexity: tokenizing the input ..
+0.10.422.224 I perplexity: tokenization took 695.014 ms
+0.10.422.455 I perplexity: calculating perplexity over 20 chunks, n_ctx=512, batch_size=2048, n_seq=4
+0.35.435.805 I perplexity: 25.01 seconds per pass - ETA 2.08 minutes
+[1]5.7977,[2]7.8746,[3]7.7128,[4]7.2766,[5]7.4026,[6]7.6151,[7]7.6913,[8]8.0445,[9]8.5295,[10]8.9533,[11]8.9391,[12]9.0195,[13]9.3397,[14]8.9960,[15]8.8994,[16]9.0703,[17]8.5519,[18]8.6728,[19]8.6302,[20]8.6113,
+1.58.184.916 I Final estimate: PPL = 8.6113 +/- 0.32152
+

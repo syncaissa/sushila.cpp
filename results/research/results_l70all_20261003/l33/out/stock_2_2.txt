@@ -1,0 +1,52 @@
+0.00.109.063 I llama_completion: llama backend init
+0.00.109.096 I llama_completion: load the model and apply lora adapter, if any
+0.10.528.458 I cmn          init: llama threadpool init, n_threads = 252
+0.10.652.661 I 
+0.10.652.903 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.10.652.915 I 
+0.10.653.100 I sampler seed: 290782184
+0.10.653.128 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.10.653.142 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.10.653.143 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.10.653.144 I 
+user
+
+What are the main differences between TCP and UDP? Give examples of when to use each.assistant
+
+**Overview of TCP and UDP**
+================================
+
+TCP (Transmission Control Protocol) and UDP (User Datagram Protocol) are two fundamental protocols used for data communication over the internet. While both protocols are used for data transfer, they have distinct differences in their approach, advantages, and use cases.
+
+**Key Differences**
+-------------------
+
+### 1. **Connection-Oriented vs Connectionless**
+
+*   **TCP**: Connection-oriented, meaning a connection is established between the sender and receiver before data is sent. This ensures that data is delivered in the correct order.
+*   **UDP**: Connectionless, meaning no connection is established before data is sent. This makes UDP faster but less reliable.
+
+### 2. **Reliability**
+
+*   **TCP**: Ensures reliable data transfer by using acknowledgments (ACKs) and retransmissions. If a packet is lost or corrupted, TCP will retransmit it.
+*   **UDP**: Does not guarantee reliable data transfer. If a packet is lost or corrupted, UDP will not retransmit it.
+
+### 3. **Order of Delivery**
+
+*   **TCP**: Ensures that data is delivered in the correct order.
+*   **UDP**: Does not guarantee the order of delivery.
+
+### 4. **Error Checking
+
+0.22.397.715 I common_perf_print:    sampling time =      58.09 ms
+0.22.397.718 I common_perf_print:    samplers time =      17.03 ms /   283 tokens
+0.22.397.746 I common_perf_print:        load time =    9622.23 ms
+0.22.397.748 I common_perf_print: prompt eval time =     128.82 ms /    27 tokens (    4.77 ms per token,   209.59 tokens per second)
+0.22.397.751 I common_perf_print:        eval time =   11551.09 ms /   255 runs   (   45.30 ms per token,    22.08 tokens per second)
+0.22.397.752 I common_perf_print:       total time =   11745.10 ms /   282 tokens
+0.22.397.753 I common_perf_print: unaccounted time =       7.10 ms /   0.1 %      (total - sampling - prompt eval - eval) / (total)
+0.22.397.753 I common_perf_print:    graphs reused =        253

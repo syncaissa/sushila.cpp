@@ -1,0 +1,62 @@
+[
+ {
+  "id": 0,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 4.671850919723511,
+  "wall_tok_s": 54.79626905884886,
+  "accept_len": null,
+  "text": "## Aloha from Paradise: A Journey Through Hawaiian Culture & Landscapes\n\nOkay, deep breaths everyone. I\u2019m still trying to process the magic that *is* Hawaii! Just back from a two-week adventure in Oahu and Maui, and honestly, my soul feels\u2026 refreshed. It wasn't just about sun-kissed beaches and turquoise water (though those were *amazing*), it was about immersing myself in the incredibly rich culture of the islands. Forget just being *on* Hawaii, I wanted to *feel* Hawaii. And let me tell you, I did.\n\n**Oahu: History & Hustle**\n\nI started my journey in Oahu, specifically Waikiki. Yes, it's touristy, but it\u2019s also a fantastic base for exploring. Of course, a day lounging on Waikiki Beach is mandatory! But beyond the sun loungers, Oahu offers so much more. \n\n* **Pearl Harbor:** A sobering but crucial experience. Visiting the USS Arizona Memorial is incredibly moving, offering a powerful reminder of history. Book your tickets *well* in advance \u2013 they sell out fast!\n* **Polynesian Cultural Center:** This place is phenomenal. Seriously. It's not just a tourist show; it\u2019s a"
+ },
+ {
+  "id": 1,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 97,
+  "seconds": 1.834754228591919,
+  "wall_tok_s": 52.86811633318463,
+  "accept_len": null,
+  "text": "Subject: Quarterly Financial Report - Review Request\n\nDear [Supervisor's Name],\n\nPlease find attached the Quarterly Financial Report for [Quarter - e.g., Q3 2023].\n\nWould you be able to review it when you have a moment? I'd appreciate your feedback specifically on the data analysis, presentation style, and clarity of the conclusions drawn.\n\nPlease let me know if you have any questions.\n\nThanks,\n\n[Your Name]\n"
+ },
+ {
+  "id": 2,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 4.691380262374878,
+  "wall_tok_s": 54.56816239202219,
+  "accept_len": null,
+  "text": "## Blog Post Outline: [Phone A] vs. [Phone B] - Which Smartphone Reigns Supreme?\n\n**I. Introduction**\n* Briefly introduce both phones & target audience.\n* State goal: objective comparison.\n\n**II. Design & Display**\n* **A.** Physical Build & Aesthetics ([Phone A] & [Phone B]) - materials, size, weight.\n* **B.** Display Quality - screen size, resolution, refresh rate, brightness.\n\n**III. Performance & Software**\n* **A.** Processor & RAM - speed benchmarks, multitasking ability.\n* **B.** Software Experience - OS versions, UI differences, bloatware.\n* **C.** Gaming Performance - graphics capabilities & thermal management.\n\n**IV. Camera Capabilities**\n* **A.** Main Camera - megapixels, aperture, image quality (daylight/low light).\n* **B.** Front Camera - selfie quality & features.\n* **C.** Video Recording - resolution & stabilization.\n\n**V. Battery Life & Charging**\n* **A.** Battery Capacity - hours of usage.\n* **B.** Charging Speed & Technology - wired/wireless charging.\n\n**VI. Price & Value**\n* **A.** Current pricing"
+ },
+ {
+  "id": 3,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 219,
+  "seconds": 4.017862558364868,
+  "wall_tok_s": 54.506593199426284,
+  "accept_len": null,
+  "text": "Subject: A Chance to Share Your Passion - & You're Perfect For It!\n\nHey [Friend's Name],\n\nI know public speaking isn't your thing, but I was thinking about you immediately when I heard about [Event Name]. It's [briefly describe event & audience - e.g., small community gardening workshop]. They're looking for someone to talk about [topic you know your friend is passionate about - e.g., composting], and *you* are genuinely amazing at it!\n\nThis isn't a huge stage \u2013 more like sharing with interested people in a relaxed setting. We can practice beforehand, and I'm happy to help you prep. Think of it as sharing your knowledge, not \"performing.\"\n\nYou're always helping me understand this stuff \u2013 imagine helping a whole group! It's a great way to build confidence, and honestly, they *need* your expertise.\n\nWhat do you say? No pressure, but I really think you'd rock it.\n\nBest,\n\n[Your Name]\n\n\n\n"
+ },
+ {
+  "id": 4,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 4.668972492218018,
+  "wall_tok_s": 54.83005102871917,
+  "accept_len": null,
+  "text": "Old Man Tiber had skin like cracked parchment, scored by a lifetime etched in sun and saltwater. He wasn't *old* so much as *worn*, like a favourite sea stone smoothed by relentless tides. His eyes, though clouded with age, held a luminescence reminiscent of phosphorescent plankton \u2013 a ghostly, internal glow hinting at depths untold. He smelled of brine and woodsmoke, and wore clothes pieced together from salvaged sails, patched with intricate, spiraling embroidery of seashells he claimed were whispers from lost mermaids. A single, tarnished silver ring adorned his thumb, shaped like a coiling serpent whose ruby eye seemed to follow your every move. He carried a walking stick carved from driftwood, adorned with dangling charms \u2013 dried starfish, polished pebbles, and tiny, delicate bird skulls.\n\nTiber wasn't known for speaking much, preferring instead to communicate through gestures \u2013 a slow raising of his brows like a lifting tide, or a precise arrangement of his charms to deliver cryptic warnings or blessings. He moved with a disconcerting grace, like kelp swaying in the current, and his laughter, when it came, sounded like pebbles tumbling down a hidden waterfall. He wasn\u2019t a hermit, exactly, more a fixture *of* the coast, woven into"
+ },
+ {
+  "id": 5,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 217,
+  "seconds": 3.982813835144043,
+  "wall_tok_s": 54.484093151733255,
+  "accept_len": null,
+  "text": "The marketplace pulsed with life, a chaotic symphony of sights, sounds, and smells. Sunlight streamed through gaps in the canvas awnings, illuminating mounds of vibrant spices \u2013 fiery chili peppers, golden turmeric, dusky cinnamon \u2013 their aromas swirling in a heady mix with the sweet perfume of ripe mangoes and the earthy scent of freshly tilled soil clinging to root vegetables. A cacophony of voices rose and fell: the insistent hawking of vendors, the cheerful chatter of shoppers haggling over prices, the bleating of goats tethered nearby awaiting sale. Mountains of woven baskets overflowed with colorful textiles, gleaming pottery, and intricately carved wooden trinkets. Dust motes danced in the light, kicked up by bare feet shuffling across the packed earth floor. Brightly patterned shawls draped over stalls, contrasting against the rough-hewn wood, while silver jewelry glinted in the sun, beckoning passersby. It wasn't just a place to buy and sell; it was the heart of the community, beating with energy and overflowing with the richness of daily life.\n\n\n\n"
+ }
+]

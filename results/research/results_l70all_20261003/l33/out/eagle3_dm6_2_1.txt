@@ -1,0 +1,168 @@
+0.12.570.927 I cmn          init: llama threadpool init, n_threads = 252
+0.12.664.128 I common_speculative_init_result: loading draft model '/workspace/l33/eagle3.gguf'
+0.13.383.244 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What are the main differences between TCP and UDP? Give examples of when to use each.<|eot_id|><|start_header_id|>assistant<|end_header_id|>0.13.817.792 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.388.388 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+0.14.533.480 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**Overview0.14.654.376 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of0.14.775.077 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ TCP and UDP**
+0.14.895.003 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+================================
+
+TCP0.15.015.901 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ (Transmission0.15.135.102 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Control0.15.254.435 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Protocol) and UDP (User Datagram0.15.374.172 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Protocol) are two fundamental0.15.494.563 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ protocols used0.15.618.326 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ for0.15.736.809 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ data communication over the0.15.857.213 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ internet0.15.977.303 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.0.16.095.716 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ While both0.16.214.122 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ protocols0.16.333.575 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ are0.16.453.847 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ used0.16.574.323 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ for data0.16.694.408 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ transfer0.16.813.013 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, they have distinct0.16.931.728 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ differences in their0.17.050.727 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ approach0.17.169.586 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+,0.17.288.066 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ advantages0.17.407.877 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+,0.17.526.143 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and use cases0.17.645.744 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+
+**0.17.765.560 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+Key Differences0.17.885.877 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**
+0.18.004.992 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+-------------------
+
+0.18.123.746 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+### 0.18.242.252 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+10.18.361.496 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+. **0.18.479.849 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+Connection0.18.601.275 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+-O0.18.719.668 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+rient0.18.839.782 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ed vs0.18.960.244 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Connection0.19.080.090 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+less**
+
+*   **0.19.200.163 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+TCP0.19.319.930 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: Connection0.19.438.964 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+-oriented, meaning a connection is0.19.557.709 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ established between the0.19.677.598 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ sender0.19.796.382 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and receiver0.19.918.737 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ before data0.20.039.528 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ is sent0.20.159.872 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+0.20.280.085 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+*   **0.20.401.338 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+UDP0.20.521.621 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: Connectionless, meaning no0.20.640.460 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ connection is established before0.20.759.206 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ data is sent.
+
+### 20.20.879.699 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+. **Reliability0.20.999.239 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**
+
+0.21.118.723 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+*   **0.21.236.788 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+TCP0.21.355.756 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: Ens0.21.474.565 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ures0.21.593.118 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ reliable data transfer by using0.21.713.871 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ acknowled0.21.833.136 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+gments0.21.952.905 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and0.22.072.451 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ retrans0.22.192.348 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+missions0.22.311.763 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+*   **UDP0.22.431.467 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: Does not0.22.549.703 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ guarantee reliable0.22.668.631 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ data transfer, and packets may0.22.788.806 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ be lost or corrupted.
+
+### 0.22.907.832 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+3. **Order0.23.026.162 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of0.23.144.318 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Delivery0.23.264.151 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**
+
+*   **TCP0.23.385.724 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: Ensures0.23.505.582 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ that data0.23.624.919 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ is0.23.745.503 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ delivered in the correct order.
+*0.23.864.958 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+   **UDP0.23.983.700 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: Does0.24.103.585 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ not guarantee the0.24.223.626 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ order of delivery0.24.342.829 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+
+0.24.463.704 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+### 4. **Error Checking0.24.585.840 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**
+
+*   **TCP0.24.705.516 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: Performs0.24.825.785 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ error checking and0.24.945.515 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ correction0.25.064.699 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+0.25.183.871 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+*   **UDP0.25.308.187 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: Performs0.25.436.063 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ basic0.25.558.147 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ error checking, but does not0.25.678.595 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ correct errors0.25.801.625 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+
+### 5. **Speed0.25.920.859 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**
+
+*   **TCP0.26.039.802 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: Generally0.26.141.008 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ slower0.26.239.318 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ due to0.26.305.570 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the overhead0.26.432.491 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of establishing
+
+0.26.435.353 I encoded   27 tokens in    0.541 seconds, speed:   49.899 t/s
+0.26.435.355 I decoded  258 tokens in   12.419 seconds, speed:   20.774 t/s
+0.26.435.355 I 
+0.26.435.356 I n_draft   = 6
+0.26.435.356 I n_predict = 258
+0.26.435.356 I n_drafted = 602
+0.26.435.356 I n_accept  = 156
+0.26.435.357 I accept    = 25.914%
+0.26.435.357 I 
+0.26.435.357 I draft:
+
+0.26.435.416 I 
+0.26.435.416 I target:
+
+0.26.435.422 I common_perf_print:    sampling time =      59.34 ms
+0.26.435.423 I common_perf_print:    samplers time =      21.04 ms /   258 tokens
+0.26.435.428 I common_perf_print:        load time =   11247.20 ms
+0.26.435.429 I common_perf_print: prompt eval time =   11085.50 ms /   732 tokens (   15.14 ms per token,    66.03 tokens per second)
+0.26.435.431 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.26.435.432 I common_perf_print:       total time =   13771.40 ms /   733 tokens
+0.26.435.433 I common_perf_print: unaccounted time =    2626.57 ms /  19.1 %      (total - sampling - prompt eval - eval) / (total)
+0.26.435.433 I common_perf_print:    graphs reused =         97
+
+

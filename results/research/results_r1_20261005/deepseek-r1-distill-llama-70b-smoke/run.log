@@ -1,0 +1,40 @@
+[00:52:01] setup done: sglang 0.5.21, ollama Warning: client version is 0.35.1
+[00:55:01] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. Generating test split:   0%|          | 0/164 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 164/164 [00:00<00:00, 38289.22 examples/s] Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 614263.70 examples/s] Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 444681.86 examples/s] main: 26 val: 20 mtbench: 80 train: 340 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[01:05:26] base_main: 1438 tokens in 38.4 s = 37.5 tok/s (median per prompt 37.5)
+[01:06:28] base_ood: 1536 tokens in 41.0 s = 37.4 tok/s (median per prompt 37.4)
+[01:07:29] base_mt_t07: 1536 tokens in 41.2 s = 37.2 tok/s (median per prompt 37.2)
+[01:08:51] base_gsm100: 2095 tokens in 56.0 s = 37.4 tok/s (median per prompt 37.4)
+[01:14:06] pub_main: 1438 tokens in 47.9 s = 30.0 tok/s (median per prompt 29.9)
+[01:15:22] pub_ood: 1536 tokens in 50.5 s = 30.4 tok/s (median per prompt 30.3)
+[01:16:52] pub_mt_t07: 1536 tokens in 50.4 s = 30.5 tok/s (median per prompt 30.6)
+[01:23:49] answers: 40 conversations from 340 prompts -> /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/regen.jsonl
+[01:24:46] chunk_00: capture failed
+[01:33:32] answers: 40 conversations from 340 prompts -> /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/regen.jsonl
+[01:34:05] chunk_00: capture failed
+[01:42:42] chunk_00: capture 421 s, train 71 s, 
+[01:44:50] chunk_01: capture 66 s, train 62 s, 
+[01:49:16] val_ckpt_chunk_00: 1374 tokens in 21.4 s = 64.3 tok/s (median per prompt 62.6)
+[01:53:53] val_ckpt_chunk_01: 1345 tokens in 18.8 s = 71.6 tok/s (median per prompt 69.7)
+[01:54:09] chosen on validation: head_ckpt_chunk_01 (71.5522790416406 tok/s)
+[01:54:13] saved to B2: precomputed: 1 files -> b2://sushila-ai/precomputed/deepseek-r1-distill-llama-70b/ (CHECKSUMS.json) verified: all 1 files listed in precomputed/deepseek-r1-distill-llama-70b/CHECKSUMS.json are in B2 
+[01:58:05] ours_main: 1438 tokens in 21.3 s = 67.7 tok/s (median per prompt 67.0)
+[01:58:39] ours_ood: 1536 tokens in 22.6 s = 67.8 tok/s (median per prompt 67.2)
+[01:59:14] ours_mt_t07: 1536 tokens in 23.6 s = 65.0 tok/s (median per prompt 64.5)
+[01:59:53] ours_gsm100: 2085 tokens in 26.6 s = 78.5 tok/s (median per prompt 78.8)
+[02:04:27] load base: concurrency 1: 37.4 tok/s total, 37.4 tok/s per user (median);concurrency 4: 110.5 tok/s total, 36.6 tok/s per user (median);concurrency 16: 216.2 tok/s total, 36.0 tok/s per user (median);concurrency 64: 216.3 tok/s total, 36.1 tok/s per user (median);
+[02:07:49] load pub: server did not start (see server_load_pub.log)
+[02:11:10] load ours: server did not start (see server_load_ours.log)
+[02:14:40] Ollama deepseek-r1:70b is "name=DeepSeek R1 Distill Llama 70B"; SGLang serves casperhansen/deepseek-r1-distill-llama-70b-awq (check they are the same model)
+[02:17:29] ollama_main: 1445 tokens: 23.9 tok/s with prompt processing (60.5 s), 24.2 tok/s decode only
+[02:19:05] ollama_ood: 1536 tokens: 23.8 tok/s with prompt processing (64.4 s), 24.2 tok/s decode only
+[02:20:43] ollama_mt_t07: 1536 tokens: 23.8 tok/s with prompt processing (64.6 s), 24.1 tok/s decode only
+[02:22:59] ollama_gsm100: 2228 tokens: 23.9 tok/s with prompt processing (93.4 s), 24.2 tok/s decode only
+[02:26:06] summary: /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/summary.md
+[02:26:10] saved to B2: precomputed: 1 files -> b2://sushila-ai/precomputed/deepseek-r1-distill-llama-70b/ (CHECKSUMS.json) verified: all 1 files listed in precomputed/deepseek-r1-distill-llama-70b/CHECKSUMS.json are in B2 
+[02:26:10] DONE
+[02:27:20] smoke run: B2 save skipped (it would write precomputed/deepseek-r1-distill-llama-70b/ from a test head)
+[02:33:02] load pub: concurrency 1: 30.5 tok/s total, 30.1 tok/s per user (median);concurrency 4: 60.8 tok/s total, 17.4 tok/s per user (median);concurrency 16: 69.7 tok/s total, 11.7 tok/s per user (median);concurrency 64: 69.9 tok/s total, 11.7 tok/s per user (median);
+[02:37:54] load ours: concurrency 1: 67.6 tok/s total, 67.8 tok/s per user (median);concurrency 4: 140.9 tok/s total, 45.0 tok/s per user (median);concurrency 16: 152.1 tok/s total, 27.1 tok/s per user (median);concurrency 64: 152.3 tok/s total, 27.1 tok/s per user (median);
+[02:38:06] summary: /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/summary.md
+[02:38:06] smoke run: B2 save skipped (it would write precomputed/deepseek-r1-distill-llama-70b/ from a test head)
+[02:38:06] DONE

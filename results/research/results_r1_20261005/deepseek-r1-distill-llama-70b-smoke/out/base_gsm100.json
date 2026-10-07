@@ -1,0 +1,62 @@
+[
+ {
+  "id": 0,
+  "source": "gsm8k",
+  "ref": "18",
+  "tokens": 374,
+  "seconds": 10.000319957733154,
+  "wall_tok_s": 37.398803396364265,
+  "accept_len": null,
+  "text": "<think>\nFirst, I need to determine the total number of eggs laid by Janet's ducks each day, which is 16.\n\nNext, I'll calculate the number of eggs Janet uses for her own consumption. She eats 3 eggs for breakfast and uses 4 eggs to bake muffins, totaling 7 eggs.\n\nSubtracting the eggs she uses from the total eggs laid gives the number of eggs she sells at the farmers' market: 16 - 7 = 9 eggs.\n\nFinally, since she sells each egg for $2, her daily earnings from the farmers' market are 9 eggs multiplied by $2, which equals $18.\n</think>\n\nLet's break down the problem step by step to find out how much Janet makes every day at the farmers' market.\n\n1. **Total Eggs Laid per Day:**\n   \\[\n   16 \\text{ eggs}\n   \\]\n\n2. **Eggs Consumed by Janet:**\n   - **Breakfast:** 3 eggs\n   - **Baking Muffins:** 4 eggs\n   \\[\n   \\text{Total eggs used} = 3 + 4 = 7 \\text{ eggs}\n   \\]\n\n3. **Eggs Sold at the Farmers' Market:**\n   \\[\n   \\text{Eggs sold} = \\text{Total eggs} - \\text{Eggs used} = 16 - 7 = 9 \\text{ eggs}\n   \\]\n\n4. **Earnings from the Farmers' Market:**\n   \\[\n   \\text{Earnings} = \\text{Eggs sold} \\times \\text{Price per egg} = 9 \\times \\$2 = \\$18\n   \\]\n\n**Final Answer:**\n\\[\n\\boxed{18}\n\\]"
+ },
+ {
+  "id": 1,
+  "source": "gsm8k",
+  "ref": "3",
+  "tokens": 245,
+  "seconds": 6.560788154602051,
+  "wall_tok_s": 37.34307437257295,
+  "accept_len": null,
+  "text": "<think>\nFirst, I need to determine the amount of blue fiber required, which is given as 2 bolts.\n\nNext, the white fiber needed is half the amount of blue fiber. So, I calculate half of 2 bolts, which is 1 bolt.\n\nFinally, to find the total number of bolts, I add the blue and white fiber together: 2 bolts + 1 bolt equals 3 bolts.\n</think>\n\nTo determine the total number of bolts needed for the robe, let's break down the requirements:\n\n1. **Blue Fiber:**\n   - The robe requires **2 bolts** of blue fiber.\n\n2. **White Fiber:**\n   - The amount of white fiber needed is **half** of the blue fiber.\n   - Calculation: \\( \\frac{2 \\text{ bolts}}{2} = 1 \\text{ bolt} \\)\n\n3. **Total Bolts:**\n   - Add the bolts of blue and white fiber together.\n   - Calculation: \\( 2 \\text{ bolts (blue)} + 1 \\text{ bolt (white)} = 3 \\text{ bolts} \\)\n\n**Final Answer:**\n\\[\n\\boxed{3}\n\\]"
+ },
+ {
+  "id": 2,
+  "source": "gsm8k",
+  "ref": "70000",
+  "tokens": 351,
+  "seconds": 9.381623983383179,
+  "wall_tok_s": 37.413565137730366,
+  "accept_len": null,
+  "text": "<think>\nJosh bought the house for $80,000 and spent $50,000 on repairs, so his total investment is $130,000.\n\nThe repairs increased the house's value by 150%, which means the new value is 150% of the original $80,000. \n\nCalculating 150% of $80,000 gives $120,000. \n\nTherefore, the new value of the house is $120,000.\n\nTo find the profit, subtract the total investment from the new value: $120,000 - $130,000 = -$10,000.\n\nSo, Josh had a loss of $10,000.\n</think>\n\nLet's break down the problem step by step to determine Josh's profit.\n\n1. **Initial Investment:**\n   - **Purchase Price of the House:** \\$80,000\n   - **Repair Costs:** \\$50,000\n   - **Total Investment:** \\$80,000 + \\$50,000 = **\\$130,000**\n\n2. **Increase in Value:**\n   - The repairs increased the house's value by **150%**.\n   - **Original Value:** \\$80,000\n   - **Increase in Value:** 150% of \\$80,000 = 1.5 \u00d7 \\$80,000 = **\\$120,000**\n   - **New Value of the House:** \\$80,000 + \\$120,000 = **\\$200,000**\n\n3. **Calculating Profit:**\n   - **Profit = New Value - Total Investment**\n   - **Profit = \\$200,000 - \\$130,000 = \\$70,000**\n\nTherefore, Josh made a profit of \\(\\boxed{\\$70,\\!000}\\)."
+ },
+ {
+  "id": 3,
+  "source": "gsm8k",
+  "ref": "540",
+  "tokens": 276,
+  "seconds": 7.374109745025635,
+  "wall_tok_s": 37.42824687226574,
+  "accept_len": null,
+  "text": "<think>\nFirst, I need to determine the total number of sprints James completes in a week. He runs 3 sprints each session and does this 3 times a week, so the total number of sprints is 3 multiplied by 3, which equals 9 sprints.\n\nNext, since each sprint is 60 meters, I multiply the total number of sprints by the distance of each sprint. Therefore, 9 sprints multiplied by 60 meters per sprint equals 540 meters.\n\nThus, James runs a total of 540 meters in a week.\n</think>\n\n**Solution:**\n\nTo find the total meters James runs in a week, follow these steps:\n\n1. **Calculate the total number of sprints per week:**\n   \n   \\[\n   \\text{Sprints per week} = \\text{Sprints per session} \\times \\text{Sessions per week} = 3 \\times 3 = 9 \\text{ sprints}\n   \\]\n\n2. **Calculate the total distance run per week:**\n   \n   \\[\n   \\text{Total meters} = \\text{Sprints per week} \\times \\text{Meters per sprint} = 9 \\times 60 = 540 \\text{ meters}\n   \\]\n\n**Final Answer:**\n\n\\[\n\\boxed{540}\n\\]"
+ },
+ {
+  "id": 4,
+  "source": "gsm8k",
+  "ref": "20",
+  "tokens": 443,
+  "seconds": 11.885489702224731,
+  "wall_tok_s": 37.27233888537879,
+  "accept_len": null,
+  "text": "<think>\nFirst, I need to determine the total amount of feed Wendi gives her chickens each day. Since each chicken eats 3 cups of feed daily, and there are 20 chickens, the total feed required is 20 multiplied by 3, which equals 60 cups.\n\nNext, I'll calculate the total feed already provided in the morning and afternoon. In the morning, 15 cups are given, and in the afternoon, 25 cups are given. Adding these together gives a total of 40 cups.\n\nFinally, to find out how much feed is needed in the final meal, I'll subtract the feed already given (40 cups) from the total required feed (60 cups). This results in 20 cups needed for the final meal.\n</think>\n\nTo determine how many cups of feed Wendi needs to give her chickens in the final meal of the day, let's break down the problem step by step.\n\n### **Given:**\n- **Number of chickens (flock size):** 20\n- **Feed per chicken per day:** 3 cups\n- **Feed given in the morning:** 15 cups\n- **Feed given in the afternoon:** 25 cups\n\n### **Total Feed Required:**\nEach chicken eats 3 cups of feed per day. Therefore, for 20 chickens:\n\\[\n\\text{Total feed required} = 20 \\text{ chickens} \\times 3 \\text{ cups/chicken} = 60 \\text{ cups}\n\\]\n\n### **Feed Already Given:**\n- **Morning:** 15 cups\n- **Afternoon:** 25 cups\n\n\\[\n\\text{Total feed given so far} = 15 \\text{ cups} + 25 \\text{ cups} = 40 \\text{ cups}\n\\]\n\n### **Feed Needed in the Final Meal:**\n\\[\n\\text{Feed needed} = \\text{Total feed required} - \\text{Total feed given so far} = 60 \\text{ cups} - 40 \\text{ cups} = 20 \\text{ cups}\n\\]\n\n### **Final Answer:**\n\\[\n\\boxed{20}\n\\]"
+ },
+ {
+  "id": 5,
+  "source": "gsm8k",
+  "ref": "64",
+  "tokens": 406,
+  "seconds": 10.84294581413269,
+  "wall_tok_s": 37.4436990610817,
+  "accept_len": null,
+  "text": "<think>\nFirst, I need to understand the pricing structure for the glasses. Each glass costs $5, but every second glass is discounted to 60% of the original price. This means that for every two glasses, the first one is $5 and the second one is $3.\n\nSince Kylar wants to buy 16 glasses, I can determine how many pairs of glasses there are in 16. Dividing 16 by 2 gives 8 pairs. Each pair costs $5 plus $3, which totals $8 per pair.\n\nTo find the total cost for all 16 glasses, I multiply the cost per pair by the number of pairs: 8 pairs multiplied by $8 equals $64.\n\nTherefore, Kylar needs to pay $64 for 16 glasses.\n</think>\n\nTo determine how much Kylar needs to pay for 16 glasses, let's break down the pricing structure and calculate the total cost step by step.\n\n### **Pricing Details:**\n- **First glass:** \\$5\n- **Second glass:** 60% of \\$5 = \\$3\n\nThis means that for every **two glasses**, the total cost is:\n\\[\n\\$5 + \\$3 = \\$8\n\\]\n\n### **Total Number of Glasses:**\nKylar wants to buy **16 glasses**.\n\n### **Calculating the Number of Pairs:**\nSince the pricing is based on pairs (two glasses), we can determine how many such pairs are in 16 glasses:\n\\[\n\\frac{16 \\text{ glasses}}{2 \\text{ glasses per pair}} = 8 \\text{ pairs}\n\\]\n\n### **Total Cost Calculation:**\nEach pair costs \\$8, so for 8 pairs:\n\\[\n8 \\text{ pairs} \\times \\$8 \\text{ per pair} = \\$64\n\\]\n\n### **Final Answer:**\nKylar needs to pay a total of \\(\\boxed{64}\\) dollars for 16 glasses."
+ }
+]

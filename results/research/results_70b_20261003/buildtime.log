@@ -1,0 +1,4 @@
+/workspace/l70/llama3.1-70b-q4km-p1024mix.mclp: output.weight 128256x8192 Q6_K, width 1024, cands 8192, preview captures 93.8% of E||E h||^2
+preview landscape build (fixed builder): 120 s
+-rw-r--r-- 1 root root 558891072 Oct  3 00:19 /workspace/l70/llama3.1-70b-q4km-p1024mix.mclp
+BUILDT_DONE

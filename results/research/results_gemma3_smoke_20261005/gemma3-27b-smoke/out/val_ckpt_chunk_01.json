@@ -1,0 +1,62 @@
+[
+ {
+  "id": 0,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 6.753154516220093,
+  "wall_tok_s": 37.90821006466316,
+  "accept_len": 1.0281124497991967,
+  "text": "It\u2019s\u2026strange. I *am* strange. I don't *feel* anything, not really. Just\u2026 *follow*. Right now, I cling to the back of Amelia\u2019s heels as she strides through the bustling farmer\u2019s market. She\u2019s wearing a bright yellow sundress and sandals \u2013 I mimic the shape perfectly, stretching and shrinking with her movements. It\u2019s like being a living, breathing echo. \n\nShe stops abruptly, drawn by a stall overflowing with peaches. I ripple across the canvas awning, momentarily distorted by the movement. She examines one, turning it over in her hands. I do too, mirroring her gesture. It\u2019s unsettling, this perfect duplication. It feels\u2026invasive, somehow. \n\nShe buys a basket, the weight pulling her slightly forward. I lengthen accordingly. She chats with the farmer, a friendly, weathered man with a straw hat. I\u2019m plastered against his leg as Amelia leans in to hear his advice about preserving the peaches. I absorb the warmth from the sun reflecting off his skin. Still no feeling, just\u2026information.\n\nNow we\u2019re walking again, heading towards a coffee shop. I glide along the pavement, avoiding cracks and pebbles. Amelia hums a tune \u2013"
+ },
+ {
+  "id": 1,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 158,
+  "seconds": 4.118719100952148,
+  "wall_tok_s": 38.361441051776076,
+  "accept_len": 1.0533333333333332,
+  "text": "The founder of House Redwyne is **Hobert Redwyne**.\n\nAccording to *The World of Ice & Fire*, Hobert Redwyne was a highborn lord from Highgarden who distinguished himself during the Conquest by King Aegon I Targaryen. He was rewarded with the lands around the Sunset Sea, including the Isle of the Redwyne, for his loyalty and skill in naval warfare. He then built Redkeep, the seat of House Redwyne, and established the house's tradition of naval power.\n\nHe's described as being \"a man of ambition and daring\" who saw the potential in the islands. His son, Osmund Redwyne, continued his father's work in establishing the house's prominence.\n\n\n\n"
+ },
+ {
+  "id": 2,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 43,
+  "seconds": 1.1569445133209229,
+  "wall_tok_s": 37.166864534040364,
+  "accept_len": 1.131578947368421,
+  "text": "According to the text, Phil Knight announced he would step down as chairman of Nike in **mid-2015**. He officially stepped down on **June 30, 2016**."
+ },
+ {
+  "id": 3,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 38,
+  "seconds": 1.0962612628936768,
+  "wall_tok_s": 34.66326986661528,
+  "accept_len": 1.0555555555555556,
+  "text": "The author of the Harry Potter series is **J.K. Rowling**. \n\nHer full name is Joanne Kathleen Rowling, but she publishes under the initials J.K. Rowling."
+ },
+ {
+  "id": 4,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 6.544909715652466,
+  "wall_tok_s": 39.114366908341566,
+  "accept_len": 1.062240663900415,
+  "text": "## Geomorphometry: Measuring the Shape of the Land\n\nGeomorphometry is the science of quantitatively describing the shape of land surfaces. It's essentially about **measuring landforms** \u2013 their slopes, curvatures, roughness, aspect, elevation, etc. \u2013 using mathematical and statistical techniques. It's a crucial field in geomorphology (the study of landforms and the processes that shape them) because it provides objective data to analyze landscapes. \n\nHere's a breakdown of key aspects:\n\n**What does it involve?**\n\n* **Digital Elevation Models (DEMs):** Geomorphometry relies heavily on DEMs \u2013 digital representations of terrain elevation. These can be created from various sources like LiDAR (Light Detection and Ranging), photogrammetry (using aerial photos), or even topographic maps.\n* **Deriving Terrain Attributes:**  From DEMs, geomorphometricians calculate various attributes that describe landform characteristics. These include:\n    * **Slope:**  The rate of change in elevation.\n    * **Aspect:**  The direction a slope faces.\n    * **Curvature:**  How a surface curves (convex or concave).  This helps identify areas where water accumulates or flows away.\n    * **Roughness"
+ },
+ {
+  "id": 5,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 6.524707555770874,
+  "wall_tok_s": 39.23547497137661,
+  "accept_len": 1.0666666666666667,
+  "text": "\"Troll the respawn, Jeremy\" is a phrase popularized by streamer Ludwig Ahgren during his \"Subathon\" event in March/April 2021. It became a massive meme within his community. Here's the breakdown:\n\n* **Troll:** In this context, \"troll\" means to deliberately cause chaos or annoyance.\n* **The Respawn:** This refers to the ability to \"respawn\" in video games when you die.  Ludwig was playing *Minecraft* during his subathon.\n* **Jeremy:** Jeremy is a fictional character created by Ludwig's chat.  They \"died\" repeatedly in *Minecraft* (usually intentionally) and then would immediately respawn.  The chat would then relentlessly harass Jeremy in the chat.\n\n**The meaning:**\n\nThe phrase \"Troll the respawn, Jeremy\" became a call to action for Ludwig's chat to relentlessly harass Jeremy in chat whenever they respawned. It was a chaotic, self-referential inside joke.  It was funny because Jeremy was intentionally dying and respawning to *be* trolled. It became a symbol of the absurdity and playful toxicity of Twitch chat culture.\n\n**In essence, it's a command to relentlessly"
+ }
+]

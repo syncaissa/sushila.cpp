@@ -1,0 +1,8 @@
+/workspace/landscape/out_ffn/off.txt:1.21.397.944 I Final estimate: PPL = 8.3884 +/- 0.29263
+/workspace/landscape/out_ffn/topk_down_b0.10.txt:1.39.179.753 I Final estimate: PPL = 614.1482 +/- 30.73749
+/workspace/landscape/out_ffn/topk_down_b0.20.txt:1.24.737.475 I Final estimate: PPL = 59.4956 +/- 2.59260
+/workspace/landscape/out_ffn/topk_down_b0.30.txt:1.13.276.785 I Final estimate: PPL = 23.2191 +/- 0.93160
+/workspace/landscape/out_ffn/topk_down_b0.40.txt:1.12.705.190 I Final estimate: PPL = 15.5362 +/- 0.60586
+/workspace/landscape/out_ffn/topk_down_b0.50.txt:1.08.746.321 I Final estimate: PPL = 12.2276 +/- 0.46163
+/workspace/landscape/out_ffn/topk_down_b0.70.txt:1.04.381.899 I Final estimate: PPL = 9.4631 +/- 0.33950
+FFN_ORACLE_DONE

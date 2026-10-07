@@ -1,0 +1,3 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+assistant prefix: ''
+40 conversations from 340 prompts -> /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/regen.jsonl

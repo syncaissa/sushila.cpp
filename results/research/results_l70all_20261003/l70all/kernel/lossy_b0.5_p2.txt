@@ -1,0 +1,20 @@
+0.05.837.581 I cmn          init: llama threadpool init, n_threads = 30
+sparse: budget=0.500 layers=0-1073741824 tensors=all seven
+0.09.122.061 I sushila-spec: copies built in 0.5 s (not counted)
+
+
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+
+TCP and UDP are two fundamental protocols in the Internet Protocol Suite (TCP/IP) that enable data communication over the internet. While both protocols are used for data transfer, they have distinct differences in their approach, functionality, and use cases.
+
+**TCP (Transmission Control Protocol)**
+
+TCP is a connection-oriented protocol, which means it establishes a connection between the sender and receiver before data is sent. Here are the key characteristics of TCP:
+
+* **Reliable**: TCP ensures that data is delivered in the correct order and retransmits lost or corrupted packets.
+* **
+
+0.54.453.575 I sushila-spec: mode=lossy-sparse generated 128 tokens in 45.331 s, 2.802 t/s
+sparse: calls=71683 cols_frac=0.5017 bytes_frac=0.5015 us/call=580.3 (excluding 0.0 s building the copies)
+sparse: us/call select 120.6 accumulate 299.6 (thread 0)

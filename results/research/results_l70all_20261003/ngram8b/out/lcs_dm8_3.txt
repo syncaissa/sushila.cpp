@@ -1,0 +1,39 @@
+0.02.920.407 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What are the different kinds of rock climbing?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+There are several types of rock climbing, each with its own unique characteristics, techniques, and requirements. Here are some of the most common types of rock climbing:
+
+1. **Sport Climbing**: This type of climbing involves using pre-drilled holes and permanent anchors to clip into as you ascend. The focus is on technique, strength, and endurance.
+2. **Trad Climbing** (Traditional Climbing): In trad climbing, climbers place their own protection (cams, nuts, etc.) as they ascend, which requires a higher level of experience and skill.
+3. **Bouldering**: Bouldering involves short, low-level climbs (usually under 20 feet) without the use of ropes or harnesses. Climbers typically fall onto a crash pad or mat.
+4. **Top-Roping**: Top-rope climbing involves climbing a route with a rope already set up at the top, with the climber attached to the rope via a harness and carabiner.
+5. **Lead Climbing**: Lead climbing involves climbing a route with a rope attached to the climber's harness, with the climber clipping into anchors as they ascend.
+6. **Free Solo Climbing**: Free solo climbing involves climbing without any protection or safety gear, which is extremely high-risk and
+
+0.05.423.067 I encoded   19 tokens in    0.042 seconds, speed: 6501.154 t/s
+0.05.423.068 I decoded  257 tokens in    1.791 seconds, speed:  143.505 t/s
+0.05.423.069 I 
+0.05.423.069 I n_draft      = 8
+0.05.423.070 I n_predict    = 257
+0.05.423.070 I n_drafted    = 160
+0.05.423.071 I t_draft_flat = 604.78 ms
+0.05.423.072 I t_draft      = 7.46 ms, 46.61 us per token, 21456.35 tokens per second
+0.05.423.072 I n_accept     = 47
+0.05.423.072 I accept       = 29.375%
+0.05.423.073 I 
+target:
+
+0.05.423.080 I common_perf_print:    sampling time =      77.19 ms
+0.05.423.081 I common_perf_print:    samplers time =      30.38 ms /   257 tokens
+0.05.423.088 I common_perf_print:        load time =    1869.74 ms
+0.05.423.090 I common_perf_print: prompt eval time =     541.02 ms /   225 tokens (    2.40 ms per token,   415.88 tokens per second)
+0.05.423.091 I common_perf_print:        eval time =    1162.97 ms /   163 runs   (    7.13 ms per token,   140.16 tokens per second)
+0.05.423.091 I common_perf_print:       total time =    2439.14 ms /   388 tokens
+0.05.423.092 I common_perf_print: unaccounted time =     657.96 ms /  27.0 %      (total - sampling - prompt eval - eval) / (total)
+0.05.423.092 I common_perf_print:    graphs reused =        128
+
+

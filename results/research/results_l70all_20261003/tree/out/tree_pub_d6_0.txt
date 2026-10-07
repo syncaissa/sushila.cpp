@@ -1,0 +1,87 @@
+0.01.334.526 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.384.935 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.05.331.658 I cmn          init: llama threadpool init, n_threads = 252
+0.05.414.205 I common_speculative_init_result: loading draft model '/workspace/tree/pub.gguf'
+0.06.416.064 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+0.06.499.750 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.06.757.752 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.106.637 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.363.814 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.446.448 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.552.643 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.724.102 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.966.336 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.047.475 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.191.171 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.290.953 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.423.981 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.500.413 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.615.737 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.749.129 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.858.604 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.034.539 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.138.653 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.292.432 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.421.442 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.540.332 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.626.094 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.783.894 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.893.247 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.045.905 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.119.700 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.345.604 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.475.266 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.595.542 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.659.450 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.769.625 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.960.871 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.045.811 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.143.724 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.270.531 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.572.091 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.666.329 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.812.854 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.929.886 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.081.444 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.293.782 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.444.660 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.551.944 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.764.887 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.890.596 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.000.666 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.150.993 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.271.548 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.410.871 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.509.949 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.651.654 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.783.365 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.895.171 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.992.078 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.129.060 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+The process of how a bill becomes a law in the United States is as follows:
+
+**Step 1: Introduction of the Bill**
+
+- A member of Congress introduces a bill in either the House of Representatives or the Senate. The bill can be introduced by a single member or a group of members.
+- The bill is then referred to a committee, which is a group of members responsible for reviewing and debating the bill.
+
+**Step 2: Committee Review**
+
+- The committee reviews the bill, holds hearings, and gathers information from experts and stakeholders.
+- The committee may mark up the bill, which means they make changes to the original bill.
+- The committee then votes on the bill, and if it passes, it is sent to the full chamber for consideration.
+
+**Step 3: Chamber Debate and Vote**
+
+- The bill is debated on the floor of the chamber where it was introduced.
+- Members of Congress can offer amendments to the bill, which are changes to the original bill.
+- The bill is then voted on by the members of the chamber. If it passes, it is sent to the other chamber for consideration.
+
+**Step 4: Conference Committee**
+
+- If the bill passes in both chambers but is not identical, a conference committee is formed to iron out
+
+0.14.138.362 I sushila-tree: depth=6 k=8 nt=48 generated 256 tokens in 7.159 s, 35.619 t/s; cycles=60 accepted/cycle=3.25 tokens/cycle=4.25 tree=48.0

@@ -1,0 +1,79 @@
+0.01.104.615 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.164.704 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.780.510 I cmn          init: llama threadpool init, n_threads = 30
+landscape: /workspace/dl/draft.mclp preview vocab=32000 hidden=4096 width=768 candidates=1024 type=q4_0 check=0
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+0.03.026.242 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.518.346 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.04.107.479 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.674.064 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.022.533 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.373.606 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.729.610 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.087.451 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.435.990 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.796.113 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.147.484 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.507.733 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.850.526 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.200.469 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.884.246 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.228.508 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.576.452 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.248.843 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.601.291 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.950.530 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.302.830 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.651.963 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.004.395 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.349.953 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.701.490 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.049.865 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.403.009 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.751.832 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.102.460 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.453.012 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here's a summary:
+
+**Causes of the French Revolution:**
+
+1.  **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, which led to a financial crisis and widespread poverty.
+2.  **Social Inequality**: The French society was divided into three estates: the nobility, the clergy, and the commoners. The nobility and clergy held most of the power and wealth, while the commoners were burdened with
+
+0.14.459.841 I sushila-tree: depth=4 k=4 nt=16 generated 128 tokens in 10.135 s, 12.531 t/s; cycles=29 accepted/cycle=3.41 tokens/cycle=4.41 tree=16.0
+0.14.459.842 I sushila-tree: ms/cycle draft 64.07 verify 277.32 (target decode 276.93) commit 8.07
+landscape: tokens=476 survivors/token=1537.6 stages/token=0.0 read_frac=0.1248 (weights 0.0481 + landscape 0.0767)
+landscape: us/token total=533 setup=177 init=111 stages=21 final=225
+landscape: mean alive after stage k=1..8: 0 0 0 0 0 0 0 0

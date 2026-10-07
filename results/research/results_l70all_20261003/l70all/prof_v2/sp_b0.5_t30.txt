@@ -1,0 +1,9 @@
+0.05.388.389 I cmn          init: llama threadpool init, n_threads = 30
+sparse: budget=0.500 layers=0-19 tensors=all seven
+1.36.842.803 I sushila-spec: copies built in 88.5 s (not counted)
+
+The process of how a bill becomes a law in the United States is a multi-step process that involves both the legislative and executive branches of government. Here's a
+
+1.48.276.146 I sushila-spec: mode=lossy-sparse generated 32 tokens in 11.433 s, 2.711 t/s
+sparse: calls=4480 cols_frac=0.5037 bytes_frac=0.5017 us/call=575.6 (excluding 87.7 s building the copies)
+sparse: us/call mean (max) over 30 threads: select 24.1 (26.8) accumulate 461.2 (465.0) wait 63.2 (67.2) reduce 33.1 (36.9)

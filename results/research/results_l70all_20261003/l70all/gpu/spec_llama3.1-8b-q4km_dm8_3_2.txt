@@ -1,0 +1,40 @@
+0.10.385.696 I cmn          init: llama threadpool init, n_threads = 252
+0.10.484.382 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.1-8b-q4km.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Write a short story about a lighthouse keeper who finds a message in a bottle.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The sun was setting over the rocky coastline, casting a warm orange glow over the lighthouse and its keeper, Jack. He had spent the day tending to the light, making sure it was in good working order to guide the ships safely through the treacherous waters. As he walked along the shore, he noticed a piece of flotsam washing up on the beach. As he drew closer, he saw that it was a bottle, partially buried in the sand.
+
+Jack picked up the bottle and examined it. It was old, with a worn label and a cork that had been sealed for years. He carefully removed the cork and pulled out a piece of paper that had been rolled up inside. Unfurling it, he saw that it was a message, written in a flowing script.
+
+"To whoever finds this," the message read. "I am writing this on the eve of my departure from the world. I have spent my life at sea, and I am tired. I am leaving behind a legacy of love and loss, of adventure and heartache. I hope that whoever finds this will be inspired to follow their own dreams, no matter how impossible they may seem. Fair winds and following seas. - A sailor, 1850"
+
+Jack felt a shiver run down his spine as he
+
+0.21.186.132 I encoded   26 tokens in    0.135 seconds, speed:  192.190 t/s
+0.21.186.133 I decoded  264 tokens in    8.923 seconds, speed:   29.586 t/s
+0.21.186.133 I 
+0.21.186.134 I n_draft   = 8
+0.21.186.134 I n_predict = 264
+0.21.186.134 I n_drafted = 484
+0.21.186.134 I n_accept  = 202
+0.21.186.134 I accept    = 41.736%
+0.21.186.135 I 
+0.21.186.135 I draft:
+
+0.21.186.177 I 
+0.21.186.177 I target:
+
+0.21.186.181 I common_perf_print:    sampling time =      64.23 ms
+0.21.186.182 I common_perf_print:    samplers time =      23.06 ms /   264 tokens
+0.21.186.187 I common_perf_print:        load time =    8906.03 ms
+0.21.186.189 I common_perf_print: prompt eval time =    5577.35 ms /   573 tokens (    9.73 ms per token,   102.74 tokens per second)
+0.21.186.190 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.21.186.191 I common_perf_print:       total time =   10701.91 ms /   574 tokens
+0.21.186.192 I common_perf_print: unaccounted time =    5060.33 ms /  47.3 %      (total - sampling - prompt eval - eval) / (total)
+0.21.186.192 I common_perf_print:    graphs reused =         56
+
+

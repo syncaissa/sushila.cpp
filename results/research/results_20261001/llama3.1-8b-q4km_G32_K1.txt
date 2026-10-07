@@ -1,0 +1,7 @@
+llama3.1-8b-q4km.gguf output.weight 128256x4096 Q6_K, G=32 (128 groups), landscape 7.6%, tokens=300, K=1
+  exact          top1 100.0%  recall@1 100.0%  TV(T=0.7) 0.0000  TV(T=1.0) 0.0000  read  97.3%  (1467s)
+  mc2            top1  57.3%  recall@1  57.3%  TV(T=0.7) 0.4267  TV(T=1.0) 0.4267  read  17.5%  (207s)
+  mc3            top1  74.3%  recall@1  74.3%  TV(T=0.7) 0.2567  TV(T=1.0) 0.2567  read  30.2%  (341s)
+  mc4            top1  85.0%  recall@1  85.0%  TV(T=0.7) 0.1500  TV(T=1.0) 0.1500  read  43.0%  (382s)
+  two:0.3:256    top1  65.7%  recall@1  65.7%  TV(T=0.7) 0.3433  TV(T=1.0) 0.3433  read  29.9%  (130s)
+  two:0.5:256    top1  92.3%  recall@1  92.3%  TV(T=0.7) 0.0767  TV(T=1.0) 0.0767  read  50.2%  (160s)

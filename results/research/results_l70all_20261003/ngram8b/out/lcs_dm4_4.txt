@@ -1,0 +1,45 @@
+0.02.737.803 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+How do I choose a new phone?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Choosing a new phone can be a daunting task, but here's a step-by-step guide to help you make an informed decision:
+
+1. **Determine your budget**: Set a price range for your new phone. Consider your income, expenses, and whether you're willing to pay for a premium device or a more affordable option.
+2. **Assess your needs**:
+	* What will you use your phone for most often? (e.g., social media, gaming, photography, work, or general use)
+	* Do you need a phone with a specific feature, such as a long-lasting battery, water resistance, or a headphone jack?
+	* Are you looking for a phone with a specific design or style?
+3. **Consider your lifestyle**:
+	* Do you have a busy schedule and need a phone with a long battery life?
+	* Are you prone to dropping your phone, and do you need a device with a durable design?
+	* Do you travel frequently and need a phone with international compatibility?
+4. **Research different types of phones**:
+	* **Smartphones**: These are the most popular type of phone and offer a wide range of features, including touch screens, apps, and internet connectivity.
+	* **Feature phones**: These are
+
+0.05.174.597 I encoded   18 tokens in    0.040 seconds, speed: 6942.165 t/s
+0.05.174.599 I decoded  257 tokens in    1.844 seconds, speed:  139.370 t/s
+0.05.174.599 I 
+0.05.174.599 I n_draft      = 4
+0.05.174.600 I n_predict    = 257
+0.05.174.600 I n_drafted    = 161
+0.05.174.600 I t_draft_flat = 492.84 ms
+0.05.174.602 I t_draft      = 9.64 ms, 59.90 us per token, 16694.32 tokens per second
+0.05.174.602 I n_accept     = 65
+0.05.174.602 I accept       = 40.373%
+0.05.174.603 I 
+target:
+
+0.05.174.610 I common_perf_print:    sampling time =      75.73 ms
+0.05.174.610 I common_perf_print:    samplers time =      27.70 ms /   257 tokens
+0.05.174.617 I common_perf_print:        load time =    1771.15 ms
+0.05.174.619 I common_perf_print: prompt eval time =     788.18 ms /   247 tokens (    3.19 ms per token,   313.38 tokens per second)
+0.05.174.620 I common_perf_print:        eval time =     956.65 ms /   123 runs   (    7.78 ms per token,   128.57 tokens per second)
+0.05.174.620 I common_perf_print:       total time =    2377.50 ms /   370 tokens
+0.05.174.621 I common_perf_print: unaccounted time =     556.94 ms /  23.4 %      (total - sampling - prompt eval - eval) / (total)
+0.05.174.621 I common_perf_print:    graphs reused =         87
+
+

@@ -95,12 +95,19 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .manage h2{font-size:18px;margin:18px 0 8px}.manage table td,.manage table th{font-size:14px}.manage .acts{display:flex;gap:6px;flex-wrap:wrap}
 .manage button{padding:5px 11px;font-size:13px}.task{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0;background:var(--card)}
 .task.failed{border-color:var(--err)}.logbox{background:var(--code);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;height:65vh;overflow:auto;white-space:pre-wrap;word-break:break-word}
-.manage label{display:block;font-weight:600;font-size:13px;margin:10px 0 4px}.manage .kv td:first-child{color:var(--mut);width:180px}`));
-    // the ☰ menu on every page and tab: Use, Admin (this computer), Documentation (/docs, the same file the website uses)
+.manage label{display:block;font-weight:600;font-size:13px;margin:10px 0 4px}.swhere{border-top:1px solid var(--line);margin-top:6px;padding:6px 10px 2px;font-size:12px;color:var(--mut);word-break:break-all;line-height:1.6}.manage .kv td:first-child{color:var(--mut);width:180px}`));
+    // the ☰ menu on every page and tab: Inference, Admin (this computer), Documentation (/docs, the same file the website
+    // uses), API; then the addresses and, on this computer, the home folder (the same lines the server prints at start)
+    const close = (e) => { e.currentTarget.closest('details').open = false; };
+    const where = el('div', { class: 'swhere' },
+      el('div', {}, 'Inference: ' + location.origin + '/'), local ? el('div', {}, 'Admin: ' + location.origin + '/admin') : null,
+      el('div', {}, 'Documentation: ' + location.origin + '/docs'), el('div', {}, 'API (OpenAI): ' + location.origin + '/v1'),
+      local ? el('div', { id: 'shome' }, 'Home folder: …') : null);
     const menu = el('details', { class: 'smenu' }, el('summary', { 'aria-label': 'Menu' }, '☰'),
-      el('div', {}, el('a', { href: '#', onclick: (e) => { e.currentTarget.closest('details').open = false; } }, 'Use'),
-        local ? el('a', { href: '#admin', onclick: (e) => { e.currentTarget.closest('details').open = false; } }, 'Admin') : null,
-        el('a', { href: '/docs' }, 'Documentation')));
+      el('div', {}, el('a', { href: '#', onclick: close }, 'Inference'),
+        local ? el('a', { href: '#admin', onclick: close }, 'Admin') : null,
+        el('a', { href: '/docs' }, 'Documentation'), el('a', { href: '/docs#api' }, 'API'), where));
+    if (local) api('/api/admin').then((r) => r.json()).then((a) => { const h = document.getElementById('shome'); if (h && a.home) h.textContent = 'Home folder: ' + a.home; }).catch(() => {});
     const nav = el('nav', { class: 'snav' }, menu, el('b', {}, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
       el('span', { style: 'flex:1' }), local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
     const box = el('div', { id: 'manage', class: 'manage hidden' });

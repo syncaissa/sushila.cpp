@@ -1,0 +1,158 @@
+0.01.440.557 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.500.730 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.05.342.505 I cmn          init: llama threadpool init, n_threads = 252
+0.05.460.320 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.06.478.446 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+0.06.552.634 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+
+
+<|begin_of_text|><|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+Cutting Knowledge Date: December 2023
+Today Date: 26 Jul 2024
+
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+Explain how a bill becomes a law in the United States, step by step.<|eot_id|><|start_header_id|>assistant<|end_header_id|>0.06.740.961 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.264.197 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+0.07.396.673 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+The0.07.420.022 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ process of how0.07.455.488 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a bill becomes a law in0.07.517.087 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the United States is as0.07.618.269 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ follows:
+
+**0.07.692.048 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+Step 1: Introduction0.07.726.874 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of0.07.781.168 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the0.07.825.351 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Bill**
+
+- A0.07.912.601 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ member0.08.025.520 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of Congress introduces a bill in0.08.059.198 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ either0.08.097.392 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the House of Representatives or the0.08.175.747 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Senate. The bill can0.08.342.782 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ be introduced0.08.382.849 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ by0.08.411.449 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a single0.08.498.565 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ member or a group of0.08.663.175 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ members.
+- The bill is0.08.707.277 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ then0.08.739.611 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ referred0.08.763.448 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to0.08.802.779 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a committee, which is a0.08.851.044 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ group of members0.08.931.792 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ responsible0.09.084.989 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ for reviewing and0.09.110.528 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ debating0.09.175.142 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the bill.
+
+**Step 0.09.216.520 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+2: Committee0.09.346.075 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Review**
+
+- The committee reviews0.09.384.074 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the bill,0.09.428.085 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ holds hearings, and gathers information0.09.502.927 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ from0.09.609.322 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ experts and0.09.633.027 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ stakeholders.
+- The committee may0.09.659.373 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ mark0.09.716.547 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ up0.09.761.498 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the bill, which means0.09.841.338 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ they0.09.913.088 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ make changes to the original0.09.951.886 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ bill0.10.033.623 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+- If0.10.197.553 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the committee approves0.10.236.486 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the bill0.10.260.315 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, it is sent to the0.10.298.471 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ full chamber0.10.360.949 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ for0.10.493.841 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ consideration0.10.531.802 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+
+0.10.594.730 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**Step 3: Chamber0.10.640.450 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Debate0.10.748.310 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and0.10.785.162 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Vote0.10.855.831 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**
+
+- The bill0.10.981.898 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ is debated on0.11.009.309 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the floor of the0.11.076.075 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ chamber where0.11.105.254 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ it0.11.184.454 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ was0.11.251.388 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ introduced.
+- Members0.11.290.107 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of0.11.369.321 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Congress0.11.488.891 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ can offer0.11.514.517 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ amendments to the0.11.539.474 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ bill, which are0.11.604.426 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ changes to the original bill.
+0.11.648.859 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+- The bill0.11.774.008 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ is then0.11.806.811 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ voted on by the0.11.885.164 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ members of the0.11.969.687 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ chamber.0.12.085.016 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ If0.12.109.123 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a0.12.132.067 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ majority of0.12.170.840 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the0.12.233.033 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ members vote in favor of the0.12.362.022 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ bill, it passes0.12.401.409 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+
+0.12.478.597 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**Step 4: Ref0.12.549.326 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+erral to0.12.679.813 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the0.12.705.274 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Other0.12.770.137 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Chamber0.12.892.455 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**
+
+- If the bill passes0.12.924.594 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ in0.12.991.772 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ one chamber, it is sent0.13.037.030 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to the other chamber for0.13.133.484 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ consideration0.13.191.790 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+0.13.224.769 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+- If0.13.288.380 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the bill
+
+0.13.304.305 I encoded   52 tokens in    0.518 seconds, speed:  100.305 t/s
+0.13.304.307 I decoded  258 tokens in    6.233 seconds, speed:   41.391 t/s
+0.13.304.307 I 
+0.13.304.308 I n_draft   = 5
+0.13.304.308 I n_predict = 258
+0.13.304.309 I n_drafted = 451
+0.13.304.309 I n_accept  = 166
+0.13.304.309 I accept    = 36.807%
+0.13.304.309 I 
+0.13.304.310 I draft:
+
+0.13.304.351 I 
+0.13.304.352 I target:
+
+0.13.304.355 I common_perf_print:    sampling time =      55.90 ms
+0.13.304.356 I common_perf_print:    samplers time =      17.79 ms /   258 tokens
+0.13.304.362 I common_perf_print:        load time =    3853.73 ms
+0.13.304.363 I common_perf_print: prompt eval time =    2338.84 ms /   596 tokens (    3.92 ms per token,   254.83 tokens per second)
+0.13.304.364 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.13.304.365 I common_perf_print:       total time =    7844.15 ms /   597 tokens
+0.13.304.365 I common_perf_print: unaccounted time =    5449.42 ms /  69.5 %      (total - sampling - prompt eval - eval) / (total)
+0.13.304.366 I common_perf_print:    graphs reused =         87
+
+

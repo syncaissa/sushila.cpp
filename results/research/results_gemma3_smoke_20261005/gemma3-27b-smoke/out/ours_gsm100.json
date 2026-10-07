@@ -1,0 +1,62 @@
+[
+ {
+  "id": 0,
+  "source": "gsm8k",
+  "ref": "18",
+  "tokens": 165,
+  "seconds": 4.260397911071777,
+  "wall_tok_s": 38.728776852322554,
+  "accept_len": 1.0784313725490196,
+  "text": "Let $N$ be the number of eggs Janet's ducks lay per day. We are given that $N = 16$.\nJanet eats three eggs for breakfast every morning, so she uses $3$ eggs.\nShe bakes muffins for her friends every day with four eggs, so she uses $4$ eggs.\nThe total number of eggs Janet uses each day is $3 + 4 = 7$.\nThe number of eggs she sells at the farmers' market daily is $N - 7 = 16 - 7 = 9$.\nShe sells each egg for $2, so she makes $9 \\times 2 = 18$ dollars every day at the farmers' market.\n\nFinal Answer: The final answer is $\\boxed{18}$"
+ },
+ {
+  "id": 1,
+  "source": "gsm8k",
+  "ref": "3",
+  "tokens": 132,
+  "seconds": 3.4281177520751953,
+  "wall_tok_s": 38.505095083182134,
+  "accept_len": 1.0731707317073171,
+  "text": "Let $b$ be the number of bolts of blue fiber needed for a robe, and $w$ be the number of bolts of white fiber needed for a robe. We are given that $b = 2$. We are also given that $w$ is half of $b$, so $w = \\frac{1}{2}b$. Since $b = 2$, we have $w = \\frac{1}{2}(2) = 1$.\nThe total number of bolts needed is $b + w = 2 + 1 = 3$.\n\nFinal Answer: The final answer is $\\boxed{3}$"
+ },
+ {
+  "id": 2,
+  "source": "gsm8k",
+  "ref": "70000",
+  "tokens": 292,
+  "seconds": 6.83268404006958,
+  "wall_tok_s": 42.735768006773874,
+  "accept_len": 1.1726907630522088,
+  "text": "Let $C$ be the cost of the house, which is $80,000$.\nLet $R$ be the cost of repairs, which is $50,000$.\nThe total cost of Josh's investment is $C + R = 80,000 + 50,000 = 130,000$.\nThe value of the house increased by 150%. This means the new value is the original value plus 150% of the original value.\nThe original value of the house is $80,000$.\nThe increase in value is $150\\% \\times 80,000 = 1.5 \\times 80,000 = 120,000$.\nThe new value of the house is $80,000 + 120,000 = 200,000$.\nThe profit Josh made is the new value minus the total cost:\nProfit = New Value - Total Cost = $200,000 - 130,000 = 70,000$.\n\nThus, Josh made a profit of $70,000$.\n\nFinal Answer: The final answer is $\\boxed{70000}$"
+ },
+ {
+  "id": 3,
+  "source": "gsm8k",
+  "ref": "540",
+  "tokens": 325,
+  "seconds": 8.44618272781372,
+  "wall_tok_s": 38.47892124447628,
+  "accept_len": 1.0551948051948052,
+  "text": "Let $n$ be the number of sprints James runs each time he runs.\nLet $m$ be the length of each sprint in meters.\nLet $t$ be the number of times James runs sprints per week.\n\nWe are given that James runs 3 sprints each time, so $n=3$.\nWe are given that each sprint is 60 meters long, so $m=60$.\nWe are given that James runs sprints 3 times a week, so $t=3$.\n\nThe total meters James runs each time he runs sprints is $n \\times m = 3 \\times 60 = 180$ meters.\nSince James runs sprints 3 times a week, the total meters he runs a week is $t \\times (n \\times m) = 3 \\times (3 \\times 60) = 3 \\times 180 = 540$ meters.\n\nAlternatively, we can calculate the total number of sprints James runs in a week:\nNumber of sprints per week = number of sprints per time $\\times$ number of times per week\nNumber of sprints per week = $3 \\times 3 = 9$ sprints.\nSince each sprint is 60 meters long, the total meters James runs in a week is\nTotal meters = number of sprints per week $\\times$ length of each sprint\nTotal meters = $9 \\times 60 = 540$ meters.\n\nFinal Answer: The final answer is $\\boxed{540}$"
+ },
+ {
+  "id": 4,
+  "source": "gsm8k",
+  "ref": "20",
+  "tokens": 252,
+  "seconds": 6.126800537109375,
+  "wall_tok_s": 41.13076612722464,
+  "accept_len": 1.1402714932126696,
+  "text": "Let $n$ be the number of chickens Wendi has. We are given that $n = 20$.\nEach chicken is fed 3 cups of mixed chicken feed per day.\nSo, the total amount of feed needed per day is $3 \\times n = 3 \\times 20 = 60$ cups.\nWendi gives her chickens their feed in three separate meals.\nIn the morning, she gives her flock of chickens 15 cups of feed.\nIn the afternoon, she gives her chickens another 25 cups of feed.\nLet $x$ be the amount of feed she needs to give her chickens in the final meal of the day.\nThe total amount of feed given in all three meals must equal the total amount of feed needed per day.\nSo, $15 + 25 + x = 60$.\n$40 + x = 60$.\n$x = 60 - 40$.\n$x = 20$.\nTherefore, Wendi needs to give her chickens 20 cups of feed in the final meal of the day.\n\nFinal Answer: The final answer is $\\boxed{20}$"
+ },
+ {
+  "id": 5,
+  "source": "gsm8k",
+  "ref": "64",
+  "tokens": 360,
+  "seconds": 9.253145217895508,
+  "wall_tok_s": 38.905690067822874,
+  "accept_len": 1.0714285714285714,
+  "text": "Let $c_i$ be the cost of the $i$-th glass, where $i=1, 2, \\dots, 16$.\nThe cost of the first glass is $c_1 = \\$5$.\nEvery second glass costs only 60% of the price, so $c_2 = 0.6 \\times \\$5 = \\$3$.\nThe cost of the glasses alternates between $5$ and $3$.\nWe can write the cost of the glasses as follows:\n$c_1 = \\$5$\n$c_2 = \\$3$\n$c_3 = \\$5$\n$c_4 = \\$3$\n...\n$c_{15} = \\$5$\n$c_{16} = \\$3$\nWe can group the glasses into pairs: $(1, 2), (3, 4), \\dots, (15, 16)$. There are $\\frac{16}{2} = 8$ pairs.\nThe cost of each pair is $c_i + c_{i+1} = \\$5 + \\$3 = \\$8$.\nSince there are 8 pairs, the total cost is $8 \\times \\$8 = \\$64$.\n\nAlternatively, we can count the number of glasses costing $5$ and $3$.\nThere are $\\frac{16}{2} = 8$ glasses costing $5$ and $8$ glasses costing $3$.\nThe total cost is $8 \\times \\$5 + 8 \\times \\$3 = \\$40 + \\$24 = \\$64$.\n\nFinal Answer: The final answer is $\\boxed{64}$"
+ }
+]

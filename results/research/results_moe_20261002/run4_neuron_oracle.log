@@ -1,0 +1,63 @@
++ R=/workspace/Monte-Carlo-AI-Inference
++ W=/workspace/mc-work
++ S=/workspace/moe
++ B2=/workspace/build2
++ cmake --build /workspace/build2 -j 16 --target llama-perplexity
++ M=/workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf
++ T=/workspace/mc-work/data/wikitext-2-raw/wiki.test.raw
++ for b in 0.9 0.7 0.5 0.3
+++ GGML_MC_MODE=topk
+++ GGML_MC_TENSORS=ffn_down_exps
+++ GGML_MC_BUDGET=0.9
+++ GGML_MC_EXACT=0.9
+++ run
+++ tr '\n' ' '
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack
+++ grep -E 'Final|ffn_down_exps'
++ echo 'neurons kept b=0.9: mc: mode=topk budget=0.9000 exact=0.9000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 3.09.747.741 I Final estimate: PPL = 7.5575 +/- 0.28196 mc:   ffn_down_exps calls=998      read_frac=0.8997 '
+neurons kept b=0.9: mc: mode=topk budget=0.9000 exact=0.9000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 3.09.747.741 I Final estimate: PPL = 7.5575 +/- 0.28196 mc:   ffn_down_exps calls=998      read_frac=0.8997 
++ for b in 0.9 0.7 0.5 0.3
+++ GGML_MC_MODE=topk
+++ GGML_MC_TENSORS=ffn_down_exps
+++ GGML_MC_BUDGET=0.7
+++ GGML_MC_EXACT=0.7
+++ run
+++ tr '\n' ' '
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack
+++ grep -E 'Final|ffn_down_exps'
++ echo 'neurons kept b=0.7: mc: mode=topk budget=0.7000 exact=0.7000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 3.08.388.890 I Final estimate: PPL = 7.5515 +/- 0.28198 mc:   ffn_down_exps calls=998      read_frac=0.7005 '
+neurons kept b=0.7: mc: mode=topk budget=0.7000 exact=0.7000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 3.08.388.890 I Final estimate: PPL = 7.5515 +/- 0.28198 mc:   ffn_down_exps calls=998      read_frac=0.7005 
++ for b in 0.9 0.7 0.5 0.3
+++ GGML_MC_MODE=topk
+++ GGML_MC_TENSORS=ffn_down_exps
+++ GGML_MC_BUDGET=0.5
+++ GGML_MC_EXACT=0.5
+++ run
+++ tr '\n' ' '
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack
+++ grep -E 'Final|ffn_down_exps'
++ echo 'neurons kept b=0.5: mc: mode=topk budget=0.5000 exact=0.5000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 2.58.658.930 I Final estimate: PPL = 7.5784 +/- 0.28347 mc:   ffn_down_exps calls=998      read_frac=0.5000 '
+neurons kept b=0.5: mc: mode=topk budget=0.5000 exact=0.5000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 2.58.658.930 I Final estimate: PPL = 7.5784 +/- 0.28347 mc:   ffn_down_exps calls=998      read_frac=0.5000 
++ for b in 0.9 0.7 0.5 0.3
+++ GGML_MC_MODE=topk
+++ GGML_MC_TENSORS=ffn_down_exps
+++ GGML_MC_BUDGET=0.3
+++ GGML_MC_EXACT=0.3
+++ run
+++ tr '\n' ' '
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack
+++ grep -E 'Final|ffn_down_exps'
++ echo 'neurons kept b=0.3: mc: mode=topk budget=0.3000 exact=0.3000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 3.32.192.818 I Final estimate: PPL = 7.6892 +/- 0.28924 mc:   ffn_down_exps calls=998      read_frac=0.2995 '
+neurons kept b=0.3: mc: mode=topk budget=0.3000 exact=0.3000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 3.32.192.818 I Final estimate: PPL = 7.6892 +/- 0.28924 mc:   ffn_down_exps calls=998      read_frac=0.2995 
+++ GGML_MC_MODE=topk
+++ GGML_MC_TENSORS=ffn_down_exps
+++ GGML_MC_BUDGET=0.7
+++ GGML_MC_EXACT=0.7
+++ run --override-kv qwen3moe.expert_used_count=int:6
+++ tr '\n' ' '
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack --override-kv qwen3moe.expert_used_count=int:6
+++ grep -E 'Final|ffn_down_exps'
++ echo 'k=6 + b=0.7: mc: mode=topk budget=0.7000 exact=0.7000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 2.47.682.987 I Final estimate: PPL = 7.5345 +/- 0.27877 mc:   ffn_down_exps calls=998      read_frac=0.7005 '
+k=6 + b=0.7: mc: mode=topk budget=0.7000 exact=0.7000 group=32 seed=1 layers=0-1073741824 tensors=ffn_down_exps stats=0 cv=none 2.47.682.987 I Final estimate: PPL = 7.5345 +/- 0.27877 mc:   ffn_down_exps calls=998      read_frac=0.7005 
++ echo MOE4_DONE
+MOE4_DONE

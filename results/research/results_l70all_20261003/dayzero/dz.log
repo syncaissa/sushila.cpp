@@ -1,0 +1,6 @@
+[11:06:43] REGEN_DONE
+[skip] hidden states: 2545 valid of 4000 (disk filled; 110 corrupt removed)
+[11:42:12] trained in 1248 s -> /workspace/dz/train_out/dayzero-llama3.1-8b-step5090
+[11:42:37] exported: config.json model.safetensors 
+[11:45:20] eval: [11:45:09] eagle3_tree_dayzero_tmpl: 4789 tokens 24.8 s 193.3 tok/s mean accept length 4.05
+[11:45:20] DZ_DONE

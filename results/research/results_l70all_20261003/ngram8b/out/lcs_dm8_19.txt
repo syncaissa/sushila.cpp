@@ -1,0 +1,55 @@
+0.02.772.853 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What is the history of coffee?
+
+The history of coffee dates back to centuries of old oral tradition in modern day Ethiopia. However, neither where coffee was first cultivated nor direct evidence of its consumption prior to the 15th century have been found. Sufi monasteries in Yemen employed coffee as an aid to concentration during prayers. Coffee later spread to the Levant and Persia in the early 16th century; it caused some controversy on whether it was halal in Ottoman and Mamluk society. Coffee arrived in Italy the second half of the 16th century through commercial Mediterranean trade routes, while Central and Eastern Europeans learnt of coffee from the Ottomans. By the mid 17th century, it had reached India and the East Indies. Coffee houses would establish themselves in Western Europe by the late 17th century, especially in England and Germany. One of the earliest cultivations of coffee in the New World was when Gabriel de Clieu brought coffee seedlings to Martinique in 1720. These beans later sprouted 18,680 coffee trees which enabled its spread to other Caribbean islands like Saint-Domingue and also to Mexico. By 1788, Saint-Domingue supplied half the world's coffee. By 1852, globally, Brazil became the largest producer of coffee and has held that status ever since. The period since 1950 saw the widening of the playing field due to the emergence of several other major producers, notably Colombia, Ivory Coast, Ethiopia, and Vietnam; the latter overtook Colombia and became the second-largest producer in 1999. Modern production techniques along with the mass productization of coffee has made it a household item today.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Here's a more detailed and organized history of coffee:
+
+**Ancient Origins (15th century)**
+
+* The history of coffee dates back to ancient times in Ethiopia, but there is no direct evidence of its consumption prior to the 15th century.
+* Oral tradition suggests that coffee was first cultivated in Ethiopia, but the exact location and time of its origin are unknown.
+
+**Spread to the Middle East (16th century)**
+
+* Coffee was introduced to the Middle East by Sufi monasteries in Yemen, where it was used as an aid to concentration during prayers.
+* Coffee spread to the Levant and Persia (modern-day Iran) in the early 16th century.
+* In Ottoman and Mamluk society, coffee caused controversy over whether it was halal (permissible under Islamic law).
+
+**Spread to Europe (16th-17th centuries)**
+
+* Coffee arrived in Italy in the second half of the 16th century through commercial Mediterranean trade routes.
+* Central and Eastern Europeans learned of coffee from the Ottomans and began to cultivate it.
+* By the late 17th century, coffee houses had established themselves in Western Europe, particularly in England and Germany.
+
+**Spread to the Americas (18th century)**
+
+* Gabriel de Cl
+
+0.05.135.808 I encoded  351 tokens in    0.108 seconds, speed: 5651.451 t/s
+0.05.135.848 I decoded  257 tokens in    1.691 seconds, speed:  151.967 t/s
+0.05.135.876 I 
+0.05.135.899 I n_draft      = 8
+0.05.135.922 I n_predict    = 257
+0.05.135.943 I n_drafted    = 339
+0.05.135.966 I t_draft_flat = 504.45 ms
+0.05.135.990 I t_draft      = 7.00 ms, 20.66 us per token, 48394.00 tokens per second
+0.05.136.011 I n_accept     = 90
+0.05.136.033 I accept       = 26.549%
+0.05.136.054 I 
+target:
+
+0.05.136.081 I common_perf_print:    sampling time =      68.36 ms
+0.05.136.129 I common_perf_print:    samplers time =      25.66 ms /   257 tokens
+0.05.136.173 I common_perf_print:        load time =    1854.94 ms
+0.05.136.197 I common_perf_print: prompt eval time =     907.19 ms /   754 tokens (    1.20 ms per token,   831.14 tokens per second)
+0.05.136.219 I common_perf_print:        eval time =     766.39 ms /   102 runs   (    7.51 ms per token,   133.09 tokens per second)
+0.05.136.241 I common_perf_print:       total time =    2306.10 ms /   856 tokens
+0.05.136.264 I common_perf_print: unaccounted time =     564.16 ms /  24.5 %      (total - sampling - prompt eval - eval) / (total)
+0.05.136.327 I common_perf_print:    graphs reused =         69
+
+

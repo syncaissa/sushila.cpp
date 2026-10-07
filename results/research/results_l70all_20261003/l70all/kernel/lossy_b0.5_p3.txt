@@ -1,0 +1,17 @@
+0.05.701.946 I cmn          init: llama threadpool init, n_threads = 30
+sparse: budget=0.500 layers=0-1073741824 tensors=all seven
+0.08.933.397 I sushila-spec: copies built in 0.5 s (not counted)
+
+
+
+The French Revolution was a complex and multifaceted event that had far-reaching causes and consequences. Here is a summary:
+
+**Causes:**
+
+1. **Financial Crisis**: France was heavily indebted from the Seven Years' War and the American Revolutionary War, leading to a financial crisis and widespread poverty.
+2. **Social Inequality**: The French nobility and clergy held vast amounts of power and wealth, while the common people were burdened with heavy taxes and limited opportunities.
+3. **Enlightenment Ideas**: The writings of philosophers such as Rousseau, Voltaire, and Montesquieu spread ideas of liberty, equality,
+
+0.54.063.019 I sushila-spec: mode=lossy-sparse generated 128 tokens in 45.129 s, 2.814 t/s
+sparse: calls=71683 cols_frac=0.4991 bytes_frac=0.4983 us/call=577.5 (excluding 0.0 s building the copies)
+sparse: us/call select 121.0 accumulate 320.6 (thread 0)

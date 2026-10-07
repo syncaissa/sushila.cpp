@@ -60,7 +60,10 @@ Common settings for both: 1024×1024 (A) and 768×768 (B); 8 steps; guidance (cf
 
 1. Rent one RTX 4090 pod, for example RunPod `runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04`.
 2. Clone the repository to `/workspace/repo`.
-3. A: `python3 scripts/cache/calibrate_cache_plan.py`. It builds 36 candidate plans, picks the fastest with mean SSIM ≥ 0.95 on the calibration prompts and reports it on the held-out prompts. Expected: about 1.1×.
+3. A: start the engine's image server (stable-diffusion.cpp `sd-server`) with the Z-Image pack's files (Q4_K,
+   `--offload-to-cpu`), then run
+   `python3 scripts/cache/calibrate_cache_plan.py --port 8096 --steps 8 --size 1024 --out /workspace/cache/zimage`.
+   `--out` is required; `--port` (default 8096) must be the server's port; `--min-ssim` defaults to 0.95. It builds 36 candidate plans, picks the fastest with mean SSIM ≥ 0.95 on the calibration prompts and reports it on the held-out prompts. Expected: about 1.1×.
 4. B: `W=/workspace/zimg bash scripts/image/bench_zimage.sh`, which runs stable-diffusion.cpp.
 5. B: `W=/workspace/zimg bash scripts/image/bench_zimage_torch.sh`, which runs the bf16 pipeline and Nunchaku.
 
@@ -113,7 +116,7 @@ Samples: `https://files.sushila.ai/public/temp/image-samples-20261007_higherRes/
 
 ## 2. Video: Wan 2.2 TI2V-5B (Wan-AI)
 
-### Lab settings (✅ paper Table "Precomputed cache plans": 1.65×, frame SSIM 0.93)
+### Lab settings (✅ paper Table "Precomputed cache plans": 1.62×, frame SSIM 0.93)
 
 | Setting | Value |
 |---|---|
@@ -129,8 +132,8 @@ Samples: `https://files.sushila.ai/public/temp/image-samples-20261007_higherRes/
 
 | Result | Lab number |
 |---|---|
-| Standard | **892 s** per clip |
-| Sushila.cpp | **542 s** per clip, **1.65×** |
+| Standard | **889 s** per clip (median over 5 prompts; mean 892 s) |
+| Sushila.cpp | **549 s** per clip (median; mean 542 s), **1.62×** by medians (1.65× by means; 1.60–1.71× per prompt) |
 | Frame SSIM | 0.929 (0.90–0.95) |
 | Official Wan pipeline (bf16, diffusers), bears prompt | 536 s, similar quality |
 
@@ -146,16 +149,24 @@ Raw results: `results/video_quality_20261007/`. Samples: `https://files.sushila.
 An earlier lab run used 20 steps, guidance 6 and flow shift 3, and gave poor video in both modes. It is documented in
 `results/video_quality_20261007/README.md` and is not used.
 
-### Production settings (🔜 planned; needs an 80 GB GPU)
+### Production settings (⏳ being measured; needs an 80 GB GPU)
 
-| Setting | Value |
+The run in progress: `scripts/video/run_wan_a14b.sh` (`setup`, `smoke`, `run [N]`) on one A100 80GB, Wan 2.2
+T2V-A14B with Wan's official A14B settings as set in the script (1280×720, 81 frames at 16 fps, 40 steps); about 2.6 h
+per Standard clip. The paper marks this result as pending. The table below is the plan.
+
+
+| Setting | Value (exactly what `scripts/video/run_wan_a14b.sh run 1` does) |
 |---|---|
-| Model | **Wan 2.2 A14B**, text-to-video and image-to-video, the large model people use for best quality |
-| Size and length | 1280×720, 81 frames, Wan's settings |
-| Runs | Wan's official 50 steps; also a community 4–8-step "Lightning" workflow |
-| Standard / Sushila | uncached / per-model cache plan |
-| Quality | VBench quality dimensions plus frame SSIM to uncached; side-by-side clips |
-| GPU | one H100 80 GB |
+| Model | **Wan 2.2 T2V-A14B**, Q8_0: `QuantStack/Wan2.2-T2V-A14B-GGUF` @`73eafba5` (HighNoise and LowNoise experts); text encoder `city96/umt5-xxl-encoder-gguf` Q8_0 @`b535255b`; VAE `Comfy-Org/Wan_2.1_ComfyUI_repackaged` `wan_2.1_vae.safetensors` @`123acf1c`. SHA-256 of each file: `out/sha256.txt` |
+| Engine | stable-diffusion.cpp `3f8527a46c54` (the commit inside Sushila.cpp 0.1.1), `sd-cli`, CUDA, `--diffusion-fa` |
+| Size and length | 1280×720, 81 frames at 16 fps (5 s) |
+| Sampling (Wan's official A14B settings) | euler, **40 steps**, switch from the high-noise to the low-noise expert at noise level 0.875, guidance 4.0 (high noise) / 3.0 (low noise), flow shift 12, Wan's negative prompt, seed 42 |
+| Prompt | "Two bears dancing in a forest near a river, slow camera pan, warm golden light" (one prompt; each clip takes hours) |
+| Standard / Accelerated | uncached / EasyCache threshold 0.2. This is the TI2V-5B pack's plan, reused and not recalibrated for A14B. |
+| Quality | frame SSIM to the uncached clip; side-by-side clips |
+| GPU | one A100 SXM 80 GB (about 238 s per step for Standard) |
+| Not done | a 4–8-step distilled workflow, VBench scores (future work) |
 
 ---
 
@@ -195,7 +206,7 @@ Raw results: `results/music_spec_20261006/`, `results/music_acestep_split_202610
 
 ## 4. Music: YuE v1 (long songs)
 
-### Lab settings (✅ paper Table "YuE v1": 4.60×, same distribution)
+### Lab settings (✅ paper Table "YuE v1": 4.77× on the same song)
 
 | Setting | Value |
 |---|---|
@@ -210,9 +221,11 @@ Raw results: `results/music_spec_20261006/`, `results/music_acestep_split_202610
 | Result | Lab number |
 |---|---|
 | Official | 1,210 s |
-| Sushila, eager | 329 s (3.67×) |
-| Sushila, CUDA graphs (a different draw) | 263 s (4.60×) |
-| Sushila, the **same song** (replay) | **253 s (4.77×)** |
+| Sushila, the **same song** (replay; the paper's number) | **253 s (4.77×)** |
+| Official, stage 2 in float32 | 1,805 s |
+| Sushila, same song, stage 2 in float32 (every code = the official float32 output) | 396 s (3.06× vs official bfloat16; 4.56× vs official float32) |
+| Earlier runs that draw their own random numbers (a different song of the same prompt), eager | 329 s (3.67×) |
+| The same, with CUDA graphs | 263 s (4.60×) |
 
 **Steps:**
 
@@ -220,6 +233,8 @@ Raw results: `results/music_spec_20261006/`, `results/music_acestep_split_202610
 2. Run `W=/workspace/yue bash scripts/music/yue/reproduce_yue.sh`. It takes about 1.5 h. It runs the official
    baseline, the sampler test, the stage-2 code check, the graphs-against-eager check, the fast runs and a summary
    ending in `ALL CHECKS PASS`.
+3. Same song: `W=/workspace/yue NSEG=2 bash scripts/music/yue/run_yue_replay.sh` (replays the official run's stage-1
+   tokens; bfloat16 and float32 stage 2).
 
 Full walk-through: [REPRODUCE_YUE.md](REPRODUCE_YUE.md). Songs: `https://files.sushila.ai/public/temp/yue-songs-20261007/`.
 
@@ -227,19 +242,25 @@ Full walk-through: [REPRODUCE_YUE.md](REPRODUCE_YUE.md). Songs: `https://files.s
 
 - **The full song**: as many sections of the same official example as YuE's code generates. Its `infer.py` runs `min(run_n_segments + 1, sections)` prompts including a header, so with 6 lyrics sections it makes at most **5**. Each is up to 30 s (3,000 tokens; YuE writes 100 tokens per second of music), so the song is about **2.5 minutes**.
 - Everything else as in the lab.
-- Command: `NSEG=6 W=/workspace/yue6 bash scripts/music/yue/reproduce_yue.sh` (our run used `NSEG=7`, which YuE caps to the same 5 sections).
+- Command: `NSEG=7 W=/workspace/yue7 bash scripts/music/yue/reproduce_yue.sh`, then
+  `NSEG=7 W=/workspace/yue7 bash scripts/music/yue/run_yue_replay.sh` for the same song (`NSEG=6` gives the same 5
+  sections).
 - Results:
 
 | Run | Song | Time | Speed-up |
 |---|---|---|---|
 | Official | 134 s | 2,353 s | 1.00× |
-| Sushila, eager | 144 s | 930 s | 2.53× |
-| Sushila, CUDA graphs | 144 s | **781 s** | **3.01×** (3.24× per second of music) |
+| Sushila, the **same song** (replay; the paper's number) | 134 s | **715 s** | **3.29×** |
+| Sushila, same song, stage 2 in float32 (= the official float32 computation) | 134 s | 962 s | 2.45× |
+| Earlier run with its own random draws (a different 144 s song), eager | 144 s | 930 s | 2.53× |
+| The same, with CUDA graphs | 144 s | 781 s | 3.01× (3.24× per second of music) |
 
-  - Where the time goes: stage 2 drops from 1,493 s to 145 s (10.3×). Stage 1 (the 7B over a context of about 15,000
-    tokens) only drops from 840 s to 615 s.
+  - Where the time goes (same song): stage 2 drops from 1,493 s to 141 s (10.6×). Stage 1 (the 7B over a context of
+    about 15,000 tokens) only drops from 840 s to 554 s (1.52×).
   - All checks pass.
-- Songs: `https://files.sushila.ai/public/temp/yue-songs-20261007_fullSong/`.
+- Raw results: `results/yue_samesong_20261007/` (same song), `results/yue_fullsong_20261007/` (own draws).
+- Songs: `https://files.sushila.ai/public/temp/yue-songs-20261007_sameSong/` (same song) and
+  `https://files.sushila.ai/public/temp/yue-songs-20261007_fullSong/` (own draws).
 
 ---
 

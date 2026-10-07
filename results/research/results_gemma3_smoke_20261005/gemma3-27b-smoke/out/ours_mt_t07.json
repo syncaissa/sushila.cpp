@@ -1,0 +1,62 @@
+[
+ {
+  "id": 0,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 6.8092405796051025,
+  "wall_tok_s": 37.59596933125934,
+  "accept_len": 1.0406504065040652,
+  "text": "## Aloha & Adventure: Lost (and Found) in Paradise - My Hawaiian Journey!\n\nOkay, deep breaths everyone. Because I'm still reeling from the magic of Hawaii! Just back from two weeks exploring Oahu and Maui, and honestly, it feels like I left a piece of my heart in those turquoise waters. This wasn't just a vacation; it was a *feeling*. A feeling of connection to nature, history, and a culture so incredibly warm and welcoming. \n\nForget the stock photos, forget the overplayed ukulele tunes \u2013 this isn't just about beaches (though, oh boy, the beaches!). This trip was about *experiencing* Hawaii, immersing myself in its traditions, and understanding the \u2018Aloha Spirit.\u2019 And let me tell you, it\u2019s infectious.\n\n**Oahu: History, Hustle & Haleakala Sunrise**\n\nWe started our adventure on Oahu. Honolulu is buzzing \u2013 a vibrant city steeped in history. Pearl Harbor is a humbling experience. It\u2019s a sobering reminder of the past but also a testament to resilience. Definitely book your tickets in advance \u2013 they sell out quickly! \n\nBut Oahu isn't just about history. We spent a day exploring the Polynesian Cultural Center. Seriously, *go*. It"
+ },
+ {
+  "id": 1,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 73,
+  "seconds": 1.962470531463623,
+  "wall_tok_s": 37.1980107877371,
+  "accept_len": 1.0895522388059702,
+  "text": "Subject: Quarterly Financial Report - Feedback Request\n\nDear [Supervisor's Name],\n\nPlease find attached the Quarterly Financial Report for your review. \n\nI would appreciate your feedback, particularly regarding the data analysis, presentation style, and clarity of the conclusions drawn. Please let me know if you have any questions.\n\nThank you,\n\n[Your Name]\n"
+ },
+ {
+  "id": 2,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 6.858737945556641,
+  "wall_tok_s": 37.324650982743385,
+  "accept_len": 1.0406504065040652,
+  "text": "## Blog Post Outline: [Phone A] vs. [Phone B] - Which Should You Buy?\n\n**I. Introduction**\n   * Briefly introduce both phones - [Phone A] & [Phone B].\n   * State blog post objective: unbiased comparison to help readers choose.\n\n**II. Design & Display**\n   * **A.** Physical Appearance: Size, materials, aesthetics.\n   * **B.** Display Quality: Resolution, brightness, refresh rate, technology (OLED vs LCD).\n\n**III. Performance & Software**\n   * **A.** Processor & RAM: Benchmarks & real-world speed.\n   * **B.** Software Experience: UI, features, updates, bloatware.\n\n**IV. Camera Capabilities**\n   * **A.** Main Camera Specs: Megapixels, aperture, features (night mode, etc.)\n   * **B.** Video Recording: Resolution, stabilization.\n   * **C.** Front Camera Quality: Selfie performance.\n\n**V. Battery Life & Charging**\n   * **A.** Battery Capacity & Real-World Usage.\n   * **B.** Charging Speed & Technology (wired/wireless).\n\n**VI. Price & Value**\n   * **"
+ },
+ {
+  "id": 3,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 205,
+  "seconds": 5.4827868938446045,
+  "wall_tok_s": 37.38974429776737,
+  "accept_len": 1.0406091370558375,
+  "text": "Subject: An Opportunity You Might Actually Enjoy!\n\nHey [Friend's Name],\n\nI know public speaking isn't your thing, but I thought about you when I heard about [Event Name] needing someone to talk about [Topic - something you know they're passionate about]. \n\nThis isn't a huge stage! It\u2019s [describe event - small group, informal setting]. You're brilliant at explaining [Topic], and I genuinely think people would *love* to hear your perspective. \n\nWorried about nerves? Totally understandable! They're offering speaker coaching, and you can prepare exactly what you want to say. Think of it less \"public speaking\" and more \"sharing your expertise with genuinely interested people.\" Plus, it's a great way to connect with the [community/group] you care about.\n\nNo pressure at all, but I really think you'd shine.  Let me know what you think!\n\nBest,\n[Your Name]\n\n\n\n"
+ },
+ {
+  "id": 4,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 6.924941778182983,
+  "wall_tok_s": 36.96781983157281,
+  "accept_len": 1.024,
+  "text": "Old Man Tiber, they called him, though no one knew his true name or age. He was woven from driftwood and whispers, his skin like sun-bleached coral, crisscrossed with lines that charted forgotten tides. One eye, milky white and blind, stared perpetually towards the horizon, while the other gleamed with a restless, turquoise fire. He smelled of salt and brine, and the seaweed clung to his beard like emerald jewels. He wore clothes pieced together from salvaged sails, patched with barnacle shells and embroidered with constellations only he could decipher. A single, iridescent feather \u2013 shed from a bird no one recognized \u2013 always adorned his tangled grey hair.\n\nTiber wasn't known *for* anything so much as he *was* something \u2013 a living echo of the sea itself. He didn't speak in words, but communicated through the clicking of seashells in his palm, the mournful groan of driftwood as he moved, and the subtle shift in the ocean's current when he passed. Fishermen offered him small trinkets \u2013 polished stones, lost buttons \u2013 in exchange for a blessing, a silent promise of calm seas and bountiful catches. Some said he *was* the sea, and crossing his path meant courting its fickle favor.\n\n\n\n"
+ },
+ {
+  "id": 5,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 201,
+  "seconds": 5.343966722488403,
+  "wall_tok_s": 37.612509665180866,
+  "accept_len": 1.046875,
+  "text": "The marketplace throbbed with life. A kaleidoscope of color assaulted the eyes \u2013 vibrant silks draped from stalls, pyramids of ruby-red tomatoes gleamed in the sun, and intricately woven baskets overflowed with spices. A heady aroma hung in the air, a complex blend of sweet dates, pungent ginger, roasted nuts, and earthy incense. Over it all rose the cacophony of human interaction: the hawkers' insistent cries vying for attention, the rhythmic clang of a blacksmith hammering metal, the chatter of friends catching up, punctuated by bursts of laughter. Rough cobblestones warmed beneath bare feet, while the sun beat down, making the air shimmer above steaming bowls of street food. Every corner revealed something new - a storyteller surrounded by rapt children, a musician coaxing mournful melodies from a flute, a weaver deftly working at her loom. It wasn't just a place to buy and sell; it was the beating heart of the city, overflowing with energy, fragrance, and sound.\n\n\n\n"
+ }
+]

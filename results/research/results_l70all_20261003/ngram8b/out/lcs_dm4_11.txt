@@ -1,0 +1,34 @@
+0.02.470.028 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Who directed Terror Mountain, a American silent Western film?
+
+Terror Mountain is a 1928 American silent Western film directed by Louis King and written by Frank Howard Clark and Helen Gregg. The film stars Tom Tyler, Jane Reid, Al Ferguson, Jules Cowles and Frankie Darro. The film was released on August 19, 1928, by Film Booking Offices of America. It was also released as Terror and Tom's Vacation.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The director of the American silent Western film "Terror Mountain" is Louis King.<|eot_id|>
+
+0.03.126.341 I encoded   99 tokens in    0.053 seconds, speed: 2207.839 t/s
+0.03.126.342 I decoded   18 tokens in    0.130 seconds, speed:  138.087 t/s
+0.03.126.343 I 
+0.03.126.343 I n_draft      = 4
+0.03.126.343 I n_predict    = 18
+0.03.126.343 I n_drafted    = 9
+0.03.126.344 I t_draft_flat = 418.46 ms
+0.03.126.345 I t_draft      = 0.62 ms, 68.89 us per token, 14516.13 tokens per second
+0.03.126.345 I n_accept     = 4
+0.03.126.346 I accept       = 44.444%
+0.03.126.346 I 
+target:
+
+0.03.126.355 I common_perf_print:    sampling time =       4.67 ms
+0.03.126.355 I common_perf_print:    samplers time =       1.44 ms /    18 tokens
+0.03.126.363 I common_perf_print:        load time =    1578.37 ms
+0.03.126.365 I common_perf_print: prompt eval time =      71.00 ms /   111 tokens (    0.64 ms per token,  1563.36 tokens per second)
+0.03.126.365 I common_perf_print:        eval time =      74.84 ms /    10 runs   (    7.48 ms per token,   133.62 tokens per second)
+0.03.126.366 I common_perf_print:       total time =     602.99 ms /   121 tokens
+0.03.126.367 I common_perf_print: unaccounted time =     452.49 ms /  75.0 %      (total - sampling - prompt eval - eval) / (total)
+0.03.126.367 I common_perf_print:    graphs reused =          8
+
+

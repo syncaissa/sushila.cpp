@@ -1,0 +1,6 @@
+tree16 accept length per prompt: [1.03, 1.05, 1.05]
+tree8 accept length per prompt: [1.02, 1.03, 1.05]
+nograph accept length per prompt: [1.02, 1.04, 1.05]
+triton accept length per prompt: [1.02, 1.03, 1.05]
+chain accept length per prompt: [1.01, 1.02, 1.02]
+PROBE_DONE

@@ -1,0 +1,108 @@
+0.01.166.958 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.225.054 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.774.144 I cmn          init: llama threadpool init, n_threads = 252
+0.02.822.948 I common_speculative_init_result: loading draft model '/workspace/l8e/eagle3.gguf'
+0.03.352.805 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Summarize the causes and consequences of the French Revolution.<|eot_id|><|start_header_id|>assistant<|end_header_id|>0.03.568.350 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.932.588 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+The French Revolution, which lasted from 0.03.982.482 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+1789 to 1790.04.004.067 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+9,0.04.023.854 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ was a complex and multifaceted0.04.045.927 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ event that0.04.067.541 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ had far-reaching causes0.04.087.984 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and consequences. Here is0.04.108.323 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a summary:
+
+**Causes of the0.04.129.503 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ French Revolution:**
+
+1. **Financial Crisis0.04.151.573 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**: France was deeply in0.04.175.551 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ debt from the0.04.195.198 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Seven Years'0.04.214.767 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ War and the American Revolutionary War,0.04.235.329 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ which0.04.254.870 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ led to a financial0.04.274.663 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ crisis0.04.296.457 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and0.04.316.262 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a0.04.336.885 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ burden on0.04.356.516 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the common people.
+2. **Social In0.04.377.319 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+equality**: The French society was divided into three0.04.398.132 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ estates0.04.417.697 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+: the clergy,0.04.438.129 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the nobility0.04.459.433 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, and the commoners. The nobility0.04.482.544 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and clergy held most0.04.502.731 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of the0.04.522.636 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ power and wealth, while the commoners were0.04.544.842 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ burdened with heavy taxes and had0.04.566.809 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ limited0.04.586.244 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ rights.
+3. **En0.04.606.477 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+lightenment0.04.626.141 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Ideas**: The ideas0.04.646.848 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of the Enlightenment, such as liberty0.04.667.822 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, equality, and fraternity0.04.688.007 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, spread throughout France and inspired the0.04.708.910 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ people to demand change0.04.729.261 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+4. **Food Shortages**:0.04.751.093 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ A series of crop failures and0.04.771.262 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ food shortages in the late0.04.791.340 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ 18th century led0.04.811.315 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to widespread poverty0.04.832.884 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and discontent.
+0.04.852.797 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+5. **Absolute0.04.872.736 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Monarchy**: The absolute0.04.893.025 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ monarchy of King Louis XVI0.04.913.192 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ was seen as out0.04.933.466 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of touch with the people0.04.955.945 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and unwilling0.04.975.411 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to reform0.04.996.788 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+
+**Consequences of the French Revolution:0.05.021.777 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**
+
+1. **Establishment of the First0.05.044.464 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Republic0.05.070.941 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+**:0.05.100.126 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ The National0.05.128.268 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Assembly,0.05.160.884 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ which was formed0.05.190.246 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ in 1789, declared the establishment
+
+0.05.192.659 I encoded   21 tokens in    0.376 seconds, speed:   55.859 t/s
+0.05.192.660 I decoded  264 tokens in    1.424 seconds, speed:  185.423 t/s
+0.05.192.660 I 
+0.05.192.661 I n_draft   = 8
+0.05.192.661 I n_predict = 264
+0.05.192.661 I n_drafted = 451
+0.05.192.661 I n_accept  = 206
+0.05.192.662 I accept    = 45.676%
+0.05.192.662 I 
+0.05.192.662 I draft:
+
+0.05.192.703 I 
+0.05.192.703 I target:
+
+0.05.192.708 I common_perf_print:    sampling time =      63.63 ms
+0.05.192.709 I common_perf_print:    samplers time =      25.86 ms /   264 tokens
+0.05.192.715 I common_perf_print:        load time =    1498.20 ms
+0.05.192.716 I common_perf_print: prompt eval time =     741.07 ms /   531 tokens (    1.40 ms per token,   716.53 tokens per second)
+0.05.192.717 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.05.192.718 I common_perf_print:       total time =    2369.87 ms /   532 tokens
+0.05.192.719 I common_perf_print: unaccounted time =    1565.17 ms /  66.0 %      (total - sampling - prompt eval - eval) / (total)
+0.05.192.719 I common_perf_print:    graphs reused =         52
+
+

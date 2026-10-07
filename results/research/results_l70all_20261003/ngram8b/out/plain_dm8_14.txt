@@ -1,0 +1,35 @@
+0.02.912.716 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Classify these quarterback as either won Superbowl or did not win: Joe Montana, Dan Marino, Jim Kelly, John Elway.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Here are the classifications:
+
+* Won Super Bowl: Joe Montana, John Elway
+* Did not win: Dan Marino, Jim Kelly<|eot_id|>
+
+0.03.232.287 I encoded   38 tokens in    0.045 seconds, speed: 1452.049 t/s
+0.03.232.289 I decoded   28 tokens in    0.217 seconds, speed:  128.976 t/s
+0.03.232.290 I 
+0.03.232.290 I n_draft      = 8
+0.03.232.290 I n_predict    = 28
+0.03.232.290 I n_drafted    = 32
+0.03.232.291 I t_draft_flat = 0.08 ms
+0.03.232.292 I t_draft      = 0.25 ms, 7.88 us per token, 126984.13 tokens per second
+0.03.232.292 I n_accept     = 4
+0.03.232.293 I accept       = 12.500%
+0.03.232.293 I 
+target:
+
+0.03.232.301 I common_perf_print:    sampling time =       9.21 ms
+0.03.232.302 I common_perf_print:    samplers time =       2.91 ms /    28 tokens
+0.03.232.311 I common_perf_print:        load time =    1853.71 ms
+0.03.232.312 I common_perf_print: prompt eval time =      93.44 ms /    74 tokens (    1.26 ms per token,   791.99 tokens per second)
+0.03.232.313 I common_perf_print:        eval time =     137.06 ms /    19 runs   (    7.21 ms per token,   138.63 tokens per second)
+0.03.232.314 I common_perf_print:       total time =     263.52 ms /    93 tokens
+0.03.232.315 I common_perf_print: unaccounted time =      23.82 ms /   9.0 %      (total - sampling - prompt eval - eval) / (total)
+0.03.232.315 I common_perf_print:    graphs reused =         16
+
+

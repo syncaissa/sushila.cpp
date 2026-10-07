@@ -1,0 +1,79 @@
+0.01.212.801 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.268.761 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.754.254 I cmn          init: llama threadpool init, n_threads = 252
+0.02.817.852 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.377.235 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+0.03.408.821 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.03.583.956 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.847.950 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.898.809 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.943.312 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.981.313 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.027.131 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.091.012 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.130.478 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.169.013 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.226.563 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.264.755 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.304.137 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.342.715 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.400.145 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.438.414 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.476.217 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.514.726 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.553.662 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.591.987 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.668.173 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.725.363 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.764.173 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.803.079 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.848.363 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.886.980 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.925.523 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.964.240 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.021.400 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.097.360 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.173.655 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.212.301 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.250.798 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.308.724 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.366.312 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.438.562 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.474.010 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.513.145 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.548.034 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.602.852 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.643.009 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.682.144 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.721.736 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.779.866 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.852.736 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.888.181 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+The process of how a bill becomes a law in the United States is as follows:
+
+**Step 1: Introduction of the Bill**
+
+- A member of Congress introduces a bill in either the House of Representatives or the Senate. The bill can be introduced by a single member or a group of members.
+- The bill is then referred to a committee, which is a group of members responsible for reviewing and debating the bill.
+
+**Step 2: Committee Review**
+
+- The committee reviews the bill, holds hearings, and gathers information from experts and stakeholders.
+- The committee may mark up the bill, which means they make changes to the original bill.
+- The committee then votes on the bill, and if it passes, it is sent to the full chamber for consideration.
+
+**Step 3: Chamber Debate and Vote**
+
+- The bill is debated on the floor of the chamber where it was introduced.
+- Members of Congress can offer amendments to the bill, which are changes to the original bill.
+- The bill is then voted on by the members of the chamber. If it passes, it is sent to the other chamber for consideration.
+
+**Step 4: Conference Committee**
+
+- If the bill passes in both chambers but is not identical, a conference committee is formed to iron out
+
+0.05.942.605 I sushila-tree: depth=5 k=1 nt=5 generated 256 tokens in 2.168 s, 117.624 t/s; cycles=110 accepted/cycle=1.32 tokens/cycle=2.32 tree=5.0
+0.05.942.606 I sushila-tree: ms/cycle draft 5.38 verify 13.70 commit 0.63

@@ -1,0 +1,190 @@
+0.13.044.473 I cmn          init: llama threadpool init, n_threads = 252
+0.13.155.800 I common_speculative_init_result: loading draft model '/workspace/l33/eagle3.gguf'
+0.13.937.699 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Écris un paragraphe sur l'importance de la biodiversité.<|eot_id|><|start_header_id|>assistant<|end_header_id|>0.14.394.300 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.990.068 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+0.15.116.788 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+La biod0.15.206.411 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+iversité0.15.295.423 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ est ess0.15.384.342 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+enti0.15.473.226 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+elle0.15.562.361 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ à0.15.651.680 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ la santé0.15.742.252 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de0.15.830.554 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ notre0.15.920.600 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ planète0.16.010.611 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.0.16.099.563 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Elle0.16.188.864 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ nous0.16.279.073 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ permet0.16.368.648 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de0.16.458.149 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ dis0.16.547.298 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+poser0.16.636.009 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ d0.16.725.782 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+’une0.16.815.015 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ grande0.16.904.475 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ vari0.16.994.078 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+été0.17.084.496 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ d0.17.174.072 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+’0.17.263.660 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+esp0.17.352.936 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+è0.17.441.853 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ces0.17.531.129 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ et0.17.620.849 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ d’é0.17.714.479 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+cos0.17.803.472 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+yst0.17.893.392 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+èmes0.17.982.453 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+,0.18.071.762 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ qui sont0.18.161.962 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ tous0.18.251.710 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ inter0.18.345.217 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+connect0.18.434.242 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+és0.18.526.106 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ et0.18.614.843 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ inter0.18.706.823 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+d0.18.795.660 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+é0.18.887.278 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+pend0.18.976.097 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ants0.19.064.839 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+. La0.19.154.138 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ p0.19.242.786 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+erte0.19.333.919 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de0.19.425.770 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ biod0.19.514.485 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ivers0.19.605.454 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ité0.19.697.239 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ peut0.19.786.151 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ avoir0.19.874.926 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ des cons0.19.964.545 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+é0.20.054.791 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+quences0.20.144.029 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ graves0.20.232.959 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+,0.20.326.140 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ tel0.20.415.337 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+les0.20.509.592 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ que0.20.598.390 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ la0.20.687.673 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ dispar0.20.777.761 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ition0.20.867.731 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ d0.20.956.509 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+’0.21.045.400 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+esp0.21.135.227 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+è0.21.225.749 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ces,0.21.314.699 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ la dé0.21.405.702 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+gradation0.21.494.727 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ des0.21.584.199 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ é0.21.675.178 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+cosyst0.21.765.158 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+èmes0.21.854.274 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ et0.21.943.575 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ la p0.22.032.975 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+erte0.22.127.554 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de0.22.216.542 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ services0.22.307.400 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ é0.22.395.944 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+cos0.22.485.752 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+yst0.22.574.741 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ém0.22.663.420 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+iques0.22.751.893 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ ess0.22.840.023 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+enti0.22.930.948 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+els comme0.23.020.316 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ la0.23.109.658 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ pollin0.23.198.815 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+isation0.23.288.375 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, la purification0.23.377.446 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de0.23.467.194 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ l’e0.23.556.141 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+au0.23.645.541 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ et la rég0.23.736.132 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ulation0.23.825.789 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ du0.23.914.118 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ clim0.24.002.354 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+at0.24.091.398 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+. Il0.24.181.971 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ est0.24.271.662 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ donc0.24.360.637 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ crucial0.24.450.406 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de0.24.539.328 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ pré0.24.628.400 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+server0.24.717.575 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ et0.24.810.723 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de proté0.24.898.973 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ger0.24.987.315 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ la biod0.25.076.491 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+iversité0.25.166.075 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ pour garant0.25.255.133 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ir la0.25.343.742 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ santé0.25.432.920 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de0.25.522.953 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ notre0.25.611.990 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ planète0.25.704.326 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ et notre0.25.792.584 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ propre0.25.881.124 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ bien0.25.969.996 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+-être0.26.058.922 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+. C0.26.147.913 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ela0.26.236.839 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ peut0.26.326.526 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ être0.26.415.565 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ réalis0.26.507.188 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+é0.26.596.721 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ en0.26.685.987 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ adopt0.26.775.126 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ant0.26.863.912 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ des prat0.26.953.340 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+iques0.27.041.890 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ dur0.27.131.125 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ables,0.27.220.096 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ en ré0.27.308.833 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+du0.27.397.750 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+is0.27.486.070 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ant0.27.574.631 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ notre0.27.663.074 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ impact0.27.752.195 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ environ0.27.843.751 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+nement0.27.932.122 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+al0.28.020.899 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ et en sout0.28.110.994 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+enant0.28.203.356 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ les efforts0.28.292.581 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de0.28.382.059 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ conservation0.28.472.241 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ de0.28.560.834 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ la nature0.28.648.848 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.0.28.737.739 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+0.28.739.177 I encoded   28 tokens in    0.589 seconds, speed:   47.572 t/s
+0.28.739.178 I decoded  192 tokens in   14.116 seconds, speed:   13.602 t/s
+0.28.739.178 I 
+0.28.739.179 I n_draft   = 8
+0.28.739.179 I n_predict = 192
+0.28.739.179 I n_drafted = 1232
+0.28.739.179 I n_accept  = 38
+0.28.739.180 I accept    = 3.084%
+0.28.739.180 I 
+0.28.739.180 I draft:
+
+0.28.739.220 I 
+0.28.739.220 I target:
+
+0.28.739.225 I common_perf_print:    sampling time =      51.94 ms
+0.28.739.225 I common_perf_print:    samplers time =      18.32 ms /   192 tokens
+0.28.739.232 I common_perf_print:        load time =   11646.97 ms
+0.28.739.233 I common_perf_print: prompt eval time =   12006.14 ms /  1415 tokens (    8.48 ms per token,   117.86 tokens per second)
+0.28.739.234 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.28.739.235 I common_perf_print:       total time =   15583.72 ms /  1416 tokens
+0.28.739.236 I common_perf_print: unaccounted time =    3525.64 ms /  22.6 %      (total - sampling - prompt eval - eval) / (total)
+0.28.739.237 I common_perf_print:    graphs reused =        154
+
+

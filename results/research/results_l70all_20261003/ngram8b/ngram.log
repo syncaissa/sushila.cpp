@@ -1,0 +1,159 @@
+[07:05:19] corpus: 6000 answers, 7201143 bytes in 1341 s
+[07:05:31] static cache: 16190428 bytes
+[07:05:36] p0 stock: eval time =    1675.60 ms /   255 runs   (    6.57 ms per token,   152.18 tokens per second)
+[07:05:42] p0 lookup+landscape dm4: 0.05.345.139 I decoded 258 tokens in 1.863 seconds, speed: 138.490 t/s 0.05.345.142 I n_accept = 40 0.05.345.143 I accept = 34.188% 
+[07:05:48] p0 lookup+landscape dm8: 0.05.370.251 I decoded 257 tokens in 1.915 seconds, speed: 134.169 t/s 0.05.370.255 I n_accept = 38 0.05.370.256 I accept = 22.093% 
+[07:05:54] p0 lookup+landscape dm16: 0.05.374.149 I decoded 257 tokens in 1.964 seconds, speed: 130.888 t/s 0.05.374.152 I n_accept = 38 0.05.374.152 I accept = 13.768% 
+[07:06:00] p0 lookup-prompt-only dm8: 0.04.965.698 I decoded 257 tokens in 1.845 seconds, speed: 139.275 t/s 0.04.965.701 I n_accept = 13 0.04.965.702 I accept = 12.500% 
+[07:06:08] p0 1b-draft dm8: 0.07.069.955 I decoded 262 tokens in 2.488 seconds, speed: 105.315 t/s 0.07.070.064 I n_accept = 192 0.07.070.086 I accept = 34.720% 
+[07:06:13] p1 stock: eval time =    1666.84 ms /   255 runs   (    6.54 ms per token,   152.98 tokens per second)
+[07:06:19] p1 lookup+landscape dm4: 0.05.195.223 I decoded 257 tokens in 1.885 seconds, speed: 136.339 t/s 0.05.195.226 I n_accept = 53 0.05.195.227 I accept = 35.099% 
+[07:06:25] p1 lookup+landscape dm8: 0.05.447.993 I decoded 258 tokens in 1.927 seconds, speed: 133.913 t/s 0.05.447.996 I n_accept = 46 0.05.447.996 I accept = 21.101% 
+[07:06:31] p1 lookup+landscape dm16: 0.05.219.290 I decoded 258 tokens in 1.992 seconds, speed: 129.506 t/s 0.05.219.294 I n_accept = 46 0.05.219.295 I accept = 12.994% 
+[07:06:36] p1 lookup-prompt-only dm8: 0.04.780.098 I decoded 257 tokens in 1.878 seconds, speed: 136.847 t/s 0.04.780.101 I n_accept = 14 0.04.780.102 I accept = 9.655% 
+[07:06:42] p1 1b-draft dm8: 0.05.916.816 I decoded 261 tokens in 2.223 seconds, speed: 117.386 t/s 0.05.916.818 I n_accept = 198 0.05.916.820 I accept = 39.286% 
+[07:06:46] p2 stock: eval time =      90.29 ms /    13 runs   (    6.95 ms per token,   143.98 tokens per second)
+[07:06:50] p2 lookup+landscape dm4: 0.03.724.548 I decoded 14 tokens in 0.100 seconds, speed: 139.762 t/s 0.03.724.551 I n_accept = 4 0.03.724.552 I accept = 80.000% 
+[07:06:54] p2 lookup+landscape dm8: 0.03.389.587 I decoded 14 tokens in 0.105 seconds, speed: 133.105 t/s 0.03.389.590 I n_accept = 4 0.03.389.591 I accept = 44.444% 
+[07:06:58] p2 lookup+landscape dm16: 0.03.427.724 I decoded 14 tokens in 0.107 seconds, speed: 130.918 t/s 0.03.427.727 I n_accept = 4 0.03.427.727 I accept = 23.529% 
+[07:07:02] p2 lookup-prompt-only dm8: 0.03.057.635 I decoded 14 tokens in 0.095 seconds, speed: 146.784 t/s 0.03.057.637 I n_accept = 3 0.03.057.638 I accept = 37.500% 
+[07:07:07] p2 1b-draft dm8: 0.04.402.573 I decoded 18 tokens in 0.129 seconds, speed: 139.081 t/s 0.04.402.574 I n_accept = 15 0.04.402.575 I accept = 62.500% 
+[07:07:12] p3 stock: eval time =    1666.08 ms /   255 runs   (    6.53 ms per token,   153.05 tokens per second)
+[07:07:18] p3 lookup+landscape dm4: 0.05.179.177 I decoded 257 tokens in 1.860 seconds, speed: 138.138 t/s 0.05.179.181 I n_accept = 36 0.05.179.182 I accept = 33.645% 
+[07:07:24] p3 lookup+landscape dm8: 0.05.423.068 I decoded 257 tokens in 1.791 seconds, speed: 143.505 t/s 0.05.423.072 I n_accept = 47 0.05.423.072 I accept = 29.375% 
+[07:07:29] p3 lookup+landscape dm16: 0.05.135.003 I decoded 257 tokens in 1.814 seconds, speed: 141.684 t/s 0.05.135.006 I n_accept = 47 0.05.135.007 I accept = 17.279% 
+[07:07:35] p3 lookup-prompt-only dm8: 0.04.712.852 I decoded 257 tokens in 1.887 seconds, speed: 136.166 t/s 0.04.712.858 I n_accept = 7 0.04.712.859 I accept = 6.542% 
+[07:07:42] p3 1b-draft dm8: 0.06.773.776 I decoded 265 tokens in 2.472 seconds, speed: 107.202 t/s 0.06.773.777 I n_accept = 196 0.06.773.778 I accept = 35.963% 
+[07:07:47] p4 stock: eval time =    1667.89 ms /   255 runs   (    6.54 ms per token,   152.89 tokens per second)
+[07:07:53] p4 lookup+landscape dm4: 0.05.174.599 I decoded 257 tokens in 1.844 seconds, speed: 139.370 t/s 0.05.174.602 I n_accept = 65 0.05.174.602 I accept = 40.373% 
+[07:07:59] p4 lookup+landscape dm8: 0.05.315.676 I decoded 257 tokens in 1.740 seconds, speed: 147.710 t/s 0.05.315.680 I n_accept = 70 0.05.315.680 I accept = 29.915% 
+[07:08:05] p4 lookup+landscape dm16: 0.04.836.623 I decoded 257 tokens in 1.799 seconds, speed: 142.853 t/s 0.04.836.627 I n_accept = 70 0.04.836.627 I accept = 18.519% 
+[07:08:10] p4 lookup-prompt-only dm8: 0.04.682.966 I decoded 259 tokens in 1.869 seconds, speed: 138.570 t/s 0.04.683.118 I n_accept = 22 0.04.683.139 I accept = 14.865% 
+[07:08:17] p4 1b-draft dm8: 0.06.328.164 I decoded 258 tokens in 2.076 seconds, speed: 124.304 t/s 0.06.328.166 I n_accept = 200 0.06.328.167 I accept = 43.103% 
+[07:08:20] p5 stock: eval time =     489.29 ms /    75 runs   (    6.52 ms per token,   153.28 tokens per second)
+[07:08:25] p5 lookup+landscape dm4: 0.04.046.047 I decoded 77 tokens in 0.520 seconds, speed: 147.961 t/s 0.04.046.051 I n_accept = 25 0.04.046.052 I accept = 48.077% 
+[07:08:30] p5 lookup+landscape dm8: 0.03.667.821 I decoded 77 tokens in 0.554 seconds, speed: 139.014 t/s 0.03.667.825 I n_accept = 25 0.03.667.825 I accept = 30.120% 
+[07:08:34] p5 lookup+landscape dm16: 0.03.847.000 I decoded 77 tokens in 0.548 seconds, speed: 140.398 t/s 0.03.847.003 I n_accept = 25 0.03.847.003 I accept = 18.519% 
+[07:08:38] p5 lookup-prompt-only dm8: 0.03.302.314 I decoded 76 tokens in 0.547 seconds, speed: 138.921 t/s 0.03.302.504 I n_accept = 7 0.03.302.525 I accept = 14.583% 
+[07:08:43] p5 1b-draft dm8: 0.04.976.237 I decoded 81 tokens in 0.552 seconds, speed: 146.658 t/s 0.04.976.238 I n_accept = 66 0.04.976.239 I accept = 55.000% 
+[07:08:48] p6 stock: eval time =    1662.01 ms /   255 runs   (    6.52 ms per token,   153.43 tokens per second)
+[07:08:54] p6 lookup+landscape dm4: 0.05.247.836 I decoded 257 tokens in 1.901 seconds, speed: 135.227 t/s 0.05.247.840 I n_accept = 49 0.05.247.840 I accept = 30.625% 
+[07:09:00] p6 lookup+landscape dm8: 0.05.041.287 I decoded 257 tokens in 1.905 seconds, speed: 134.932 t/s 0.05.041.291 I n_accept = 50 0.05.041.292 I accept = 19.763% 
+[07:09:06] p6 lookup+landscape dm16: 0.05.131.415 I decoded 257 tokens in 1.958 seconds, speed: 131.275 t/s 0.05.131.421 I n_accept = 50 0.05.131.421 I accept = 11.442% 
+[07:09:11] p6 lookup-prompt-only dm8: 0.04.467.226 I decoded 257 tokens in 1.850 seconds, speed: 138.910 t/s 0.04.467.230 I n_accept = 19 0.04.467.231 I accept = 11.310% 
+[07:09:17] p6 1b-draft dm8: 0.05.838.213 I decoded 261 tokens in 1.805 seconds, speed: 144.568 t/s 0.05.838.215 I n_accept = 211 0.05.838.215 I accept = 53.418% 
+[07:09:22] p7 stock: eval time =    1378.18 ms /   211 runs   (    6.53 ms per token,   153.10 tokens per second)
+[07:09:28] p7 lookup+landscape dm4: 0.05.249.715 I decoded 205 tokens in 1.528 seconds, speed: 134.124 t/s 0.05.249.720 I n_accept = 37 0.05.249.720 I accept = 33.333% 
+[07:09:33] p7 lookup+landscape dm8: 0.04.850.300 I decoded 205 tokens in 1.529 seconds, speed: 134.059 t/s 0.04.850.304 I n_accept = 37 0.04.850.305 I accept = 19.786% 
+[07:09:39] p7 lookup+landscape dm16: 0.04.677.482 I decoded 205 tokens in 1.565 seconds, speed: 130.995 t/s 0.04.677.486 I n_accept = 37 0.04.677.486 I accept = 10.914% 
+[07:09:44] p7 lookup-prompt-only dm8: 0.04.388.088 I decoded 205 tokens in 1.509 seconds, speed: 135.868 t/s 0.04.388.092 I n_accept = 15 0.04.388.092 I accept = 11.029% 
+[07:09:50] p7 1b-draft dm8: 0.05.765.984 I decoded 213 tokens in 1.577 seconds, speed: 135.051 t/s 0.05.765.985 I n_accept = 169 0.05.765.985 I accept = 48.011% 
+[07:09:54] p8 stock: eval time =      77.23 ms /    11 runs   (    7.02 ms per token,   142.44 tokens per second)
+[07:09:58] p8 lookup+landscape dm4: 0.03.607.897 I decoded 12 tokens in 0.086 seconds, speed: 140.215 t/s 0.03.607.900 I n_accept = 5 0.03.607.901 I accept = 100.000% 
+[07:10:02] p8 lookup+landscape dm8: 0.03.478.432 I decoded 12 tokens in 0.079 seconds, speed: 152.215 t/s 0.03.478.435 I n_accept = 5 0.03.478.435 I accept = 55.556% 
+[07:10:06] p8 lookup+landscape dm16: 0.03.376.522 I decoded 12 tokens in 0.083 seconds, speed: 145.277 t/s 0.03.376.526 I n_accept = 5 0.03.376.526 I accept = 29.412% 
+[07:10:10] p8 lookup-prompt-only dm8: 0.03.092.491 I decoded 12 tokens in 0.079 seconds, speed: 151.485 t/s 0.03.092.494 I n_accept = 4 0.03.092.495 I accept = 50.000% 
+[07:10:15] p8 1b-draft dm8: 0.04.217.847 I decoded 12 tokens in 0.090 seconds, speed: 132.914 t/s 0.04.217.848 I n_accept = 10 0.04.217.849 I accept = 62.500% 
+[07:10:20] p9 stock: eval time =    1665.35 ms /   255 runs   (    6.53 ms per token,   153.12 tokens per second)
+[07:10:25] p9 lookup+landscape dm4: 0.04.917.809 I decoded 257 tokens in 1.751 seconds, speed: 146.743 t/s 0.04.917.812 I n_accept = 66 0.04.917.812 I accept = 42.308% 
+[07:10:31] p9 lookup+landscape dm8: 0.04.927.130 I decoded 219 tokens in 1.518 seconds, speed: 144.273 t/s 0.04.927.133 I n_accept = 58 0.04.927.134 I accept = 25.664% 
+[07:10:36] p9 lookup+landscape dm16: 0.04.790.873 I decoded 219 tokens in 1.562 seconds, speed: 140.171 t/s 0.04.790.878 I n_accept = 58 0.04.790.879 I accept = 15.144% 
+[07:10:41] p9 lookup-prompt-only dm8: 0.04.308.790 I decoded 210 tokens in 1.452 seconds, speed: 144.591 t/s 0.04.308.794 I n_accept = 38 0.04.308.794 I accept = 21.591% 
+[07:10:48] p9 1b-draft dm8: 0.06.676.954 I decoded 265 tokens in 2.359 seconds, speed: 112.319 t/s 0.06.676.955 I n_accept = 198 0.06.676.956 I accept = 37.429% 
+[07:10:53] p10 stock: eval time =    1661.84 ms /   255 runs   (    6.52 ms per token,   153.44 tokens per second)
+[07:10:59] p10 lookup+landscape dm4: 0.05.360.091 I decoded 257 tokens in 1.833 seconds, speed: 140.215 t/s 0.05.360.095 I n_accept = 60 0.05.360.095 I accept = 32.086% 
+[07:11:04] p10 lookup+landscape dm8: 0.04.844.982 I decoded 257 tokens in 1.805 seconds, speed: 142.405 t/s 0.04.844.986 I n_accept = 60 0.04.844.986 I accept = 18.127% 
+[07:11:10] p10 lookup+landscape dm16: 0.04.813.125 I decoded 257 tokens in 1.929 seconds, speed: 133.228 t/s 0.04.813.129 I n_accept = 60 0.04.813.130 I accept = 9.693% 
+[07:11:15] p10 lookup-prompt-only dm8: 0.04.379.318 I decoded 257 tokens in 1.847 seconds, speed: 139.133 t/s 0.04.379.322 I n_accept = 40 0.04.379.323 I accept = 14.085% 
+[07:11:21] p10 1b-draft dm8: 2. **Bond prices and yields**: When a bond's yield increases, its price must decrease to compensate for the higher return. This is because investors can earn a higher return from other investments with similar credit risk, so they are willing to accept a lower price for the bond. 0.06.120.700 I decoded 261 tokens in 2.312 seconds, speed: 112.875 t/s 0.06.120.701 I n_accept = 194 0.06.120.701 I accept = 36.742% 
+[07:11:25] p11 stock: eval time =     118.03 ms /    17 runs   (    6.94 ms per token,   144.03 tokens per second)
+[07:11:28] p11 lookup+landscape dm4: 0.03.126.342 I decoded 18 tokens in 0.130 seconds, speed: 138.087 t/s 0.03.126.345 I n_accept = 4 0.03.126.346 I accept = 44.444% 
+[07:11:32] p11 lookup+landscape dm8: 0.02.999.982 I decoded 18 tokens in 0.132 seconds, speed: 136.071 t/s 0.02.999.985 I n_accept = 4 0.02.999.986 I accept = 23.529% 
+[07:11:36] p11 lookup+landscape dm16: 0.03.349.784 I decoded 18 tokens in 0.153 seconds, speed: 117.526 t/s 0.03.349.788 I n_accept = 4 0.03.349.789 I accept = 15.385% 
+[07:11:39] p11 lookup-prompt-only dm8: 0.02.775.683 I decoded 18 tokens in 0.146 seconds, speed: 123.238 t/s 0.02.775.686 I n_accept = 3 0.02.775.687 I accept = 18.750% 
+[07:11:44] p11 1b-draft dm8: 0.04.356.557 I decoded 22 tokens in 0.171 seconds, speed: 128.978 t/s 0.04.356.559 I n_accept = 18 0.04.356.559 I accept = 56.250% 
+[07:11:49] p12 stock: eval time =    1666.06 ms /   255 runs   (    6.53 ms per token,   153.06 tokens per second)
+[07:11:55] p12 lookup+landscape dm4: 0.04.973.346 I decoded 257 tokens in 1.882 seconds, speed: 136.581 t/s 0.04.973.349 I n_accept = 47 0.04.973.350 I accept = 30.128% 
+[07:12:01] p12 lookup+landscape dm8: 0.05.237.549 I decoded 257 tokens in 1.854 seconds, speed: 138.609 t/s 0.05.237.553 I n_accept = 52 0.05.237.553 I accept = 23.853% 
+[07:12:07] p12 lookup+landscape dm16: 0.05.231.744 I decoded 257 tokens in 1.907 seconds, speed: 134.776 t/s 0.05.231.747 I n_accept = 52 0.05.231.748 I accept = 14.365% 
+[07:12:12] p12 lookup-prompt-only dm8: 0.04.571.879 I decoded 257 tokens in 1.816 seconds, speed: 141.545 t/s 0.04.571.883 I n_accept = 18 0.04.571.884 I accept = 17.647% 
+[07:12:19] p12 1b-draft dm8: 0.06.214.746 I decoded 264 tokens in 1.893 seconds, speed: 139.464 t/s 0.06.214.748 I n_accept = 212 0.06.214.749 I accept = 52.605% 
+[07:12:22] p13 stock: eval time =     227.06 ms /    34 runs   (    6.68 ms per token,   149.74 tokens per second)
+[07:12:27] p13 lookup+landscape dm4: 0.03.511.690 I decoded 35 tokens in 0.245 seconds, speed: 142.668 t/s 0.03.511.693 I n_accept = 9 0.03.511.693 I accept = 50.000% 
+[07:12:31] p13 lookup+landscape dm8: 0.03.274.628 I decoded 35 tokens in 0.251 seconds, speed: 139.668 t/s 0.03.274.632 I n_accept = 9 0.03.274.632 I accept = 30.000% 
+[07:12:35] p13 lookup+landscape dm16: 0.03.565.599 I decoded 35 tokens in 0.254 seconds, speed: 137.720 t/s 0.03.565.608 I n_accept = 9 0.03.565.608 I accept = 16.667% 
+[07:12:39] p13 lookup-prompt-only dm8: 0.03.300.157 I decoded 35 tokens in 0.253 seconds, speed: 138.550 t/s 0.03.300.161 I n_accept = 6 0.03.300.162 I accept = 23.077% 
+[07:12:44] p13 1b-draft dm8: 0.04.522.051 I decoded 36 tokens in 0.167 seconds, speed: 215.222 t/s 0.04.522.052 I n_accept = 32 0.04.522.053 I accept = 100.000% 
+[07:12:47] p14 stock: eval time =     181.24 ms /    27 runs   (    6.71 ms per token,   148.98 tokens per second)
+[07:12:52] p14 lookup+landscape dm4: 0.03.745.496 I decoded 28 tokens in 0.208 seconds, speed: 134.434 t/s 0.03.745.499 I n_accept = 8 0.03.745.500 I accept = 38.095% 
+[07:12:56] p14 lookup+landscape dm8: 0.03.552.838 I decoded 28 tokens in 0.216 seconds, speed: 129.506 t/s 0.03.552.844 I n_accept = 8 0.03.552.845 I accept = 21.622% 
+[07:13:01] p14 lookup+landscape dm16: 0.03.754.064 I decoded 28 tokens in 0.229 seconds, speed: 122.247 t/s 0.03.754.067 I n_accept = 8 0.03.754.068 I accept = 11.594% 
+[07:13:04] p14 lookup-prompt-only dm8: 0.03.232.289 I decoded 28 tokens in 0.217 seconds, speed: 128.976 t/s 0.03.232.292 I n_accept = 4 0.03.232.293 I accept = 12.500% 
+[07:13:09] p14 1b-draft dm8: 0.04.350.929 I decoded 31 tokens in 0.169 seconds, speed: 183.860 t/s 0.04.350.930 I n_accept = 27 0.04.350.931 I accept = 84.375% 
+[07:13:14] p15 stock: eval time =    1663.23 ms /   255 runs   (    6.52 ms per token,   153.32 tokens per second)
+[07:13:20] p15 lookup+landscape dm4: 0.05.139.445 I decoded 257 tokens in 1.706 seconds, speed: 150.621 t/s 0.05.139.449 I n_accept = 67 0.05.139.450 I accept = 44.966% 
+[07:13:25] p15 lookup+landscape dm8: 0.04.885.042 I decoded 257 tokens in 1.720 seconds, speed: 149.451 t/s 0.04.885.049 I n_accept = 72 0.04.885.050 I accept = 27.273% 
+[07:13:32] p15 lookup+landscape dm16: 0.05.330.584 I decoded 257 tokens in 1.783 seconds, speed: 144.110 t/s 0.05.330.589 I n_accept = 73 0.05.330.590 I accept = 15.733% 
+[07:13:37] p15 lookup-prompt-only dm8: 0.04.719.424 I decoded 257 tokens in 1.747 seconds, speed: 147.082 t/s 0.04.719.427 I n_accept = 50 0.04.719.428 I accept = 23.256% 
+[07:13:43] p15 1b-draft dm8: 0.05.915.182 I decoded 265 tokens in 1.516 seconds, speed: 174.821 t/s 0.05.915.184 I n_accept = 224 0.05.915.184 I accept = 68.712% 
+[07:13:48] p16 stock: eval time =    1665.00 ms /   255 runs   (    6.53 ms per token,   153.15 tokens per second)
+[07:13:54] p16 lookup+landscape dm4: 0.05.134.868 I decoded 258 tokens in 1.795 seconds, speed: 143.733 t/s 0.05.134.871 I n_accept = 59 0.05.134.872 I accept = 40.690% 
+[07:14:00] p16 lookup+landscape dm8: 0.05.405.913 I decoded 258 tokens in 1.814 seconds, speed: 142.225 t/s 0.05.405.917 I n_accept = 61 0.05.405.917 I accept = 28.505% 
+[07:14:06] p16 lookup+landscape dm16: 0.05.031.852 I decoded 258 tokens in 1.830 seconds, speed: 140.968 t/s 0.05.031.857 I n_accept = 61 0.05.031.858 I accept = 18.944% 
+[07:14:11] p16 lookup-prompt-only dm8: 0.04.676.032 I decoded 258 tokens in 1.807 seconds, speed: 142.813 t/s 0.04.676.035 I n_accept = 37 0.04.676.036 I accept = 20.670% 
+[07:14:17] p16 1b-draft dm8: 0.05.469.975 I decoded 262 tokens in 1.561 seconds, speed: 167.794 t/s 0.05.469.977 I n_accept = 219 0.05.469.978 I accept = 65.373% 
+[07:14:21] p17 stock: eval time =     106.26 ms /    15 runs   (    7.08 ms per token,   141.16 tokens per second)
+[07:14:25] p17 lookup+landscape dm4: 0.03.629.083 I decoded 17 tokens in 0.130 seconds, speed: 131.165 t/s 0.03.629.087 I n_accept = 7 0.03.629.087 I accept = 43.750% 
+[07:14:29] p17 lookup+landscape dm8: 0.03.480.474 I decoded 17 tokens in 0.105 seconds, speed: 162.290 t/s 0.03.480.477 I n_accept = 8 0.03.480.478 I accept = 33.333% 
+[07:14:33] p17 lookup+landscape dm16: 0.03.302.997 I decoded 17 tokens in 0.119 seconds, speed: 143.047 t/s 0.03.303.001 I n_accept = 8 0.03.303.001 I accept = 16.667% 
+[07:14:36] p17 lookup-prompt-only dm8: 0.02.694.610 I decoded 16 tokens in 0.094 seconds, speed: 169.934 t/s 0.02.694.613 I n_accept = 7 0.02.694.613 I accept = 43.750% 
+[07:14:41] p17 1b-draft dm8: 0.04.271.194 I decoded 18 tokens in 0.100 seconds, speed: 179.499 t/s 0.04.271.195 I n_accept = 16 0.04.271.196 I accept = 100.000% 
+[07:14:46] p18 stock: eval time =    1656.92 ms /   255 runs   (    6.50 ms per token,   153.90 tokens per second)
+[07:14:52] p18 lookup+landscape dm4: 0.05.103.265 I decoded 257 tokens in 1.828 seconds, speed: 140.584 t/s 0.05.103.268 I n_accept = 55 0.05.103.269 I accept = 34.375% 
+[07:14:57] p18 lookup+landscape dm8: 0.05.045.171 I decoded 257 tokens in 1.864 seconds, speed: 137.879 t/s 0.05.045.175 I n_accept = 55 0.05.045.175 I accept = 20.295% 
+[07:15:03] p18 lookup+landscape dm16: 0.04.779.041 I decoded 257 tokens in 1.925 seconds, speed: 133.516 t/s 0.04.779.045 I n_accept = 55 0.04.779.045 I accept = 11.957% 
+[07:15:09] p18 lookup-prompt-only dm8: 0.05.441.850 I decoded 257 tokens in 2.229 seconds, speed: 115.322 t/s 0.05.441.853 I n_accept = 22 0.05.441.853 I accept = 13.750% 
+[07:15:17] p18 1b-draft dm8: 0.06.728.962 I decoded 258 tokens in 2.229 seconds, speed: 115.744 t/s 0.06.728.963 I n_accept = 196 0.06.728.964 I accept = 40.164% 
+[07:15:22] p19 stock: eval time =    1672.23 ms /   255 runs   (    6.56 ms per token,   152.49 tokens per second)
+[07:15:28] p19 lookup+landscape dm4: 0.05.223.953 I decoded 259 tokens in 1.722 seconds, speed: 150.389 t/s 0.05.223.958 I n_accept = 83 0.05.223.959 I accept = 40.488% 
+[07:15:34] p19 lookup+landscape dm8: 0.05.135.848 I decoded 257 tokens in 1.691 seconds, speed: 151.967 t/s 0.05.136.011 I n_accept = 90 0.05.136.033 I accept = 26.549% 
+[07:15:39] p19 lookup+landscape dm16: 0.05.287.898 I decoded 257 tokens in 1.744 seconds, speed: 147.323 t/s 0.05.287.901 I n_accept = 91 0.05.287.902 I accept = 15.217% 
+[07:15:45] p19 lookup-prompt-only dm8: 0.04.655.481 I decoded 257 tokens in 1.661 seconds, speed: 154.766 t/s 0.04.655.484 I n_accept = 83 0.04.655.485 I accept = 27.303% 
+[07:15:51] p19 1b-draft dm8: 0.06.050.915 I decoded 259 tokens in 1.599 seconds, speed: 161.934 t/s 0.06.050.916 I n_accept = 215 0.06.050.917 I accept = 62.865% 
+[07:15:56] p20 stock: eval time =    1660.59 ms /   255 runs   (    6.51 ms per token,   153.56 tokens per second)
+[07:16:02] p20 lookup+landscape dm4: 0.05.314.381 I decoded 257 tokens in 1.887 seconds, speed: 136.213 t/s 0.05.314.385 I n_accept = 46 0.05.314.385 I accept = 27.381% 
+[07:16:08] p20 lookup+landscape dm8: 0.05.199.930 I decoded 257 tokens in 1.920 seconds, speed: 133.849 t/s 0.05.199.934 I n_accept = 49 0.05.199.934 I accept = 18.561% 
+[07:16:14] p20 lookup+landscape dm16: 0.05.476.044 I decoded 257 tokens in 1.944 seconds, speed: 132.201 t/s 0.05.476.198 I n_accept = 49 0.05.476.219 I accept = 10.962% 
+[07:16:19] p20 lookup-prompt-only dm8: 0.04.648.797 I decoded 257 tokens in 1.858 seconds, speed: 138.325 t/s 0.04.648.957 I n_accept = 31 0.04.648.979 I accept = 17.318% 
+[07:16:26] p20 1b-draft dm8: 0.06.024.618 I decoded 265 tokens in 1.774 seconds, speed: 149.371 t/s 0.06.024.620 I n_accept = 217 0.06.024.620 I accept = 56.658% 
+[07:16:31] p21 stock: eval time =    1664.77 ms /   255 runs   (    6.53 ms per token,   153.17 tokens per second)
+[07:16:37] p21 lookup+landscape dm4: 0.05.192.159 I decoded 258 tokens in 1.925 seconds, speed: 134.052 t/s 0.05.192.163 I n_accept = 50 0.05.192.163 I accept = 26.316% 
+[07:16:43] p21 lookup+landscape dm8: 0.05.219.771 I decoded 257 tokens in 1.878 seconds, speed: 136.850 t/s 0.05.219.775 I n_accept = 55 0.05.219.776 I accept = 18.272% 
+[07:16:49] p21 lookup+landscape dm16: 0.04.934.722 I decoded 257 tokens in 1.927 seconds, speed: 133.334 t/s 0.04.934.725 I n_accept = 56 0.04.934.725 I accept = 10.390% 
+[07:16:54] p21 lookup-prompt-only dm8: 0.04.746.460 I decoded 257 tokens in 1.831 seconds, speed: 140.383 t/s 0.04.746.649 I n_accept = 51 0.04.746.675 I accept = 19.392% 
+[07:17:00] p21 1b-draft dm8: 0.05.597.658 I decoded 265 tokens in 1.165 seconds, speed: 227.518 t/s 0.05.597.659 I n_accept = 234 0.05.597.660 I accept = 96.694% 
+[07:17:05] p22 stock: eval time =    1679.29 ms /   255 runs   (    6.59 ms per token,   151.85 tokens per second)
+[07:17:11] p22 lookup+landscape dm4: 0.05.136.151 I decoded 257 tokens in 1.947 seconds, speed: 132.022 t/s 0.05.136.154 I n_accept = 36 0.05.136.155 I accept = 22.930% 
+[07:17:17] p22 lookup+landscape dm8: 0.05.243.673 I decoded 257 tokens in 1.926 seconds, speed: 133.436 t/s 0.05.243.678 I n_accept = 42 0.05.243.678 I accept = 17.500% 
+[07:17:23] p22 lookup+landscape dm16: 0.05.504.211 I decoded 257 tokens in 1.991 seconds, speed: 129.101 t/s 0.05.504.214 I n_accept = 42 0.05.504.215 I accept = 9.906% 
+[07:17:28] p22 lookup-prompt-only dm8: 0.04.590.309 I decoded 257 tokens in 1.881 seconds, speed: 136.598 t/s 0.04.590.312 I n_accept = 26 0.04.590.313 I accept = 14.130% 
+[07:17:35] p22 1b-draft dm8: 0.06.337.649 I decoded 258 tokens in 1.926 seconds, speed: 133.979 t/s 0.06.337.653 I n_accept = 205 0.06.337.654 I accept = 48.926% 
+[07:17:40] p23 stock: eval time =    1671.27 ms /   255 runs   (    6.55 ms per token,   152.58 tokens per second)
+[07:17:46] p23 lookup+landscape dm4: 0.05.523.024 I decoded 257 tokens in 1.973 seconds, speed: 130.263 t/s 0.05.523.194 I n_accept = 11 0.05.523.215 I accept = 12.222% 
+[07:17:52] p23 lookup+landscape dm8: 0.05.326.655 I decoded 258 tokens in 2.000 seconds, speed: 129.012 t/s 0.05.326.659 I n_accept = 11 0.05.326.660 I accept = 8.594% 
+[07:17:59] p23 lookup+landscape dm16: 0.05.493.835 I decoded 258 tokens in 2.037 seconds, speed: 126.640 t/s 0.05.493.840 I n_accept = 11 0.05.493.840 I accept = 5.288% 
+[07:18:03] p23 lookup-prompt-only dm8: 0.04.505.111 I decoded 258 tokens in 1.844 seconds, speed: 139.924 t/s 0.04.505.115 I n_accept = 5 0.04.505.116 I accept = 6.250% 
+[07:18:11] p23 1b-draft dm8: 0.06.791.540 I decoded 257 tokens in 2.756 seconds, speed: 93.249 t/s 0.06.791.541 I n_accept = 179 0.06.791.542 I accept = 29.201% 
+[07:18:16] p24 stock: eval time =    1673.89 ms /   255 runs   (    6.56 ms per token,   152.34 tokens per second)
+[07:18:22] p24 lookup+landscape dm4: 0.05.433.867 I decoded 257 tokens in 1.937 seconds, speed: 132.711 t/s 0.05.433.871 I n_accept = 43 0.05.433.871 I accept = 25.749% 
+[07:18:28] p24 lookup+landscape dm8: 0.05.279.112 I decoded 257 tokens in 2.007 seconds, speed: 128.072 t/s 0.05.279.116 I n_accept = 44 0.05.279.116 I accept = 17.460% 
+[07:18:34] p24 lookup+landscape dm16: 0.05.298.219 I decoded 257 tokens in 1.979 seconds, speed: 129.857 t/s 0.05.298.222 I n_accept = 45 0.05.298.222 I accept = 10.922% 
+[07:18:39] p24 lookup-prompt-only dm8: 0.04.732.270 I decoded 257 tokens in 1.853 seconds, speed: 138.715 t/s 0.04.732.459 I n_accept = 13 0.04.732.486 I accept = 10.744% 
+[07:18:45] p24 1b-draft dm8: 0.05.834.859 I decoded 264 tokens in 1.714 seconds, speed: 153.994 t/s 0.05.834.860 I n_accept = 217 0.05.834.860 I accept = 58.967% 
+[07:18:49] p25 stock: eval time =     809.87 ms /   123 runs   (    6.58 ms per token,   151.88 tokens per second)
+[07:18:54] p25 lookup+landscape dm4: 0.03.985.964 I decoded 124 tokens in 0.928 seconds, speed: 133.550 t/s 0.03.985.968 I n_accept = 5 0.03.985.968 I accept = 15.152% 
+[07:18:59] p25 lookup+landscape dm8: 0.04.161.845 I decoded 111 tokens in 0.838 seconds, speed: 132.462 t/s 0.04.161.849 I n_accept = 4 0.04.161.849 I accept = 5.797% 
+[07:19:04] p25 lookup+landscape dm16: 0.04.289.153 I decoded 111 tokens in 0.862 seconds, speed: 128.840 t/s 0.04.289.304 I n_accept = 4 0.04.289.325 I accept = 3.175% 
+[07:19:08] p25 lookup-prompt-only dm8: 0.03.675.923 I decoded 124 tokens in 0.900 seconds, speed: 137.746 t/s 0.03.675.926 I n_accept = 4 0.03.675.927 I accept = 10.000% 
+[07:19:14] p25 1b-draft dm8: 0.04.939.578 I decoded 125 tokens in 1.256 seconds, speed: 99.507 t/s 0.04.939.579 I n_accept = 90 0.04.939.580 I accept = 32.143% 
+[07:19:14] NGRAM_DONE

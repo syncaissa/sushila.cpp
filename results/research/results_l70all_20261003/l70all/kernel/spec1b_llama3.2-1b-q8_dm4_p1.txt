@@ -1,0 +1,60 @@
+warning: no usable GPU found, --gpu-layers option will be ignored
+warning: one possible reason is that llama.cpp was compiled without GPU support
+warning: consult docs/build.md for compilation instructions
+0.06.125.437 I cmn          init: llama threadpool init, n_threads = 30
+0.06.650.674 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Write a Python function that merges two sorted lists into one sorted list, with comments.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+**Merging Two Sorted Lists**
+================================
+
+Here is a Python function that merges two sorted lists into one sorted list:
+```python
+def merge_sorted_lists(list1, list2):
+    """
+    Merge two sorted lists into one sorted list.
+
+    Args:
+        list1 (list): The first sorted list.
+        list2 (list): The second sorted list.
+
+    Returns:
+        list: The merged sorted list.
+    """
+    # Initialize the result list
+    result = []
+
+    # Initialize indices for both lists
+    i, j = 0, 0
+
+    # Merge smaller elements first
+    while i < len(list1)
+
+0.31.059.949 I encoded   26 tokens in    2.326 seconds, speed:   11.177 t/s
+0.31.059.951 I decoded  133 tokens in   20.948 seconds, speed:    6.349 t/s
+0.31.059.951 I 
+0.31.059.951 I n_draft   = 4
+0.31.059.951 I n_predict = 133
+0.31.059.952 I n_drafted = 114
+0.31.059.952 I n_accept  = 104
+0.31.059.952 I accept    = 91.228%
+0.31.059.952 I 
+0.31.059.953 I draft:
+
+0.31.059.997 I 
+0.31.059.997 I target:
+
+0.31.060.003 I common_perf_print:    sampling time =      30.34 ms
+0.31.060.004 I common_perf_print:    samplers time =      11.79 ms /   133 tokens
+0.31.060.010 I common_perf_print:        load time =    5709.90 ms
+0.31.060.012 I common_perf_print: prompt eval time =   20123.93 ms /   170 tokens (  118.38 ms per token,     8.45 tokens per second)
+0.31.060.013 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.31.060.014 I common_perf_print:       total time =   24409.40 ms /   171 tokens
+0.31.060.015 I common_perf_print: unaccounted time =    4255.13 ms /  17.4 %      (total - sampling - prompt eval - eval) / (total)
+0.31.060.015 I common_perf_print:    graphs reused =         27
+
+

@@ -1,0 +1,24 @@
+0.06.704.899 I Final estimate: PPL = 5.5102 +/- 0.58504
+0.10.471.736 I Final estimate: PPL = 5.5102 +/- 0.58504
+0.11.074.266 I Final estimate: PPL = 5.5102 +/- 0.58504
+/workspace/landscape/ffn_dump/L16:
+total 81280
+drwxr-xr-x 2 root root       77 Oct  2 11:55 .
+drwxr-xr-x 5 root root       54 Oct  2 11:55 ..
+-rw-r--r-- 1 root root 58834944 Oct  2 11:55 blk.16.ffn_down.weight.f32
+-rw-r--r-- 1 root root  8404992 Oct  2 11:55 output.weight.f32
+
+/workspace/landscape/ffn_dump/L28:
+total 81280
+drwxr-xr-x 2 root root       77 Oct  2 11:55 .
+drwxr-xr-x 5 root root       54 Oct  2 11:55 ..
+-rw-r--r-- 1 root root 58834944 Oct  2 11:55 blk.28.ffn_down.weight.f32
+-rw-r--r-- 1 root root  8404992 Oct  2 11:55 output.weight.f32
+
+/workspace/landscape/ffn_dump/L4:
+total 65664
+drwxr-xr-x 2 root root       76 Oct  2 11:55 .
+drwxr-xr-x 5 root root       54 Oct  2 11:55 ..
+-rw-r--r-- 1 root root 58834944 Oct  2 11:55 blk.4.ffn_down.weight.f32
+-rw-r--r-- 1 root root  8404992 Oct  2 11:55 output.weight.f32
+FFN_DUMP_DONE

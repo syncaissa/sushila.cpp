@@ -1,0 +1,32 @@
+0.02.913.535 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Which nation placed its astronauts on the moon first?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The United States placed its astronauts on the moon first.<|eot_id|>
+
+0.03.607.896 I encoded   20 tokens in    0.039 seconds, speed:  822.009 t/s
+0.03.607.897 I decoded   12 tokens in    0.086 seconds, speed:  140.215 t/s
+0.03.607.898 I 
+0.03.607.898 I n_draft      = 4
+0.03.607.898 I n_predict    = 12
+0.03.607.898 I n_drafted    = 5
+0.03.607.899 I t_draft_flat = 509.14 ms
+0.03.607.900 I t_draft      = 0.25 ms, 50.00 us per token, 20000.00 tokens per second
+0.03.607.900 I n_accept     = 5
+0.03.607.901 I accept       = 100.000%
+0.03.607.901 I 
+target:
+
+0.03.607.908 I common_perf_print:    sampling time =       4.15 ms
+0.03.607.909 I common_perf_print:    samplers time =       1.05 ms /    12 tokens
+0.03.607.916 I common_perf_print:        load time =    1813.86 ms
+0.03.607.917 I common_perf_print: prompt eval time =      43.71 ms /    27 tokens (    1.62 ms per token,   617.76 tokens per second)
+0.03.607.918 I common_perf_print:        eval time =      39.08 ms /     4 runs   (    9.77 ms per token,   102.36 tokens per second)
+0.03.607.919 I common_perf_print:       total time =     634.27 ms /    31 tokens
+0.03.607.920 I common_perf_print: unaccounted time =     547.34 ms /  86.3 %      (total - sampling - prompt eval - eval) / (total)
+0.03.607.920 I common_perf_print:    graphs reused =          2
+
+

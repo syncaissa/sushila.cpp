@@ -1,0 +1,47 @@
+0.02.642.103 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+are new year resolutions effective?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+New Year's resolutions can be effective, but their success rate is often debated. Here's a balanced look at the pros and cons:
+
+**Why resolutions can be effective:**
+
+1. **Fresh start**: A new year provides a clean slate, allowing people to reflect on their goals and make positive changes.
+2. **Motivation**: Resolutions can be a powerful motivator, especially when combined with a sense of accountability and a clear plan.
+3. **Goal-setting**: Resolving to make a change can help individuals clarify their priorities and focus on what's truly important.
+4. **Accountability**: Sharing resolutions with friends or family can provide an added sense of responsibility and encouragement.
+
+**Why resolutions often fail:**
+
+1. **Overly ambitious goals**: Setting unrealistic expectations can lead to disappointment and frustration when progress is slow or non-existent.
+2. **Lack of planning**: Without a clear plan and strategy, resolutions can quickly fall by the wayside.
+3. **Unrealistic timelines**: Expecting immediate results or drastic changes can be unsustainable and lead to burnout.
+4. **Lack of accountability**: Without a support system or regular check-ins, it's easy to lose momentum and motivation.
+5. **Unaddressed underlying issues**: Resolutions often focus on symptoms
+
+0.05.219.289 I encoded   16 tokens in    0.037 seconds, speed: 7494.120 t/s
+0.05.219.290 I decoded  258 tokens in    1.992 seconds, speed:  129.506 t/s
+0.05.219.291 I 
+0.05.219.291 I n_draft      = 16
+0.05.219.292 I n_predict    = 258
+0.05.219.292 I n_drafted    = 354
+0.05.219.292 I t_draft_flat = 487.45 ms
+0.05.219.294 I t_draft      = 10.39 ms, 29.36 us per token, 34064.67 tokens per second
+0.05.219.294 I n_accept     = 46
+0.05.219.295 I accept       = 12.994%
+0.05.219.295 I 
+target:
+
+0.05.219.302 I common_perf_print:    sampling time =      74.03 ms
+0.05.219.303 I common_perf_print:    samplers time =      27.57 ms /   258 tokens
+0.05.219.309 I common_perf_print:        load time =    1620.05 ms
+0.05.219.311 I common_perf_print: prompt eval time =     765.84 ms /   432 tokens (    1.77 ms per token,   564.09 tokens per second)
+0.05.219.312 I common_perf_print:        eval time =    1100.28 ms /   149 runs   (    7.38 ms per token,   135.42 tokens per second)
+0.05.219.313 I common_perf_print:       total time =    2517.27 ms /   581 tokens
+0.05.219.314 I common_perf_print: unaccounted time =     577.12 ms /  22.9 %      (total - sampling - prompt eval - eval) / (total)
+0.05.219.314 I common_perf_print:    graphs reused =        115
+
+

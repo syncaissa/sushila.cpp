@@ -1,0 +1,68 @@
+[
+ {
+  "id": 0,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 10.766598188,
+  "decode_seconds": 10.593659,
+  "decode_tok_s": 24.165399320480297,
+  "wall_tok_s": 23.777241012423673,
+  "text": ""
+ },
+ {
+  "id": 1,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 10.693002811,
+  "decode_seconds": 10.586581,
+  "decode_tok_s": 24.181555877199635,
+  "wall_tok_s": 23.9408896195791,
+  "text": ""
+ },
+ {
+  "id": 2,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 165,
+  "seconds": 6.924703755,
+  "decode_seconds": 6.797515,
+  "decode_tok_s": 24.273576446686768,
+  "wall_tok_s": 23.827734129544723,
+  "text": "Hugh Lofting created the famous character Dr. Dolittle, a doctor who can communicate with animals, featured in a series of children's books."
+ },
+ {
+  "id": 3,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 10.660052381,
+  "decode_seconds": 10.576311,
+  "decode_tok_s": 24.205037087128016,
+  "wall_tok_s": 24.014891376733097,
+  "text": ""
+ },
+ {
+  "id": 4,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 10.70512335,
+  "decode_seconds": 10.581086,
+  "decode_tok_s": 24.194113912314858,
+  "wall_tok_s": 23.913783300778128,
+  "text": ""
+ },
+ {
+  "id": 5,
+  "source": "dolly",
+  "ref": null,
+  "tokens": 256,
+  "seconds": 10.73448091,
+  "decode_seconds": 10.589633,
+  "decode_tok_s": 24.17458659804358,
+  "wall_tok_s": 23.848381877647775,
+  "text": ""
+ }
+]

@@ -1,0 +1,68 @@
+[
+ {
+  "id": 0,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 5.984047419,
+  "decode_seconds": 5.646481,
+  "decode_tok_s": 45.33797244690986,
+  "wall_tok_s": 42.780409658381416,
+  "text": "## Aloha from Paradise: More Than Just Beaches in Hawaii!\n\nOkay, deep breaths everyone. I'm back from Hawaii, and I'm *still* processing the sheer beauty and magic of those islands. Everyone pictures Hawaii as turquoise water and golden sand (and yes, there's PLENTY of that!), but my recent trip proved it's SO much more than a postcard-perfect beach destination. It's a place steeped in rich culture, vibrant history, and a spirit of *Aloha* that truly stays with you.\n\nI spent two weeks hopping between Oahu and Maui, and I'm bursting to share my experiences, moving beyond the typical tourist trail and diving into what makes Hawaii truly special. So grab a pineapple smoothie (virtually, of course!) and let's go!\n\n**Oahu: History, Hustle & Heart**\n\nOahu was my first stop, and it\u2019s a fantastic blend of city life and natural wonders. Waikiki is definitely buzzing, but I quickly ventured beyond the hotels to really feel the pulse of the island.\n\n* **Pearl Harbor:** A deeply moving and essential experience. The USS Arizona Memorial is incredibly poignant, and the museums provide a powerful and respectful look at this pivotal moment in history"
+ },
+ {
+  "id": 1,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 81,
+  "seconds": 2.104206346,
+  "decode_seconds": 1.802597,
+  "decode_tok_s": 44.93516853739355,
+  "wall_tok_s": 38.49432359805268,
+  "text": "Subject: Quarterly Financial Report - Feedback Request\n\nDear [Supervisor's Name],\n\nI've completed the Quarterly Financial Report and would appreciate your feedback.\n\nCould you please review it, focusing specifically on the data analysis, presentation style, and clarity of the conclusions drawn?\n\nPlease let me know if a brief meeting to discuss would be helpful.\n\nThank you,\n[Your Name]\n\n\n\n"
+ },
+ {
+  "id": 2,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 5.895460309,
+  "decode_seconds": 5.683206,
+  "decode_tok_s": 45.044997489093305,
+  "wall_tok_s": 43.42324205103897,
+  "text": "## Blog Post Outline: [Phone A] vs. [Phone B] - Which Reigns Supreme?\n\n**I. Introduction**\n* Briefly introduce both phones & target audience.\n* State the post\u2019s aim: a detailed comparison to help readers choose.\n\n**II. Design & Display**\n* **Build Quality & Aesthetics:** Materials, feel in hand.\n* **Display Specs:** Size, resolution, technology (OLED/LCD), brightness.\n* **Ergonomics:** Size & weight impact usability.\n\n**III. Performance & Hardware**\n* **Processor & RAM:** Benchmarks & real-world speed.\n* **Storage Options:** Available capacity & expandability.\n* **Battery Life:** Testing results, charging speed.\n\n**IV. Camera Capabilities**\n* **Hardware Specs:** Megapixels, aperture, sensors.\n* **Photo/Video Quality:** Low-light performance, detail, color accuracy.\n* **Special Features:** Portrait mode, night mode, video stabilization.\n\n**V. Software & User Experience**\n* **Operating System:** iOS vs. Android \u2013 pros/cons.\n* **UI & Features:** Ease of use, customization options.\n\n**VI. Price & Value**\n*"
+ },
+ {
+  "id": 3,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 188,
+  "seconds": 4.495873742,
+  "decode_seconds": 4.143165,
+  "decode_tok_s": 45.375938443195,
+  "wall_tok_s": 41.81612091187591,
+  "text": "Subject: An Opportunity - & I think you'd be *great* at it!\n\nHey [Friend's Name],\n\nThe [Event Name] is looking for speakers on [Topic - relate to friend's expertise], and I immediately thought of you! You *really* know your stuff, and sharing that knowledge could genuinely help people.\n\nI know public speaking isn't your favorite, but this is a small, friendly local event \u2013 not a huge conference. It's more a casual sharing session. Plus, you could pick a really focused topic you're super comfortable with. \n\nThink of it as a chance to quietly *impact* others with your expertise, rather than \"performing.\" I'm happy to help you prep, brainstorm, or even just be there for moral support.\n\nLet me know what you think - no pressure either way!\n\nBest,\n[Your Name]\n\n\n\n"
+ },
+ {
+  "id": 4,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 5.86012546,
+  "decode_seconds": 5.639788,
+  "decode_tok_s": 45.391777137722194,
+  "wall_tok_s": 43.68507154793918,
+  "text": "Old Man Tiber, they called him, though no one knew his true name, or if he even *had* one. He was sculpted from driftwood and regret, all sharp angles and weathered grooves. His skin, the color of sun-bleached coral, stretched taut over bones that seemed borrowed from a heron \u2013 fragile yet enduring. One eye was milky white, perpetually gazing inward, while the other, a startling shard of turquoise, missed nothing. He smelled of brine, decaying seaweed, and something else\u2026 a faint, metallic tang like old coins and lost battles. Tiber wore a coat cobbled together from fishing nets and seagull feathers, constantly shedding a dusting of white as he moved, leaving a ghostly trail on the cobbled docks. \n\nHe spoke in riddles and half-truths, his voice a rasping echo of the waves crashing against the cliffs. Around his neck hung a necklace of polished stones, each said to contain the whisper of a drowned sailor. He wasn\u2019t a beggar, but accepted offerings \u2013 not of coin, but of stories, of sorrows, of things forgotten.  Tiber wasn't *in* the port town, he *was* the port town, a living embodiment of its history, its secrets, and the endless, hungry"
+ },
+ {
+  "id": 5,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 190,
+  "seconds": 4.44360764,
+  "decode_seconds": 4.178515,
+  "decode_tok_s": 45.47069951884821,
+  "wall_tok_s": 42.75805052851156,
+  "text": "The marketplace throbbed with life, a chaotic symphony for the senses. Heaps of vibrant spices \u2013 saffron, turmeric, and chili powder \u2013 painted the stalls in fiery hues, their pungent aromas mingling with the sweet stickiness of dates and the earthy scent of freshly tilled soil clinging to root vegetables. A chorus of voices rose and fell: the hawkers\u2019 insistent calls advertising their wares, the boisterous laughter of bartering customers, the bleating of goats penned nearby, and the rhythmic clang of a blacksmith\u2019s hammer. Sunlight glinted off polished brass lamps and woven baskets overflowing with figs and pomegranates. Richly patterned rugs lay unfurled, a sea of crimson and indigo beneath a canopy of colorful fabrics strung between stalls, dappling the crowd in shifting shadows. Every corner held a new discovery, a new texture, a new scent, drawing you deeper into the vibrant, pulsing heart of the market.\n\n\n\n"
+ }
+]

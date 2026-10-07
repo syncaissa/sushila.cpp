@@ -1,0 +1,46 @@
+0.02.571.656 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What seven houses ruled the Seven Kingdoms before Aegon's Conquest?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+A great question about the world of Westeros!
+
+Before Aegon's Conquest, the Seven Kingdoms were ruled by the following seven houses:
+
+1. **House Stark** (Winterfell) - The North
+2. **House Tully** (Riverrun) - The Riverlands
+3. **House Arryn** (The Eyrie) - The Vale
+4. **House Tyrell** (Highgarden) - The Reach
+5. **House Baratheon** (Storm's End) - The Stormlands
+6. **House Frey** (The Twins) - The Riverlands (specifically, the Freys were a vassal house to the Tullys)
+7. **House Greyjoy** (Pyke) - The Iron Islands (Note: The Iron Islands were not part of the Seven Kingdoms proper, but were a separate entity. However, they were often referred to as one of the Seven Kingdoms.)
+
+These houses were known as the "Seven Kingdoms" because they were the dominant powers in the region, each ruling their own kingdom. However, it's worth noting that the Seven Kingdoms were not a unified entity, and each house was largely independent of the others.
+
+Aegon the Con
+
+0.04.917.807 I encoded   26 tokens in    0.039 seconds, speed: 7245.820 t/s
+0.04.917.809 I decoded  257 tokens in    1.751 seconds, speed:  146.743 t/s
+0.04.917.809 I 
+0.04.917.809 I n_draft      = 4
+0.04.917.810 I n_predict    = 257
+0.04.917.810 I n_drafted    = 156
+0.04.917.810 I t_draft_flat = 497.54 ms
+0.04.917.812 I t_draft      = 7.86 ms, 50.37 us per token, 19852.38 tokens per second
+0.04.917.812 I n_accept     = 66
+0.04.917.812 I accept       = 42.308%
+0.04.917.812 I 
+target:
+
+0.04.917.819 I common_perf_print:    sampling time =      69.38 ms
+0.04.917.820 I common_perf_print:    samplers time =      25.64 ms /   257 tokens
+0.04.917.826 I common_perf_print:        load time =    1630.29 ms
+0.04.917.827 I common_perf_print: prompt eval time =     691.54 ms /   242 tokens (    2.86 ms per token,   349.94 tokens per second)
+0.04.917.828 I common_perf_print:        eval time =     966.71 ms /   130 runs   (    7.44 ms per token,   134.48 tokens per second)
+0.04.917.829 I common_perf_print:       total time =    2289.11 ms /   372 tokens
+0.04.917.829 I common_perf_print: unaccounted time =     561.49 ms /  24.5 %      (total - sampling - prompt eval - eval) / (total)
+0.04.917.830 I common_perf_print:    graphs reused =         96
+
+

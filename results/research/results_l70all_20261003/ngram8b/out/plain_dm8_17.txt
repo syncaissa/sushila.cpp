@@ -1,0 +1,34 @@
+0.02.457.134 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+How many types of cat does the world cat federation recognise?
+
+As of 2023, The International Cat Association (TICA) recognizes 73 standardized breeds, the Cat Fanciers' Association (CFA) recognizes 45, the Fédération Internationale Féline (FIFe) recognizes 50, the Governing Council of the Cat Fancy (GCCF) recognizes 45, and the World Cat Federation (WCF) recognizes 69.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The World Cat Federation (WCF) recognizes 69 types of cat.<|eot_id|>
+
+0.02.694.609 I encoded  103 tokens in    0.062 seconds, speed: 1915.585 t/s
+0.02.694.610 I decoded   16 tokens in    0.094 seconds, speed:  169.934 t/s
+0.02.694.610 I 
+0.02.694.611 I n_draft      = 8
+0.02.694.611 I n_predict    = 16
+0.02.694.611 I n_drafted    = 16
+0.02.694.611 I t_draft_flat = 0.14 ms
+0.02.694.613 I t_draft      = 0.17 ms, 10.81 us per token, 92485.55 tokens per second
+0.02.694.613 I n_accept     = 7
+0.02.694.613 I accept       = 43.750%
+0.02.694.613 I 
+target:
+
+0.02.694.620 I common_perf_print:    sampling time =       5.58 ms
+0.02.694.623 I common_perf_print:    samplers time =       1.66 ms /    16 tokens
+0.02.694.629 I common_perf_print:        load time =    1644.94 ms
+0.02.694.631 I common_perf_print: prompt eval time =      77.91 ms /   121 tokens (    0.64 ms per token,  1553.13 tokens per second)
+0.02.694.632 I common_perf_print:        eval time =      51.68 ms /     6 runs   (    8.61 ms per token,   116.09 tokens per second)
+0.02.694.632 I common_perf_print:       total time =     157.50 ms /   127 tokens
+0.02.694.633 I common_perf_print: unaccounted time =      22.34 ms /  14.2 %      (total - sampling - prompt eval - eval) / (total)
+0.02.694.633 I common_perf_print:    graphs reused =          4
+
+

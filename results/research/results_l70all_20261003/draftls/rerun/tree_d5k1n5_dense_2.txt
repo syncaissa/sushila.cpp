@@ -1,0 +1,51 @@
+0.01.369.924 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.419.687 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.948.063 I cmn          init: llama threadpool init, n_threads = 30
+0.03.048.334 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.525.314 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.04.172.921 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.280.649 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.475.833 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.656.898 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.847.945 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.033.549 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.541.609 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.196.674 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.708.485 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.901.213 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.249.596 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.429.977 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.785.373 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.322.919 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.512.612 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.700.568 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.894.699 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.080.514 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.273.966 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.468.079 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.666.146 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.029.842 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.223.716 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.593.525 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.954.838 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.145.101 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.327.942 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.671.720 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.867.174 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.216.010 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+
+TCP and UDP are two fundamental transport-layer protocols used in the Internet Protocol Suite (TCP/IP). While both protocols are used for data transfer, they have distinct differences in their design, functionality, and use cases.
+
+**TCP (Transmission Control Protocol)**
+
+* **Connection-oriented**: Establishes a connection between the sender and receiver before data transfer begins.
+* **Reliable**: Ensures data is delivered in the correct order, with error-checking and correction mechanisms.
+* **Ordered**: Guarantees that data is delivered in the same order it was sent.
+*
+
+0.14.224.680 I sushila-tree: depth=5 k=1 nt=5 generated 128 tokens in 9.816 s, 12.938 t/s; cycles=55 accepted/cycle=1.33 tokens/cycle=2.33 tree=5.0
+0.14.224.681 I sushila-tree: ms/cycle draft 82.04 verify 90.80 (target decode 90.60) commit 5.62

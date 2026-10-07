@@ -1,0 +1,86 @@
+0.01.255.777 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.304.626 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.999.158 I cmn          init: llama threadpool init, n_threads = 30
+landscape: /workspace/dl/draft.mclp preview vocab=32000 hidden=4096 width=512 candidates=1024 type=q4_0 check=0
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+0.03.240.732 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.724.738 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.04.369.044 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.298.493 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.462.791 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.612.764 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.763.581 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.902.019 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.299.804 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.833.737 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.043.332 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.203.894 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.479.656 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.618.511 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.901.880 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.315.343 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.466.690 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.604.423 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.754.276 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.158.679 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.298.224 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.439.764 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.594.472 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.746.909 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.035.348 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.179.346 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.469.068 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.758.722 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.915.633 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.054.628 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.333.602 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.494.597 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.784.402 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+
+TCP and UDP are two fundamental transport-layer protocols used in the Internet Protocol Suite (TCP/IP). While both protocols are used for data transfer, they have distinct differences in their design, functionality, and use cases.
+
+**TCP (Transmission Control Protocol)**
+
+* **Connection-oriented**: Establishes a connection between the sender and receiver before data transfer begins.
+* **Reliable**: Ensures data is delivered in the correct order, with error-checking and correction mechanisms.
+* **Ordered**: Guarantees that data is delivered in the same order it was sent.
+*
+
+0.12.791.836 I sushila-tree: depth=5 k=1 nt=5 generated 128 tokens in 8.171 s, 15.543 t/s; cycles=58 accepted/cycle=1.21 tokens/cycle=2.21 tree=5.0
+0.12.791.838 I sushila-tree: ms/cycle draft 45.03 verify 91.36 (target decode 91.18) commit 4.48
+landscape: tokens=360 survivors/token=1493.6 stages/token=0.0 read_frac=0.0978 (weights 0.0467 + landscape 0.0512)
+landscape: us/token total=519 setup=168 init=101 stages=22 final=228
+landscape: mean alive after stage k=1..8: 0 0 0 0 0 0 0 0

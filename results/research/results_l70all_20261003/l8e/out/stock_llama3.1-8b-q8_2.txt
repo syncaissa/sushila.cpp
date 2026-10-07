@@ -1,0 +1,37 @@
+0.00.081.008 I llama_completion: llama backend init
+0.00.081.031 I llama_completion: load the model and apply lora adapter, if any
+0.03.689.371 I cmn          init: llama threadpool init, n_threads = 252
+0.03.748.907 I 
+0.03.749.075 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.03.749.080 I 
+0.03.749.238 I sampler seed: 3362871326
+0.03.749.273 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.03.749.281 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.03.749.282 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.03.749.282 I 
+user
+
+Summarize the causes and consequences of the French Revolution.assistant
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event that had far-reaching causes and consequences. Here is a summary:
+
+**Causes of the French Revolution:**
+
+1. **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, which led to a severe financial crisis.
+2. **Social Inequality**: The French society was divided into three estates: the clergy (First Estate), the nobility (Second Estate), and the commoners (Third Estate). The Third Estate, which made up about 98% of the population, was heavily taxed and had limited representation in the government.
+3. **Enlightenment Ideas**: The writings of Enlightenment thinkers such as Rousseau, Voltaire, and Montesquieu spread ideas of liberty, equality, and democracy, inspiring the French people to demand reform.
+4. **Food Shortages**: A series of crop failures and food shortages in the late 18th century led to widespread poverty and discontent.
+5. **Absolute Monarchy**: The absolute power of King Louis XVI and his wife, Marie Antoinette, was resented by the French people, who felt that the monarchy was out of touch with their needs
+
+0.05.759.844 I common_perf_print:    sampling time =      58.90 ms
+0.05.759.845 I common_perf_print:    samplers time =      22.37 ms /   277 tokens
+0.05.759.861 I common_perf_print:        load time =    2790.02 ms
+0.05.759.869 I common_perf_print: prompt eval time =      28.13 ms /    21 tokens (    1.34 ms per token,   746.53 tokens per second)
+0.05.759.871 I common_perf_print:        eval time =    1918.31 ms /   255 runs   (    7.52 ms per token,   132.93 tokens per second)
+0.05.759.871 I common_perf_print:       total time =    2010.96 ms /   276 tokens
+0.05.759.872 I common_perf_print: unaccounted time =       5.62 ms /   0.3 %      (total - sampling - prompt eval - eval) / (total)
+0.05.759.873 I common_perf_print:    graphs reused =        253

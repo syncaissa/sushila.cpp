@@ -1,0 +1,5 @@
+0.05.534.371 I cmn          init: llama threadpool init, n_threads = 30
+
+The process of how a bill becomes a law in the United States is a multi-step process that involves both the legislative and executive branches of government. Here's a
+
+0.21.151.235 I sushila-spec: mode=stock generated 32 tokens in 12.617 s, 2.457 t/s

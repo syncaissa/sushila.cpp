@@ -1,0 +1,41 @@
+0.00.100.037 I llama_completion: llama backend init
+0.00.100.061 I llama_completion: load the model and apply lora adapter, if any
+0.02.899.547 I cmn          init: llama threadpool init, n_threads = 252
+0.02.959.992 I 
+0.02.960.261 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.02.960.262 I 
+0.02.960.468 I sampler seed: 2300571146
+0.02.960.489 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.02.960.501 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.02.960.502 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.02.960.502 I 
+user
+
+If you were the last person on Earth, what thoughts would you leave behind in a diary if future life were to find it?assistant
+
+What a poignant and thought-provoking question! As the last person on Earth, I would pour my heart and soul into this diary, leaving behind a testament to the human experience. Here's a glimpse into my thoughts:
+
+**March 15, 2023**
+
+I can barely believe it's come to this. The world I knew, the world I loved, is gone. I'm left alone, surrounded by the eerie silence of a desolate landscape. The memories of loved ones, friends, and strangers who once filled the streets are now nothing but echoes in my mind. I'm not sure how much longer I can hold on.
+
+**April 10, 2023**
+
+I've been trying to maintain some semblance of routine. I wake up, tend to my garden, and try to find meaning in the mundane tasks. But the weight of my solitude is crushing. I've started talking to myself, arguing with the wind, and even having imaginary conversations with the trees. It's a fragile hold on sanity.
+
+**May 25, 2023**
+
+I've been exploring the ruins of cities, searching for any sign of life. The silence is deafening. I've seen the remnants of civilization: cars, buildings, and streets, all empty and
+
+0.04.755.578 I common_perf_print:    sampling time =      71.07 ms
+0.04.755.580 I common_perf_print:    samplers time =      26.71 ms /   292 tokens
+0.04.755.587 I common_perf_print:        load time =    1834.54 ms
+0.04.755.589 I common_perf_print: prompt eval time =      38.86 ms /    36 tokens (    1.08 ms per token,   926.45 tokens per second)
+0.04.755.590 I common_perf_print:        eval time =    1675.60 ms /   255 runs   (    6.57 ms per token,   152.18 tokens per second)
+0.04.755.591 I common_perf_print:       total time =    1795.61 ms /   291 tokens
+0.04.755.592 I common_perf_print: unaccounted time =      10.08 ms /   0.6 %      (total - sampling - prompt eval - eval) / (total)
+0.04.755.593 I common_perf_print:    graphs reused =        253

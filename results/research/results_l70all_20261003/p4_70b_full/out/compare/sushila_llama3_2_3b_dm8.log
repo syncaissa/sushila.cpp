@@ -1,0 +1,27 @@
+p0: 258 tokens, decode 139.6 tok/s, accept 38.340%
+p1: 259 tokens, decode 140.8 tok/s, accept 39.757%
+p2: 18 tokens, decode 169.8 tok/s, accept 62.500%
+p3: 261 tokens, decode 144.6 tok/s, accept 40.365%
+p4: 261 tokens, decode 184.3 tok/s, accept 55.469%
+p5: 65 tokens, decode 218.1 tok/s, accept 77.778%
+p6: 259 tokens, decode 145.7 tok/s, accept 41.895%
+p7: 86 tokens, decode 166.0 tok/s, accept 50.735%
+p8: 65 tokens, decode 186.8 tok/s, accept 61.364%
+p9: 121 tokens, decode 153.2 tok/s, accept 43.519%
+p10: 265 tokens, decode 172.3 tok/s, accept 49.415%
+p11: 22 tokens, decode 193.0 tok/s, accept 79.167%
+p12: 261 tokens, decode 145.6 tok/s, accept 40.491%
+p13: 34 tokens, decode 231.3 tok/s, accept 93.750%
+p14: 90 tokens, decode 147.5 tok/s, accept 41.071%
+p15: 265 tokens, decode 233.5 tok/s, accept 74.098%
+p16: 258 tokens, decode 141.8 tok/s, accept 39.315%
+p17: 27 tokens, decode 241.1 tok/s, accept 100.000%
+p18: 265 tokens, decode 139.4 tok/s, accept 38.269%
+p19: 261 tokens, decode 177.7 tok/s, accept 54.082%
+p20: 258 tokens, decode 186.4 tok/s, accept 57.493%
+p21: 265 tokens, decode 257.0 tok/s, accept 83.942%
+p22: 265 tokens, decode 196.0 tok/s, accept 60.497%
+p23: 258 tokens, decode 138.4 tok/s, accept 36.711%
+p24: 257 tokens, decode 200.8 tok/s, accept 66.154%
+p25: 218 tokens, decode 158.2 tok/s, accept 45.479%
+4922 tokens: 165.9 tok/s decode (median per prompt 171.1)

@@ -1,0 +1,80 @@
++ R=/workspace/Monte-Carlo-AI-Inference
++ W=/workspace/mc-work
++ S=/workspace/moe
++ B2=/workspace/build2
++ cmake -S /workspace/Monte-Carlo-AI-Inference/llama.cpp -B /workspace/build2 -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=OFF -DGGML_NATIVE=ON -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_USE_PREBUILT_UI=OFF
++ cmake --build /workspace/build2 -j 16 --target llama-perplexity
++ B=/workspace/build2/bin
++ M=/workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf
++ export GGUF_PY=/workspace/Monte-Carlo-AI-Inference/llama.cpp/gguf-py
++ GGUF_PY=/workspace/Monte-Carlo-AI-Inference/llama.cpp/gguf-py
++ mkdir -p /workspace/moe/dump_gate_train
++ GGML_MC_MODE=exact
++ GGML_MC_TENSORS=ffn_gate_inp
++ GGML_MC_DUMP=/workspace/moe/dump_gate_train
++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.train.raw -c 512 -t 16 --chunks 4 -ngl 0 --no-repack --no-op-offload
++ grep Final
+0.52.461.198 I Final estimate: PPL = 10.6508 +/- 0.94508
++ OMP_NUM_THREADS=8
++ python3 /workspace/moe/moe_layer_budget.py /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf /workspace/moe/dump_gate_train 6,5.5,5,4.5,4
++ cat /workspace/moe/budgets.txt
+48 layers, k = 8, 1025 calibration tokens per layer
+share lost keeping 6 experts, per layer: 0.128 0.131 0.133 0.138 0.136 0.138 0.155 0.145 0.144 0.149 0.150 0.149 0.157 0.152 0.157 0.153 0.147 0.151 0.150 0.145 0.151 0.157 0.158 0.162 0.168 0.163 0.163 0.159 0.152 0.155 0.150 0.140 0.147 0.150 0.155 0.148 0.155 0.147 0.146 0.155 0.154 0.147 0.145 0.151 0.149 0.152 0.163 0.148
+target 6.0: mean 6.00, min 5, max 7, mean share lost 0.1495 (uniform: 0.1500)
+LLAMA_MOE_LAYER_K_6.0=5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,7,6
+target 5.5: mean 5.50, min 5, max 6, mean share lost 0.1929 (uniform: nan)
+LLAMA_MOE_LAYER_K_5.5=5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,5,5,6,5,5,5,6,6,6,6,6,6,6,6,6,5,5,5,5,6,5,6,6,5,6,6,6,5,6,6,6,6,6
+target 5.0: mean 5.00, min 4, max 6, mean share lost 0.2388 (uniform: 0.2390)
+LLAMA_MOE_LAYER_K_5.0=5,4,5,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6
+target 4.5: mean 4.50, min 4, max 5, mean share lost 0.2884 (uniform: nan)
+LLAMA_MOE_LAYER_K_4.5=4,4,4,4,4,4,4,4,4,4,4,4,5,5,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,4,4,4,4,5,4,5,5,5,5,5,5,5,5,5,5,5,5
+target 4.0: mean 4.00, min 3, max 5, mean share lost 0.3409 (uniform: 0.3410)
+LLAMA_MOE_LAYER_K_4.0=4,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5
++ T=/workspace/mc-work/data/wikitext-2-raw/wiki.test.raw
++ for tgt in 6 5.5 5 4.5 4
+++ grep '^LLAMA_MOE_LAYER_K_6=' /workspace/moe/budgets.txt
+++ cut -d= -f2
++ K=
+++ LLAMA_MOE_LAYER_K=
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack
+++ grep Final
++ echo 'per-layer target 6: 3.17.810.471 I Final estimate: PPL = 7.5398 +/- 0.28135'
+per-layer target 6: 3.17.810.471 I Final estimate: PPL = 7.5398 +/- 0.28135
++ for tgt in 6 5.5 5 4.5 4
+++ grep '^LLAMA_MOE_LAYER_K_5.5=' /workspace/moe/budgets.txt
+++ cut -d= -f2
++ K=5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,5,5,6,5,5,5,6,6,6,6,6,6,6,6,6,5,5,5,5,6,5,6,6,5,6,6,6,5,6,6,6,6,6
+++ LLAMA_MOE_LAYER_K=5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,5,5,6,5,5,5,6,6,6,6,6,6,6,6,6,5,5,5,5,6,5,6,6,5,6,6,6,5,6,6,6,6,6
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack
+++ grep Final
++ echo 'per-layer target 5.5: 3.16.083.949 I Final estimate: PPL = 7.6218 +/- 0.28225'
+per-layer target 5.5: 3.16.083.949 I Final estimate: PPL = 7.6218 +/- 0.28225
++ for tgt in 6 5.5 5 4.5 4
+++ grep '^LLAMA_MOE_LAYER_K_5=' /workspace/moe/budgets.txt
+++ cut -d= -f2
++ K=
+++ LLAMA_MOE_LAYER_K=
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack
+++ grep Final
++ echo 'per-layer target 5: 3.09.242.776 I Final estimate: PPL = 7.5398 +/- 0.28135'
+per-layer target 5: 3.09.242.776 I Final estimate: PPL = 7.5398 +/- 0.28135
++ for tgt in 6 5.5 5 4.5 4
+++ grep '^LLAMA_MOE_LAYER_K_4.5=' /workspace/moe/budgets.txt
+++ cut -d= -f2
++ K=4,4,4,4,4,4,4,4,4,4,4,4,5,5,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,4,4,4,4,5,4,5,5,5,5,5,5,5,5,5,5,5,5
+++ LLAMA_MOE_LAYER_K=4,4,4,4,4,4,4,4,4,4,4,4,5,5,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,4,4,4,4,5,4,5,5,5,5,5,5,5,5,5,5,5,5
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack
+++ grep Final
++ echo 'per-layer target 4.5: 3.03.192.363 I Final estimate: PPL = 8.1187 +/- 0.30146'
+per-layer target 4.5: 3.03.192.363 I Final estimate: PPL = 8.1187 +/- 0.30146
++ for tgt in 6 5.5 5 4.5 4
+++ grep '^LLAMA_MOE_LAYER_K_4=' /workspace/moe/budgets.txt
+++ cut -d= -f2
++ K=
+++ LLAMA_MOE_LAYER_K=
+++ /workspace/build2/bin/llama-perplexity -m /workspace/mc-work/models/qwen3-30b-a3b-q4km.gguf -f /workspace/mc-work/data/wikitext-2-raw/wiki.test.raw -c 512 -t 16 --chunks 20 -ngl 0 --no-repack
+++ grep Final
++ echo 'per-layer target 4: 3.08.568.415 I Final estimate: PPL = 7.5398 +/- 0.28135'
+per-layer target 4: 3.08.568.415 I Final estimate: PPL = 7.5398 +/- 0.28135
++ echo MOE3_DONE
+MOE3_DONE

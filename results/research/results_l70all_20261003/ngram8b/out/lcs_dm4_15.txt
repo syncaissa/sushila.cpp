@@ -1,0 +1,46 @@
+0.02.851.348 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Why is it important to brush and floss your teeth everyday?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Brushing and flossing your teeth every day is crucial for maintaining good oral health and preventing various dental problems. Here are some reasons why:
+
+**Why Brushing is Important:**
+
+1. **Removes Plaque and Bacteria**: Brushing helps remove plaque, a sticky film of bacteria, from your teeth. If left unchecked, plaque can lead to tooth decay and gum disease.
+2. **Prevents Tooth Decay**: Brushing helps remove food particles and sugars that can contribute to tooth decay.
+3. **Gum Health**: Brushing helps prevent gum disease by removing plaque and bacteria that can cause inflammation and infection.
+4. **Fresh Breath**: Brushing helps remove bacteria that can cause bad breath (halitosis).
+5. **Boosts Confidence**: A clean, healthy smile can boost your confidence and self-esteem.
+
+**Why Flossing is Important:**
+
+1. **Removes Food Particles**: Flossing helps remove food particles and plaque from between your teeth and under your gumline, where a toothbrush can't reach.
+2. **Prevents Gum Disease**: Flossing helps prevent gum disease by removing plaque and bacteria that can cause inflammation and infection.
+3. **Reduces Risk of Gingivitis**: Flossing helps reduce the risk
+
+0.05.139.443 I encoded   23 tokens in    0.036 seconds, speed: 7742.721 t/s
+0.05.139.445 I decoded  257 tokens in    1.706 seconds, speed:  150.621 t/s
+0.05.139.446 I 
+0.05.139.446 I n_draft      = 4
+0.05.139.446 I n_predict    = 257
+0.05.139.447 I n_drafted    = 149
+0.05.139.447 I t_draft_flat = 484.34 ms
+0.05.139.449 I t_draft      = 5.89 ms, 39.52 us per token, 25305.71 tokens per second
+0.05.139.449 I n_accept     = 67
+0.05.139.450 I accept       = 44.966%
+0.05.139.450 I 
+target:
+
+0.05.139.456 I common_perf_print:    sampling time =      72.52 ms
+0.05.139.457 I common_perf_print:    samplers time =      30.84 ms /   257 tokens
+0.05.139.463 I common_perf_print:        load time =    1875.03 ms
+0.05.139.465 I common_perf_print: prompt eval time =     648.66 ms /   226 tokens (    2.87 ms per token,   348.41 tokens per second)
+0.05.139.466 I common_perf_print:        eval time =     982.06 ms /   135 runs   (    7.27 ms per token,   137.47 tokens per second)
+0.05.139.467 I common_perf_print:       total time =    2227.92 ms /   361 tokens
+0.05.139.468 I common_perf_print: unaccounted time =     524.68 ms /  23.6 %      (total - sampling - prompt eval - eval) / (total)
+0.05.139.468 I common_perf_print:    graphs reused =        104
+
+

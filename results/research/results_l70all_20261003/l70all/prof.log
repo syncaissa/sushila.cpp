@@ -1,0 +1,8 @@
+[04:37:52] stage A paused for profiling
+[04:39:15] stock t30: mode=stock generated 32 tokens in 12.617 s, 2.457 t/s
+[04:41:08] sparse b0.5 t30: mode=lossy-sparse generated 32 tokens in 11.276 s, 2.749 t/s sparse: calls=4480 cols_frac=0.5037 bytes_frac=0.5016 us/call=645.9 (excluding 88.1 s building the copies) sparse: us/call mean (max) over 30 threads: select 61.8 (100.6) accumulate 399.9 (422.5) wait 149.4 (189.5) reduce 33.7 (39.6) 
+[04:43:03] sparse b1.0 t30: mode=lossy-sparse generated 32 tokens in 12.608 s, 2.459 t/s sparse: calls=4480 cols_frac=1.0000 bytes_frac=1.0000 us/call=949.6 (excluding 87.8 s building the copies) sparse: us/call mean (max) over 30 threads: select 24.9 (32.6) accumulate 688.0 (786.6) wait 207.1 (321.3) reduce 34.6 (38.0) 
+[04:43:30] stock t16: mode=stock generated 32 tokens in 12.949 s, 2.394 t/s
+[04:45:38] sparse b0.5 t16: mode=lossy-sparse generated 32 tokens in 13.296 s, 2.332 t/s sparse: calls=4480 cols_frac=0.5036 bytes_frac=0.5015 us/call=783.7 (excluding 99.1 s building the copies) sparse: us/call mean (max) over 16 threads: select 60.5 (95.2) accumulate 568.1 (627.2) wait 136.8 (225.4) reduce 21.7 (26.4) 
+[04:47:47] sparse b1.0 t16: mode=lossy-sparse generated 32 tokens in 14.346 s, 2.161 t/s sparse: calls=4480 cols_frac=1.0000 bytes_frac=1.0000 us/call=1130.7 (excluding 100.6 s building the copies) sparse: us/call mean (max) over 16 threads: select 22.6 (30.2) accumulate 917.0 (940.2) wait 175.0 (198.5) reduce 19.0 (21.1) 
+[04:47:47] PROF_DONE

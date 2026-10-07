@@ -1,0 +1,94 @@
+0.01.220.862 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.266.992 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.866.121 I cmn          init: llama threadpool init, n_threads = 30
+landscape: /workspace/dl/draft.mclp preview vocab=32000 hidden=4096 width=768 candidates=1024 type=q4_0 check=0
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+0.03.099.703 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.596.501 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.04.247.177 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.163.423 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.507.111 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.850.175 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.187.147 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.529.240 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.871.150 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.210.815 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.556.443 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.232.537 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.590.990 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.936.398 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.338.207 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.689.460 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.035.742 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.711.274 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.058.873 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.401.737 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.749.937 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.096.455 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.441.374 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.791.093 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.142.188 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.497.831 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.844.722 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.192.540 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.547.887 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.893.987 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.15.245.436 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.15.630.086 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+**Merging Two Sorted Lists in Python**
+=====================================
+
+Here's a Python function that merges two sorted lists into one sorted list. This function uses a two-pointer technique to compare elements from both lists and add the smaller one to the result list.
+
+```python
+def merge_sorted_lists(list1, list2):
+    """
+    Merge two sorted lists into one sorted list.
+
+    Args:
+        list1 (list): The first sorted list.
+        list2 (list): The second sorted list.
+
+    Returns:
+        list: A new sorted list containing all elements from both input lists.
+    """
+    # Initialize the result list
+
+
+0.15.637.856 I sushila-tree: depth=4 k=4 nt=16 generated 128 tokens in 11.152 s, 11.388 t/s; cycles=32 accepted/cycle=3.00 tokens/cycle=4.00 tree=16.0
+0.15.637.858 I sushila-tree: ms/cycle draft 61.99 verify 278.74 (target decode 278.38) commit 7.77
+landscape: tokens=512 survivors/token=1493.8 stages/token=0.0 read_frac=0.1234 (weights 0.0467 + landscape 0.0767)
+landscape: us/token total=549 setup=170 init=111 stages=24 final=244
+landscape: mean alive after stage k=1..8: 0 0 0 0 0 0 0 0

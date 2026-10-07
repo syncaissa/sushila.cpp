@@ -1,0 +1,56 @@
+0.03.355.775 I cmn          init: llama threadpool init, n_threads = 252
+0.03.410.019 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What are the main differences between TCP and UDP? Give examples of when to use each.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+
+TCP and UDP are two fundamental transport-layer protocols used in the Internet Protocol Suite (TCP/IP). While both protocols enable data transfer between devices, they differ significantly in their approach to ensuring reliable data transfer.
+
+**TCP (Transmission Control Protocol)**
+
+TCP is a connection-oriented protocol, which means it establishes a dedicated connection between the sender and receiver before data transfer begins. This connection is maintained throughout the data transfer process.
+
+Key characteristics of TCP:
+
+* **Reliable**: TCP ensures that data is delivered in the correct order, without duplication or loss.
+* **Ordered**: TCP guarantees that data is delivered in the same order it was sent.
+* **Error-checked**: TCP includes error-checking mechanisms to detect and correct errors.
+* **Flow control**: TCP regulates the amount of data sent to prevent network congestion.
+* **Connection-oriented**: TCP establishes a dedicated connection before data transfer begins.
+
+**UDP (User Datagram Protocol)**
+
+UDP is a connectionless protocol, which means it does not establish a dedicated connection before data transfer begins. Instead, UDP sends data packets (called datagrams) without guaranteeing delivery or order.
+
+Key characteristics of UDP:
+
+* **Unreliable**: UDP does not guarantee delivery or order of data packets
+
+0.06.337.648 I encoded   28 tokens in    0.044 seconds, speed:  631.912 t/s
+0.06.337.649 I decoded  258 tokens in    1.926 seconds, speed:  133.979 t/s
+0.06.337.649 I 
+0.06.337.650 I n_draft   = 8
+0.06.337.650 I n_predict = 258
+0.06.337.653 I n_drafted = 419
+0.06.337.653 I n_accept  = 205
+0.06.337.654 I accept    = 48.926%
+0.06.337.654 I 
+0.06.337.654 I draft:
+
+0.06.337.695 I 
+0.06.337.695 I target:
+
+0.06.337.701 I common_perf_print:    sampling time =      67.33 ms
+0.06.337.701 I common_perf_print:    samplers time =      25.50 ms /   258 tokens
+0.06.337.707 I common_perf_print:        load time =    1844.36 ms
+0.06.337.709 I common_perf_print: prompt eval time =     828.60 ms /   501 tokens (    1.65 ms per token,   604.63 tokens per second)
+0.06.337.711 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.06.337.711 I common_perf_print:       total time =    2927.79 ms /   502 tokens
+0.06.337.712 I common_perf_print: unaccounted time =    2031.87 ms /  69.4 %      (total - sampling - prompt eval - eval) / (total)
+0.06.337.712 I common_perf_print:    graphs reused =         50
+
+

@@ -1,0 +1,38 @@
+-- llama.cpp version: 0.5.0-dev
+CMAKE_BUILD_TYPE=Release
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+-- Warning: ccache not found - consider installing it for faster compilation or disable this warning with GGML_CCACHE=OFF
+-- CMAKE_SYSTEM_PROCESSOR: x86_64
+-- GGML_SYSTEM_ARCH: x86
+-- Including CPU backend
+-- x86 detected
+-- Adding CPU backend variant ggml-cpu: -march=native 
+-- Unable to find cublas_v2.h in either "/usr/local/cuda/include" or "/usr/math_libs/include"
+-- CUDA Toolkit found
+-- Using CMAKE_CUDA_ARCHITECTURES=80 CMAKE_CUDA_ARCHITECTURES_NATIVE=
+-- FlashAttention K-V type combinations: f16-f16;q4_0-q4_0;q8_0-q8_0;bf16-bf16
+-- Could NOT find NCCL (missing: NCCL_LIBRARY NCCL_INCLUDE_DIR) 
+-- Warning: NCCL not found, performance for multiple CUDA GPUs will be suboptimal
+-- CUDA host compiler is GNU 11.4.0
+-- Including CUDA backend
+-- ggml version: 0.25.3
+-- ggml commit:  unknown
+-- OpenSSL found: 3.0.2
+CMake Warning at common/CMakeLists.txt:33 (message):
+  Git repository not found; to enable automatic generation of build info,
+  make sure Git is installed and the project is a Git repository.
+
+
+-- Generating embedded license file for target: llama-app
+-- Configuring done
+CMake Error at ggml/src/CMakeLists.txt:394 (add_library):
+  Target "ggml-cuda" links to target "CUDA::cublas" but the target was not
+  found.  Perhaps a find_package() call is missing for an IMPORTED target, or
+  an ALIAS target is missing?
+Call Stack (most recent call first):
+  ggml/src/ggml-cuda/CMakeLists.txt:131 (ggml_add_backend_library)
+
+
+-- Generating done
+CMake Generate step failed.  Build files cannot be regenerated correctly.

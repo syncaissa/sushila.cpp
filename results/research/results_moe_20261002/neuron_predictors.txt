@@ -1,0 +1,54 @@
+layer 8: 128 experts, 768 neurons, hidden 2048; fit 2050 tokens, test 1026 tokens x 8 experts
+  recomputed a matches the dumped a: median relative difference 1.39e-02
+  b=0.5: median relative error of the expert output (bytes per expert, gate-first)
+     oracle   0.135   bytes 1.00  (oracle needs a; reads all)
+     gate     0.316   bytes 0.67
+     pca32    0.435   bytes 0.69
+     pca64    0.424   bytes 0.70
+     pca128   0.404   bytes 0.74
+     wsvd32   0.411   bytes 0.73
+     wsvd64   0.385   bytes 0.80
+  b=0.3: median relative error of the expert output (bytes per expert, gate-first)
+     oracle   0.279   bytes 1.00  (oracle needs a; reads all)
+     gate     0.508   bytes 0.53
+     pca32    0.586   bytes 0.55
+     pca64    0.575   bytes 0.57
+     pca128   0.551   bytes 0.61
+     wsvd32   0.555   bytes 0.60
+     wsvd64   0.523   bytes 0.67
+layer 24: 128 experts, 768 neurons, hidden 2048; fit 2050 tokens, test 1026 tokens x 8 experts
+  recomputed a matches the dumped a: median relative difference 1.33e-02
+  b=0.5: median relative error of the expert output (bytes per expert, gate-first)
+     oracle   0.141   bytes 1.00  (oracle needs a; reads all)
+     gate     0.340   bytes 0.67
+     pca32    0.437   bytes 0.69
+     pca64    0.425   bytes 0.70
+     pca128   0.408   bytes 0.74
+     wsvd32   0.411   bytes 0.73
+     wsvd64   0.379   bytes 0.80
+  b=0.3: median relative error of the expert output (bytes per expert, gate-first)
+     oracle   0.286   bytes 1.00  (oracle needs a; reads all)
+     gate     0.522   bytes 0.53
+     pca32    0.582   bytes 0.55
+     pca64    0.567   bytes 0.57
+     pca128   0.548   bytes 0.61
+     wsvd32   0.549   bytes 0.60
+     wsvd64   0.515   bytes 0.67
+layer 40: 128 experts, 768 neurons, hidden 2048; fit 2050 tokens, test 1026 tokens x 8 experts
+  recomputed a matches the dumped a: median relative difference 1.68e-02
+  b=0.5: median relative error of the expert output (bytes per expert, gate-first)
+     oracle   0.122   bytes 1.00  (oracle needs a; reads all)
+     gate     0.323   bytes 0.67
+     pca32    0.339   bytes 0.69
+     pca64    0.325   bytes 0.70
+     pca128   0.310   bytes 0.74
+     wsvd32   0.313   bytes 0.73
+     wsvd64   0.292   bytes 0.80
+  b=0.3: median relative error of the expert output (bytes per expert, gate-first)
+     oracle   0.242   bytes 1.00  (oracle needs a; reads all)
+     gate     0.450   bytes 0.53
+     pca32    0.459   bytes 0.55
+     pca64    0.442   bytes 0.57
+     pca128   0.423   bytes 0.61
+     wsvd32   0.429   bytes 0.60
+     wsvd64   0.400   bytes 0.67

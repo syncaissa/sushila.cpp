@@ -1,0 +1,20 @@
+layer 8: 1026 tokens, 128 experts, 8 active, 768 neurons per expert, hidden 2048
+  router recomputed from x matches the dumped expert ids on 100.0% of tokens
+  1. within-expert: relative error of W_e a keeping the top fraction b of neurons
+     b=0.1: median 0.546  mean 0.532
+     b=0.2: median 0.388  mean 0.379
+     b=0.3: median 0.278  mean 0.273
+     b=0.5: median 0.135  mean 0.133
+     b=0.7: median 0.050  mean 0.050
+  2. expert-level: relative error of the MoE output dropping the m least important active experts
+     drop 1 of 8 by router weight: median 0.113  mean 0.122
+     drop 1 of 8 by contribution : median 0.107  mean 0.112
+     drop 2 of 8 by router weight: median 0.180  mean 0.189
+     drop 2 of 8 by contribution : median 0.173  mean 0.177
+     drop 3 of 8 by router weight: median 0.246  mean 0.256
+     drop 3 of 8 by contribution : median 0.241  mean 0.243
+     drop 4 of 8 by router weight: median 0.325  mean 0.332
+     drop 4 of 8 by contribution : median 0.317  mean 0.318
+  3. batch union: neuron rows read / rows of every used expert, random batches of B tokens
+     b=0.3: B=1: 0.30 (8 experts)  B=4: 0.39 (21 experts)  B=16: 0.51 (45 experts)  B=64: 0.68 (66 experts)  B=256: 0.82 (83 experts)
+     b=0.5: B=1: 0.50 (8 experts)  B=4: 0.59 (22 experts)  B=16: 0.70 (46 experts)  B=64: 0.83 (69 experts)  B=256: 0.92 (82 experts)

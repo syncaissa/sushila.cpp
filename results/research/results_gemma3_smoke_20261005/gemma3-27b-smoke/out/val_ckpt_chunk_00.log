@@ -1,0 +1,7 @@
+p0: 256 tokens, 38.2 tok/s, 1.03 tokens per pass
+p1: 158 tokens, 37.9 tok/s, 1.03 tokens per pass
+p2: 43 tokens, 37.9 tok/s, 1.13 tokens per pass
+p3: 38 tokens, 35.6 tok/s, 1.06 tokens per pass
+p4: 256 tokens, 39.3 tok/s, 1.06 tokens per pass
+p5: 256 tokens, 38.6 tok/s, 1.04 tokens per pass
+1007 tokens in 26.2 s = 38.4 tok/s (median per prompt 38.1)

@@ -1,0 +1,36 @@
+0.07.143.380 I cmn          init: llama threadpool init, n_threads = 30
+sparse: budget=0.400 layers=0-1073741824 tensors=all seven
+0.10.391.458 I sushila-spec: copies built in 0.5 s (not counted)
+
+
+
+**Merging Two Sorted Lists**
+================================
+
+Here is a Python function that merges two sorted lists into one sorted list:
+
+```python
+def merge_sorted_lists(list1, list2):
+    """
+    Merge two sorted lists into one sorted list.
+
+    Args:
+        list1 (list): The first sorted list.
+        list2 (list): The second sorted list.
+
+    Returns:
+        list: The merged sorted list.
+    """
+    # Initialize the result list
+    result = []
+
+    # Initialize indices for both lists
+    i, j = 0, 0
+
+    # Merge smaller elements first
+    while i
+
+1.01.796.858 I sushila-spec: mode=self-speculative generated 128 tokens in 51.405 s, 2.471 t/s
+1.01.796.859 I sushila-spec: draft-max=3 cycles=33 drafted=99 accepted=95 accept=0.960 tokens/cycle=3.88
+sparse: calls=56003 cols_frac=0.4009 bytes_frac=0.4003 us/call=526.5 (excluding 0.0 s building the copies)
+sparse: us/call select 128.5 accumulate 255.6 (thread 0)

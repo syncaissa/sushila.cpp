@@ -1,0 +1,68 @@
+[
+ {
+  "id": 0,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 5.823200995,
+  "decode_seconds": 5.579055,
+  "decode_tok_s": 45.88590720112994,
+  "wall_tok_s": 43.96207519194518,
+  "text": "## Aloha State of Mind: Beyond the Beaches in Hawaii\n\nOkay, deep breaths everyone. I'm back from Hawaii, and honestly, I'm still processing the sheer *magic* of those islands. Forget everything you think you know about Hawaii being just beaches and Mai Tais (though, yes, there are *plenty* of both!). This trip was about diving deeper, connecting with the culture, and experiencing the true spirit of Aloha. And let me tell you, it was transformative.\n\nI spent two weeks hopping between Oahu and Maui, and while both islands are stunningly beautiful, they offer distinctly different vibes. Here's a breakdown of my adventures, focusing on the experiences that truly resonated:\n\n**Oahu: History, Hustle & Heart**\n\nOahu is the most populated island, and it definitely feels more energetic. Honolulu is a vibrant city, but even amidst the modern bustle, the history and traditions are palpable. \n\n* **Pearl Harbor:** A sobering and incredibly moving experience. The USS Arizona Memorial is a must-visit, offering a powerful reminder of a pivotal moment in history. Book your tickets well in advance!\n* **Polynesian Cultural Center:** This isn't just a tourist attraction; it's an"
+ },
+ {
+  "id": 1,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 88,
+  "seconds": 2.010044441,
+  "decode_seconds": 1.907468,
+  "decode_tok_s": 46.13445677725655,
+  "wall_tok_s": 43.780126550943265,
+  "text": "Subject: Quarterly Financial Report - Feedback Request\n\nDear [Supervisor's Name],\n\nI've completed the Quarterly Financial Report and would appreciate your feedback. \n\nSpecifically, I'm interested in your thoughts on the data analysis, the report's presentation style, and the clarity of the conclusions drawn.\n\nPlease let me know when would be a good time to discuss it.\n\nThank you,\n\n[Your Name]\n\n\n\n"
+ },
+ {
+  "id": 2,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 5.781517502,
+  "decode_seconds": 5.577177,
+  "decode_tok_s": 45.901358339532706,
+  "wall_tok_s": 44.27903226297282,
+  "text": "## Blog Post Outline: [Phone A] vs. [Phone B] - Which Reigns Supreme?\n\n**I. Introduction**\n* Briefly introduce both phones & target audience.\n* State the post's goal: a comprehensive comparison.\n\n**II. Design & Display**\n* **Build Quality & Aesthetics:** Materials, feel in hand.\n* **Display Specs:** Size, resolution, technology (OLED vs LCD).\n* **Ergonomics:** Comfort, one-handed use.\n\n**III. Performance & Hardware**\n* **Processor & RAM:** Benchmarks & real-world speed.\n* **Storage Options:** Available capacities.\n* **Battery Life:** Testing results, charging speed.\n\n**IV. Camera Capabilities**\n* **Hardware Specs:** Megapixels, aperture, sensors.\n* **Photo/Video Quality:** Sample comparisons (daylight, low-light).\n* **Special Features:** Portrait mode, night mode, video stabilization.\n\n**V. Software & User Experience**\n* **Operating System:** Android version, UI differences.\n* **Key Features:** Unique software perks.\n* **Ease of Use:** Intuitive navigation, customization.\n\n**VI. Price & Value**\n* Current pricing"
+ },
+ {
+  "id": 3,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 199,
+  "seconds": 4.426904065,
+  "decode_seconds": 4.324825,
+  "decode_tok_s": 46.0134225084252,
+  "wall_tok_s": 44.95240851802827,
+  "text": "Subject: Think about this - a great opportunity (no pressure!)\n\nHey [Friend's Name],\n\nThe [Event Name] is looking for speakers on [Topic - something you know they're great at], and I immediately thought of you. You have such insightful knowledge on this, and it would genuinely benefit attendees.\n\nI know public speaking isn't your *thing*, but this is a small, friendly local event - not a huge conference! They're really looking for authentic voices, not polished performers. Plus, you could choose a format you're comfortable with (Q&A, short presentation, etc.).\n\nThink of it as sharing your expertise with people who *want* to learn from you, not \"performing.\" It could be surprisingly rewarding! \n\nNo pressure at all, but here's the link if you're curious: [Link to event info]. Let me know what you think.\n\nBest,\n[Your Name]\n\n\n\n"
+ },
+ {
+  "id": 4,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 241,
+  "seconds": 5.472515032,
+  "decode_seconds": 5.25796,
+  "decode_tok_s": 45.83526690959992,
+  "wall_tok_s": 44.03825272123986,
+  "text": "Old Man Tiber, they called him, though no one knew his true name, or if he even *had* one. He was a walking archipelago of wrinkles, each line a dried riverbed on a face the color of weathered driftwood. Barnacle-crusted spectacles perched precariously on his nose, magnifying eyes that held the grey, swirling depths of a perpetual storm. He smelled not of age, but of salt and something else\u2026 ozone, perhaps, or the ghost of kelp forests. Tiber dressed in layers of salvaged netting and patched canvas, adorned with trinkets \u2013 a single, iridescent crow feather, a chipped porcelain doll\u2019s hand, a tarnished silver locket filled with sea-worn glass. \n\nHe moved with the slow, deliberate grace of a deep-sea creature, his gait a rocking rhythm mirroring the tide.  His voice, when he deigned to use it, was a rasping chorus of pebbles tumbling on the shore, telling tales of ships swallowed whole and cities lost beneath the waves.  Some said he *was* the sea, given human form, a living embodiment of its memory and melancholy, forever wandering the coastline collecting forgotten things.  \n\n\n\n"
+ },
+ {
+  "id": 5,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 195,
+  "seconds": 4.490070306,
+  "decode_seconds": 4.245895,
+  "decode_tok_s": 45.92671274254309,
+  "wall_tok_s": 43.429164068862136,
+  "text": "The marketplace throbbed with life, a chaotic symphony for the senses. Heaps of vibrant saffron, crimson chilies, and emerald greens overflowed from woven baskets, creating a kaleidoscope of color under the harsh midday sun. The air, thick and warm, hummed with a chorus of bartering voices \u2013 a melodic blend of shouts, laughter, and persuasive whispers. A heady aroma hung heavy; sweet dates mingled with the pungent tang of pickled lemons, the earthy scent of freshly tilled soil clinging to root vegetables, and the exotic perfume of jasmine garlands. Rough-spun fabrics in bold patterns cascaded from stalls, brushing against passersby, while the rhythmic clang of a blacksmith\u2019s hammer punctuated the general din. Every inch was crammed with activity: children darted between legs, chickens squawked in woven cages, and a lone musician coaxed a mournful tune from a weathered oud, all contributing to the intoxicating, overwhelming energy of the place. \n\n\n\n"
+ }
+]

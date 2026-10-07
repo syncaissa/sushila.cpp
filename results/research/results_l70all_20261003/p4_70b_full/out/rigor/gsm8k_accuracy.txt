@@ -1,0 +1,3 @@
+/workspace/p3/out/rigor/ollama_gsm100.json: 97/100 = 97.0% (95% CI 91.5-99.0)
+/workspace/p3/out/rigor/base_gsm100.json: 96/100 = 96.0% (95% CI 90.2-98.4)
+/workspace/p3/out/rigor/dz_gsm100.json: 96/100 = 96.0% (95% CI 90.2-98.4)

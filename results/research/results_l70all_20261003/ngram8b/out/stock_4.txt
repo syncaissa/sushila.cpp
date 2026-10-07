@@ -1,0 +1,42 @@
+0.00.081.625 I llama_completion: llama backend init
+0.00.081.658 I llama_completion: load the model and apply lora adapter, if any
+0.02.761.765 I cmn          init: llama threadpool init, n_threads = 252
+0.02.828.645 I 
+0.02.828.804 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.02.828.805 I 
+0.02.828.908 I sampler seed: 4012633810
+0.02.828.930 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.02.828.939 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.02.828.940 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.02.828.940 I 
+user
+
+How do I choose a new phone?assistant
+
+Choosing a new phone can be a daunting task, but here's a step-by-step guide to help you make an informed decision:
+
+1. **Determine your budget**: Set a price range for your new phone. Consider your income, expenses, and whether you're willing to pay for a premium device or a more affordable option.
+2. **Assess your needs**:
+	* What will you use your phone for most? (e.g., social media, gaming, photography, work, or basic calling and texting)
+	* Do you need a specific feature, such as a long-lasting battery, water resistance, or a headphone jack?
+	* Are you comfortable with a smaller or larger screen size?
+3. **Research different types of phones**:
+	* **Smartphones**: Android or iOS, which one do you prefer?
+	* **Flagship phones**: High-end devices with advanced features and premium designs (e.g., Samsung Galaxy S, Apple iPhone 13)
+	* **Mid-range phones**: Balanced performance and price (e.g., Google Pixel 4a, Samsung Galaxy A series)
+	* **Budget phones**: Affordable options with basic features (e.g., Xiaomi Redmi, Motorola Moto G)
+4. **Consider the following factors**:
+	
+
+0.04.613.447 I common_perf_print:    sampling time =      72.35 ms
+0.04.613.448 I common_perf_print:    samplers time =      26.85 ms /   274 tokens
+0.04.613.471 I common_perf_print:        load time =    1848.31 ms
+0.04.613.473 I common_perf_print: prompt eval time =      35.28 ms /    18 tokens (    1.96 ms per token,   510.18 tokens per second)
+0.04.613.474 I common_perf_print:        eval time =    1667.89 ms /   255 runs   (    6.54 ms per token,   152.89 tokens per second)
+0.04.613.475 I common_perf_print:       total time =    1784.82 ms /   273 tokens
+0.04.613.476 I common_perf_print: unaccounted time =       9.29 ms /   0.5 %      (total - sampling - prompt eval - eval) / (total)
+0.04.613.476 I common_perf_print:    graphs reused =        253

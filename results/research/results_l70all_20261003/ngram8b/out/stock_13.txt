@@ -1,0 +1,36 @@
+0.00.080.522 I llama_completion: llama backend init
+0.00.080.543 I llama_completion: load the model and apply lora adapter, if any
+0.02.960.423 I cmn          init: llama threadpool init, n_threads = 252
+0.03.018.694 I 
+0.03.018.853 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.03.018.860 I 
+0.03.019.004 I sampler seed: 1311120968
+0.03.019.024 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.03.019.033 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.03.019.034 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.03.019.034 I 
+user
+
+Give me a bulleted list of the the first five books in the bible new testament?assistant
+
+Here are the first five books of the New Testament in the Bible:
+
+* **Matthew**
+* **Mark**
+* **Luke**
+* **John**
+* **Acts** [end of text]
+
+
+0.03.294.097 I common_perf_print:    sampling time =      10.54 ms
+0.03.294.098 I common_perf_print:    samplers time =       3.52 ms /    63 tokens
+0.03.294.107 I common_perf_print:        load time =    1880.15 ms
+0.03.294.109 I common_perf_print: prompt eval time =      36.25 ms /    28 tokens (    1.29 ms per token,   772.39 tokens per second)
+0.03.294.110 I common_perf_print:        eval time =     227.06 ms /    34 runs   (    6.68 ms per token,   149.74 tokens per second)
+0.03.294.111 I common_perf_print:       total time =     275.42 ms /    62 tokens
+0.03.294.112 I common_perf_print: unaccounted time =       1.57 ms /   0.6 %      (total - sampling - prompt eval - eval) / (total)
+0.03.294.112 I common_perf_print:    graphs reused =         33

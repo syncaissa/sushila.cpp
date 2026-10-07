@@ -11,6 +11,14 @@ pinned model files (by sha256), pinned dataset, build and run scripts, and the
 raw results of every run we report. See **[REPRODUCE.md](REPRODUCE.md)**, and
 **[docs/REPRODUCE_70B.md](docs/REPRODUCE_70B.md)** to time Llama-3.3-70B against vanilla Ollama on one GPU.
 
+## Replicate the paper
+
+- **[docs/REPLICATE_ALL.md](docs/REPLICATE_ALL.md)**: every table and figure of the paper, with its command,
+  hardware, time, expected numbers, pass rule and raw results, and the known gaps.
+- **[docs/REPRODUCE.md](docs/REPRODUCE.md)**: text models, one command per model (`scripts/reproduce/retest.sh`).
+- **[docs/REPRODUCE_YUE.md](docs/REPRODUCE_YUE.md)**: YuE, step by step.
+- **[docs/SETTINGS.md](docs/SETTINGS.md)**: lab and production settings for images, video and music.
+
 ## Release
 
 After the paper is published, the engine will be released as **Sushila.cpp**

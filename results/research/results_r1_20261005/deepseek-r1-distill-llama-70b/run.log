@@ -1,0 +1,30 @@
+[02:38:59] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[02:45:22] base_main: 6472 tokens in 173.0 s = 37.4 tok/s (median per prompt 37.5)
+[03:03:59] base_ood: 40858 tokens in 1097.1 s = 37.2 tok/s (median per prompt 37.3)
+[03:08:52] base_mt_t07: 10135 tokens in 272.3 s = 37.2 tok/s (median per prompt 37.2)
+[03:18:46] base_gsm100: 21189 tokens in 566.6 s = 37.4 tok/s (median per prompt 37.4)
+[03:26:21] pub_main: 6472 tokens in 218.3 s = 29.6 tok/s (median per prompt 29.6)
+[03:48:21] pub_ood: 40814 tokens in 1295.4 s = 31.5 tok/s (median per prompt 31.1)
+[03:54:11] pub_mt_t07: 10111 tokens in 325.0 s = 31.1 tok/s (median per prompt 31.2)
+[04:19:01] answers: 2000 conversations from 2300 prompts -> /workspace/sushila/deepseek-r1-distill-llama-70b/regen.jsonl
+[04:36:11] chunk_00: capture 610 s, train 420 s, 'acc_0': 0.7777777910232544
+[04:53:12] chunk_01: capture 609 s, train 412 s, 'acc_0': 0.6222222447395325
+[04:58:13] val_ckpt_chunk_00: 4751 tokens in 57.5 s = 82.6 tok/s (median per prompt 83.3)
+[05:03:30] val_ckpt_chunk_01: 4908 tokens in 58.7 s = 83.6 tok/s (median per prompt 85.6)
+[05:03:43] chosen on validation: head_ckpt_chunk_01 (83.61461632325504 tok/s)
+[05:08:06] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/deepseek-r1-distill-llama-70b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/deepseek-r1-distill-llama-70b/CHECKSUMS.json are in B2 
+[05:12:53] ours_main: 6469 tokens in 77.3 s = 83.7 tok/s (median per prompt 82.7)
+[05:20:59] ours_ood: 40842 tokens in 476.9 s = 85.6 tok/s (median per prompt 87.2)
+[05:23:18] ours_mt_t07: 10137 tokens in 129.0 s = 78.6 tok/s (median per prompt 81.8)
+[05:27:17] ours_gsm100: 21265 tokens in 228.4 s = 93.1 tok/s (median per prompt 93.6)
+[05:55:58] load base: concurrency 1: 37.2 tok/s total, 37.3 tok/s per user (median);concurrency 4: 142.0 tok/s total, 35.3 tok/s per user (median);concurrency 16: 489.2 tok/s total, 30.5 tok/s per user (median);concurrency 64: 988.2 tok/s total, 16.5 tok/s per user (median);
+[06:45:48] load pub: concurrency 1: 31.4 tok/s total, 31.0 tok/s per user (median);concurrency 4: 73.6 tok/s total, 18.4 tok/s per user (median);concurrency 16: 89.9 tok/s total, 5.6 tok/s per user (median);concurrency 64: 91.6 tok/s total, 1.5 tok/s per user (median);
+[07:06:41] load ours: concurrency 1: 85.4 tok/s total, 87.0 tok/s per user (median);concurrency 4: 198.5 tok/s total, 50.9 tok/s per user (median);concurrency 16: 240.9 tok/s total, 15.6 tok/s per user (median);concurrency 64: 248.2 tok/s total, 4.2 tok/s per user (median);
+[07:07:05] Ollama deepseek-r1:70b is "name=DeepSeek R1 Distill Llama 70B"; SGLang serves casperhansen/deepseek-r1-distill-llama-70b-awq (check they are the same model)
+[07:12:22] ollama_main: 6565 tokens: 23.7 tok/s with prompt processing (277.0 s), 24.1 tok/s decode only
+[07:41:51] ollama_ood: 40820 tokens: 23.5 tok/s with prompt processing (1736.1 s), 24.1 tok/s decode only
+[07:49:32] ollama_mt_t07: 10103 tokens: 23.6 tok/s with prompt processing (428.2 s), 24.1 tok/s decode only
+[08:04:34] ollama_gsm100: 20360 tokens: 23.7 tok/s with prompt processing (858.6 s), 24.0 tok/s decode only
+[08:07:42] summary: /workspace/sushila/deepseek-r1-distill-llama-70b/summary.md
+[08:08:14] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/deepseek-r1-distill-llama-70b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/deepseek-r1-distill-llama-70b/CHECKSUMS.json are in B2 
+[08:08:14] DONE

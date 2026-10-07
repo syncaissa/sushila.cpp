@@ -1,0 +1,15 @@
+0.07.154.647 I cmn          init: llama threadpool init, n_threads = 30
+
+
+
+The process of how a bill becomes a law in the United States is a complex and multi-step process. Here's a step-by-step explanation:
+
+**Step 1: Introduction of a Bill**
+
+A member of Congress introduces a bill in either the House of Representatives or the Senate. The bill is written in a specific format and must be sponsored by at least one member of Congress.
+
+**Step 2: Referral to a Committee**
+
+The introduced bill is referred to a committee, which is a group of members of Congress responsible for reviewing and debating the bill. The committee may hold hearings, gather input from experts, and mark up the
+
+0.56.404.867 I sushila-spec: mode=stock generated 128 tokens in 46.253 s, 2.746 t/s

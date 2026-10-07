@@ -72,7 +72,7 @@ const LISTED = [
   { name: 'Llama 3.1 70B Instruct', hf: 'https://huggingface.co/bartowski/Meta-Llama-3.1-70B-Instruct-GGUF', license: 'Llama 3.1 Community License' },
 ];
 
-// Measured results (paper, Table "Every model measured", 2026-10-06). Text: vanilla Ollama vs Sushila.cpp on the same
+// Measured results (paper, Table "Every model in the per-model pipeline", 2026-10-07). Text: vanilla Ollama vs Sushila.cpp on the same
 // A100, 160 unseen prompts, greedy, 256 tokens; images/video/music: the reference engine vs Sushila on one RTX 4090.
 // [model, kind, baseline + hardware, baseline speed, Sushila speed, speedup, our precomputed part]
 const RESULTS = [
@@ -84,13 +84,13 @@ const RESULTS = [
   ['Qwen3 30B-A3B', 'chat (MoE)', 'Ollama 0.35.1, A100', '163.8 tok/s', '270.6 tok/s', '1.65×', 'draft head: +1%'],
   ['Llama 3.1 8B (16-bit)', 'chat', 'Ollama 0.35.1, A100', '143.3 tok/s', '222.2 tok/s', '1.55×', 'draft head refitted to its answers: +11%'],
   ['Gemma 3 27B', 'chat', 'Ollama 0.35.1, A100', '46.5 tok/s', '56.6 tok/s', '1.22×', 'draft head over a community one: +9%'],
-  ['Qwen2.5 0.5B', 'chat (CPU)', 'llama.cpp, 8 CPU threads', '145.5 tok/s', '183.3 tok/s', '1.26×', 'output-layer landscape (exact)'],
+  ['Qwen2.5 0.5B', 'chat (CPU)', 'llama.cpp, 8 CPU threads', '145.5 tok/s', '183.3 tok/s', '1.26×', 'output-layer landscape (approx., ≥99.4% top-1; vs stock llama.cpp)'],
   ['Z-Image-Turbo', 'images', 'stable-diffusion.cpp, RTX 4090', '', '', '1.10×', 'cache plan (SSIM 0.98)'],
-  ['Wan 2.2 TI2V-5B', 'video', 'stable-diffusion.cpp, RTX 4090', '892 s/clip', '542 s/clip', '1.65×', 'cache plan (frame SSIM 0.93), 720p 5 s'],
+  ['Wan 2.2 TI2V-5B', 'video', 'stable-diffusion.cpp, RTX 4090', '889 s/clip', '549 s/clip', '1.62×', 'cache plan (frame SSIM 0.93), 720p 5 s, medians of 5 prompts; vs the same engine without the plan (Wan official bf16: 536 s on one prompt)'],
   ['ACE-Step 1.5', 'music', 'acestep.cpp, RTX 4090', '5.16 s/song', '4.05 s/song', '1.27×', 'faster sampler (same distribution)'],
-  ['YuE v1 (long songs)', 'music', 'official YuE code, RTX 4090', '1,210 s/song', '263 s/song', '4.60×', 'exact runner: one cache, batching, CUDA graphs (same distribution)'],
+  ['YuE v1', 'music', 'official YuE code, RTX 4090', '1,210 s/song', '253 s/song', '4.77×', 'equivalent runner on the same song (one cache, batching, CUDA graphs); full 134 s song 3.29×; with stage 2 in float32 every code equals the official float32 output; research code, not yet in Sushila.cpp'],
 ];
-const RESULTS_AVG = [['Average, 8 text models', '2.58×', 'geometric mean 2.35×'], ['Average, all 13 models', '2.35×', 'geometric mean 2.06×']];
+const RESULTS_AVG = [['Average, 8 GPU chat and coding models vs Ollama', '2.58×', 'geometric mean 2.35×'], ['Average, all 13 models', '2.36×', 'geometric mean 2.07×'], ['Average, 12 without YuE', '2.16×', 'geometric mean 1.93×']];
 const RESULTS_MORE = [
   ['Qwen3 235B-A22B (out of scope)', 'chat (MoE)', 'Ollama, 2× A100', '', '', '0.73×', 'draft heads slow it; SGLang alone 1.25×'],
 ];
@@ -120,11 +120,12 @@ td code{white-space:nowrap}.os{display:grid;grid-template-columns:repeat(auto-fi
 .menu{position:relative}.menu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 6px}.menu summary::-webkit-details-marker{display:none}
 .menu>div{position:absolute;top:30px;left:0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
 .menu>div a{display:block;padding:7px 10px;border-radius:7px}.menu>div a:hover{background:var(--accbg)}
+.menu .where{border-top:1px solid var(--line);margin-top:6px;padding:6px 10px 2px;font-size:12px;color:var(--mut);word-break:break-all;line-height:1.6}
 @media (max-width:820px){nav.toc{display:none}main{padding:14px}}
 </style>
 </head>
 <body>
-<div class="top"><details class="menu"><summary aria-label="Menu">☰</summary><div><a href="/">Use</a><a href="/#admin">Admin</a><a href="/docs">Documentation</a></div></details><b>Sushila</b><span class="sp"></span><span style="color:var(--mut)">Documentation</span></div>
+<div class="top"><details class="menu"><summary aria-label="Menu">☰</summary><div><a href="/">Inference</a><a href="/admin" id="madmin">Admin</a><a href="/docs">Documentation</a><a href="#api">API</a><div class="where" id="mwhere"></div></div></details><b>Sushila</b><span class="sp"></span><span style="color:var(--mut)">Documentation</span></div>
 <div class="wrap">
 <nav class="toc">
   <a href="#start">Getting started</a><a href="#commands">All commands</a><a href="#os">Windows, macOS, Linux</a><a href="#serve">Serving and the web page</a>
@@ -177,7 +178,8 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila stop &lt;pack&gt;</code></td><td>Stops a model.</td></tr>
 <tr><td><code>sushila stop</code></td><td>Stops the whole server.</td></tr>
 <tr><td><code>sushila status</code></td><td>What is installed, whether the server runs, which models run (Accelerated or Standard).</td></tr>
-<tr><td><code>sushila url</code></td><td>The address of the web page.</td></tr>
+<tr><td><code>sushila home</code></td><td>Sushila's <b>home folder</b>: where <code>model-packs</code>, settings, logs and the engine live. Sushila remembers it in one small text file in your own settings folder, which every user can write without admin rights: Windows <code>%APPDATA%\\sushila\\home</code> (<code>C:\\Users\\&lt;you&gt;\\AppData\\Roaming\\sushila\\home</code>), macOS <code>~/Library/Application Support/sushila/home</code>, Linux <code>~/.config/sushila/home</code>. It holds one line, the folder's path, which you can also edit by hand; <code>sushila home</code> prints where it is. Sushila reads it at every start and goes straight there. It is the only file Sushila keeps outside its home folder. If it is deleted, Sushila searches again (and writes it again); if it finds no home, it asks for the folder of your existing home, or starts a new one when you press Enter. The first time, it searches the usual places (the system's app-data folder, next to the program, the current folder, <code>~/sushila</code>, Documents, Downloads); if it finds several homes it <b>asks</b> which one to use. <code>sushila home &lt;folder&gt;</code> makes another folder the home (replacing the remembered one); <code>sushila home --reset</code> forgets it so the next start searches again; <code>--data-dir &lt;folder&gt;</code> uses a folder for one command only. The home is also printed every time the server starts. (<code>sushila location</code> is the same command.)</td></tr>
+<tr><td><code>sushila url</code></td><td>The addresses: <b>Inference URL</b> (the page for using models, e.g. <code>http://localhost:8765/</code>), <b>Admin URL</b> (<code>http://localhost:8765/admin</code>, this computer only, password protected), the OpenAI-compatible API, and the address for other machines when serving on the network. The same block is printed every time the server starts, in the terminal or in the window that opens when you double-click <code>sushila</code>.</td></tr>
 <tr><th colspan="2">Generating from the terminal</th></tr>
 <tr><td><code>sushila run &lt;pack&gt; "&lt;prompt&gt;"</code></td><td>One answer (printed), or one picture, video or song (saved). Uses the running model if there is one.</td></tr>
 <tr><td><code>... --out file.png</code></td><td>Where to save; images also take <code>--size 1024x1024 --seed 42</code>, video <code>--size 1280x704 --frames 121</code>, music <code>--lyrics "..." --duration 60</code> (the prompt is the style).</td></tr>
@@ -219,7 +221,7 @@ NVIDIA: a recent driver is enough (the CUDA runtime comes with the engine).</div
   <li><b>Use</b>: chat, code, images, music and video with the running models; a background queue for long jobs.</li>
   <li><b>Admin</b> (this computer only, with the admin password): Packs (install, start, stop, verify, remove), Engine, Queue, Logs, Settings.</li>
 </ul>
-<p>Every page has the ☰ menu with Use, Admin and this documentation. Each running model's engine listens on an internal port
+<p>Every page has the ☰ menu with Inference, Admin (this computer only), this documentation and the API, followed by the four addresses and, on this computer, the home folder: the same lines the server prints when it starts. Each running model's engine listens on an internal port
 (8766, 8767, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
 <p><b>Accelerated or Standard</b>: Accelerated uses Sushila's precomputed files for the model (faster); Standard is the plain model,
 as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with <code>--standard</code>.</p>
@@ -353,6 +355,19 @@ sushila install C:\\Users\\me\\Downloads\\my-model.gguf                         
 </ul>
 </main>
 </div>
+<script>
+// the addresses (and, on this computer, the home folder) in the ☰ menu, as the server prints them at start;
+// on the website (sushila.ai) there is no server behind the page, so the block stays empty
+(function () {
+  var w = document.getElementById('mwhere'); if (!w || location.protocol === 'file:') return;
+  fetch('/api/admin').then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (a) {
+    var o = location.origin, rows = ['Inference: ' + o + '/'];
+    if (a.allowed) rows.push('Admin: ' + o + '/admin'); else { var m = document.getElementById('madmin'); if (m) m.remove(); }
+    rows.push('Documentation: ' + o + '/docs', 'API (OpenAI): ' + o + '/v1'); if (a.home) rows.push('Home folder: ' + a.home);
+    rows.forEach(function (t) { var d = document.createElement('div'); d.textContent = t; w.appendChild(d); });
+  }).catch(function () {});
+})();
+</script>
 </body>
 </html>
 `;
@@ -2114,7 +2129,7 @@ async function logDownload(db, request, { file, kind, system, bytes, packId, use
 const HOST_RUNTIMES = ['image-nunchaku'];
 const HOST_PACKS = [
   { id: 'qwen2.5-0.5b-q4km', category: 'Text (LLM)', name: 'Qwen2.5 0.5B Instruct (4-bit)', model: 'precomputed/qwen2.5-0.5b-q4km', minRamGB: 2,
-    description: 'Small and fast; runs on any computer. With the precomputed output-layer landscape: CPU decoding 1.13-1.26x faster with identical output.',
+    description: 'Small and fast; runs on any computer. With the precomputed output-layer landscape: CPU decoding 1.07-1.26x faster, with the same greedy output on our test prompts (top-1 agreement 99.4-100% by domain).',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/blob/main/LICENSE', artifacts: ['output-layer landscape'],
     files: [['weights/gguf/qwen2.5-0.5b-q4km.gguf', 'qwen2.5-0.5b-q4km.gguf', 'weights'],
       ['landscape/manifest.json', 'qwen2.5-0.5b-q4km.gguf.sushila/manifest.json', 'manifest'],
@@ -2145,7 +2160,7 @@ const HOST_PACKS = [
       ['weights/vae/wan2.2_vae.safetensors', 'wan2.2_vae.safetensors', 'vae']],
     serve: { engine: 'image', model: 'Wan2.2-TI2V-5B-Q8_0.gguf',
       args: ['--diffusion-model', '{pack}/Wan2.2-TI2V-5B-Q8_0.gguf', '--t5xxl', '{pack}/umt5-xxl-encoder-Q8_0.gguf', '--vae', '{pack}/wan2.2_vae.safetensors', '--diffusion-fa', '--offload-to-cpu'],
-      // Accelerated: Sushila's precomputed cache plan for this model (EasyCache 0.2: 1.45x on held-out prompts, frame SSIM 0.91)
+      // Accelerated: Sushila's precomputed cache plan for this model (EasyCache 0.2: 1.62x median at 1280x704, 50 steps, frame SSIM 0.93)
       turboRequest: { cache_mode: 'easycache', cache_option: 'threshold=0.2' } } },
   { id: 'ace-step-15', category: 'Music', kind: 'music', name: 'ACE-Step 1.5 (songs from lyrics and a style)', model: 'precomputed/ace-step-15', minRamGB: 12,
     description: 'Full songs with vocals from your lyrics and a style description (stereo 48 kHz MP3), up to several minutes; 8-step turbo model with the 4B song-writing model. Runs on GPUs with 8 GB+, slower on CPU.',
@@ -2375,7 +2390,7 @@ ${product('chatgen', 'sushilaChatGen.cpp', 'Sushila ChatGen', 'A private assista
 ${product('codegen', 'sushilaCodeGen.cpp', 'Sushila CodeGen', 'Write programs in many languages, locally: Qwen3-Coder 30B-A3B with 24 GB+ of memory (Qwen2.5-Coder 7B otherwise). Answers show code blocks with a Copy button.')}
 ${product('imagegen', 'sushilaImageGen.cpp', 'Sushila ImageGen', 'Pictures from a sentence: it installs Sushila.cpp and Z-Image-Turbo (the fast Accelerated pack on NVIDIA RTX cards: a 768x768 image in under a second on an RTX 4090), starts it, and makes a first image ("Two bears dancing in a forest near a river") with a Download button.')}
 ${product('musicgen', 'sushilaMusicGen.cpp', 'Sushila MusicGen', 'Songs from lyrics and a style: it installs Sushila.cpp and ACE-Step 1.5, starts it, and makes a first song. Then type <b>1. Lyrics</b> and <b>2. Style</b> and press <b>Generate</b>: a full song with vocals, with a Download button.')}
-${product('videogen', 'sushilaVideoGen.cpp', 'Sushila VideoGen', 'Short videos from a sentence or a start picture: it installs Sushila.cpp and Wan 2.2 TI2V-5B (Apache-2.0), starts it, and makes a first clip. A 5-second 832x480 video takes about 110 seconds on an RTX 4090 in Standard, and Accelerated (our precomputed cache plan) is about 1.45x faster; 24 GB+ of memory recommended. Every finished clip has a Download button, and long jobs can run in the background queue.')}
+${product('videogen', 'sushilaVideoGen.cpp', 'Sushila VideoGen', 'Short videos from a sentence or a start picture: it installs Sushila.cpp and Wan 2.2 TI2V-5B (Apache-2.0), starts it, and makes a first clip. A 5-second 1280x704 video with the settings Wan recommends (50 steps) takes about 15 minutes on an RTX 4090 in Standard, and Accelerated (our precomputed cache plan) is about 1.6x faster (889 s against 549 s, median of 5 prompts); 24 GB+ of memory recommended. Every finished clip has a Download button, and long jobs can run in the background queue.')}
 
 <h2>Install, then four clicks</h2>
 <ol>

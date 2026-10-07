@@ -1,0 +1,45 @@
+0.01.287.742 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.355.551 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.03.092.899 I cmn          init: llama threadpool init, n_threads = 30
+0.03.210.789 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.728.255 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.04.364.691 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.966.191 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.341.877 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.717.720 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.090.092 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.462.092 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.836.763 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.213.596 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.586.786 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.959.650 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.333.932 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.710.842 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.429.922 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.796.291 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.266.556 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.983.761 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.356.918 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.735.588 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.119.410 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.492.389 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.866.931 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.241.714 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.618.315 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.991.751 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.367.549 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.744.475 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.15.118.006 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.15.492.754 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here's a summary:
+
+**Causes of the French Revolution:**
+
+1.  **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, which led to a financial crisis and a burden on the common people.
+2.  **Social Inequality**: The French society was divided into three estates: the nobility, the clergy, and the commoners. The nobility and clergy held most of the power and wealth, while the commoners
+
+0.15.501.059 I sushila-tree: depth=4 k=4 nt=16 generated 128 tokens in 10.909 s, 11.642 t/s; cycles=29 accepted/cycle=3.41 tokens/cycle=4.41 tree=16.0
+0.15.501.062 I sushila-tree: ms/cycle draft 79.43 verify 287.98 (target decode 287.59) commit 8.74

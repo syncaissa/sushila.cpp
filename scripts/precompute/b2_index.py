@@ -20,15 +20,15 @@ import b2_save  # noqa: E402
 # what each model's precomputed work is for, and where its results are (kept here so the index explains itself)
 NOTES = {
     'qwen2.5-0.5b-q4km': {
-        'what': 'Output-layer landscape for Qwen2.5-0.5B-Instruct Q4_K_M (CPU decoding 1.13-1.26x faster with identical output; '
-                'the paper\'s per-model pipeline example). Default model of Sushila Host Station.',
+        'what': 'Output-layer landscape for Qwen2.5-0.5B-Instruct Q4_K_M (CPU decoding 1.07-1.26x faster, same greedy output on our test prompts; '
+                'the paper\'s per-model pipeline example). Used in the examples of the `sushila` program (`sushila run qwen2.5-0.5b-q4km ...`).',
         'use': 'Sushila.cpp reads it automatically: put landscape/{manifest.json,landscape.mclp} in <model>.gguf.sushila/ next to '
-               'weights/gguf/qwen2.5-0.5b-q4km.gguf (or install the Host Station pack qwen2.5-0.5b-q4km).',
-        'results': 'paper: output-layer landscape sections; Paper/notes/landscape (B2 results/paper-notes-landscape/)'},
+               'weights/gguf/qwen2.5-0.5b-q4km.gguf (or `sushila install qwen2.5-0.5b-q4km`).',
+        'results': 'paper: output-layer landscape sections; results/research/ in this repository (B2 results/paper-notes-landscape/)'},
     'qwen3-32b': {
         'what': 'EAGLE-3 draft head refitted to Qwen3-32B\'s own answers (warm start thoughtworks/Qwen3-32B-Eagle3); 3.14x vs Ollama.',
         'use': 'SGLang: --speculative-algorithm EAGLE3 --speculative-num-steps 4 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 '
-               '--speculative-draft-model-path draft-head/ with weights/sglang/ (Qwen/Qwen3-32B-AWQ). Host Station pack: GGUF only.',
+               '--speculative-draft-model-path draft-head/ with weights/sglang/ (Qwen/Qwen3-32B-AWQ). Sushila pack: GGUF only.',
         'results': 'results/qwen3-32b/ and forGithub/results/qwen3_20261004/'},
     'qwen3-30b-a3b': {
         'what': 'EAGLE-3 draft head refitted to Qwen3-30B-A3B (MoE) (warm start AngelSlim/Qwen3-a3B_eagle3); 1.65x vs Ollama; keeps '
@@ -44,11 +44,11 @@ NOTES = {
         'what': 'Image pack (no Sushila artifacts yet): Z-Image-Turbo Q4_K + Qwen3-4B text encoder + FLUX VAE, mirrored from Hugging '
                 'Face at pinned revisions.',
         'use': 'stable-diffusion.cpp sd-server --diffusion-model z_image_turbo-Q4_K.gguf --llm Qwen3-4B-Instruct-2507-Q4_K_M.gguf '
-               '--vae ae.safetensors --cfg-scale 1.0 --steps 8 (or Host Station pack z-image-turbo).',
+               '--vae ae.safetensors --cfg-scale 1.0 --steps 8 (or `sushila install z-image-turbo`).',
         'results': 'speed work in progress (sub-second plan): scripts/image/'},
     'z-image-turbo-q8': {
         'what': 'Image pack, 8-bit Z-Image-Turbo (near-original quality); same text encoder and VAE.',
-        'use': 'as z-image-turbo with z_image_turbo-Q8_0.gguf (Host Station pack z-image-turbo-q8).',
+        'use': 'as z-image-turbo with z_image_turbo-Q8_0.gguf (Sushila pack z-image-turbo-q8).',
         'results': '-'},
 }
 GROUP_DOC = {
@@ -93,7 +93,7 @@ def main():
     md = ['# Precomputed work in B2 (bucket `sushila-ai`)', '',
           f'Generated {out["generated_utc"]} by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept '
           'forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, '
-          'and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.', '',
+          'and `CHECKSUMS.json.sig`, an Ed25519 signature checked by the `sushila` program.', '',
           '| Model | Contents | Size | Signed | Saved |', '|---|---|---:|:---:|---|']
     for x in out['models']:
         if 'warning' in x:

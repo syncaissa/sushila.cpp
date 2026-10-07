@@ -1,0 +1,3 @@
+p=0.9: identical outputs 7/45, mean common prefix 36.1%
+p=0.8: identical outputs 2/45, mean common prefix 26.3%
+p=0.6: identical outputs 0/45, mean common prefix 9.0%

@@ -22,11 +22,12 @@ td code{white-space:nowrap}.os{display:grid;grid-template-columns:repeat(auto-fi
 .menu{position:relative}.menu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 6px}.menu summary::-webkit-details-marker{display:none}
 .menu>div{position:absolute;top:30px;left:0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
 .menu>div a{display:block;padding:7px 10px;border-radius:7px}.menu>div a:hover{background:var(--accbg)}
+.menu .where{border-top:1px solid var(--line);margin-top:6px;padding:6px 10px 2px;font-size:12px;color:var(--mut);word-break:break-all;line-height:1.6}
 @media (max-width:820px){nav.toc{display:none}main{padding:14px}}
 </style>
 </head>
 <body>
-<div class="top"><details class="menu"><summary aria-label="Menu">☰</summary><div><a href="/">Use</a><a href="/#admin">Admin</a><a href="/docs">Documentation</a></div></details><b>Sushila</b><span class="sp"></span><span style="color:var(--mut)">Documentation</span></div>
+<div class="top"><details class="menu"><summary aria-label="Menu">☰</summary><div><a href="/">Inference</a><a href="/admin" id="madmin">Admin</a><a href="/docs">Documentation</a><a href="#api">API</a><div class="where" id="mwhere"></div></div></details><b>Sushila</b><span class="sp"></span><span style="color:var(--mut)">Documentation</span></div>
 <div class="wrap">
 <nav class="toc">
   <a href="#start">Getting started</a><a href="#commands">All commands</a><a href="#os">Windows, macOS, Linux</a><a href="#serve">Serving and the web page</a>
@@ -122,7 +123,7 @@ NVIDIA: a recent driver is enough (the CUDA runtime comes with the engine).</div
   <li><b>Use</b>: chat, code, images, music and video with the running models; a background queue for long jobs.</li>
   <li><b>Admin</b> (this computer only, with the admin password): Packs (install, start, stop, verify, remove), Engine, Queue, Logs, Settings.</li>
 </ul>
-<p>Every page has the ☰ menu with Use, Admin and this documentation. Each running model's engine listens on an internal port
+<p>Every page has the ☰ menu with Inference, Admin (this computer only), this documentation and the API, followed by the four addresses and, on this computer, the home folder: the same lines the server prints when it starts. Each running model's engine listens on an internal port
 (8766, 8767, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
 <p><b>Accelerated or Standard</b>: Accelerated uses Sushila's precomputed files for the model (faster); Standard is the plain model,
 as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with <code>--standard</code>.</p>
@@ -256,5 +257,18 @@ sushila install C:\Users\me\Downloads\my-model.gguf                             
 </ul>
 </main>
 </div>
+<script>
+// the addresses (and, on this computer, the home folder) in the ☰ menu, as the server prints them at start;
+// on the website (sushila.ai) there is no server behind the page, so the block stays empty
+(function () {
+  var w = document.getElementById('mwhere'); if (!w || location.protocol === 'file:') return;
+  fetch('/api/admin').then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (a) {
+    var o = location.origin, rows = ['Inference: ' + o + '/'];
+    if (a.allowed) rows.push('Admin: ' + o + '/admin'); else { var m = document.getElementById('madmin'); if (m) m.remove(); }
+    rows.push('Documentation: ' + o + '/docs', 'API (OpenAI): ' + o + '/v1'); if (a.home) rows.push('Home folder: ' + a.home);
+    rows.forEach(function (t) { var d = document.createElement('div'); d.textContent = t; w.appendChild(d); });
+  }).catch(function () {});
+})();
+</script>
 </body>
 </html>

@@ -1,0 +1,43 @@
+0.03.106.889 I cmn          init: llama threadpool init, n_threads = 252
+0.03.169.915 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What is a world war and how many world wars have happened so far?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+A world war is a global conflict that involves multiple countries and often multiple continents. It is a large-scale war that affects the entire world, causing widespread destruction, loss of life, and significant economic and social disruption.
+
+There have been two major world wars in the 20th century:
+
+1. **World War I (1914-1918)**: Also known as the Great War, it was fought between the Allied Powers (France, Britain, Russia, and the United States) and the Central Powers (Germany, Austria-Hungary, and the Ottoman Empire). The war was sparked by the assassination of Archduke Franz Ferdinand of Austria-Hungary and ended with the defeat of the Central Powers.
+2. **World War II (1939-1945)**: This war was fought between the Axis Powers (Germany, Italy, and Japan) and the Allied Powers (the United States, the United Kingdom, France, and the Soviet Union). The war was sparked by the invasion of Poland by Germany and ended with the defeat of the Axis Powers.
+
+There have been other global conflicts and wars that could be considered as world wars, but these two are generally recognized as the most significant and widespread. Some examples include:
+
+* **The Cold War (1945-1991)**: A period
+
+0.05.838.211 I encoded   25 tokens in    0.041 seconds, speed:  616.751 t/s
+0.05.838.213 I decoded  261 tokens in    1.805 seconds, speed:  144.568 t/s
+0.05.838.213 I 
+0.05.838.214 I n_draft   = 8
+0.05.838.214 I n_predict = 261
+0.05.838.214 I n_drafted = 395
+0.05.838.215 I n_accept  = 211
+0.05.838.215 I accept    = 53.418%
+0.05.838.216 I 
+0.05.838.216 I draft:
+
+0.05.838.260 I 
+0.05.838.261 I target:
+
+0.05.838.266 I common_perf_print:    sampling time =      65.13 ms
+0.05.838.267 I common_perf_print:    samplers time =      24.93 ms /   261 tokens
+0.05.838.273 I common_perf_print:        load time =    1636.74 ms
+0.05.838.275 I common_perf_print: prompt eval time =     766.62 ms /   471 tokens (    1.63 ms per token,   614.38 tokens per second)
+0.05.838.277 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.05.838.277 I common_perf_print:       total time =    2668.47 ms /   472 tokens
+0.05.838.279 I common_perf_print: unaccounted time =    1836.71 ms /  68.8 %      (total - sampling - prompt eval - eval) / (total)
+0.05.838.279 I common_perf_print:    graphs reused =         47
+
+

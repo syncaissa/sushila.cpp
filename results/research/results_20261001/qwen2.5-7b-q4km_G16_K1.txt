@@ -1,0 +1,6 @@
+qwen2.5-7b-q4km.gguf output.weight 152064x3584 Q6_K, G=16 (224 groups), landscape 15.2%, tokens=300, K=1
+  mc2            top1  56.3%  recall@1  56.3%  TV(T=0.7) 0.4367  TV(T=1.0) 0.4367  read  19.6%  (189s)
+  mc3            top1  78.7%  recall@1  78.7%  TV(T=0.7) 0.2133  TV(T=1.0) 0.2133  read  27.0%  (371s)
+  mc4            top1  90.0%  recall@1  90.0%  TV(T=0.7) 0.1000  TV(T=1.0) 0.1000  read  35.4%  (564s)
+  two:0.3:256    top1  89.0%  recall@1  89.0%  TV(T=0.7) 0.1100  TV(T=1.0) 0.1100  read  30.1%  (433s)
+  two:0.5:256    top1  98.3%  recall@1  98.3%  TV(T=0.7) 0.0167  TV(T=1.0) 0.0167  read  50.2%  (568s)

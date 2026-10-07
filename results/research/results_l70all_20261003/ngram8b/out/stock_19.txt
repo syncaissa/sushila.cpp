@@ -1,0 +1,52 @@
+0.00.148.804 I llama_completion: llama backend init
+0.00.148.827 I llama_completion: load the model and apply lora adapter, if any
+0.02.799.770 I cmn          init: llama threadpool init, n_threads = 252
+0.02.855.319 I 
+0.02.855.483 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.02.855.491 I 
+0.02.856.278 I sampler seed: 3185053506
+0.02.856.299 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.02.856.307 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.02.856.308 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.02.856.308 I 
+user
+
+What is the history of coffee?
+
+The history of coffee dates back to centuries of old oral tradition in modern day Ethiopia. However, neither where coffee was first cultivated nor direct evidence of its consumption prior to the 15th century have been found. Sufi monasteries in Yemen employed coffee as an aid to concentration during prayers. Coffee later spread to the Levant and Persia in the early 16th century; it caused some controversy on whether it was halal in Ottoman and Mamluk society. Coffee arrived in Italy the second half of the 16th century through commercial Mediterranean trade routes, while Central and Eastern Europeans learnt of coffee from the Ottomans. By the mid 17th century, it had reached India and the East Indies. Coffee houses would establish themselves in Western Europe by the late 17th century, especially in England and Germany. One of the earliest cultivations of coffee in the New World was when Gabriel de Clieu brought coffee seedlings to Martinique in 1720. These beans later sprouted 18,680 coffee trees which enabled its spread to other Caribbean islands like Saint-Domingue and also to Mexico. By 1788, Saint-Domingue supplied half the world's coffee. By 1852, globally, Brazil became the largest producer of coffee and has held that status ever since. The period since 1950 saw the widening of the playing field due to the emergence of several other major producers, notably Colombia, Ivory Coast, Ethiopia, and Vietnam; the latter overtook Colombia and became the second-largest producer in 1999. Modern production techniques along with the mass productization of coffee has made it a household item today.assistant
+
+Here's a more detailed and organized history of coffee:
+
+**Ancient Origins (15th century)**
+
+* The history of coffee dates back to ancient times in Ethiopia, but there is no direct evidence of its consumption prior to the 15th century.
+* Oral tradition suggests that coffee was first cultivated in Ethiopia, but the exact location and time of its origin are unknown.
+
+**Spread to the Middle East (16th century)**
+
+* Coffee was introduced to the Middle East by Sufi monasteries in Yemen, where it was used as an aid to concentration during prayers.
+* Coffee spread to the Levant and Persia (modern-day Iran) in the early 16th century.
+* In Ottoman and Mamluk society, coffee caused controversy over whether it was halal (permissible under Islamic law).
+
+**Spread to Europe (16th-17th centuries)**
+
+* Coffee arrived in Italy in the second half of the 16th century through commercial Mediterranean trade routes.
+* Central and Eastern Europeans learned of coffee from the Ottomans and began to cultivate it.
+* By the late 17th century, coffee houses had established themselves in Western Europe, particularly in England and Germany.
+
+**Spread to the Americas (18th century)**
+
+* Gabriel de
+
+0.04.719.132 I common_perf_print:    sampling time =      78.97 ms
+0.04.719.133 I common_perf_print:    samplers time =      26.66 ms /   607 tokens
+0.04.719.142 I common_perf_print:        load time =    1798.51 ms
+0.04.719.144 I common_perf_print: prompt eval time =     101.02 ms /   351 tokens (    0.29 ms per token,  3474.42 tokens per second)
+0.04.719.145 I common_perf_print:        eval time =    1672.23 ms /   255 runs   (    6.56 ms per token,   152.49 tokens per second)
+0.04.719.146 I common_perf_print:       total time =    1863.83 ms /   606 tokens
+0.04.719.147 I common_perf_print: unaccounted time =      11.60 ms /   0.6 %      (total - sampling - prompt eval - eval) / (total)
+0.04.719.147 I common_perf_print:    graphs reused =        253

@@ -1,0 +1,27 @@
+p0: 256 tokens, 68.8 tok/s
+p1: 256 tokens, 68.8 tok/s
+p2: 85 tokens, 66.8 tok/s
+p3: 256 tokens, 69.5 tok/s
+p4: 256 tokens, 69.5 tok/s
+p5: 91 tokens, 68.5 tok/s
+p6: 256 tokens, 69.5 tok/s
+p7: 94 tokens, 69.0 tok/s
+p8: 163 tokens, 69.4 tok/s
+p9: 221 tokens, 69.4 tok/s
+p10: 256 tokens, 69.5 tok/s
+p11: 25 tokens, 60.5 tok/s
+p12: 256 tokens, 69.5 tok/s
+p13: 109 tokens, 69.1 tok/s
+p14: 151 tokens, 69.2 tok/s
+p15: 256 tokens, 69.5 tok/s
+p16: 256 tokens, 69.5 tok/s
+p17: 26 tokens, 61.1 tok/s
+p18: 256 tokens, 69.5 tok/s
+p19: 256 tokens, 66.9 tok/s
+p20: 256 tokens, 69.4 tok/s
+p21: 256 tokens, 69.4 tok/s
+p22: 256 tokens, 69.4 tok/s
+p23: 256 tokens, 69.5 tok/s
+p24: 256 tokens, 69.4 tok/s
+p25: 168 tokens, 69.3 tok/s
+5229 tokens in 75.7 s = 69.1 tok/s (median per prompt 69.4)

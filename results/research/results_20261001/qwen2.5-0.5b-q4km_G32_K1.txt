@@ -1,0 +1,7 @@
+qwen2.5-0.5b-q4km.gguf token_embd.weight 151936x896 Q8_0, G=32 (28 groups), landscape 5.9%, tokens=500, K=1
+  exact          top1 100.0%  recall@1 100.0%  TV(T=0.7) 0.0000  TV(T=1.0) 0.0000  read  89.7%  (553s)
+  mc2            top1  88.2%  recall@1  88.2%  TV(T=0.7) 0.1180  TV(T=1.0) 0.1180  read  15.1%  (92s)
+  mc3            top1  99.6%  recall@1  99.6%  TV(T=0.7) 0.0040  TV(T=1.0) 0.0040  read  25.2%  (147s)
+  mc4            top1 100.0%  recall@1 100.0%  TV(T=0.7) 0.0000  TV(T=1.0) 0.0000  read  38.8%  (246s)
+  two:0.3:256    top1  95.0%  recall@1  95.0%  TV(T=0.7) 0.0500  TV(T=1.0) 0.0500  read  28.7%  (136s)
+  two:0.5:256    top1 100.0%  recall@1 100.0%  TV(T=0.7) 0.0000  TV(T=1.0) 0.0000  read  50.2%  (179s)

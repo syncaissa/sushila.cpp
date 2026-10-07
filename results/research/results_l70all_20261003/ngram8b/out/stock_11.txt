@@ -1,0 +1,32 @@
+0.00.099.154 I llama_completion: llama backend init
+0.00.099.188 I llama_completion: load the model and apply lora adapter, if any
+0.02.694.889 I cmn          init: llama threadpool init, n_threads = 252
+0.02.751.362 I 
+0.02.751.521 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.02.751.529 I 
+0.02.751.814 I sampler seed: 2063040867
+0.02.751.833 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.02.751.841 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.02.751.842 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.02.751.843 I 
+user
+
+Who directed Terror Mountain, a American silent Western film?
+
+Terror Mountain is a 1928 American silent Western film directed by Louis King and written by Frank Howard Clark and Helen Gregg. The film stars Tom Tyler, Jane Reid, Al Ferguson, Jules Cowles and Frankie Darro. The film was released on August 19, 1928, by Film Booking Offices of America. It was also released as Terror and Tom's Vacation.assistant
+
+The director of the American silent Western film "Terror Mountain" is Louis King. [end of text]
+
+
+0.02.926.581 I common_perf_print:    sampling time =       4.78 ms
+0.02.926.583 I common_perf_print:    samplers time =       1.53 ms /   117 tokens
+0.02.926.592 I common_perf_print:        load time =    1653.49 ms
+0.02.926.595 I common_perf_print: prompt eval time =      51.37 ms /    99 tokens (    0.52 ms per token,  1927.23 tokens per second)
+0.02.926.597 I common_perf_print:        eval time =     118.03 ms /    17 runs   (    6.94 ms per token,   144.03 tokens per second)
+0.02.926.598 I common_perf_print:       total time =     175.24 ms /   116 tokens
+0.02.926.599 I common_perf_print: unaccounted time =       1.06 ms /   0.6 %      (total - sampling - prompt eval - eval) / (total)
+0.02.926.599 I common_perf_print:    graphs reused =         16

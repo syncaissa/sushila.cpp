@@ -1,0 +1,62 @@
+[
+ {
+  "id": 0,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 4.631947755813599,
+  "wall_tok_s": 55.26832630585959,
+  "accept_len": null,
+  "text": "## Aloha & Awe: Lost in the Magic of Hawaii\n\nOkay, deep breaths everyone. I'm back from Hawaii, and honestly? I'm still processing. It wasn't just a vacation; it was a *feeling*. A feeling of warmth, peace, and a deep connection to something ancient and beautiful. Forget everything you think you know about Hawaii from postcards \u2013 this place is so much more than turquoise water and palm trees. It's a vibrant culture steeped in history, a landscape that feels otherworldly, and a spirit that just *gets* you.\n\nI spent two weeks hopping between Oahu and Maui, and while each island had its own unique charm, they both left me utterly captivated. Here's a breakdown of my adventure, focusing on those experiences that truly resonated \u2013 beyond the beach bumming (though there was plenty of that!).\n\n**Oahu: History & Hustle in Honolulu**\n\nOahu is often the first stop for visitors, and it's easy to see why. Honolulu is buzzing with energy, but it's also incredibly rich in history. My first priority was **Pearl Harbor**. It's a sobering experience, but a vital one. Walking through the memorials and learning about the events of December 7th"
+ },
+ {
+  "id": 1,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 94,
+  "seconds": 1.7655367851257324,
+  "wall_tok_s": 53.241598131474674,
+  "accept_len": null,
+  "text": "Subject: Quarterly Financial Report - Feedback Request\n\nDear [Supervisor's Name],\n\nPlease find attached the Quarterly Financial Report for [Quarter - e.g., Q3 2023].\n\nI would appreciate your feedback on the report, particularly regarding the data analysis, presentation style, and clarity of the conclusions drawn. \n\nPlease let me know if you have time to review it in the coming days.\n\nThanks,\n\n[Your Name]\n"
+ },
+ {
+  "id": 2,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 4.650647878646851,
+  "wall_tok_s": 55.04609393788067,
+  "accept_len": null,
+  "text": "## Blog Post Outline: [Phone A] vs. [Phone B] - Which Smartphone Reigns Supreme?\n\n**I. Introduction**\n* Briefly introduce both phones & target audience.\n* State blog post goal: objective comparison.\n\n**II. Design & Display**\n* **A.** Physical Appearance: Size, materials, aesthetics.\n* **B.** Display Specs: Resolution, technology (OLED/LCD), refresh rate.\n* **C.** Ergonomics & Comfort: How they feel in hand.\n\n**III. Performance & Software**\n* **A.** Processor & RAM: Chipset comparison, multitasking ability.\n* **B.** Storage Options: Available storage tiers.\n* **C.** Software Experience: OS version, UI differences, bloatware.\n\n**IV. Camera Capabilities**\n* **A.** Main Camera Specs: Megapixels, aperture, features.\n* **B.** Front Camera Specs: Selfie quality & features.\n* **C.** Video Recording: Resolution & stabilization.\n\n**V. Battery Life & Charging**\n* **A.** Battery Capacity & Real-World Usage.\n* **B.** Charging Speed & Technology (wired/wireless).\n\n**VI. Price & Value**\n* **"
+ },
+ {
+  "id": 3,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 204,
+  "seconds": 3.7174720764160156,
+  "wall_tok_s": 54.87600062800599,
+  "accept_len": null,
+  "text": "Subject: A Chance to Share Your Passion - & You're Perfect For It!\n\nHey [Friend's Name],\n\nI know public speaking isn't your thing, but I was thinking about you when I heard about [Event Name] - they're looking for someone to talk about [Topic you know your friend is passionate about]. Seriously, *you* would be amazing!\n\nIt's not a huge crowd \u2013 more like a small, engaged group. And you don't need to be flashy! They're looking for genuine enthusiasm & knowledge, which you have in spades. \n\nI know the thought is daunting, but think about the impact you could have sharing your passion. Plus, it's a great way to connect with people who share your interests. We can even practice beforehand if you'd like!\n\nNo pressure at all, but I really think you'd rock it. Let me know what you think!\n\nBest,\n[Your Name]\n\n\n\n"
+ },
+ {
+  "id": 4,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 256,
+  "seconds": 4.638219594955444,
+  "wall_tok_s": 55.19359201501092,
+  "accept_len": null,
+  "text": "Old Man Tiber, they called him, though no one knew his true age. He wasn't *old* in the way of brittle bones and fading eyes; rather, he was *weathered*, like a cliff face sculpted by centuries of wind and salt spray. His skin was a patchwork of sun-baked leather and faded indigo tattoos depicting constellations he claimed only *remembered*, not observed. One eye was milky white, lost to a kraken's ink, while the other burned with a restless, turquoise fire. He smelled perpetually of brine, dried seaweed, and something akin to ozone \u2013 a lingering echo of storms he'd walked *through*, not merely *weathered*. A tangle of silver braids, interwoven with polished shark teeth and iridescent shells, cascaded down his back, each strand whispering tales of forgotten tides.\n\nHe moved with a fluid grace that belied his age, his bare feet leaving no prints in the sand, only a faint shimmer. He wasn't a sailor, not precisely. He *was* the sea, distilled into human form \u2013 a walking, breathing repository of its moods, its secrets, its ancient sorrow. He spoke in riddles and half-truths, his voice raspy as grinding coral, offering warnings and blessings"
+ },
+ {
+  "id": 5,
+  "source": "mtbench",
+  "ref": "writing",
+  "tokens": 229,
+  "seconds": 4.163599014282227,
+  "wall_tok_s": 55.00049337471512,
+  "accept_len": null,
+  "text": "The marketplace throbbed with life, a chaotic symphony of sights, sounds, and smells. Sunlight glinted off piles of glistening olives, ruby-red pomegranates, and pyramids of golden spices \u2013 saffron, turmeric, cumin \u2013 their aromas swirling together in a heady, exotic perfume. A cacophony of voices rose above the din: merchants hawking their wares in booming calls, children laughing as they chased pigeons through the throng, the rhythmic clang of a blacksmith hammering metal, and the lilting melodies of a flute player weaving through the crowd. Brightly colored textiles \u2013 silks in shades of sapphire and emerald, wool rugs patterned with ancient symbols \u2013 overflowed from stalls, vying for attention alongside handcrafted pottery and gleaming copperware. Dust motes danced in the air, illuminated by the sun, while underfoot the cobblestones were worn smooth by centuries of footsteps. A sticky sweetness hung in the air from vendors selling honey-soaked baklava, mingling with the savory scent of grilled kebabs sizzling over hot coals. Every corner offered a new sensory delight, a vibrant snapshot of life unfolding in a whirlwind of color and energy.\n\n\n\n"
+ }
+]

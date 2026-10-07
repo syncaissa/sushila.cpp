@@ -1,0 +1,90 @@
+0.01.224.148 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.285.886 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.863.920 I cmn          init: llama threadpool init, n_threads = 30
+landscape: /workspace/dl/draft.mclp preview vocab=32000 hidden=4096 width=512 candidates=1024 type=q4_0 check=0
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+landscape: output.weight does not match the landscape (type/shape), not applied
+0.03.107.747 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.562.324 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.04.130.793 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.424.145 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.769.457 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.460.907 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.807.129 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.164.968 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.517.156 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.868.931 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.221.438 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.258.128 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.950.069 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.309.322 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.660.865 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.013.241 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.365.908 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.725.312 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.095.948 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.462.756 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.12.818.372 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.172.409 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.13.872.829 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.560.552 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.919.216 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.15.279.973 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.15.633.468 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.15.995.791 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.16.361.197 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.17.069.833 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.17.426.391 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.18.128.161 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.18.481.015 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.19.173.788 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.19.528.065 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.19.878.548 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.20.235.116 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.20.593.554 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+
+TCP and UDP are two fundamental transport-layer protocols used in the Internet Protocol Suite (TCP/IP). While both protocols are used for data transfer, they have distinct differences in their design, functionality, and use cases.
+
+**TCP (Transmission Control Protocol)**
+
+* **Connection-oriented**: Establishes a connection between the sender and receiver before data transfer begins.
+* **Reliable**: Ensures data is delivered in the correct order, with error-checking and retransmission of lost or corrupted packets.
+* **Ordered**: Guarantees that packets are delivered in the same
+
+0.20.600.420 I sushila-tree: depth=4 k=4 nt=16 generated 128 tokens in 16.220 s, 7.830 t/s; cycles=46 accepted/cycle=1.78 tokens/cycle=2.78 tree=16.0
+0.20.600.422 I sushila-tree: ms/cycle draft 59.01 verify 287.44 (target decode 287.14) commit 6.14
+landscape: tokens=680 survivors/token=1485.3 stages/token=0.0 read_frac=0.0976 (weights 0.0464 + landscape 0.0512)
+landscape: us/token total=522 setup=158 init=86 stages=23 final=256
+landscape: mean alive after stage k=1..8: 0 0 0 0 0 0 0 0

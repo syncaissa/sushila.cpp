@@ -1,0 +1,36 @@
+0.02.718.571 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What is the name of the first dog that went to space?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The first dog to go to space was Laika, a Soviet space dog who was launched on November 3, 1957, aboard the Sputnik 2 spacecraft. However, Laika was not the first dog to be launched into space, but rather the first dog to orbit the Earth.
+
+The first dog to be launched into space was actually a dog named Albina, who was launched on July 22, 1951, aboard a R-1 rocket by the Soviet Union. However, Albina did not reach orbit and crashed back to Earth.
+
+Laika, on the other hand, was a stray dog that was found on the streets of Moscow and was chosen for the Sputnik 2 mission. Unfortunately, Laika did not survive the flight, as the technology at the time did not allow for her to be safely returned to Earth. Despite this, Laika's mission helped pave the way for human spaceflight and is still remembered as a pioneering figure in the history of space exploration.<|eot_id|>
+
+0.04.850.298 I encoded   23 tokens in    0.043 seconds, speed: 5355.885 t/s
+0.04.850.300 I decoded  205 tokens in    1.529 seconds, speed:  134.059 t/s
+0.04.850.300 I 
+0.04.850.301 I n_draft      = 8
+0.04.850.301 I n_predict    = 205
+0.04.850.302 I n_drafted    = 187
+0.04.850.302 I t_draft_flat = 500.06 ms
+0.04.850.304 I t_draft      = 5.44 ms, 29.10 us per token, 34368.68 tokens per second
+0.04.850.304 I n_accept     = 37
+0.04.850.305 I accept       = 19.786%
+0.04.850.305 I 
+target:
+
+0.04.850.312 I common_perf_print:    sampling time =      56.96 ms
+0.04.850.313 I common_perf_print:    samplers time =      21.36 ms /   205 tokens
+0.04.850.320 I common_perf_print:        load time =    1590.99 ms
+0.04.850.322 I common_perf_print: prompt eval time =     556.64 ms /   256 tokens (    2.17 ms per token,   459.90 tokens per second)
+0.04.850.323 I common_perf_print:        eval time =     886.65 ms /   121 runs   (    7.33 ms per token,   136.47 tokens per second)
+0.04.850.324 I common_perf_print:       total time =    2072.85 ms /   377 tokens
+0.04.850.325 I common_perf_print: unaccounted time =     572.60 ms /  27.6 %      (total - sampling - prompt eval - eval) / (total)
+0.04.850.325 I common_perf_print:    graphs reused =         92
+
+

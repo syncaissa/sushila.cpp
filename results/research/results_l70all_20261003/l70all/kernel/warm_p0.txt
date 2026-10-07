@@ -1,0 +1,21 @@
+0.05.959.951 I cmn          init: llama threadpool init, n_threads = 30
+sparse: budget=0.500 layers=0-1073741824 tensors=all seven
+6.08.105.980 I sushila-spec: copies built in 355.5 s (not counted)
+
+
+
+The process of how a bill becomes a law in the United States is a complex and multi-step process. Here's a step-by-step explanation:
+
+**Step 1: Introduction of a Bill**
+
+* A member of Congress introduces a bill in either the House of Representatives or the Senate.
+* The bill is written in a specific format, with a clear title, a brief summary, and a detailed explanation of the proposed law.
+* The bill is then referred to a committee, which is a group of members who specialize in a particular area of policy.
+
+**Step 2: Committee Review**
+
+* The committee reviews the bill and may hold
+
+6.56.828.873 I sushila-spec: mode=lossy-sparse generated 128 tokens in 48.721 s, 2.607 t/s
+sparse: calls=71683 cols_frac=0.5010 bytes_frac=0.5006 us/call=630.9 (excluding 357.7 s building the copies)
+sparse: us/call select 112.8 accumulate 315.7 (thread 0)

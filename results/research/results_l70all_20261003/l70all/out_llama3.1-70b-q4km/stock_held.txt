@@ -1,0 +1,14 @@
+warning: no usable GPU found, --gpu-layers option will be ignored
+warning: one possible reason is that llama.cpp was compiled without GPU support
+warning: consult docs/build.md for compilation instructions
+0.06.518.884 I cmn          init: llama threadpool init, n_threads = 30
+0.07.101.376 I 
+0.07.101.564 I system_info: n_threads = 30 (n_threads_batch = 30) / 252 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.07.101.772 I perplexity: saving all logits to /workspace/l70all/base_llama3.1-70b-q4km_held.kld
+0.07.101.784 I perplexity: tokenizing the input ..
+0.07.115.590 I perplexity: tokenization took 13.798 ms
+0.07.115.663 I perplexity: calculating perplexity over 20 chunks, n_ctx=512, batch_size=2048, n_seq=4
+2.38.008.857 I perplexity: 150.78 seconds per pass - ETA 12.55 minutes
+[1]2.7594,[2]2.9440,[3]2.9142,[4]3.5618,[5]3.2314,[6]3.2856,[7]3.3059,[8]3.0894,[9]2.8762,[10]2.7328,[11]2.6552,[12]2.5242,[13]2.4623,[14]2.5065,[15]2.5608,[16]2.5838,[17]2.5745,[18]2.5074,[19]2.4901,[20]2.4556,
+11.08.082.466 I Final estimate: PPL = 2.4556 +/- 0.06623
+

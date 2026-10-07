@@ -1,0 +1,34 @@
+0.00.080.712 I llama_completion: llama backend init
+0.00.080.737 I llama_completion: load the model and apply lora adapter, if any
+0.02.495.256 I cmn          init: llama threadpool init, n_threads = 252
+0.02.553.688 I 
+0.02.553.856 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.02.553.862 I 
+0.02.553.962 I sampler seed: 47403438
+0.02.553.981 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.02.553.989 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.02.553.990 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.02.553.990 I 
+user
+
+Who wrote the Man in the Iron Maskassistant
+
+There are actually two different works that feature a character known as "The Man in the Iron Mask":
+
+1. **The Man in the Iron Mask** by Alexandre Dumas: This is a novel written by French author Alexandre Dumas in 1847-1850. It is the fourth and final book in Dumas' "D'Artagnan Romances" series, which also includes "The Three Musketeers" and "Twenty Years After". The novel is a work of historical fiction that tells the story of a mysterious prisoner who is imprisoned in the Bastille and wears an iron mask to conceal his identity.
+2. **The Man in the Iron Mask** by Edgar Allan Poe: This is a short story written by American author Edgar Allan Poe in 1840. It is a lesser-known work by Poe, and it tells the story of a prisoner who is imprisoned in a cell with a mask made of iron. However, this story is not as well-known as Dumas' novel, and it is not as widely regarded as a classic of literature.
+
+It's worth noting that the character of the Man in the Iron Mask is also based on a real historical figure, who was a prisoner in the Bastille during the 17th century. The real prisoner
+
+0.04.318.727 I common_perf_print:    sampling time =      66.25 ms
+0.04.318.728 I common_perf_print:    samplers time =      25.69 ms /   274 tokens
+0.04.318.736 I common_perf_print:        load time =    1582.24 ms
+0.04.318.738 I common_perf_print: prompt eval time =      34.87 ms /    18 tokens (    1.94 ms per token,   516.16 tokens per second)
+0.04.318.739 I common_perf_print:        eval time =    1656.92 ms /   255 runs   (    6.50 ms per token,   153.90 tokens per second)
+0.04.318.740 I common_perf_print:       total time =    1765.06 ms /   273 tokens
+0.04.318.741 I common_perf_print: unaccounted time =       7.01 ms /   0.4 %      (total - sampling - prompt eval - eval) / (total)
+0.04.318.741 I common_perf_print:    graphs reused =        253

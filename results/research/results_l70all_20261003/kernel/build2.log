@@ -1,0 +1,53 @@
+Consolidate compiler generated dependencies of target llama-common-base
+Consolidate compiler generated dependencies of target cpp-httplib
+Consolidate compiler generated dependencies of target ggml-base
+[  1%] Built target llama-common-base
+[  1%] Built target cpp-httplib
+[  4%] Built target ggml-base
+Consolidate compiler generated dependencies of target ggml-cpu
+[ 12%] Built target ggml-cpu
+Consolidate compiler generated dependencies of target ggml-cuda
+[ 12%] Building CUDA object ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/mmvq.cu.o
+[ 12%] Linking CUDA shared library ../../../bin/libggml-cuda.so
+[ 64%] Built target ggml-cuda
+Consolidate compiler generated dependencies of target ggml
+[ 66%] Linking CXX shared library ../../bin/libggml.so
+[ 66%] Built target ggml
+Consolidate compiler generated dependencies of target llama
+[ 67%] Linking CXX shared library ../bin/libllama.so
+[ 82%] Built target llama
+Consolidate compiler generated dependencies of target llama-common
+[ 82%] Linking CXX shared library ../bin/libllama-common.so
+[100%] Built target llama-common
+[100%] Building CXX object examples/sushila-tree/CMakeFiles/llama-sushila-tree.dir/sushila-tree.cpp.o
+[100%] Linking CXX executable ../../bin/llama-sushila-tree
+[100%] Built target llama-sushila-tree
+[  4%] Built target ggml-base
+[  4%] Built target llama-common-base
+[  4%] Built target cpp-httplib
+[ 12%] Built target ggml-cpu
+Consolidate compiler generated dependencies of target ggml-cuda
+[ 63%] Built target ggml-cuda
+[ 65%] Built target ggml
+[ 80%] Built target llama
+[ 98%] Built target llama-common
+[ 98%] Building CXX object tools/completion/CMakeFiles/llama-completion-impl.dir/completion.cpp.o
+[100%] Linking CXX shared library ../../bin/libllama-completion-impl.so
+[100%] Built target llama-completion-impl
+[100%] Building CXX object tools/completion/CMakeFiles/llama-completion.dir/main.cpp.o
+[100%] Linking CXX executable ../../bin/llama-completion
+[100%] Built target llama-completion
+[  0%] Built target cpp-httplib
+[  1%] Built target llama-common-base
+[  4%] Built target ggml-base
+[ 12%] Built target ggml-cpu
+[ 63%] Built target ggml-cuda
+[ 65%] Built target ggml
+[ 80%] Built target llama
+[ 98%] Built target llama-common
+Consolidate compiler generated dependencies of target llama-batched-bench-impl
+[ 98%] Linking CXX shared library ../../bin/libllama-batched-bench-impl.so
+[100%] Built target llama-batched-bench-impl
+Consolidate compiler generated dependencies of target llama-batched-bench
+[100%] Linking CXX executable ../../bin/llama-batched-bench
+[100%] Built target llama-batched-bench

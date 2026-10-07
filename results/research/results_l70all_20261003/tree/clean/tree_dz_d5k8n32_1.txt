@@ -1,0 +1,91 @@
+0.01.174.815 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.224.139 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.676.901 I cmn          init: llama threadpool init, n_threads = 252
+0.02.728.201 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.255.455 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+0.03.301.574 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.03.501.138 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.707.703 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.791.978 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.850.747 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.917.280 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.03.980.022 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.040.304 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.098.410 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.165.785 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.233.650 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.295.433 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.353.739 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.412.888 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.470.973 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.536.755 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.595.060 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.656.457 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.716.248 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.777.017 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.808.642 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.870.044 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.928.952 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.991.020 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.064.551 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.123.379 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.185.813 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.245.873 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.312.006 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.370.574 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.438.406 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.506.425 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.566.521 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.626.497 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.693.885 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.753.690 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.816.854 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.876.173 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.941.656 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.002.454 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.062.855 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.092.667 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.154.553 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.216.998 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+**Merging Two Sorted Lists in Python**
+=====================================
+
+Here's a Python function that merges two sorted lists into one sorted list. This function uses a two-pointer technique to compare elements from both lists and add the smaller one to the result list.
+
+```python
+def merge_sorted_lists(list1, list2):
+    """
+    Merge two sorted lists into one sorted list.
+
+    Args:
+        list1 (list): The first sorted list.
+        list2 (list): The second sorted list.
+
+    Returns:
+        list: A new sorted list containing all elements from both input lists.
+    """
+    # Initialize the result list
+    merged_list = []
+
+    # Initialize pointers for both lists
+    i, j = 0, 0
+
+    # Merge smaller elements first
+    while i < len(list1) and j < len(list2):
+        # Compare current elements and add the smaller one to the result list
+        if list1[i] < list2[j]:
+            merged_list.append(list1[i])
+            i += 1
+        else:
+            merged_list.append(list2[j])
+            j += 1
+
+    # Add remaining elements from list1, if any
+    while i < len(list1):
+        merged_list.append(list
+
+0.06.217.319 I sushila-tree: depth=5 k=8 nt=32 generated 256 tokens in 2.563 s, 99.483 t/s; cycles=81 accepted/cycle=2.15 tokens/cycle=3.15 tree=32.0
+0.06.217.320 I sushila-tree: ms/cycle draft 10.33 verify 20.48 commit 0.83

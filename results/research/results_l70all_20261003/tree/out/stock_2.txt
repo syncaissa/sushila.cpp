@@ -1,0 +1,47 @@
+0.00.041.957 I llama_completion: llama backend init
+0.00.041.980 I llama_completion: load the model and apply lora adapter, if any
+0.04.978.875 I cmn          init: llama threadpool init, n_threads = 252
+0.05.058.109 I 
+0.05.058.286 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.05.058.294 I 
+0.05.058.556 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.05.058.574 I sampler seed: 1747005364
+0.05.058.589 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.05.058.599 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.05.058.601 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.05.058.601 I 
+system
+
+Cutting Knowledge Date: December 2023
+Today Date: 26 Jul 2024
+
+user
+
+Summarize the causes and consequences of the French Revolution.assistant
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here's a summary:
+
+**Causes of the French Revolution:**
+
+1.  **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, which led to a financial crisis and a burden on the common people.
+2.  **Social Inequality**: The French society was divided into three estates: the clergy, the nobility, and the commoners. The nobility and clergy held most of the power and wealth, while the commoners were burdened with heavy taxes and had limited rights.
+3. **Food Shortages and Economic Hardship**: A series of crop failures and food shortages led to widespread poverty and discontent among the common people.
+4.  **Enlightenment Ideas**: The ideas of the Enlightenment, such as liberty, equality, and fraternity, spread among the common people, inspiring them to demand change.
+5.  **Weak Leadership**: King Louis XVI was seen as out of touch with the people and ineffective in addressing the country's problems.
+
+**Consequences of the French Revolution:**
+
+1.  **Establishment of the First Republic**: The National Assembly
+
+0.09.956.770 I common_perf_print:    sampling time =      58.32 ms
+0.09.956.778 I common_perf_print:    samplers time =      18.01 ms /   303 tokens
+0.09.956.785 I common_perf_print:        load time =    3894.93 ms
+0.09.956.786 I common_perf_print: prompt eval time =     114.98 ms /    47 tokens (    2.45 ms per token,   408.75 tokens per second)
+0.09.956.788 I common_perf_print:        eval time =    4719.36 ms /   255 runs   (   18.51 ms per token,    54.03 tokens per second)
+0.09.956.789 I common_perf_print:       total time =    4898.69 ms /   302 tokens
+0.09.956.789 I common_perf_print: unaccounted time =       6.03 ms /   0.1 %      (total - sampling - prompt eval - eval) / (total)
+0.09.956.792 I common_perf_print:    graphs reused =        253

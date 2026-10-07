@@ -1,0 +1,8 @@
+sushila-tree: depth=5 k=1 nt=5 generated 256 tokens in 1.728 s, 147.584 t/s; cycles=89 accepted/cycle=1.87 tokens/cycle=2.87 tree=5.0
+sushila-tree: ms/cycle draft 5.00 verify 13.51 (target decode 13.25) commit 0.90
+sushila-tree: depth=5 k=4 nt=16 generated 256 tokens in 1.832 s, 139.222 t/s; cycles=65 accepted/cycle=2.94 tokens/cycle=3.94 tree=16.0
+sushila-tree: ms/cycle draft 9.66 verify 17.23 (target decode 16.74) commit 1.29
+sushila-tree: depth=5 k=8 nt=32 generated 256 tokens in 2.018 s, 126.340 t/s; cycles=56 accepted/cycle=3.55 tokens/cycle=4.55 tree=32.0
+sushila-tree: ms/cycle draft 12.80 verify 21.70 (target decode 21.03) commit 1.54
+sushila-tree: depth=6 k=8 nt=48 generated 256 tokens in 2.197 s, 116.052 t/s; cycles=53 accepted/cycle=3.83 tokens/cycle=4.83 tree=48.0
+sushila-tree: ms/cycle draft 12.45 verify 27.31 (target decode 26.63) commit 1.69

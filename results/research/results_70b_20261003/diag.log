@@ -1,0 +1,7 @@
+open + parallel dequantize (128256, 8192) Q6_K: 7.1 s
+write simulator cache: 0.6 s
+E -> float64: 0.6 s
+gram (BLAS): 11.8 s
+covariance: 1.4 s
+cholesky: 10.8 s
+eigh 8192: 72.4 s

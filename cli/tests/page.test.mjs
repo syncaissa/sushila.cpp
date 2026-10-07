@@ -55,6 +55,6 @@ const chg = async (cur) => { p.d.getElementById('pwcur').value = cur; p.d.getEle
   [...p.d.querySelectorAll('#manage button')].find((b) => b.textContent === 'Change password').click(); await sleep(400); };
 await chg('guess'); ok(p.d.body.textContent.includes('wrong current password'), 'change: a wrong current password is refused');
 await chg('correct horse'); ok(p.d.body.textContent.includes('Admin password changed'), 'change: with the current password it works');
-p = await page('tok123', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Use,Admin,Documentation' && p.d.querySelector('.smenu a[href="/docs"]'), 'the ☰ menu: Use, Admin, Documentation');
-p = await page('', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Use,Documentation', 'remote visitor: ☰ menu without Admin');
+p = await page('tok123', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Admin,Documentation,API' && p.d.querySelector('.smenu a[href="/docs"]') && p.d.querySelector('.swhere').textContent.includes('/admin') && p.d.querySelector('.swhere').textContent.includes('/v1'), 'the ☰ menu: Inference, Admin, Documentation, API + the addresses');
+p = await page('', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Documentation,API' && !p.d.querySelector('#shome') && !p.d.querySelector('.swhere').textContent.includes('/admin'), 'remote visitor: ☰ menu without Admin or the home folder');
 console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0);

@@ -1,0 +1,2 @@
+llama3.1-8b-q4km.gguf output.weight 128256x4096 Q6_K, G=32 (128 groups), landscape 7.6%, tokens=300, K=40
+  mc3            top1  83.0%  recall@40  84.4%  TV(T=0.7) 0.1646  TV(T=1.0) 0.1612  read  44.3%  (285s)

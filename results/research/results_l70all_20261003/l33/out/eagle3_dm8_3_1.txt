@@ -1,0 +1,180 @@
+0.12.559.743 I cmn          init: llama threadpool init, n_threads = 252
+0.12.658.930 I common_speculative_init_result: loading draft model '/workspace/l33/eagle3.gguf'
+0.13.392.608 W llama_context: n_ctx_seq (4096) > n_ctx_train (2048) -- possible training context overflow
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Write a short story about a lighthouse keeper who finds a message in a bottle.<|eot_id|><|start_header_id|>assistant<|end_header_id|>0.13.857.330 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.14.447.411 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+0.14.573.420 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+The0.14.666.007 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ sun0.14.757.350 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ was0.14.848.442 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ setting0.14.939.506 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ over the rocky0.15.031.439 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ coastline, casting a0.15.123.121 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ warm orange glow0.15.214.395 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ over the l0.15.305.406 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ighthouse and0.15.396.584 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ its0.15.487.608 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ keeper0.15.578.723 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+,0.15.669.969 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ Emily0.15.761.107 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+. She0.15.852.206 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ had0.15.943.555 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ been0.16.034.917 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ tending0.16.126.207 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the light0.16.217.682 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ for over a0.16.309.168 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ decade0.16.400.245 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, and had0.16.489.817 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ grown accustomed0.16.579.721 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to0.16.670.835 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the solitude0.16.762.218 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and the rhyth0.16.853.373 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+mic pulse0.16.944.531 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of the waves0.17.035.677 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ against0.17.126.938 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the shore0.17.218.832 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+. As0.17.310.087 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ she0.17.401.352 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ made0.17.492.433 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ her way0.17.583.727 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ down0.17.673.076 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to the beach0.17.762.237 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to collect0.17.853.925 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ drift0.17.945.323 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+wood for0.18.036.617 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the evening0.18.128.071 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+'s0.18.219.620 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ fire, she noticed0.18.310.842 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a gl0.18.401.927 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+int of0.18.493.043 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ glass0.18.584.460 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ caught0.18.675.582 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ in the0.18.766.678 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ seaw0.18.857.726 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+eed0.18.948.734 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+
+0.19.039.881 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+Cur0.19.131.210 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ious0.19.222.977 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, Emily w0.19.314.173 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+aded0.19.405.454 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ into0.19.496.174 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the shallow0.19.586.545 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ water and retrieved0.19.678.762 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the object0.19.770.906 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.0.19.862.861 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ It was an0.19.954.721 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ old bottle, weather0.20.046.586 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ed0.20.138.057 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to0.20.229.705 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a soft brown0.20.321.983 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and0.20.413.235 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ covered0.20.504.335 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ in0.20.595.586 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ barn0.20.687.249 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+acles. She0.20.778.767 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ turned0.20.869.990 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ it0.20.960.951 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ over in0.21.052.016 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ her hands0.21.143.660 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, feeling0.21.235.104 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the smooth0.21.326.449 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ glass and the0.21.416.764 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ rough0.21.506.358 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ texture0.21.598.077 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of the sea0.21.689.871 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ creatures0.21.781.002 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ that had made0.21.872.031 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ it their0.21.963.110 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ home. As she examined0.22.054.333 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the bottle0.22.145.451 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, she noticed0.22.236.765 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a0.22.328.492 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ piece of0.22.420.029 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ paper rolled0.22.511.308 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ up0.22.602.231 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ inside.
+
+0.22.693.410 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+Emily carefully removed0.22.784.688 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the cork0.22.875.878 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and0.22.966.887 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ pulled0.23.058.013 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ out0.23.148.928 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the paper.0.23.238.822 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ It was a0.23.327.298 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ message0.23.419.237 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, written in elegant0.23.510.704 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ script on a0.23.602.072 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ piece0.23.693.353 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ of0.23.784.698 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ yellowed paper0.23.876.046 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+.
+
+"To0.23.967.646 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ whoever0.24.059.041 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ finds this,"0.24.150.446 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the message0.24.242.564 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ read,0.24.334.808 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ "I am0.24.426.305 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ writing0.24.518.218 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ to0.24.609.428 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ you from0.24.700.629 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ a0.24.791.976 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ ship called0.24.883.105 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the Maiden0.24.974.147 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+'s Revenge0.25.063.750 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, which0.25.153.457 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ set0.25.245.133 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ sail from0.25.336.389 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ England0.25.427.716 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ in 1850.25.525.564 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+00.25.631.478 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+. We0.25.724.653 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ are bound0.25.817.165 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ for0.25.908.542 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ the New0.25.999.649 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ World0.26.090.730 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+, and I0.26.182.050 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ am0.26.272.917 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ filled0.26.364.202 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ with hope0.26.455.192 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ and excitement0.26.546.408 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ for the adventures0.26.637.584 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ that lie0.26.729.278 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ ahead. My0.26.846.543 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ name0.26.963.978 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ is James, and I0.27.074.318 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+ am a
+
+0.27.076.377 I encoded   26 tokens in    0.587 seconds, speed:   44.319 t/s
+0.27.076.383 I decoded  258 tokens in   12.991 seconds, speed:   19.859 t/s
+0.27.076.384 I 
+0.27.076.385 I n_draft   = 8
+0.27.076.385 I n_predict = 258
+0.27.076.385 I n_drafted = 1097
+0.27.076.385 I n_accept  = 120
+0.27.076.386 I accept    = 10.939%
+0.27.076.386 I 
+0.27.076.386 I draft:
+
+0.27.076.441 I 
+0.27.076.441 I target:
+
+0.27.076.446 I common_perf_print:    sampling time =      57.36 ms
+0.27.076.447 I common_perf_print:    samplers time =      19.20 ms /   258 tokens
+0.27.076.453 I common_perf_print:        load time =   11167.73 ms
+0.27.076.454 I common_perf_print: prompt eval time =   10834.23 ms /  1262 tokens (    8.58 ms per token,   116.48 tokens per second)
+0.27.076.456 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.27.076.457 I common_perf_print:       total time =   14417.63 ms /  1263 tokens
+0.27.076.458 I common_perf_print: unaccounted time =    3526.04 ms /  24.5 %      (total - sampling - prompt eval - eval) / (total)
+0.27.076.458 I common_perf_print:    graphs reused =        134
+
+

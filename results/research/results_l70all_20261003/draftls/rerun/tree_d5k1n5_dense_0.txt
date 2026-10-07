@@ -1,0 +1,48 @@
+0.01.199.084 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.254.513 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.814.143 I cmn          init: llama threadpool init, n_threads = 30
+0.02.911.282 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.392.436 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.04.248.177 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.867.298 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.076.234 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.271.510 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.463.844 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.654.910 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.175.766 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.536.327 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.897.821 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.097.820 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.290.686 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.632.420 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.811.716 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.004.393 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.574.561 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.772.268 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.150.880 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.527.822 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.713.645 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.907.212 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.095.911 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.282.429 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.633.164 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.816.845 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.334.624 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.11.696.072 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+The process of how a bill becomes a law in the United States is as follows:
+
+**Step 1: Introduction of the Bill**
+
+- A member of Congress introduces a bill in either the House of Representatives or the Senate. The bill can be introduced by a single member or a group of members.
+- The bill is then referred to a committee, which is a group of members responsible for reviewing and debating the bill.
+
+**Step 2: Committee Review**
+
+- The committee reviews the bill, holds hearings, and gathers information from experts and stakeholders.
+- The committee may mark up the bill, which means they make changes to the original
+
+0.11.705.110 I sushila-tree: depth=5 k=1 nt=5 generated 128 tokens in 7.183 s, 17.681 t/s; cycles=39 accepted/cycle=2.26 tokens/cycle=3.26 tree=5.0
+0.11.705.112 I sushila-tree: ms/cycle draft 87.60 verify 89.38 (target decode 89.11) commit 7.19

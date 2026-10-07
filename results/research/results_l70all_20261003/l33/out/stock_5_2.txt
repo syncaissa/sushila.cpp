@@ -1,0 +1,30 @@
+0.00.091.839 I llama_completion: llama backend init
+0.00.091.861 I llama_completion: load the model and apply lora adapter, if any
+0.11.232.908 I cmn          init: llama threadpool init, n_threads = 252
+0.11.326.271 I 
+0.11.326.456 I system_info: n_threads = 252 (n_threads_batch = 252) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.11.326.465 I 
+0.11.326.742 I sampler seed: 3383553957
+0.11.326.764 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.11.326.772 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.11.326.773 I generate: n_ctx = 4096, n_batch = 2048, n_predict = 256, n_keep = 1
+0.11.326.773 I 
+user
+
+Écris un paragraphe sur l'importance de la biodiversité.assistant
+
+La biodiversité est essentielle à la santé de notre planète. Elle nous permet de disposer d’une grande variété d’espèces et d’écosystèmes, qui sont tous interconnectés et interdépendants. La perte de biodiversité peut avoir des conséquences graves, comme la réduction de la capacité des écosystèmes à se régénérer, la perte de ressources naturelles et la diminution de la résilience face aux changements climatiques. Il est donc crucial de prendre des mesures pour préserver et protéger la biodiversité, en veillant à maintenir des écosystèmes sains et diversifiés, et en promouvant des pratiques durables et respectueuses de l’environnement. [end of text]
+
+
+0.19.397.128 I common_perf_print:    sampling time =      42.95 ms
+0.19.397.131 I common_perf_print:    samplers time =      15.39 ms /   203 tokens
+0.19.397.140 I common_perf_print:        load time =   10355.28 ms
+0.19.397.142 I common_perf_print: prompt eval time =     126.62 ms /    28 tokens (    4.52 ms per token,   221.13 tokens per second)
+0.19.397.143 I common_perf_print:        eval time =    7894.82 ms /   174 runs   (   45.37 ms per token,    22.04 tokens per second)
+0.19.397.144 I common_perf_print:       total time =    8070.88 ms /   202 tokens
+0.19.397.145 I common_perf_print: unaccounted time =       6.49 ms /   0.1 %      (total - sampling - prompt eval - eval) / (total)
+0.19.397.145 I common_perf_print:    graphs reused =        173

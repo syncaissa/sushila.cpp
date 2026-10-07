@@ -1,6 +1,6 @@
 # NVIDIA image runtime + fp4 pack, end to end (RTX 5090, 2026-10-05)
 
-Same procedure as zimage_nvidia_runtime_20261005 (installed from B2 exactly as Host Station does), with the
+Same procedure as zimage_nvidia_runtime_20261005 (installed from B2 exactly as Host Station, the desktop app at the time, did), with the
 `z-image-turbo-nvidia-fp4` pack (Nunchaku SVDQuant FP4, for RTX 50-series / Blackwell, compute 12.0):
 
 | Mode | Size, steps | Generate (median) | HTTP round trip |

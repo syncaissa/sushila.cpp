@@ -1,0 +1,40 @@
+0.12.950.390 I cmn          init: llama threadpool init, n_threads = 252
+0.13.049.469 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Write a short story about a lighthouse keeper who finds a message in a bottle.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The sun was setting over the rocky coastline, casting a warm orange glow over the lighthouse and its keeper, Emily. She had been tending the light for over a decade, and had grown accustomed to the solitude and the rhythmic pulse of the waves against the shore. As she made her way down to the beach to collect driftwood for the evening's fire, she noticed a glint of glass caught in the seaweed.
+
+Curious, Emily waded into the shallow water and retrieved the object. It was an old bottle, weathered to a soft brown and covered in barnacles. She turned it over in her hands, feeling the smooth glass and the rough texture of the sea creatures that had made it their home. As she examined the bottle, she noticed a piece of paper rolled up inside.
+
+Emily carefully removed the cork and pulled out the paper. It was a message, written in elegant script on a piece of yellowed paper.
+
+"To whoever finds this," the message read, "I am writing to you from a ship called the Maiden's Revenge, which set sail from England in 1850. We are bound for the New World, and I am filled with hope and excitement for the adventures that lie ahead. My name is James, and I am a
+
+0.21.517.724 I encoded   26 tokens in    0.143 seconds, speed:  182.239 t/s
+0.21.517.725 I decoded  258 tokens in    7.381 seconds, speed:   34.955 t/s
+0.21.517.725 I 
+0.21.517.726 I n_draft   = 8
+0.21.517.726 I n_predict = 258
+0.21.517.726 I n_drafted = 575
+0.21.517.726 I n_accept  = 185
+0.21.517.727 I accept    = 32.174%
+0.21.517.729 I 
+0.21.517.729 I draft:
+
+0.21.517.786 I 
+0.21.517.787 I target:
+
+0.21.517.791 I common_perf_print:    sampling time =      78.01 ms
+0.21.517.792 I common_perf_print:    samplers time =      30.71 ms /   258 tokens
+0.21.517.798 I common_perf_print:        load time =   11716.01 ms
+0.21.517.799 I common_perf_print: prompt eval time =    5958.80 ms /   675 tokens (    8.83 ms per token,   113.28 tokens per second)
+0.21.517.800 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.21.517.801 I common_perf_print:       total time =    8468.43 ms /   676 tokens
+0.21.517.802 I common_perf_print: unaccounted time =    2431.63 ms /  28.7 %      (total - sampling - prompt eval - eval) / (total)
+0.21.517.802 I common_perf_print:    graphs reused =         69
+
+

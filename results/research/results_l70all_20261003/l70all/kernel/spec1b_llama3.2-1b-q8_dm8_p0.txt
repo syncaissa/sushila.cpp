@@ -1,0 +1,45 @@
+warning: no usable GPU found, --gpu-layers option will be ignored
+warning: one possible reason is that llama.cpp was compiled without GPU support
+warning: consult docs/build.md for compilation instructions
+0.06.535.464 I cmn          init: llama threadpool init, n_threads = 30
+0.07.044.628 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Explain how a bill becomes a law in the United States, step by step.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The process of how a bill becomes a law in the United States is a complex and multi-step process. Here's a step-by-step explanation:
+
+**Step 1: Introduction of a Bill**
+
+A member of Congress introduces a bill in either the House of Representatives or the Senate. The bill is written in a specific format and must be sponsored by at least one member of Congress.
+
+**Step 2: Referral to a Committee**
+
+The introduced bill is referred to a committee, which is a group of members of Congress responsible for reviewing and debating the bill. The committee may hold hearings, gather input from experts, and mark up the bill (make changes or
+
+0.40.646.355 I encoded   26 tokens in    2.371 seconds, speed:   10.966 t/s
+0.40.646.356 I decoded  133 tokens in   30.135 seconds, speed:    4.413 t/s
+0.40.646.357 I 
+0.40.646.357 I n_draft   = 8
+0.40.646.358 I n_predict = 133
+0.40.646.358 I n_drafted = 150
+0.40.646.358 I n_accept  = 114
+0.40.646.359 I accept    = 76.000%
+0.40.646.359 I 
+0.40.646.359 I draft:
+
+0.40.646.408 I 
+0.40.646.408 I target:
+
+0.40.646.414 I common_perf_print:    sampling time =      25.92 ms
+0.40.646.415 I common_perf_print:    samplers time =      10.22 ms /   133 tokens
+0.40.646.422 I common_perf_print:        load time =    6065.18 ms
+0.40.646.424 I common_perf_print: prompt eval time =   27385.67 ms /   196 tokens (  139.72 ms per token,     7.16 tokens per second)
+0.40.646.425 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.40.646.426 I common_perf_print:       total time =   33601.86 ms /   197 tokens
+0.40.646.427 I common_perf_print: unaccounted time =    6190.28 ms /  18.4 %      (total - sampling - prompt eval - eval) / (total)
+0.40.646.443 I common_perf_print:    graphs reused =         17
+
+

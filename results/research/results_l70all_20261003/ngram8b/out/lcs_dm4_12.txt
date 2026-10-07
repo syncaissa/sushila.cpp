@@ -1,0 +1,49 @@
+0.02.442.494 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Will commercial space travel be affordable to me in my lifetime and what would I pay for it?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The prospect of commercial space travel is exciting, and several companies are working towards making it a reality. While it's difficult to predict exactly when and how affordable it will be, I can provide some insights based on current developments and trends.
+
+**Current Status:**
+
+Several companies, such as SpaceX, Blue Origin, Virgin Galactic, and Sierra Nevada Corporation, are actively developing commercial spaceflight capabilities. These companies are working on various types of vehicles, including suborbital flights, orbital flights, and lunar missions.
+
+**Pricing Estimates:**
+
+Here are some rough estimates of what you might expect to pay for commercial space travel in the near future:
+
+1. **Suborbital Flights (e.g., Virgin Galactic's SpaceShipTwo):**
+	* Price: around $250,000 to $300,000 per person
+	* Duration: 2-3 minutes of weightlessness
+	* Experience: Brief exposure to space, with a view of the Earth's curvature
+2. **Orbital Flights (e.g., SpaceX's Crew Dragon):**
+	* Price: around $20 million to $50 million per person (estimated)
+	* Duration: Several days or weeks in space
+	* Experience: Full orbital experience, with opportunities for spacewalking and scientific
+
+0.04.973.345 I encoded   29 tokens in    0.044 seconds, speed: 6551.519 t/s
+0.04.973.346 I decoded  257 tokens in    1.882 seconds, speed:  136.581 t/s
+0.04.973.347 I 
+0.04.973.347 I n_draft      = 4
+0.04.973.347 I n_predict    = 257
+0.04.973.347 I n_drafted    = 156
+0.04.973.348 I t_draft_flat = 541.95 ms
+0.04.973.349 I t_draft      = 7.11 ms, 45.58 us per token, 21937.84 tokens per second
+0.04.973.349 I n_accept     = 47
+0.04.973.350 I accept       = 30.128%
+0.04.973.350 I 
+target:
+
+0.04.973.356 I common_perf_print:    sampling time =      68.55 ms
+0.04.973.357 I common_perf_print:    samplers time =      25.08 ms /   257 tokens
+0.04.973.363 I common_perf_print:        load time =    1605.34 ms
+0.04.973.365 I common_perf_print: prompt eval time =     719.15 ms /   246 tokens (    2.92 ms per token,   342.07 tokens per second)
+0.04.973.366 I common_perf_print:        eval time =    1085.63 ms /   148 runs   (    7.34 ms per token,   136.33 tokens per second)
+0.04.973.367 I common_perf_print:       total time =    2468.35 ms /   394 tokens
+0.04.973.368 I common_perf_print: unaccounted time =     595.02 ms /  24.1 %      (total - sampling - prompt eval - eval) / (total)
+0.04.973.368 I common_perf_print:    graphs reused =        116
+
+

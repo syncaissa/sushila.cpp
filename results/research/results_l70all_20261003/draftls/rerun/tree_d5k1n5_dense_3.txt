@@ -1,0 +1,46 @@
+0.01.208.526 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.262.187 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.861.666 I cmn          init: llama threadpool init, n_threads = 30
+0.02.945.859 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.447.580 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.04.077.238 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.513.301 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.701.621 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.892.189 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.083.265 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.430.793 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.784.595 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.980.290 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.168.058 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.360.788 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.550.505 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.731.511 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.930.772 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.121.739 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.314.077 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.716.952 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.909.849 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.261.670 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.444.403 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.640.638 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.994.333 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.180.472 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.375.169 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.555.977 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.754.853 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.944.162 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.131.937 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.315.983 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.10.508.116 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here's a summary:
+
+**Causes of the French Revolution:**
+
+1.  **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, which led to a financial crisis and a burden on the common people.
+2.  **Social Inequality**: The French society was divided into three estates: the clergy, the nobility, and the commoners. The nobility and clergy held most of the power and wealth, while the commoners
+
+0.10.516.166 I sushila-tree: depth=5 k=1 nt=5 generated 128 tokens in 6.181 s, 20.546 t/s; cycles=33 accepted/cycle=2.88 tokens/cycle=3.88 tree=5.0
+0.10.516.167 I sushila-tree: ms/cycle draft 87.59 verify 91.78 (target decode 91.49) commit 7.93

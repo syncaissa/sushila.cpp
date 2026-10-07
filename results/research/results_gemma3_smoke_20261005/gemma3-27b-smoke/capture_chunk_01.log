@@ -1,0 +1,115 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+/workspace/sushila/SpecForge/specforge/modeling/draft/llama3_eagle.py:33: UserWarning: flash_attn is not found, falling back to flex_attention. Please install flash_attn if you want to use the flash attention backend.
+  warnings.warn(
+
+ -----------【args】-----------
+target_model_path            gaunernst/gemma-3-27b-it-int4-awq
+strategy                    ················· eagle3
+draft_model_config           /workspace/sushila/gemma3-27b-smoke/pub_head/config.json
+trust_remote_code           ·················· False
+data_path                    /workspace/sushila/gemma3-27b-smoke/chunk_01.jsonl
+max_length                  ··················· 1024
+chat_template               ·················· gemma
+is_preformatted             ··················· True
+num_samples                 ··················· None
+build_dataset_num_proc      ······················ 8
+tp_size                     ······················ 1
+batch_size                  ······················ 4
+cache_dir                    /workspace/sushila/gemma3-27b-smoke/cache_chunk_01
+output_path                  /workspace/sushila/gemma3-27b-smoke/hs
+dist_timeout                ··················· 2000
+num_io_threads              ···················· 252
+num_workers                 ······················ 4
+io_queue_size               ····················· 50
+file_group_size             ··················· 2000
+compress                    ·················· False
+compression_level           ······················ 6
+sglang_attention_backend    ············· flashinfer
+sglang_mem_fraction_static  ··················· 0.75
+sglang_context_length       ··················· None
+sglang_enable_nccl_nvls     ·················· False
+sglang_enable_symm_mem      ·················· False
+sglang_enable_torch_compile ·················· False
+sglang_enable_dp_attention  ·················· False
+sglang_enable_dp_lm_head    ·················· False
+sglang_ep_size              ······················ 1
+sglang_disable_radix_cache  ·················· False
+Resolved draft model config:
+{
+  "_name_or_path": "",
+  "architectures": [
+    "LlamaForCausalLMEagle3"
+  ],
+  "attention_bias": false,
+  "attention_dropout": 0.0,
+  "bos_token_id": 2,
+  "chunk_size_feed_forward": 0,
+  "draft_vocab_size": 32000,
+  "dtype": "bfloat16",
+  "eos_token_id": 1,
+  "head_dim": 128,
+  "hidden_act": "silu",
+  "hidden_size": 5376,
+  "id2label": {
+    "0": "LABEL_0",
+    "1": "LABEL_1"
+  },
+  "initializer_range": 0.02,
+  "intermediate_size": 21504,
+  "is_encoder_decoder": false,
+  "label2id": {
+    "LABEL_0": 0,
+    "LABEL_1": 1
+  },
+  "max_position_embeddings": 32768,
+  "mlp_bias": false,
+  "model_type": "llama",
+  "num_attention_heads": 32,
+  "num_hidden_layers": 1,
+  "num_key_value_heads": 16,
+  "output_attentions": false,
+  "output_hidden_states": false,
+  "pad_token_id": 0,
+  "pretraining_tp": 1,
+  "problem_type": null,
+  "return_dict": true,
+  "rms_norm_eps": 1e-06,
+  "rope_parameters": {
+    "rope_theta": 1000000,
+    "rope_type": "default"
+  },
+  "sliding_window": 512,
+  "target_model_type": "gemma3_text",
+  "tie_word_embeddings": false,
+  "transformers_version": "5.12.1",
+  "use_cache": true,
+  "use_sliding_window": false,
+  "vocab_size": 262208
+}
+
+Disable hybrid SWA memory for Gemma3ForConditionalGeneration as it is not yet supported.
+Ignore import error when loading sglang.srt.models.sarashina2_vision: cannot import name 'MultimodalDataItem' from 'sglang.srt.managers.mm_utils' (/workspace/sushila/sfenv/lib/python3.11/site-packages/sglang/srt/managers/mm_utils.py)
+Multi-thread loading shards:   0% Completed | 0/4 [00:00<?, ?it/s]Multi-thread loading shards:  25% Completed | 1/4 [00:01<00:03,  1.23s/it]Multi-thread loading shards:  50% Completed | 2/4 [00:03<00:03,  1.67s/it]Multi-thread loading shards:  75% Completed | 3/4 [00:05<00:01,  1.84s/it]Multi-thread loading shards: 100% Completed | 4/4 [00:06<00:00,  1.72s/it]Multi-thread loading shards: 100% Completed | 4/4 [00:06<00:00,  1.70s/it]
+Setting num_proc from 8 back to 1 for the train split to disable multiprocessing as it only contains one shard.
+Generating train split: 0 examples [00:00, ? examples/s]Generating train split: 20 examples [00:00, 8351.86 examples/s]
+/workspace/sushila/sfenv/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1005 11:57:46.283388708 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+dataset is cached at /workspace/sushila/gemma3-27b-smoke/cache_chunk_01/processed_dataset/b5e8431053570f0f98c6fd4018c02140.pkl
+Map (num_proc=8):   0%|          | 0/20 [00:00<?, ? examples/s]Map (num_proc=8):  15%|█▌        | 3/20 [00:07<00:40,  2.36s/ examples]Map (num_proc=8):  30%|███       | 6/20 [00:11<00:26,  1.87s/ examples]Map (num_proc=8):  45%|████▌     | 9/20 [00:16<00:19,  1.75s/ examples]Map (num_proc=8):  60%|██████    | 12/20 [00:20<00:12,  1.61s/ examples]Map (num_proc=8):  70%|███████   | 14/20 [00:24<00:10,  1.71s/ examples]Map (num_proc=8):  80%|████████  | 16/20 [00:28<00:07,  1.82s/ examples]Map (num_proc=8):  90%|█████████ | 18/20 [00:33<00:03,  1.94s/ examples]Map (num_proc=8): 100%|██████████| 20/20 [00:37<00:00,  1.99s/ examples]Map (num_proc=8): 100%|██████████| 20/20 [00:37<00:00,  1.89s/ examples]
+/workspace/sushila/sfenv/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Counting tokens for vocab mapping:   0%|          | 0/20 [00:00<?, ?it/s]Counting tokens for vocab mapping: 100%|██████████| 20/20 [00:00<00:00, 1250.18it/s]
+Added missing tokens to reach draft vocab size: 32000
+Total tokens after addition: 32000
+top 32000 token frequency ratio: 100.00%
+Saved vocab mapping to: /workspace/sushila/gemma3-27b-smoke/hs/vocab_mapping/.vocab_mapping.d358703fa6954c1c8e7969a73dc144b6.pt
+Vocabulary mapping ready at /workspace/sushila/gemma3-27b-smoke/hs/vocab_mapping/vocab_mapping.pt
+Generating Hidden States:   0%|          | 0/5 [00:00<?, ?it/s]Generating Hidden States:   0%|          | 0/5 [00:05<?, ?it/s, processed=4, skipped=0, pending_io=4]Generating Hidden States:  20%|██        | 1/5 [00:05<00:20,  5.16s/it, processed=4, skipped=0, pending_io=4]Generating Hidden States:  20%|██        | 1/5 [00:05<00:20,  5.16s/it, processed=8, skipped=0, pending_io=8]Generating Hidden States:  40%|████      | 2/5 [00:05<00:07,  2.61s/it, processed=8, skipped=0, pending_io=8]Generating Hidden States:  40%|████      | 2/5 [00:07<00:07,  2.61s/it, processed=12, skipped=0, pending_io=12]Generating Hidden States:  60%|██████    | 3/5 [00:07<00:04,  2.17s/it, processed=12, skipped=0, pending_io=12]Generating Hidden States:  60%|██████    | 3/5 [00:08<00:04,  2.17s/it, processed=16, skipped=0, pending_io=16]Generating Hidden States:  80%|████████  | 4/5 [00:08<00:01,  1.62s/it, processed=16, skipped=0, pending_io=16]Generating Hidden States:  80%|████████  | 4/5 [00:09<00:01,  1.62s/it, processed=20, skipped=0, pending_io=20]Generating Hidden States: 100%|██████████| 5/5 [00:09<00:00,  1.32s/it, processed=20, skipped=0, pending_io=20]Generating Hidden States: 100%|██████████| 5/5 [00:09<00:00,  1.87s/it, processed=20, skipped=0, pending_io=20]
+
+Generation loop finished. Processed: 20, Skipped: 0
+/workspace/sushila/sfenv/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+Waiting for all async I/O operations to complete...
+Finalizing Writes:   0%|          | 0/20 [00:00<?, ?it/s]Finalizing Writes: 100%|██████████| 20/20 [00:00<00:00, 161630.21it/s]

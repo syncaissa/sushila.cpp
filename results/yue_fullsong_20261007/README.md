@@ -5,10 +5,11 @@ Time in the file name = end-to-end seconds (stage 1 + stage 2 + decode).
 
 1-official-full-song-2353s      the official YuE infer.py: a 134 s song in 2,353 s
 2-sushila-eager-930s            Sushila's equivalent runner (one KV cache, batched rows and guidance): 144 s song, 930 s (2.53x)
-3-sushila-cudagraphs-781s       as 2 plus static caches and CUDA graphs: 144 s song, 781 s (3.01x; 3.24x per second of music)
+3-sushila-cudagraphs-781s       as 2 plus static caches and CUDA graphs: 144 s song, 781 s (3.01x, different draw; 3.24x per second of music)
 
 Same models and sampling. The official and Sushila songs are different draws (the random numbers are used in a different
 order), so they differ and end at different lengths. 2 and 3 have identical stage-1 tokens (CUDA graphs = eager).
 Lab-setting songs (first 2 sections, ~59 s): ../yue-songs-20261007/
+The paper's full-song number is the same-song replay in ../yue_samesong_20261007/: 2,353 s -> 715 s, 3.29x.
 Rerun: docs/REPRODUCE_YUE.md, NSEG=6 W=/workspace/yue6 bash scripts/music/yue/reproduce_yue.sh
 Songs: https://files.sushila.ai/public/temp/yue-songs-20261007_fullSong/

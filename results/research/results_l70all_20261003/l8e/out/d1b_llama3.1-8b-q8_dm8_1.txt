@@ -1,0 +1,74 @@
+0.03.613.063 I cmn          init: llama threadpool init, n_threads = 252
+0.03.669.442 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Write a Python function that merges two sorted lists into one sorted list, with comments.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+**Merging Two Sorted Lists**
+================================
+
+Here is a Python function that merges two sorted lists into one sorted list:
+
+```python
+def merge_sorted_lists(list1, list2):
+    """
+    Merge two sorted lists into one sorted list.
+
+    Args:
+        list1 (list): The first sorted list.
+        list2 (list): The second sorted list.
+
+    Returns:
+        list: A new sorted list containing all elements from both input lists.
+    """
+    # Initialize an empty list to store the merged result
+    merged_list = []
+
+    # Initialize indices for both input lists
+    i, j = 0, 0
+
+    # Merge smaller elements first
+    while i < len(list1) and j < len(list2):
+        if list1[i] < list2[j]:
+            # Append the smaller element from list1
+            merged_list.append(list1[i])
+            i += 1
+        else:
+            # Append the smaller element from list2
+            merged_list.append(list2[j])
+            j += 1
+
+    # Append any remaining elements from list1
+    while i < len(list1):
+        merged_list.append(list1[i])
+        i += 1
+
+    # Append any remaining elements from list2
+    while j < len(list2
+
+0.05.671.805 I encoded   26 tokens in    0.025 seconds, speed: 1035.774 t/s
+0.05.671.806 I decoded  265 tokens in    1.132 seconds, speed:  234.019 t/s
+0.05.671.806 I 
+0.05.671.807 I n_draft   = 8
+0.05.671.807 I n_predict = 265
+0.05.671.807 I n_drafted = 239
+0.05.671.807 I n_accept  = 235
+0.05.671.808 I accept    = 98.326%
+0.05.671.808 I 
+0.05.671.808 I draft:
+
+0.05.671.849 I 
+0.05.671.849 I target:
+
+0.05.671.854 I common_perf_print:    sampling time =      57.77 ms
+0.05.671.855 I common_perf_print:    samplers time =      20.99 ms /   265 tokens
+0.05.671.861 I common_perf_print:        load time =    2408.67 ms
+0.05.671.863 I common_perf_print: prompt eval time =     517.98 ms /   296 tokens (    1.75 ms per token,   571.46 tokens per second)
+0.05.671.864 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.05.671.864 I common_perf_print:       total time =    2002.52 ms /   297 tokens
+0.05.671.865 I common_perf_print: unaccounted time =    1426.77 ms /  71.2 %      (total - sampling - prompt eval - eval) / (total)
+0.05.671.866 I common_perf_print:    graphs reused =         27
+
+

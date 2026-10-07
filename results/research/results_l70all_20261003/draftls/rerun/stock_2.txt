@@ -1,0 +1,44 @@
+0.00.208.216 I llama_completion: llama backend init
+0.00.208.240 I llama_completion: load the model and apply lora adapter, if any
+0.02.451.277 I cmn          init: llama threadpool init, n_threads = 30
+0.02.544.226 I 
+0.02.544.441 I system_info: n_threads = 30 (n_threads_batch = 30) / 252 | CUDA : ARCHS = 800 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.02.544.451 I 
+0.02.544.610 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.02.544.630 I sampler seed: 4284918366
+0.02.544.643 I sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.950, min_p = 0.050, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+0.02.544.653 I sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+0.02.544.653 I generate: n_ctx = 2048, n_batch = 2048, n_predict = 128, n_keep = 1
+0.02.544.654 I 
+system
+
+Cutting Knowledge Date: December 2023
+Today Date: 26 Jul 2024
+
+user
+
+What are the main differences between TCP and UDP? Give examples of when to use each.assistant
+
+**TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol)**
+
+TCP and UDP are two fundamental transport-layer protocols used in the Internet Protocol Suite (TCP/IP). While both protocols are used for data transfer, they have distinct differences in their design, functionality, and use cases.
+
+**TCP (Transmission Control Protocol)**
+
+* **Connection-oriented**: Establishes a connection between the sender and receiver before data transfer begins.
+* **Reliable**: Ensures data is delivered in the correct order, with error-checking and correction mechanisms.
+* **Ordered**: Guarantees that data is delivered in the same order it was sent.
+*
+
+0.09.630.116 I common_perf_print:    sampling time =      38.49 ms
+0.09.630.118 I common_perf_print:    samplers time =      14.88 ms /   181 tokens
+0.09.630.127 I common_perf_print:        load time =    1528.56 ms
+0.09.630.129 I common_perf_print: prompt eval time =     420.57 ms /    53 tokens (    7.94 ms per token,   126.02 tokens per second)
+0.09.630.131 I common_perf_print:        eval time =    6614.75 ms /   127 runs   (   52.08 ms per token,    19.20 tokens per second)
+0.09.630.132 I common_perf_print:       total time =    7085.91 ms /   180 tokens
+0.09.630.133 I common_perf_print: unaccounted time =      12.10 ms /   0.2 %      (total - sampling - prompt eval - eval) / (total)
+0.09.630.134 I common_perf_print:    graphs reused =        126

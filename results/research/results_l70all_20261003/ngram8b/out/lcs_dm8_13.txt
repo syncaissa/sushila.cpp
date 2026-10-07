@@ -1,0 +1,38 @@
+0.02.417.409 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Give me a bulleted list of the the first five books in the bible new testament?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Here are the first five books of the New Testament in the Bible:
+
+* **Matthew**
+* **Mark**
+* **Luke**
+* **John**
+* **Acts**<|eot_id|>
+
+0.03.274.627 I encoded   28 tokens in    0.041 seconds, speed: 1551.533 t/s
+0.03.274.628 I decoded   35 tokens in    0.251 seconds, speed:  139.668 t/s
+0.03.274.629 I 
+0.03.274.629 I n_draft      = 8
+0.03.274.629 I n_predict    = 35
+0.03.274.630 I n_drafted    = 30
+0.03.274.630 I t_draft_flat = 501.41 ms
+0.03.274.632 I t_draft      = 1.54 ms, 51.43 us per token, 19442.64 tokens per second
+0.03.274.632 I n_accept     = 9
+0.03.274.632 I accept       = 30.000%
+0.03.274.633 I 
+target:
+
+0.03.274.639 I common_perf_print:    sampling time =      10.83 ms
+0.03.274.640 I common_perf_print:    samplers time =       3.68 ms /    35 tokens
+0.03.274.647 I common_perf_print:        load time =    1574.00 ms
+0.03.274.649 I common_perf_print: prompt eval time =     104.34 ms /    65 tokens (    1.61 ms per token,   622.96 tokens per second)
+0.03.274.650 I common_perf_print:        eval time =     133.38 ms /    18 runs   (    7.41 ms per token,   134.96 tokens per second)
+0.03.274.650 I common_perf_print:       total time =     793.36 ms /    83 tokens
+0.03.274.651 I common_perf_print: unaccounted time =     544.82 ms /  68.7 %      (total - sampling - prompt eval - eval) / (total)
+0.03.274.651 I common_perf_print:    graphs reused =         12
+
+

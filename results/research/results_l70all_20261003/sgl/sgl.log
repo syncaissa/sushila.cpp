@@ -1,0 +1,21 @@
+[07:23:16] sglang 0.5.21
+[07:27:58] base: 5045 tokens 56.3 s 89.6 tok/s 
+[07:48:09] eagle3_tree: 
+[08:08:15] eagle3_chain: 
+[08:08:20] SGL_DONE
+[08:09:17] sglang 0.5.21
+[08:10:07] eagle3_tree: server died
+[08:10:47] eagle3_chain: server died
+[08:10:47] SGL_DONE2
+[08:11:43] sglang 0.5.21
+[08:14:58] eagle3_tree: 5029 tokens 37.2 s 135.3 tok/s mean accept length 2.85
+[08:18:01] eagle3_chain: 5053 tokens 45.0 s 112.4 tok/s mean accept length 2.07
+[08:18:10] SGL_DONE3
+[08:18:47] sglang 0.5.21
+[08:21:53] base_tmpl: 4870 tokens 54.4 s 89.5 tok/s 
+[08:24:31] eagle3_tree_tmpl: 4788 tokens 29.7 s 161.1 tok/s mean accept length 3.39
+[08:27:22] eagle3_chain_tmpl: 4812 tokens 36.4 s 132.2 tok/s mean accept length 2.35
+[08:27:32] SGL_DONE_tmpl
+[11:42:51] sglang 0.5.21
+[11:45:09] eagle3_tree_dayzero_tmpl: 4789 tokens 24.8 s 193.3 tok/s mean accept length 4.05
+[11:45:20] SGL_DONE_tmpl

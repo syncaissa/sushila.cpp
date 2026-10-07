@@ -1,0 +1,17 @@
+warning: no usable GPU found, --gpu-layers option will be ignored
+warning: one possible reason is that llama.cpp was compiled without GPU support
+warning: consult docs/build.md for compilation instructions
+0.01.087.038 I cmn          init: llama threadpool init, n_threads = 32
+mc: mode=topk budget=0.1000 exact=0.1000 group=16 seed=1 layers=0-1073741824 tensors=ffn_down stats=1 cv=none
+0.06.933.470 I 
+0.06.933.631 I system_info: n_threads = 32 (n_threads_batch = 32) / 192 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | AVX512_VBMI = 1 | AVX512_VNNI = 1 | AVX512_BF16 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.06.933.653 I perplexity: tokenizing the input ..
+0.07.128.264 I perplexity: tokenization took 194.601 ms
+0.07.128.389 I perplexity: calculating perplexity over 20 chunks, n_ctx=512, batch_size=2048, n_seq=4
+0.22.694.156 I perplexity: 15.57 seconds per pass - ETA 1.28 minutes
+[1]412.9664,[2]475.0276,[3]455.5440,[4]401.8197,[5]356.5597,[6]390.2041,[7]395.2937,[8]432.6946,[9]462.3097,[10]452.5562,[11]480.8426,[12]523.7382,[13]529.1304,[14]532.3188,[15]522.1098,[16]541.9254,[17]546.0878,[18]553.1786,[19]592.4750,[20]614.1482,
+1.39.179.753 I Final estimate: PPL = 614.1482 +/- 30.73749
+
+mc: summary (mode=topk)
+mc:   ffn_down     calls=662      read_frac=0.1004 rel_err=0.612731
+mc: approximated_matmuls=662

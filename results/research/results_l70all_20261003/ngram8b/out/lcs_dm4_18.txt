@@ -1,0 +1,37 @@
+0.02.650.872 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Who wrote the Man in the Iron Mask<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+There are actually two different works that feature a character known as "The Man in the Iron Mask." Here are the answers to both:
+
+1. **The Man in the Iron Mask** (1677) by **Antoine Galland**: This is a short story written by Antoine Galland, a French writer and translator. The story is based on a real-life prisoner who was imprisoned in the Bastille and wore an iron mask to conceal his identity. Galland's story is a fictionalized account of the prisoner's life and is considered a classic of French literature.
+2. **The Man in the Iron Mask** (1848) by **Alexandre Dumas**: This is a novel written by Alexandre Dumas, a French author known for his historical novels. Dumas' novel is a fictionalized account of the life of the real-life prisoner, who is believed to be the twin brother of King Louis XIV of France. Dumas' novel is a classic of French literature and has been adapted into numerous films, plays, and TV shows.
+
+It's worth noting that the real-life prisoner who wore an iron mask was a mysterious figure known as "Eustache Dauger" or "Prisoner 1." He was imprisoned in the Bastille from 1669 to
+
+0.05.103.264 I encoded   18 tokens in    0.043 seconds, speed: 6335.676 t/s
+0.05.103.265 I decoded  257 tokens in    1.828 seconds, speed:  140.584 t/s
+0.05.103.266 I 
+0.05.103.266 I n_draft      = 4
+0.05.103.266 I n_predict    = 257
+0.05.103.266 I n_drafted    = 160
+0.05.103.267 I t_draft_flat = 513.11 ms
+0.05.103.268 I t_draft      = 6.96 ms, 43.49 us per token, 22995.11 tokens per second
+0.05.103.268 I n_accept     = 55
+0.05.103.269 I accept       = 34.375%
+0.05.103.269 I 
+target:
+
+0.05.103.276 I common_perf_print:    sampling time =      70.07 ms
+0.05.103.276 I common_perf_print:    samplers time =      26.47 ms /   257 tokens
+0.05.103.283 I common_perf_print:        load time =    1699.85 ms
+0.05.103.284 I common_perf_print: prompt eval time =     712.70 ms /   236 tokens (    3.02 ms per token,   331.14 tokens per second)
+0.05.103.287 I common_perf_print:        eval time =    1037.64 ms /   143 runs   (    7.26 ms per token,   137.81 tokens per second)
+0.05.103.288 I common_perf_print:       total time =    2385.67 ms /   379 tokens
+0.05.103.289 I common_perf_print: unaccounted time =     565.27 ms /  23.7 %      (total - sampling - prompt eval - eval) / (total)
+0.05.103.289 I common_perf_print:    graphs reused =        112
+
+

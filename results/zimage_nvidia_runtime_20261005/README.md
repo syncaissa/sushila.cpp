@@ -1,6 +1,6 @@
 # NVIDIA image runtime, end to end (RTX 4090, 2026-10-05)
 
-`scripts/runtime/test_image_runtime.py` installed the runtime exactly as Host Station does: Python 3.11 + 56 wheels from
+`scripts/runtime/test_image_runtime.py` installed the runtime exactly as Host Station (Sushila's desktop app at the time, since retired) did: Python 3.11 + 56 wheels from
 B2 (sha256-checked), offline `pip install --no-index --no-deps` (62 s), then the `z-image-turbo-nvidia` pack from B2, and
 timed `sushila_image_server.py` over HTTP (5 prompts, seed 42):
 

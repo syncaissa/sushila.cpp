@@ -1,0 +1,50 @@
+0.02.630.733 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+What are some of the best places to eat in Boston?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Boston is a food lover's paradise, with a diverse range of cuisines and dining options to suit every taste and budget. Here are some of the best places to eat in Boston:
+
+**Classic Boston Eats**
+
+1. **Neptune Oyster** (Faneuil Hall): Fresh seafood, especially oysters, in a historic setting.
+2. **Durgin-Park** (Faneuil Hall): Traditional New England cuisine, including clam chowder and lobster rolls.
+3. **The Union Oyster House** (Faneuil Hall): America's oldest continuously operating restaurant, serving up fresh seafood since 1826.
+
+**Trendy Spots**
+
+1. **Craigie on Main** (Cambridge): Modern American cuisine with a focus on seasonal ingredients.
+2. **Eventide Oyster Co.** (Fenway): Fresh seafood, including oysters, lobster rolls, and fish 'n' chips.
+3. **Bar Mercato** (North End): Italian-inspired small plates and craft cocktails.
+
+**International Cuisine**
+
+1. **Mr. Bartley's Burger Cottage** (Harvard Square): Classic American burgers with a twist.
+2. **Tamarind** (Back Bay): Indian cuisine with a modern twist.
+3. **B
+
+0.05.031.851 I encoded   22 tokens in    0.041 seconds, speed: 6882.143 t/s
+0.05.031.852 I decoded  258 tokens in    1.830 seconds, speed:  140.968 t/s
+0.05.031.853 I 
+0.05.031.853 I n_draft      = 16
+0.05.031.854 I n_predict    = 258
+0.05.031.854 I n_drafted    = 322
+0.05.031.855 I t_draft_flat = 476.02 ms
+0.05.031.857 I t_draft      = 13.47 ms, 41.84 us per token, 23901.43 tokens per second
+0.05.031.857 I n_accept     = 61
+0.05.031.858 I accept       = 18.944%
+0.05.031.858 I 
+target:
+
+0.05.031.865 I common_perf_print:    sampling time =      80.73 ms
+0.05.031.867 I common_perf_print:    samplers time =      31.71 ms /   258 tokens
+0.05.031.874 I common_perf_print:        load time =    1600.77 ms
+0.05.031.876 I common_perf_print: prompt eval time =     657.25 ms /   397 tokens (    1.66 ms per token,   604.03 tokens per second)
+0.05.031.878 I common_perf_print:        eval time =    1042.24 ms /   143 runs   (    7.29 ms per token,   137.20 tokens per second)
+0.05.031.879 I common_perf_print:       total time =    2348.17 ms /   540 tokens
+0.05.031.880 I common_perf_print: unaccounted time =     567.95 ms /  24.2 %      (total - sampling - prompt eval - eval) / (total)
+0.05.031.881 I common_perf_print:    graphs reused =        110
+
+

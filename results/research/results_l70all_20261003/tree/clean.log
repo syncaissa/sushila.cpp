@@ -1,0 +1,34 @@
+[14:20:04] p0 stock: eval time =    1671.07 ms /   255 runs   (    6.55 ms per token,   152.60 tokens per second)
+[14:20:10] p0 chain dz: 0.06.055.206 I decoded 258 tokens in 1.944 seconds, speed: 132.684 t/s 0.06.055.207 I n_accept = 166 0.06.055.210 I accept = 36.807% 
+[14:20:17] p0 tree dz d5k1n5: depth=5 k=1 nt=5 generated 256 tokens in 2.168 s, 117.624 t/s; cycles=110 accepted/cycle=1.32 tokens/cycle=2.32 tree=5.0 ms/cycle draft 5.38 verify 13.70 commit 0.63 
+[14:20:25] p0 tree dz d5k8n32: depth=5 k=8 nt=32 generated 256 tokens in 2.860 s, 89.148 t/s; cycles=86 accepted/cycle=1.98 tokens/cycle=2.98 tree=32.0 ms/cycle draft 11.60 verify 20.73 commit 0.92 
+[14:20:32] p0 tree dz d6k8n48: depth=6 k=8 nt=48 generated 256 tokens in 3.163 s, 80.630 t/s; cycles=78 accepted/cycle=2.28 tokens/cycle=3.28 tree=48.0 ms/cycle draft 12.27 verify 27.16 commit 1.11 
+[14:20:39] p0 tree dz d4k4n16: depth=4 k=4 nt=16 generated 256 tokens in 2.600 s, 98.061 t/s; cycles=101 accepted/cycle=1.52 tokens/cycle=2.52 tree=16.0 ms/cycle draft 7.81 verify 17.25 commit 0.69 
+[14:20:45] p0 chain dzfull: 0.05.815.017 I decoded 259 tokens in 2.063 seconds, speed: 125.529 t/s 0.05.815.018 I n_accept = 161 0.05.815.019 I accept = 33.472% 
+[14:20:53] p0 tree dzfull d5k1n5: depth=5 k=1 nt=5 generated 256 tokens in 2.377 s, 107.273 t/s; cycles=122 accepted/cycle=1.09 tokens/cycle=2.09 tree=5.0 ms/cycle draft 5.38 verify 13.57 commit 0.53 
+[14:21:00] p0 tree dzfull d5k8n32: depth=5 k=8 nt=32 generated 256 tokens in 2.981 s, 85.548 t/s; cycles=94 accepted/cycle=1.71 tokens/cycle=2.71 tree=32.0 ms/cycle draft 10.44 verify 20.36 commit 0.89 
+[14:21:09] p0 tree dzfull d6k8n48: depth=6 k=8 nt=48 generated 256 tokens in 3.611 s, 70.623 t/s; cycles=91 accepted/cycle=1.81 tokens/cycle=2.81 tree=48.0 ms/cycle draft 12.50 verify 26.12 commit 1.05 
+[14:21:15] p0 tree dzfull d4k4n16: depth=4 k=4 nt=16 generated 256 tokens in 2.353 s, 108.383 t/s; cycles=107 accepted/cycle=1.38 tokens/cycle=2.38 tree=16.0 ms/cycle draft 5.80 verify 15.57 commit 0.61 
+[14:21:27] p1 stock: eval time =    1660.25 ms /   255 runs   (    6.51 ms per token,   153.59 tokens per second)
+[14:21:33] p1 chain dz: 0.05.259.752 I decoded 262 tokens in 1.360 seconds, speed: 192.673 t/s 0.05.259.753 I n_accept = 196 0.05.259.754 I accept = 60.123% 
+[14:21:38] p1 tree dz d5k1n5: depth=5 k=1 nt=5 generated 256 tokens in 1.786 s, 142.793 t/s; cycles=95 accepted/cycle=1.69 tokens/cycle=2.69 tree=5.0 ms/cycle draft 4.73 verify 13.47 commit 0.59 
+[14:21:45] p1 tree dz d5k8n32: depth=5 k=8 nt=32 generated 256 tokens in 2.563 s, 99.483 t/s; cycles=81 accepted/cycle=2.15 tokens/cycle=3.15 tree=32.0 ms/cycle draft 10.33 verify 20.48 commit 0.83 
+[14:21:53] p1 tree dz d6k8n48: depth=6 k=8 nt=48 generated 256 tokens in 2.944 s, 86.607 t/s; cycles=74 accepted/cycle=2.46 tokens/cycle=3.46 tree=48.0 ms/cycle draft 12.33 verify 26.42 commit 1.04 
+[14:21:59] p1 tree dz d4k4n16: depth=4 k=4 nt=16 generated 256 tokens in 2.114 s, 120.624 t/s; cycles=93 accepted/cycle=1.75 tokens/cycle=2.75 tree=16.0 ms/cycle draft 6.12 verify 15.98 commit 0.63 
+[14:22:05] p1 chain dzfull: 0.05.158.121 I decoded 262 tokens in 1.518 seconds, speed: 172.554 t/s 0.05.158.124 I n_accept = 193 0.05.158.125 I accept = 56.268% 
+[14:22:11] p1 tree dzfull d5k1n5: depth=5 k=1 nt=5 generated 256 tokens in 1.854 s, 137.524 t/s; cycles=92 accepted/cycle=1.78 tokens/cycle=2.78 tree=5.0 ms/cycle draft 5.61 verify 13.87 commit 0.67 
+[14:22:18] p1 tree dzfull d5k8n32: depth=5 k=8 nt=32 generated 256 tokens in 2.700 s, 94.448 t/s; cycles=84 accepted/cycle=2.04 tokens/cycle=3.04 tree=32.0 ms/cycle draft 10.36 verify 20.89 commit 0.88 
+[14:22:26] p1 tree dzfull d6k8n48: depth=6 k=8 nt=48 generated 256 tokens in 3.114 s, 81.888 t/s; cycles=78 accepted/cycle=2.28 tokens/cycle=3.28 tree=48.0 ms/cycle draft 12.36 verify 26.44 commit 1.11 
+[14:22:33] p1 tree dzfull d4k4n16: depth=4 k=4 nt=16 generated 256 tokens in 2.357 s, 108.180 t/s; cycles=97 accepted/cycle=1.64 tokens/cycle=2.64 tree=16.0 ms/cycle draft 7.10 verify 16.59 commit 0.61 
+[14:22:44] p2 stock: eval time =    1664.09 ms /   255 runs   (    6.53 ms per token,   153.24 tokens per second)
+[14:22:50] p2 chain dz: 0.05.608.502 I decoded 257 tokens in 1.582 seconds, speed: 162.429 t/s 0.05.608.503 I n_accept = 183 0.05.608.504 I accept = 50.275% 
+[14:22:56] p2 tree dz d5k1n5: depth=5 k=1 nt=5 generated 256 tokens in 2.108 s, 120.958 t/s; cycles=107 accepted/cycle=1.38 tokens/cycle=2.38 tree=5.0 ms/cycle draft 5.37 verify 13.74 commit 0.59 
+[14:23:03] p2 tree dz d5k8n32: depth=5 k=8 nt=32 generated 256 tokens in 2.641 s, 96.566 t/s; cycles=82 accepted/cycle=2.12 tokens/cycle=3.12 tree=32.0 ms/cycle draft 10.57 verify 20.75 commit 0.88 
+[14:23:11] p2 tree dz d6k8n48: depth=6 k=8 nt=48 generated 256 tokens in 3.170 s, 80.454 t/s; cycles=80 accepted/cycle=2.20 tokens/cycle=3.20 tree=48.0 ms/cycle draft 11.99 verify 26.62 commit 0.99 
+[14:23:17] p2 tree dz d4k4n16: depth=4 k=4 nt=16 generated 256 tokens in 2.371 s, 107.553 t/s; cycles=97 accepted/cycle=1.64 tokens/cycle=2.64 tree=16.0 ms/cycle draft 7.10 verify 16.68 commit 0.66 
+[14:23:24] p2 chain dzfull: 0.05.844.343 I decoded 257 tokens in 1.823 seconds, speed: 140.944 t/s 0.05.844.344 I n_accept = 174 0.05.844.345 I accept = 42.543% 
+[14:23:30] p2 tree dzfull d5k1n5: depth=5 k=1 nt=5 generated 256 tokens in 2.200 s, 115.934 t/s; cycles=112 accepted/cycle=1.28 tokens/cycle=2.28 tree=5.0 ms/cycle draft 5.31 verify 13.70 commit 0.63 
+[14:23:38] p2 tree dzfull d5k8n32: depth=5 k=8 nt=32 generated 256 tokens in 2.887 s, 88.341 t/s; cycles=87 accepted/cycle=1.93 tokens/cycle=2.93 tree=32.0 ms/cycle draft 11.27 verify 21.03 commit 0.88 
+[14:23:45] p2 tree dzfull d6k8n48: depth=6 k=8 nt=48 generated 256 tokens in 3.266 s, 78.067 t/s; cycles=81 accepted/cycle=2.15 tokens/cycle=3.15 tree=48.0 ms/cycle draft 12.18 verify 27.06 commit 1.08 
+[14:23:52] p2 tree dzfull d4k4n16: depth=4 k=4 nt=16 generated 256 tokens in 2.410 s, 105.796 t/s; cycles=97 accepted/cycle=1.64 tokens/cycle=2.64 tree=16.0 ms/cycle draft 7.25 verify 16.93 commit 0.66 
+[14:23:52] CLEAN_DONE

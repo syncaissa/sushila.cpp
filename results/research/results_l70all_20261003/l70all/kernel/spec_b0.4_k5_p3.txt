@@ -1,0 +1,18 @@
+0.05.782.413 I cmn          init: llama threadpool init, n_threads = 30
+sparse: budget=0.400 layers=0-1073741824 tensors=all seven
+0.09.022.771 I sushila-spec: copies built in 0.5 s (not counted)
+
+
+
+The French Revolution, which lasted from 1789 to 1799, was a complex and multifaceted event with various causes and consequences. Here is a summary:
+
+**Causes:**
+
+1. **Financial Crisis**: France was deeply in debt from the Seven Years' War and the American Revolutionary War, leading to a severe financial crisis.
+2. **Social Inequality**: The French society was divided into three estates: the clergy, the nobility, and the commoners. The nobility and clergy held vast powers and privileges, while the commoners were burdened with heavy taxes and limited opportunities.
+3. **Enlight
+
+1.07.906.848 I sushila-spec: mode=self-speculative generated 128 tokens in 58.884 s, 2.157 t/s
+1.07.906.849 I sushila-spec: draft-max=5 cycles=26 drafted=130 accepted=102 accept=0.785 tokens/cycle=4.92
+sparse: calls=73363 cols_frac=0.3985 bytes_frac=0.3974 us/call=503.1 (excluding 0.0 s building the copies)
+sparse: us/call select 129.7 accumulate 251.7 (thread 0)

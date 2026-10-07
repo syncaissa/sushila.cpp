@@ -1,0 +1,33 @@
+[11:24:50] setup done: sglang 0.5.21, ollama Warning: client version is 0.35.1
+[11:25:45] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. Generating test split:   0%|          | 0/164 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 164/164 [00:00<00:00, 14830.77 examples/s] Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 358102.94 examples/s] Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 337890.86 examples/s] main: 26 val: 20 mtbench: 80 train: 340 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[11:33:59] base: server died (see server_base.log)
+[11:33:59] stopped at line 123
+[11:37:11] base_main: 1200 tokens in 21.7 s = 55.4 tok/s (median per prompt 55.6)
+[11:37:45] base_ood: 1295 tokens in 23.6 s = 54.9 tok/s (median per prompt 55.0)
+[11:38:20] base_mt_t07: 1301 tokens in 23.9 s = 54.5 tok/s (median per prompt 54.5)
+[11:38:59] base_gsm100: 1510 tokens in 27.5 s = 54.9 tok/s (median per prompt 54.8)
+[11:41:52] pub_main: 1201 tokens in 31.2 s = 38.5 tok/s (median per prompt 38.4)
+[11:42:42] pub_ood: 1262 tokens in 33.5 s = 37.7 tok/s (median per prompt 37.3)
+[11:43:50] pub_mt_t07: 1261 tokens in 33.9 s = 37.2 tok/s (median per prompt 36.7)
+[11:47:16] answers: 40 conversations from 340 prompts -> /workspace/sushila/gemma3-27b-smoke/regen.jsonl
+[11:57:15] chunk_00: capture 487 s, train 112 s, 
+[12:01:02] chunk_01: capture 133 s, train 94 s, 
+[12:03:33] val_ckpt_chunk_00: 1007 tokens in 26.2 s = 38.4 tok/s (median per prompt 38.1)
+[12:06:18] val_ckpt_chunk_01: 1007 tokens in 26.2 s = 38.4 tok/s (median per prompt 38.1)
+[12:06:32] chosen on validation: head_ckpt_chunk_01 (38.442896013863695 tok/s)
+[12:06:32] smoke run: B2 save skipped (it would write precomputed/gemma3-27b/ from a test head)
+[12:08:29] ours_main: 1201 tokens in 30.5 s = 39.3 tok/s (median per prompt 39.3)
+[12:09:17] ours_ood: 1262 tokens in 32.8 s = 38.5 tok/s (median per prompt 38.3)
+[12:10:06] ours_mt_t07: 1247 tokens in 33.4 s = 37.4 tok/s (median per prompt 37.4)
+[12:10:59] ours_gsm100: 1526 tokens in 38.3 s = 39.8 tok/s (median per prompt 38.8)
+[12:12:57] load base: concurrency 1: 55.3 tok/s total, 55.4 tok/s per user (median);concurrency 4: 164.9 tok/s total, 50.9 tok/s per user (median);concurrency 16: 257.4 tok/s total, 52.2 tok/s per user (median);concurrency 64: 252.2 tok/s total, 51.0 tok/s per user (median);
+[12:15:51] load pub: concurrency 1: 37.7 tok/s total, 37.6 tok/s per user (median);concurrency 4: 76.1 tok/s total, 22.1 tok/s per user (median);concurrency 16: 93.1 tok/s total, 18.5 tok/s per user (median);concurrency 64: 94.6 tok/s total, 18.8 tok/s per user (median);
+[12:18:51] load ours: concurrency 1: 38.2 tok/s total, 37.8 tok/s per user (median);concurrency 4: 87.0 tok/s total, 25.9 tok/s per user (median);concurrency 16: 95.4 tok/s total, 18.9 tok/s per user (median);concurrency 64: 92.8 tok/s total, 18.3 tok/s per user (median);
+[12:20:00] Ollama gemma3:27b is ""; SGLang serves gaunernst/gemma-3-27b-it-int4-awq (check they are the same model)
+[12:21:49] ollama_main: 1175 tokens: 44.7 tok/s with prompt processing (26.3 s), 46.0 tok/s decode only
+[12:22:31] ollama_ood: 1235 tokens: 44.1 tok/s with prompt processing (28.0 s), 45.9 tok/s decode only
+[12:23:14] ollama_mt_t07: 1227 tokens: 42.6 tok/s with prompt processing (28.8 s), 45.3 tok/s decode only
+[12:24:19] ollama_gsm100: 1924 tokens: 43.0 tok/s with prompt processing (44.7 s), 45.1 tok/s decode only
+[12:25:40] summary: /workspace/sushila/gemma3-27b-smoke/summary.md
+[12:25:40] smoke run: B2 save skipped (it would write precomputed/gemma3-27b/ from a test head)
+[12:25:40] DONE

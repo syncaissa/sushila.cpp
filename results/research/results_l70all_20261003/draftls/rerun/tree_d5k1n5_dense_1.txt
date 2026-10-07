@@ -1,0 +1,57 @@
+0.01.137.653 E llama_init_from_model: failed to initialize the context: eagle3 requires ctx_other to be set (this warning is normal during memory fitting)
+0.01.180.427 W operator(): failed to measure the memory of the extra model, fitting without it: failed to create llama_context from model
+0.02.544.210 I cmn          init: llama threadpool init, n_threads = 30
+0.02.643.159 I common_speculative_init_result: loading draft model '/workspace/tree/dz.gguf'
+0.03.116.780 W check_double_bos_eos: Added a BOS token to the prompt as specified by the model but the prompt also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. Are you sure this is what you want?
+0.03.748.984 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.325.697 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.509.738 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.692.490 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.04.880.967 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.076.195 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.340.315 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.528.121 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.745.668 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.05.937.439 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.136.765 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.334.178 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.529.450 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.06.885.790 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.243.161 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.434.310 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.625.013 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.07.815.131 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.004.716 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.196.128 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.392.843 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.591.027 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.787.524 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.08.982.540 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.179.158 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.543.547 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+0.09.902.981 W init: embeddings required but some input tokens were not marked as outputs -> overriding
+
+
+
+**Merging Two Sorted Lists in Python**
+=====================================
+
+Here's a Python function that merges two sorted lists into one sorted list. This function uses a two-pointer technique to compare elements from both lists and add the smaller one to the result list.
+
+```python
+def merge_sorted_lists(list1, list2):
+    """
+    Merge two sorted lists into one sorted list.
+
+    Args:
+        list1 (list): The first sorted list.
+        list2 (list): The second sorted list.
+
+    Returns:
+        list: A new sorted list containing all elements from both input lists.
+    """
+    # Initialize the result list
+
+
+0.09.911.535 I sushila-tree: depth=5 k=1 nt=5 generated 128 tokens in 5.956 s, 21.323 t/s; cycles=31 accepted/cycle=3.10 tokens/cycle=4.10 tree=5.0
+0.09.911.537 I sushila-tree: ms/cycle draft 89.13 verify 94.69 (target decode 94.38) commit 8.31

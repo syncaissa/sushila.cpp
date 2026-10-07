@@ -1,0 +1,54 @@
+0.12.645.805 I cmn          init: llama threadpool init, n_threads = 252
+0.12.742.140 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Explain how a bill becomes a law in the United States, step by step.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+The process of how a bill becomes a law in the United States is a complex and multi-step process. Here's a step-by-step explanation:
+
+**Step 1: Introduction of a Bill**
+
+A member of Congress introduces a bill in either the House of Representatives or the Senate. The bill is written in a specific format and must be sponsored by at least one member of Congress.
+
+**Step 2: Referral to a Committee**
+
+The introduced bill is referred to a committee, which is a group of members of Congress responsible for reviewing and debating the bill. The committee may hold hearings, gather input from experts, and mark up the bill (make changes or amendments).
+
+**Step 3: Committee Review and Markup**
+
+The committee reviews the bill and may make changes or amendments. If the committee approves the bill, it is sent to the full chamber for consideration.
+
+**Step 4: Chamber Debate and Vote**
+
+The bill is debated on the floor of the chamber where it was introduced. Members of Congress may offer amendments, and the bill is voted on. If a majority of members vote in favor of the bill, it is passed and sent to the other chamber (e.g., from the House to the Senate or vice versa).
+
+**Step 5: Conference Committee**
+
+If the bill is
+
+0.17.520.135 I encoded   26 tokens in    0.140 seconds, speed:  185.895 t/s
+0.17.520.136 I decoded  260 tokens in    3.844 seconds, speed:   67.641 t/s
+0.17.520.137 I 
+0.17.520.137 I n_draft   = 8
+0.17.520.137 I n_predict = 260
+0.17.520.137 I n_drafted = 298
+0.17.520.138 I n_accept  = 222
+0.17.520.138 I accept    = 74.497%
+0.17.520.138 I 
+0.17.520.138 I draft:
+
+0.17.520.183 I 
+0.17.520.183 I target:
+
+0.17.520.188 I common_perf_print:    sampling time =      57.87 ms
+0.17.520.189 I common_perf_print:    samplers time =      23.89 ms /   260 tokens
+0.17.520.194 I common_perf_print:        load time =   11094.06 ms
+0.17.520.195 I common_perf_print: prompt eval time =    3168.84 ms /   363 tokens (    8.73 ms per token,   114.55 tokens per second)
+0.17.520.196 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.17.520.197 I common_perf_print:       total time =    4778.16 ms /   364 tokens
+0.17.520.197 I common_perf_print: unaccounted time =    1551.45 ms /  32.5 %      (total - sampling - prompt eval - eval) / (total)
+0.17.520.198 I common_perf_print:    graphs reused =         35
+
+

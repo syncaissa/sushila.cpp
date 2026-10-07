@@ -1,0 +1,113 @@
+/workspace/sushila/SpecForge/specforge/modeling/draft/llama3_eagle.py:33: UserWarning: flash_attn is not found, falling back to flex_attention. Please install flash_attn if you want to use the flash attention backend.
+  warnings.warn(
+
+ -----------【args】-----------
+target_model_path            casperhansen/deepseek-r1-distill-llama-70b-awq
+strategy                    ················· eagle3
+draft_model_config           /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/pub_head/config.json
+trust_remote_code           ·················· False
+data_path                    /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/chunk_01.jsonl
+max_length                  ··················· 1024
+chat_template               ···· deepseek-r1-distill
+is_preformatted             ··················· True
+num_samples                 ··················· None
+build_dataset_num_proc      ······················ 8
+tp_size                     ······················ 1
+batch_size                  ······················ 4
+cache_dir                    /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/cache_chunk_01
+output_path                  /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/hs
+dist_timeout                ··················· 2000
+num_io_threads              ···················· 128
+num_workers                 ······················ 4
+io_queue_size               ····················· 50
+file_group_size             ··················· 2000
+compress                    ·················· False
+compression_level           ······················ 6
+sglang_attention_backend    ············· flashinfer
+sglang_mem_fraction_static  ··················· 0.75
+sglang_context_length       ··················· None
+sglang_enable_nccl_nvls     ·················· False
+sglang_enable_symm_mem      ·················· False
+sglang_enable_torch_compile ·················· False
+sglang_enable_dp_attention  ·················· False
+sglang_enable_dp_lm_head    ·················· False
+sglang_ep_size              ······················ 1
+sglang_disable_radix_cache  ·················· False
+Resolved draft model config:
+{
+  "_name_or_path": "",
+  "architectures": [
+    "LlamaForCausalLMEagle3"
+  ],
+  "attention_bias": false,
+  "attention_dropout": 0.0,
+  "bos_token_id": 128000,
+  "chunk_size_feed_forward": 0,
+  "draft_vocab_size": 32000,
+  "dtype": "float16",
+  "eos_token_id": 128001,
+  "head_dim": 128,
+  "hidden_act": "silu",
+  "hidden_size": 6144,
+  "id2label": {
+    "0": "LABEL_0",
+    "1": "LABEL_1"
+  },
+  "initializer_range": 0.02,
+  "intermediate_size": 16384,
+  "is_encoder_decoder": false,
+  "label2id": {
+    "LABEL_0": 0,
+    "LABEL_1": 1
+  },
+  "max_position_embeddings": 2048,
+  "mlp_bias": false,
+  "model_type": "llama",
+  "num_attention_heads": 48,
+  "num_hidden_layers": 1,
+  "num_key_value_heads": 8,
+  "output_attentions": false,
+  "output_hidden_states": false,
+  "pad_token_id": 0,
+  "pretraining_tp": 1,
+  "problem_type": null,
+  "return_dict": true,
+  "rms_norm_eps": 1e-05,
+  "rope_parameters": {
+    "rope_theta": 10000.0,
+    "rope_type": "default"
+  },
+  "target_hidden_size": 8192,
+  "tie_word_embeddings": false,
+  "transformers_version": "5.12.1",
+  "use_cache": true,
+  "vocab_size": 128256
+}
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Ignore import error when loading sglang.srt.models.sarashina2_vision: cannot import name 'MultimodalDataItem' from 'sglang.srt.managers.mm_utils' (/workspace/sushila/sfenv/lib/python3.11/site-packages/sglang/srt/managers/mm_utils.py)
+Multi-thread loading shards:   0% Completed | 0/9 [00:00<?, ?it/s]Multi-thread loading shards:  11% Completed | 1/9 [00:00<00:06,  1.31it/s]Multi-thread loading shards:  22% Completed | 2/9 [00:01<00:04,  1.53it/s]Multi-thread loading shards:  33% Completed | 3/9 [00:02<00:04,  1.45it/s]Multi-thread loading shards:  44% Completed | 4/9 [00:02<00:03,  1.42it/s]Multi-thread loading shards:  56% Completed | 5/9 [00:03<00:02,  1.52it/s]Multi-thread loading shards:  67% Completed | 6/9 [00:03<00:01,  1.57it/s]Multi-thread loading shards:  78% Completed | 7/9 [00:04<00:01,  1.52it/s]Multi-thread loading shards:  89% Completed | 8/9 [00:05<00:00,  1.66it/s]Multi-thread loading shards: 100% Completed | 9/9 [00:05<00:00,  2.08it/s]Multi-thread loading shards: 100% Completed | 9/9 [00:05<00:00,  1.68it/s]
+Setting num_proc from 8 back to 1 for the train split to disable multiprocessing as it only contains one shard.
+Generating train split: 0 examples [00:00, ? examples/s]Generating train split: 20 examples [00:00, 8827.33 examples/s]
+/workspace/sushila/sfenv/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1005 01:43:06.597153409 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+Tokenizer class LlamaTokenizer dropped the ByteLevel pre-tokenizer saved in tokenizer.json (loaded ['Metaspace']); reloading with PreTrainedTokenizerFast to preserve the saved tokenization.
+dataset is cached at /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/cache_chunk_01/processed_dataset/4cadb93ce8a8e67c7b43e54177c932c9.pkl
+Map (num_proc=8):   0%|          | 0/20 [00:00<?, ? examples/s]Map (num_proc=8):  15%|█▌        | 3/20 [00:01<00:08,  2.10 examples/s]Map (num_proc=8):  30%|███       | 6/20 [00:01<00:03,  4.42 examples/s]Map (num_proc=8):  45%|████▌     | 9/20 [00:01<00:01,  6.86 examples/s]Map (num_proc=8):  60%|██████    | 12/20 [00:01<00:00,  9.30 examples/s]Map (num_proc=8):  70%|███████   | 14/20 [00:02<00:00, 10.44 examples/s]Map (num_proc=8):  80%|████████  | 16/20 [00:02<00:00, 11.27 examples/s]Map (num_proc=8):  90%|█████████ | 18/20 [00:02<00:00, 11.78 examples/s]Map (num_proc=8): 100%|██████████| 20/20 [00:02<00:00, 12.42 examples/s]Map (num_proc=8): 100%|██████████| 20/20 [00:02<00:00,  7.39 examples/s]
+/workspace/sushila/sfenv/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Counting tokens for vocab mapping:   0%|          | 0/20 [00:00<?, ?it/s]Counting tokens for vocab mapping: 100%|██████████| 20/20 [00:00<00:00, 1704.59it/s]
+Added missing tokens to reach draft vocab size: 32000
+Total tokens after addition: 32000
+top 32000 token frequency ratio: 100.00%
+Saved vocab mapping to: /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/hs/vocab_mapping/.vocab_mapping.752875ebba0544bdb049cb47aca0bd60.pt
+Vocabulary mapping ready at /workspace/sushila/deepseek-r1-distill-llama-70b-smoke/hs/vocab_mapping/vocab_mapping.pt
+Generating Hidden States:   0%|          | 0/5 [00:00<?, ?it/s]Generating Hidden States:   0%|          | 0/5 [00:03<?, ?it/s, processed=4, skipped=0, pending_io=4]Generating Hidden States:  20%|██        | 1/5 [00:03<00:14,  3.72s/it, processed=4, skipped=0, pending_io=4]Generating Hidden States:  20%|██        | 1/5 [00:05<00:14,  3.72s/it, processed=8, skipped=0, pending_io=8]Generating Hidden States:  40%|████      | 2/5 [00:05<00:07,  2.46s/it, processed=8, skipped=0, pending_io=8]Generating Hidden States:  40%|████      | 2/5 [00:08<00:07,  2.46s/it, processed=12, skipped=0, pending_io=12]Generating Hidden States:  60%|██████    | 3/5 [00:08<00:05,  2.81s/it, processed=12, skipped=0, pending_io=12]Generating Hidden States:  60%|██████    | 3/5 [00:10<00:05,  2.81s/it, processed=16, skipped=0, pending_io=16]Generating Hidden States:  80%|████████  | 4/5 [00:10<00:02,  2.34s/it, processed=16, skipped=0, pending_io=16]Generating Hidden States:  80%|████████  | 4/5 [00:12<00:02,  2.34s/it, processed=20, skipped=0, pending_io=20]Generating Hidden States: 100%|██████████| 5/5 [00:12<00:00,  2.17s/it, processed=20, skipped=0, pending_io=20]Generating Hidden States: 100%|██████████| 5/5 [00:12<00:00,  2.42s/it, processed=20, skipped=0, pending_io=20]
+
+Generation loop finished. Processed: 20, Skipped: 0
+/workspace/sushila/sfenv/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+Waiting for all async I/O operations to complete...
+Finalizing Writes:   0%|          | 0/20 [00:00<?, ?it/s]Finalizing Writes: 100%|██████████| 20/20 [00:00<00:00, 317750.30it/s]

@@ -5,8 +5,9 @@ Ollama 0.35.1 on one A100 80GB (160 unseen prompts): Llama-3.3-70B 4.05x, R1-Dis
 Qwen3-32B 3.14x, Qwen3-Coder-30B-A3B 1.80x, Qwen3-30B-A3B 1.65x, Llama-3.1-8B 1.55x (16-bit in SGLang vs Ollama's 4-bit
 file), Gemma 3 27B 1.22x -> **average 2.58x (geometric mean 2.35x)**. With Qwen2.5-0.5B (landscape, CPU, vs stock
 llama.cpp) 1.26x, Z-Image 1.10x and Wan 2.2 video 1.62x (cache plans, vs the same engine without the plan), ACE-Step music
-1.27x and YuE 4.60x (59 s song; 3.01x on the full song): **average over all 13 models 2.34x (geometric 2.06x); without
-YuE, whose runner is research code not yet in Sushila.cpp, 2.16x (geometric 1.93x)**. Wan 2.2 at 720p with Wan's own
+1.27x and YuE 4.77x (the same 59 s song as the official code, 1,210 -> 253 s; full 134 s song 3.29x, 2,353 -> 715 s):
+**average over all 13 models 2.36x (geometric 2.07x); without YuE, whose runner is research code not yet in
+Sushila.cpp, 2.16x (geometric 1.93x)**. Wan 2.2 at 720p with Wan's own
 sampling settings (50 steps, guidance 5, shift 5): median 889 s -> 549 s per 5 s clip over five prompts (1.62x), frame
 SSIM 0.93 (`video_quality_20261007/`); the stable-diffusion.cpp baseline is slower than Wan's official bf16 pipeline
 (536 s on the bears prompt, against 549 s with the plan). Out of scope: Qwen3-235B-A22B (heads slower).
@@ -36,8 +37,9 @@ Runs with `chunks` other than `all` are smoke tests and are not used in the pape
 | `qwen3-coder-30b-a3b_20261006/` | Qwen3-Coder-30B-A3B (MoE; CodeGen's model) | 1.80x (1.70-1.89); our head +2% over lmsys's |
 | `kimi-dev-72b_20261006/` | Kimi-Dev-72B (coding, Qwen2.5-72B-based; no published head) | **3.56x** (3.50-3.62) unseen; our head +41% over the closest published head (AQ-MedAI's for Qwen2.5-VL-72B, regrouped 28 -> 32 heads) |
 | `yue_20261006/` | YuE v1 (Apache-2.0), RTX 4090, first runner | 59 s song 1,213 s -> 325 s (3.73x; KV-cached batched stage 2, batched guidance); superseded by `yue_20261007/` |
-| `yue_20261007/` | YuE v1, equivalent runner + CUDA graphs, RTX 4090 | 59 s song 1,210 s -> 263 s (**4.60x**), single run; same distribution, stage-2 codes identical to the official loop in float32 (4 rows x 40 frames) |
-| `yue_fullsong_20261007/` | YuE v1, full song (production setting) | official 134 s song in 2,353 s; our runner 144 s song in 781 s (**3.01x**), single run |
+| `yue_20261007/` | YuE v1, equivalent runner + CUDA graphs, RTX 4090, runs with their own random draws (a different song of the same prompt) | 59 s song 1,210 s -> 263 s (4.60x, different draw), single run; same distribution, stage-2 codes identical to the official loop in float32 (4 rows x 40 frames); the paper's number is the same-song replay in `yue_samesong_20261007/` |
+| `yue_fullsong_20261007/` | YuE v1, full song (production setting), own random draws | official 134 s song in 2,353 s; our runner a different 144 s song in 781 s (3.01x, different draw), single run; the paper's number is the same-song replay below |
+| `yue_samesong_20261007/` | YuE v1, **same song** as the official run (replayed stage-1 tokens), lab and full song, bfloat16 and float32 stage 2 | lab 1,210 -> 253 s (**4.77x**); full song 2,353 -> 715 s (**3.29x**); stage 2 in float32 = the official float32 output, 396 s vs 1,805 s (4.56x) |
 | `qwen3-235b-a22b_20261005/` | Qwen3-235B-A22B (MoE, 2 GPUs; out of scope: too large for local machines) | SGLang alone 1.25x; any draft head is slower (ours 0.73x, best small tree 0.87x of SGLang) |
 
 Each holds `summary.md` (speeds, steps, bootstrap intervals, GSM8K accuracy, load test), `summary.json`, `run.log` and

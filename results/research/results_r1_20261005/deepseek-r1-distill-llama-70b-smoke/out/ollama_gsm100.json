@@ -1,0 +1,68 @@
+[
+ {
+  "id": 0,
+  "source": "gsm8k",
+  "ref": "18",
+  "tokens": 379,
+  "seconds": 15.928003771,
+  "decode_seconds": 15.692186,
+  "decode_tok_s": 24.152148081854243,
+  "wall_tok_s": 23.794569956722544,
+  "text": "Let's break down the problem step by step to find out how much Janet makes every day at the farmers' market.\n\n1. **Total Eggs Laid per Day:**\n   \\[\n   16 \\text{ eggs}\n   \\]\n\n2. **Eggs Consumed per Day:**\n   - **Breakfast:** Janet eats 3 eggs.\n   - **Muffins:** She uses 4 eggs to bake muffins.\n   \n   \\[\n   \\text{Total eggs used} = 3 + 4 = 7 \\text{ eggs}\n   \\]\n\n3. **Eggs Available for Sale:**\n   \\[\n   \\text{Eggs for sale} = \\text{Total eggs} - \\text{Eggs used} = 16 - 7 = 9 \\text{ eggs}\n   \\]\n\n4. **Revenue from Farmers' Market:**\n   - Janet sells each egg for \\$2.\n   \n   \\[\n   \\text{Revenue} = 9 \\text{ eggs} \\times \\$2/\\text{egg} = \\$18\n   \\]\n\n**Final Answer:**\n\\[\n\\boxed{18}\n\\]"
+ },
+ {
+  "id": 1,
+  "source": "gsm8k",
+  "ref": "3",
+  "tokens": 268,
+  "seconds": 11.18719635,
+  "decode_seconds": 11.078383,
+  "decode_tok_s": 24.19125607049332,
+  "wall_tok_s": 23.955957472758577,
+  "text": "To determine the total number of bolts needed for the robe, let's break down the requirements:\n\n1. **Blue Fiber:**\n   - The robe requires **2 bolts** of blue fiber.\n\n2. **White Fiber:**\n   - The amount of white fiber needed is **half** of the blue fiber.\n   - Calculation: \\( \\frac{2 \\text{ bolts}}{2} = 1 \\text{ bolt} \\)\n\n3. **Total Bolts:**\n   - Add the bolts of blue and white fiber together.\n   - Calculation: \\( 2 \\text{ bolts (blue)} + 1 \\text{ bolt (white)} = 3 \\text{ bolts} \\)\n\n**Final Answer:**\n\\[\n\\boxed{3}\n\\]"
+ },
+ {
+  "id": 2,
+  "source": "gsm8k",
+  "ref": "70000",
+  "tokens": 386,
+  "seconds": 16.133510129,
+  "decode_seconds": 15.976597,
+  "decode_tok_s": 24.16033902588893,
+  "wall_tok_s": 23.925357650853957,
+  "text": "**Solution:**\n\n1. **Calculate the Total Investment:**\n   \n   Josh buys the house for \\$80,000 and spends \\$50,000 on repairs.\n   \n   \\[\n   \\text{Total Investment} = \\$80,000 + \\$50,000 = \\$130,000\n   \\]\n\n2. **Determine the Increased Value:**\n   \n   The repairs increase the house's value by 150%. This means the new value is the original value plus 150% of the original value.\n   \n   \\[\n   \\text{New Value} = \\text{Original Value} + 150\\% \\times \\text{Original Value}\n   \\]\n   \n   \\[\n   \\text{New Value} = \\$80,000 + 1.5 \\times \\$80,000 = \\$80,000 + \\$120,000 = \\$200,000\n   \\]\n\n3. **Calculate the Profit:**\n   \n   Profit is the difference between the new value and the total investment.\n   \n   \\[\n   \\text{Profit} = \\text{New Value} - \\text{Total Investment} = \\$200,000 - \\$130,000 = \\$70,000\n   \\]\n\n**Final Answer:**\n\n\\[\n\\boxed{\\$70,\\!000}\n\\]"
+ },
+ {
+  "id": 3,
+  "source": "gsm8k",
+  "ref": "540",
+  "tokens": 251,
+  "seconds": 10.499576873,
+  "decode_seconds": 10.377094,
+  "decode_tok_s": 24.187889210601735,
+  "wall_tok_s": 23.905725253124682,
+  "text": "**Solution:**\n\nTo find the total meters James runs in a week, follow these steps:\n\n1. **Calculate the total number of sprints per week:**\n   \n   \\[\n   \\text{Sprints per session} \\times \\text{Sessions per week} = 3 \\times 3 = 9 \\text{ sprints}\n   \\]\n\n2. **Calculate the total distance run per week:**\n   \n   \\[\n   \\text{Total sprints} \\times \\text{Distance per sprint} = 9 \\times 60 = 540 \\text{ meters}\n   \\]\n\n**Final Answer:**\n\n\\[\n\\boxed{540}\n\\]"
+ },
+ {
+  "id": 4,
+  "source": "gsm8k",
+  "ref": "20",
+  "tokens": 504,
+  "seconds": 21.164912907,
+  "decode_seconds": 20.893944,
+  "decode_tok_s": 24.121822093521452,
+  "wall_tok_s": 23.812996642821478,
+  "text": "To determine how many cups of feed Wendi needs to give her chickens in the final meal of the day, let's break down the problem step by step.\n\n### **Given:**\n- **Number of chickens (flock size):** 20\n- **Feed per chicken per day:** 3 cups\n- **Feed given in the morning:** 15 cups\n- **Feed given in the afternoon:** 25 cups\n\n### **Step 1: Calculate the Total Daily Feed Requirement**\nFirst, find out the total amount of feed needed for all chickens in one day.\n\n\\[\n\\text{Total daily feed} = \\text{Number of chickens} \\times \\text{Feed per chicken per day} = 20 \\times 3 = 60 \\text{ cups}\n\\]\n\n### **Step 2: Calculate the Total Feed Already Given**\nNext, add the feed given in the morning and afternoon.\n\n\\[\n\\text{Total feed given so far} = \\text{Morning feed} + \\text{Afternoon feed} = 15 + 25 = 40 \\text{ cups}\n\\]\n\n### **Step 3: Determine the Feed Needed for the Final Meal**\nSubtract the feed already given from the total daily requirement to find out how much more feed is needed.\n\n\\[\n\\text{Feed needed for final meal} = \\text{Total daily feed} - \\text{Total feed given so far} = 60 - 40 = 20 \\text{ cups}\n\\]\n\n### **Final Answer**\nWendi needs to give her chickens \\(\\boxed{20}\\) cups of feed in the final meal of the day."
+ },
+ {
+  "id": 5,
+  "source": "gsm8k",
+  "ref": "64",
+  "tokens": 440,
+  "seconds": 18.467040042,
+  "decode_seconds": 18.221891,
+  "decode_tok_s": 24.146780375318897,
+  "wall_tok_s": 23.826233061676273,
+  "text": "To determine how much Kylar needs to pay for 16 glasses, let's break down the pricing structure and calculate the total cost step by step.\n\n### **Pricing Details:**\n- **First glass:** \\$5\n- **Second glass:** 60% of \\$5 = \\$3\n- This pattern repeats for every pair of glasses.\n\n### **Calculating the Total Cost:**\n\n1. **Determine the number of pairs:**\n   - Since the pricing repeats every two glasses, we can group the 16 glasses into pairs.\n   - Number of pairs = Total glasses / 2 = 16 / 2 = **8 pairs**\n\n2. **Calculate the cost per pair:**\n   - Each pair consists of one glass at \\$5 and another at \\$3.\n   - Cost per pair = \\$5 + \\$3 = **\\$8**\n\n3. **Calculate the total cost for all pairs:**\n   - Total cost = Number of pairs \u00d7 Cost per pair = 8 \u00d7 \\$8 = **\\$64**\n\n### **Final Answer:**\nKylar needs to pay a total of \\(\\boxed{64}\\) dollars for the 16 glasses."
+ }
+]

@@ -1,0 +1,34 @@
+0.11.681.334 I cmn          init: llama threadpool init, n_threads = 252
+0.11.780.138 I common_speculative_init_result: loading draft model '/workspace/mc-work/models/llama3.2-1b-q8.gguf'
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Écris un paragraphe sur l'importance de la biodiversité.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+La biodiversité est essentielle à la santé de notre planète. Elle nous permet de disposer d’une grande variété d’espèces et d’écosystèmes, qui sont tous interconnectés et interdépendants. La perte de biodiversité peut avoir des conséquences graves, telles que la disparition d’espèces, la dégradation des écosystèmes et la perte de services écosystémiques essentiels comme la pollinisation, la purification de l’eau et la régulation du climat. Il est donc crucial de préserver et de protéger la biodiversité pour garantir la santé de notre planète et notre propre bien-être. Cela peut être réalisé en adoptant des pratiques durables, en réduisant notre impact environnemental et en soutenant les efforts de conservation de la nature.
+
+0.18.951.520 I encoded   28 tokens in    0.142 seconds, speed:  197.336 t/s
+0.18.951.521 I decoded  204 tokens in    6.235 seconds, speed:   32.720 t/s
+0.18.951.521 I 
+0.18.951.522 I n_draft   = 16
+0.18.951.522 I n_predict = 204
+0.18.951.522 I n_drafted = 752
+0.18.951.523 I n_accept  = 157
+0.18.951.523 I accept    = 20.878%
+0.18.951.523 I 
+0.18.951.523 I draft:
+
+0.18.951.572 I 
+0.18.951.572 I target:
+
+0.18.951.577 I common_perf_print:    sampling time =      54.60 ms
+0.18.951.578 I common_perf_print:    samplers time =      17.71 ms /   204 tokens
+0.18.951.583 I common_perf_print:        load time =   10319.51 ms
+0.18.951.584 I common_perf_print: prompt eval time =    4510.18 ms /   828 tokens (    5.45 ms per token,   183.58 tokens per second)
+0.18.951.586 I common_perf_print:        eval time =       0.00 ms /     1 runs   (    0.00 ms per token,      inf tokens per second)
+0.18.951.587 I common_perf_print:       total time =    7171.54 ms /   829 tokens
+0.18.951.588 I common_perf_print: unaccounted time =    2606.76 ms /  36.3 %      (total - sampling - prompt eval - eval) / (total)
+0.18.951.588 I common_perf_print:    graphs reused =         47
+
+

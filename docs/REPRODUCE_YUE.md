@@ -13,6 +13,8 @@ with a table you can put next to ours.
 
 ## What you will see at the end
 
+The one-command run (step 3) prints this summary of the runs that draw their own random numbers (step 8):
+
 ```
 run                           stage 1  stage 2    total  speed-up  what
 official                        370.2    821.9   1209.7     1.00x  official YuE infer.py
@@ -21,10 +23,17 @@ fast_batched_k0_graphs          187.1     57.9    263.0     4.60x  equivalent: a
 ALL CHECKS PASS
 ```
 
-Those are our numbers (RTX 4090, driver 570.195.03, 7 October 2026). A run **reproduces** the paper when:
+Those are our numbers (RTX 4090, driver 570.195.03, 7 October 2026). These step-8 runs make a **different song** of
+the same prompt (their own random draws, a different length), so they are not the paper's headline number. Ours gave
+4.60×; on another machine expect a similar ratio.
 
-- the graphs row is at least 4.1× (within 10% of 4.60×);
-- the checks pass.
+The paper's number is the **same-song replay** (step 9b): Sushila's runner replays the official run's stage-1 tokens,
+so both runs make the same song and do the same work. Official 1,210 s, Sushila 253 s: **4.77×**. A run
+**reproduces** the paper when:
+
+- the same-song replay is at least **4.3×** (within 10% of 4.77×);
+- `replay_check.json` says `"stage1_tokens_identical": true`;
+- the checks of steps 5–7 pass (`ALL CHECKS PASS`).
 
 ## Step 1: rent the machine
 

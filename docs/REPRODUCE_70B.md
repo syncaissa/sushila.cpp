@@ -39,7 +39,7 @@ You need:
 - **Disk:** about 250 GB (both model formats, hidden states for training).
 - **OS:** Ubuntu 22.04, as root or with sudo. Python 3.10+.
 
-On RunPod, create a pod with an A100 80GB, the `runpod/pytorch` image (CUDA 13), and a
+On RunPod, create a pod with an A100 80GB, the `runpod/base:1.4.0-ubuntu2204` image (as `scripts/bench70b/create_pod.sh` does), and a
 250 GB volume at `/workspace`. In the API, set `allowedCudaVersions: ["13.0"]`; a pod on an older
 driver fails with mismatched torch. The whole guide costs about $10–15 (5–7 hours). Runs A–C alone
 take about 1 hour.
@@ -152,7 +152,7 @@ You can also time any running SGLang server yourself:
 | B. SGLang base, AWQ | 33.8 | 1.56× | 1.00× | our run |
 | C. + published EAGLE-3 head (32-token tree) | 64.1 | 2.96× | 1.93× | our run |
 | D. + Sushila precomputed draft head, **checkpoint chosen on validation prompts** (2,000 answers, 16-token tree) | **77.4** | **3.58×** (95% CI 3.20–3.89) | 2.29× | our run |
-| D′. same head on MT-Bench + HumanEval + GSM8K (160 prompts, never seen) | 83.7 vs Ollama 21.2 | **3.95×** (3.88–4.01) | 2.48× | our run (`rigor_70b.sh`) |
+| D′. same head on MT-Bench + HumanEval + GSM8K (160 prompts, never seen) | 83.7 vs Ollama 21.2 | **3.95×** (3.88–4.01) | 2.48× | our first run (`rigor_70b.sh`, A100 PCIe); the 7 October rerun through `scripts/precompute` gives 4.05×, the paper's headline |
 | D″. same head at temperature 0.7 (MT-Bench 40) | 76.5 vs Ollama 21.3 | 3.59× | 2.27× | our run |
 | GSM8K accuracy (100 problems) | Ollama 97%, SGLang base 96%, precomputed head 96% | | | our run |
 

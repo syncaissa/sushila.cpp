@@ -1,0 +1,27 @@
+p0: 256 tokens, decode 174.7 tok/s, with prompt 168.9 tok/s
+p1: 256 tokens, decode 175.3 tok/s, with prompt 171.8 tok/s
+p2: 68 tokens, decode 176.0 tok/s, with prompt 163.5 tok/s
+p3: 256 tokens, decode 175.3 tok/s, with prompt 171.2 tok/s
+p4: 256 tokens, decode 175.3 tok/s, with prompt 169.6 tok/s
+p5: 87 tokens, decode 176.0 tok/s, with prompt 156.2 tok/s
+p6: 256 tokens, decode 174.9 tok/s, with prompt 169.6 tok/s
+p7: 98 tokens, decode 176.5 tok/s, with prompt 161.3 tok/s
+p8: 122 tokens, decode 176.1 tok/s, with prompt 165.9 tok/s
+p9: 256 tokens, decode 175.4 tok/s, with prompt 169.7 tok/s
+p10: 256 tokens, decode 175.2 tok/s, with prompt 169.2 tok/s
+p11: 25 tokens, decode 171.4 tok/s, with prompt 101.0 tok/s
+p12: 256 tokens, decode 175.4 tok/s, with prompt 169.8 tok/s
+p13: 38 tokens, decode 175.8 tok/s, with prompt 139.8 tok/s
+p14: 208 tokens, decode 176.3 tok/s, with prompt 168.8 tok/s
+p15: 256 tokens, decode 175.4 tok/s, with prompt 169.6 tok/s
+p16: 256 tokens, decode 175.4 tok/s, with prompt 169.5 tok/s
+p17: 63 tokens, decode 174.9 tok/s, with prompt 134.4 tok/s
+p18: 256 tokens, decode 175.6 tok/s, with prompt 170.4 tok/s
+p19: 256 tokens, decode 174.3 tok/s, with prompt 160.3 tok/s
+p20: 256 tokens, decode 175.2 tok/s, with prompt 167.0 tok/s
+p21: 256 tokens, decode 176.1 tok/s, with prompt 169.6 tok/s
+p22: 256 tokens, decode 176.1 tok/s, with prompt 169.6 tok/s
+p23: 256 tokens, decode 175.3 tok/s, with prompt 169.0 tok/s
+p24: 256 tokens, decode 175.6 tok/s, with prompt 169.5 tok/s
+p25: 169 tokens, decode 176.6 tok/s, with prompt 167.1 tok/s
+5230 tokens: 167.1 tok/s with prompt processing (31.3 s), 175.4 tok/s decode only

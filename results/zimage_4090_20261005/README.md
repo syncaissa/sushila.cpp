@@ -5,7 +5,7 @@ Same 10 prompts, seed 42, cfg 1.0; medians of 10 timed images after warm-up. Scr
 
 | Engine | 1024² 8 steps | 768² 8 steps | 768² 6 | 768² 4 | 512² 8 |
 |---|---:|---:|---:|---:|---:|
-| sd.cpp CUDA, Q4_K GGUF (Host Station today) | 5.30 s | 3.03 s | | | |
+| sd.cpp CUDA, Q4_K GGUF (what Sushila's Host Station app shipped then; Host Station has since been retired for the `sushila` program) | 5.30 s | 3.03 s | | | |
 | sd.cpp CUDA, Q8_0 GGUF | 5.62 s | 3.37 s | | | |
 | diffusers bf16 | 4.03 s | 2.06 s | | | |
 | diffusers bf16 + torch.compile | 3.20 s | 1.74 s | | | |

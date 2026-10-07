@@ -1,0 +1,32 @@
+0.02.677.421 I cmn          init: llama threadpool init, n_threads = 252
+
+
+<|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+Écris un paragraphe sur l'importance de la biodiversité.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+La biodiversité est essentielle à la planète car elle permet de maintenir l'équilibre des écosystèmes. Les différentes espèces jouent un rôle crucial dans la régulation des populations, la pollinisation, la décomposition des déchets et la production de nourriture. La perte de biodiversité peut entraîner des conséquences graves, telles que la disparition de plantes et d'animaux, la dégradation des sols et des eaux, et l'augmentation des maladies et des parasites.<|eot_id|>
+
+0.03.675.921 I encoded   29 tokens in    0.043 seconds, speed: 3590.116 t/s
+0.03.675.923 I decoded  124 tokens in    0.900 seconds, speed:  137.746 t/s
+0.03.675.923 I 
+0.03.675.923 I n_draft      = 8
+0.03.675.923 I n_predict    = 124
+0.03.675.924 I n_drafted    = 40
+0.03.675.924 I t_draft_flat = 0.05 ms
+0.03.675.926 I t_draft      = 1.12 ms, 27.92 us per token, 35810.21 tokens per second
+0.03.675.926 I n_accept     = 4
+0.03.675.927 I accept       = 10.000%
+0.03.675.927 I 
+target:
+
+0.03.675.933 I common_perf_print:    sampling time =      36.82 ms
+0.03.675.935 I common_perf_print:    samplers time =      14.16 ms /   124 tokens
+0.03.675.942 I common_perf_print:        load time =    1702.65 ms
+0.03.675.943 I common_perf_print: prompt eval time =     109.85 ms /    74 tokens (    1.48 ms per token,   673.64 tokens per second)
+0.03.675.944 I common_perf_print:        eval time =     767.28 ms /   114 runs   (    6.73 ms per token,   148.58 tokens per second)
+0.03.675.945 I common_perf_print:       total time =     946.93 ms /   188 tokens
+0.03.675.946 I common_perf_print: unaccounted time =      32.98 ms /   3.5 %      (total - sampling - prompt eval - eval) / (total)
+0.03.675.946 I common_perf_print:    graphs reused =        109
+
+
