@@ -178,7 +178,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         const p = avail.find((x) => x.id === want);
         if (p && confirm('Install ' + p.name + ' (' + human(p.bytes) + ') on this computer?')) control({ action: 'install', pack: want }, 'Install ' + p.name);
       }
-      return [el('h2', {}, 'Installed'), installed.length ? el('table', {}, el('tbody', {}, rows)) : el('p', { class: 'sub' }, 'Nothing installed yet: pick a pack below.'),
+      const probs = st.packProblems || [];
+      return [el('div', { class: 'sub' }, 'Pack folder: ', el('code', {}, st.packsDir || '…'), ' · Each model pack is one folder here. Drop an unzipped pack folder in and it appears below within seconds (checked first); remove a folder and the pack is gone. No restart needed.'),
+        probs.length ? el('div', { class: 'task failed' }, el('b', {}, 'Folders that are not loaded'), ...probs.map((p) => el('div', { class: 'sub' }, (p.folder || '?') + ': ' + p.problem))) : null,
+        el('h2', {}, 'Installed'), installed.length ? el('table', {}, el('tbody', {}, rows)) : el('p', { class: 'sub' }, 'Nothing installed yet: pick a pack below.'),
         el('h2', {}, 'Available'), el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: () => { catalog = null; control({ action: 'catalog' }, 'Refresh the catalog'); } }, 'Refresh the list')),
         catalog ? el('table', {}, el('tbody', {}, avail.map(arow))) : el('p', { class: 'sub' }, 'Loading the catalog…')];
     }

@@ -29,6 +29,9 @@ struct Cli {
     /// Data folder (default: the one Sushila Host Station uses; or $SUSHILA_HOME)
     #[arg(long, global = true)]
     data_dir: Option<PathBuf>,
+    /// The model-packs folder (default: model-packs next to this program if it exists, else in the data folder; or $SUSHILA_PACKS)
+    #[arg(long, global = true)]
+    packs_dir: Option<PathBuf>,
     /// Machine-readable JSON output
     #[arg(long, global = true)]
     json: bool,
@@ -134,6 +137,7 @@ async fn main() -> ExitCode {
         });
     }
     let data = cli.data_dir.clone().unwrap_or_else(default_data_dir);
+    if let Some(p) = &cli.packs_dir { std::env::set_var("SUSHILA_PACKS", std::path::absolute(p).unwrap_or(p.clone())); }
     // `sushila serve` is a small supervisor: the real server runs as its child (SUSHILA_WORKER=1) and is restarted at
     // once if it crashes; why it crashed goes to crashes.json and the log (Admin tab -> Logs).
     if matches!(cli.cmd, Some(Cmd::Serve { .. })) && std::env::var("SUSHILA_WORKER").is_err() {
@@ -274,15 +278,15 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
         }
         Cmd::Engine { act: EngineCmd::Info } => {
             let gpu = ctx.nvidia_gpu().await; let other = ctx.other_gpu().await;
-            let v = json!({ "sushila": env!("CARGO_PKG_VERSION"), "engine": ctx.state["engine"], "platform": ctx.platform_key(), "nvidia": gpu, "otherGpu": other, "dataDir": ctx.data.to_string_lossy(), "cpus": ctx.info["cpus"], "memory": ctx.info["memory_bytes"] });
+            let v = json!({ "sushila": env!("CARGO_PKG_VERSION"), "engine": ctx.state["engine"], "platform": ctx.platform_key(), "nvidia": gpu, "otherGpu": other, "dataDir": ctx.data.to_string_lossy(), "packsDir": ctx.packs_dir.to_string_lossy(), "cpus": ctx.info["cpus"], "memory": ctx.info["memory_bytes"] });
             out(j, v.clone(), || {
                 let e = &ctx.state["engine"];
-                format!("sushila {}\nengine:   {}\nplatform: {}\nGPU:      {}\ndata:     {}",
+                format!("sushila {}\nengine:   {}\nplatform: {}\nGPU:      {}\ndata:     {}\npacks:    {}  (drop pack folders here)",
                     env!("CARGO_PKG_VERSION"),
                     if e.is_object() { format!("Sushila.cpp {} ({}) {}", e["version"].as_str().unwrap_or(""), Ctx::gpu_label(e["key"].as_str().unwrap_or("")), e["dir"].as_str().unwrap_or("")) } else { "not installed (sushila engine install)".into() },
                     ctx.platform_key(),
                     gpu.map(|g| format!("{} ({} GB, compute {})", g["name"].as_str().unwrap_or(""), g["memoryGB"], g["compute"])).or(other).unwrap_or_else(|| "none found (CPU)".into()),
-                    ctx.data.display())
+                    ctx.data.display(), ctx.packs_dir.display())
             });
         }
         Cmd::Packs { all } => {
@@ -538,6 +542,7 @@ enum Done {
     Pack(String, Result<(Option<core::EnginePlan>, core::PackPlan), String>),
     Ready(Option<String>, String, Result<(), String>),                       // task id, pack id
     Job(String, Result<jobs::Output, String>),                               // queue job id
+    Found(String, PathBuf, Result<Value, String>),                           // a pack folder dropped into model-packs, checked
 }
 
 struct Owner {
@@ -545,6 +550,8 @@ struct Owner {
     prog: std::collections::HashMap<String, Prog>,       // live progress of downloads
     tx: tokio::sync::mpsc::UnboundedSender<Done>,
     starting: std::collections::HashSet<String>,         // packs loading in the background
+    checking: std::collections::HashSet<PathBuf>,        // pack folders being verified
+    rejected: std::collections::HashMap<PathBuf, std::time::SystemTime>,  // folders that failed (checked again when they change)
 }
 impl Owner {
     fn task(&mut self, id: &str, action: &str, target: &str, source: &str) -> Prog {
@@ -663,7 +670,8 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Done>();
-    let mut o = Owner { tasks: vec![], prog: Default::default(), tx, starting: Default::default() };
+    let mut o = Owner { tasks: vec![], prog: Default::default(), tx, starting: Default::default(), checking: Default::default(), rejected: Default::default() };
+    let mut last_scan = std::time::Instant::now() - Duration::from_secs(10);
     let mut ids: Vec<String> = if packs.is_empty() { ctx.packs().keys().take(max).cloned().collect() } else { packs.to_vec() };
     if ids.is_empty() { ctx.log("no packs installed: installing the default model"); ctx.load_catalog().await?; let id = ctx.best_variant(DEFAULT_MODEL).await; ctx.install_pack(&id).await?; ids.push(id); }
     for id in &ids { if let Err(e) = o.start(ctx, id, if standard { Some("regular") } else { None }, None).await { ctx.log(&format!("{id}: {e}")); } }
@@ -709,6 +717,22 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                             }
                         }
                     }
+                    Done::Found(id, dir, res) => {
+                        o.checking.remove(&dir);
+                        let t = format!("found-{}", dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default());
+                        match res {
+                            Ok(rec) => {
+                                ctx.state["packs"][&id] = rec; let _ = ctx.save();
+                                ctx.log(&format!("new pack in {}: {id} verified and available", ctx.packs_dir.display()));
+                                o.finish(&t, &Ok(()));
+                            }
+                            Err(e) => {
+                                ctx.log(&format!("pack folder {} not loaded: {e}", dir.display()));
+                                o.rejected.insert(dir.clone(), std::fs::metadata(dir.join("sushila-pack.json")).and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH));
+                                o.finish(&t, &Err(e));
+                            }
+                        }
+                    }
                     Done::Job(jid, res) => {
                         if current.as_ref().map(|c| c.0 == jid).unwrap_or(false) {
                             let (_, _, t0) = current.take().unwrap();
@@ -734,6 +758,35 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         let mut cf: Vec<PathBuf> = std::fs::read_dir(&cdir).map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().map(|x| x == "json").unwrap_or(false)).collect()).unwrap_or_default();
         cf.sort();
         for f in cf { let r = read_json(&f); let _ = std::fs::remove_file(&f); if let Some(r) = r { control(ctx, &mut o, r).await; } }
+        // the model-packs folder: new pack folders are verified and become available; removed ones disappear (no restart)
+        if last_scan.elapsed() > Duration::from_secs(3) {
+            last_scan = std::time::Instant::now();
+            let sc = ctx.scan_packs();
+            o.rejected.retain(|d, _| d.exists());  // a bad folder that was deleted is no longer listed
+            for (id, dir) in sc.new {
+                if o.checking.contains(&dir) { continue; }
+                let stamp = std::fs::metadata(dir.join("sushila-pack.json")).and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
+                if o.rejected.get(&dir) == Some(&stamp) { continue; }  // failed before and unchanged
+                o.checking.insert(dir.clone());
+                let t = format!("found-{}", dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default());
+                let prog = o.task(&t, "check new pack", &id, "model-packs folder");
+                ctx.log(&format!("new folder in {}: checking {id}", ctx.packs_dir.display()));
+                let (tx, data, d2) = (o.tx.clone(), ctx.data.clone(), dir.clone());
+                tokio::task::spawn_blocking(move || { let r = core::verify_pack_folder(&data, &d2, Some(&prog)); let _ = tx.send(Done::Found(id, d2, r)); });
+            }
+            for (id, dir) in sc.moved {
+                ctx.log(&format!("{id}: found in {} (its folder moved); using it there", dir.display()));
+                ctx.state["packs"][&id]["dir"] = json!(dir.to_string_lossy()); let _ = ctx.save();
+            }
+            for id in sc.gone {
+                ctx.log(&format!("{id}: its folder was removed from {}; no longer available", ctx.packs_dir.display()));
+                if ctx.state["running"][&id].is_object() { ctx.stop_model(&id).await; }
+                if let Some(m) = ctx.state["packs"].as_object_mut() { m.remove(&id); }
+                let _ = ctx.save();
+            }
+            let probs = json!(sc.problems.into_iter().chain(o.rejected.keys().map(|d| json!({ "folder": d.file_name().map(|f| f.to_string_lossy().to_string()), "problem": "did not pass the checks (see Logs)" }))).collect::<Vec<_>>());
+            if ctx.state["packProblems"] != probs { ctx.state["packProblems"] = probs; let _ = ctx.save(); }
+        }
         // Standard / Accelerated switch from the page
         if let Some(m) = read_json(&ctx.data.join("mode-request.json")) {
             let _ = std::fs::remove_file(ctx.data.join("mode-request.json"));

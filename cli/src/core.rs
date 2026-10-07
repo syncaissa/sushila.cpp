@@ -19,6 +19,8 @@ pub fn default_data_dir() -> PathBuf {
 
 pub struct Ctx {
     pub data: PathBuf,
+    /// The model-packs folder: one folder per pack (see packs_dir_for).
+    pub packs_dir: PathBuf,
     pub state: Value,
     pub catalog: Option<Value>,
     pub info: Value,
@@ -62,7 +64,22 @@ impl Ctx {
         if s["token"].as_str().map(|t| t.is_empty()).unwrap_or(true) { s["token"] = json!(random_token()); }
         if !s["running"].is_object() { s["running"] = json!({}); }
         let _ = std::fs::create_dir_all(data.join("logs")); let _ = LOG_FILE.set(data.join("logs").join("sushila.log"));
-        Ok(Ctx { data, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())) })
+        let packs_dir = packs_dir_for(&data);
+        let _ = std::fs::create_dir_all(&packs_dir);
+        // earlier installs kept packs in <data>/packs/: move them into the model-packs folder (same disk: a rename)
+        let old = data.join("packs");
+        if old.is_dir() && packs_dir == data.join("model-packs") {
+            for e in std::fs::read_dir(&old).into_iter().flatten().flatten() {
+                let to = packs_dir.join(e.file_name());
+                if !to.exists() && std::fs::rename(e.path(), &to).is_ok() {
+                    let id = e.file_name().to_string_lossy().to_string();
+                    if s["packs"][&id].is_object() { s["packs"][&id]["dir"] = json!(to.to_string_lossy()); if !to.join("sushila-pack.json").exists() { write_pack_meta(&to, &s["packs"][&id], None); } }
+                }
+            }
+            let _ = std::fs::remove_dir(&old);
+            let _ = std::fs::write(data.join("state.json"), serde_json::to_string_pretty(&s).unwrap_or_default());  // the new folders, at once
+        }
+        Ok(Ctx { data, packs_dir, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())) })
     }
     pub fn log(&self, line: &str) { log(self.quiet, line) }
     pub fn setting(&self, k: &str) -> Value { self.state["settings"][k].clone() }
@@ -87,7 +104,8 @@ impl Ctx {
         let share = json!({ "enabled": sh["enabled"], "open": sh["open"], "keys": sh["keys"].as_array().map(|a| a.len()).unwrap_or(0) });
         self.state["public"] = json!({ "app": "sushila", "appVersion": env!("CARGO_PKG_VERSION"), "engine": engine, "running": running, "packs": packs,
                                        "tasks": tasks, "owner": owner, "gpu": self.state["engine"]["key"].as_str().map(Self::gpu_label), "settings": settings, "share": share,
-                                       "engineKey": self.state["engine"]["key"], "fallback": self.state["engineFallback"] });
+                                       "engineKey": self.state["engine"]["key"], "fallback": self.state["engineFallback"],
+                                       "packsDir": self.packs_dir.to_string_lossy(), "packProblems": self.state.get("packProblems").cloned().unwrap_or(json!([])) });
         let tmp = self.data.join("state.json.tmp");
         std::fs::write(&tmp, serde_json::to_string_pretty(&self.state).map_err(err)?).map_err(err)?;
         std::fs::rename(&tmp, self.data.join("state.json")).map_err(err)
@@ -278,9 +296,7 @@ impl Ctx {
         let args: Vec<&Value> = pack["serve"]["args"].as_array().into_iter().flatten().chain(pack["serve"]["turboArgs"].as_array().into_iter().flatten()).collect();
         for a in args {
             let a = a.as_str().unwrap_or("");
-            let plain = !a.is_empty() && a.len() <= 64 && a.chars().all(|c| c.is_ascii_alphanumeric() || "_.=:-".contains(c));
-            let packfile = a.strip_prefix("{pack}/").map(|r| safe_rel_path(r) && files.iter().any(|f| f["path"] == r)).unwrap_or(false);
-            if !plain && !packfile { return Err(format!("{name}: unexpected engine option {a}")); }
+            if !pack_arg_ok(a, files) { return Err(format!("{name}: engine option {a} is not allowed in a pack")); }
         }
         if let Some(e) = pack["serve"]["engine"].as_str() { if !["text", "image", "image-nunchaku", "music"].contains(&e) { return Err(format!("{name}: unknown engine {e}")); } }
         Ok(())
@@ -302,7 +318,7 @@ impl Ctx {
         let pack = self.catalog_pack(id).ok_or_else(|| format!("{id} is not in the catalog (sushila packs lists them)"))?;
         self.check_pack(&pack)?;
         if !self.pack_fits(&pack).await { return Err(format!("{} needs a matching NVIDIA GPU; install {} instead.", pack["name"].as_str().unwrap_or(id), pack["variantOf"].as_str().unwrap_or("another pack"))); }
-        Ok(Some(PackPlan { id: id.to_string(), dir: self.data.join("packs").join(id), pack, quiet: self.quiet }))
+        Ok(Some(PackPlan { id: id.to_string(), dir: self.packs_dir.join(format!(".installing-{id}")), final_dir: self.packs_dir.join(id), pack, quiet: self.quiet }))
     }
     /// Downloads every file of the pack, each checked against its sha256 (no state touched).
     pub async fn fetch_pack(p: &PackPlan, prog: Option<&Prog>) -> Result<(), String> {
@@ -318,7 +334,10 @@ impl Ctx {
         Ok(())
     }
     pub fn apply_pack(&mut self, p: &PackPlan) -> Result<(), String> {
-        let rec = self.pack_record(&p.pack, &p.dir, None);
+        write_pack_meta(&p.dir, &p.pack, Some(&p.pack["index"]));
+        if p.final_dir.exists() { std::fs::remove_dir_all(&p.final_dir).map_err(err)?; }
+        std::fs::rename(&p.dir, &p.final_dir).map_err(err)?;
+        let rec = self.pack_record(&p.pack, &p.final_dir, None);
         self.state["packs"][&p.id] = rec;
         self.save()?;
         self.log(&format!("{} installed", p.pack["name"].as_str().unwrap_or(&p.id)));
@@ -337,6 +356,13 @@ impl Ctx {
         let staging = self.data.join("staging").join(format!("pack-{}", &random_token()[..8]));
         let res = async {
             extract_archive(path, &staging).await?;
+            // a zip of the pack's folder: the pack is the one folder inside
+            let mut root = staging.clone();
+            if !root.join("sushila-pack.json").exists() {
+                let subs: Vec<PathBuf> = std::fs::read_dir(&staging).map(|d| d.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect()).unwrap_or_default();
+                if subs.len() == 1 && subs[0].join("sushila-pack.json").exists() { root = subs[0].clone(); }
+            }
+            let staging = root;
             let raw = std::fs::read_to_string(staging.join("sushila-pack.json")).map_err(|_| "This file is not a Sushila model pack.".to_string())?;
             let meta: Value = serde_json::from_str(&raw).map_err(err)?;
             let name = meta["name"].as_str().unwrap_or("pack").to_string();
@@ -354,8 +380,7 @@ impl Ctx {
             if !safe_rel_path(model) || !meta["files"].as_array().map(|a| a.iter().any(|f| f["path"] == model)).unwrap_or(false) { return Err(format!("{name}: the model file is not part of the pack.")); }
             let id = meta["id"].as_str().unwrap_or("").to_string();
             if !safe_id_dots(&id) { return Err("the pack id is not valid".into()); }
-            let dir = self.data.join("packs").join(&id);
-            let _ = std::fs::remove_file(staging.join("sushila-pack.json"));
+            let dir = self.packs_dir.join(&id);
             if dir.exists() { std::fs::remove_dir_all(&dir).map_err(err)?; }
             if let Some(d) = dir.parent() { std::fs::create_dir_all(d).map_err(err)?; }
             std::fs::rename(&staging, &dir).map_err(err)?;
@@ -583,6 +608,119 @@ impl Ctx {
     }
 }
 
+/// Where model packs live: SUSHILA_PACKS (or --packs-dir); else a model-packs folder next to the sushila program, if
+/// there is one (everything in one folder, e.g. on a USB drive); else <data folder>/model-packs.
+pub fn packs_dir_for(data: &Path) -> PathBuf {
+    if let Ok(p) = std::env::var("SUSHILA_PACKS") { if !p.is_empty() { return PathBuf::from(p); } }
+    if let Some(d) = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("model-packs"))) { if d.is_dir() { return d; } }
+    data.join("model-packs")
+}
+
+/// sushila-pack.json in a pack's folder: everything needed to verify and run it (name, how to serve it, every file with
+/// its sha256, and Sushila's signed index). A pack folder is self-describing: drop it into model-packs and it is found.
+pub fn write_pack_meta(dir: &Path, pack: &Value, index: Option<&Value>) {
+    let mut m = json!({ "id": pack["id"], "name": pack["name"], "kind": pack.get("kind").cloned().unwrap_or(json!("text")), "license": pack["license"],
+        "category": pack["category"], "artifacts": pack.get("artifacts").cloned().unwrap_or(json!([])), "files": pack["files"] });
+    m["serve"] = if pack["serve"].is_object() { pack["serve"].clone() } else {
+        json!({ "engine": pack["engine"], "model": pack["model"], "args": pack["args"], "turboArgs": pack["turboArgs"], "turboRequest": pack["turboRequest"] }) };
+    if let Some(i) = index.filter(|i| i.is_object()) { m["index"] = i.clone(); }
+    let _ = std::fs::write(dir.join("sushila-pack.json"), serde_json::to_string_pretty(&m).unwrap_or_default());
+}
+
+/// What the model-packs folder holds compared with the installed list.
+pub struct Scan { pub new: Vec<(String, PathBuf)>, pub gone: Vec<String>, pub moved: Vec<(String, PathBuf)>, pub problems: Vec<Value> }
+
+/// sha256 of a file, remembered by (path, size, modification time) in <data>/verified.json so big packs are not read
+/// again at every start; any change of size or time means reading it again.
+pub fn sha256_cached(data: &Path, path: &Path) -> Result<String, String> {
+    let meta = std::fs::metadata(path).map_err(err)?;
+    let stamp = format!("{}:{}", meta.len(), meta.modified().ok().and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs()).unwrap_or(0));
+    let cp = data.join("verified.json");
+    let mut cache: serde_json::Map<String, Value> = std::fs::read_to_string(&cp).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+    let key = path.to_string_lossy().to_string();
+    if let Some(e) = cache.get(&key) { if e["stamp"] == stamp.as_str() { if let Some(s) = e["sha256"].as_str() { return Ok(s.to_string()); } } }
+    let sha = sha256_of(path)?;
+    let mut cache2: serde_json::Map<String, Value> = std::fs::read_to_string(&cp).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+    cache2.insert(key, json!({ "stamp": stamp, "sha256": sha }));
+    cache = cache2;
+    let _ = std::fs::write(&cp, serde_json::to_string(&Value::Object(cache)).unwrap_or_default());
+    Ok(sha)
+}
+
+/// Checks a pack folder that appeared in model-packs: Sushila's signature over its index, the files it lists, and every
+/// file's sha256. Returns the pack's installed record. Runs without the state (in the background).
+pub fn verify_pack_folder(data: &Path, dir: &Path, prog: Option<&Prog>) -> Result<Value, String> {
+    let raw = std::fs::read_to_string(dir.join("sushila-pack.json")).map_err(|_| "no sushila-pack.json: not a Sushila model pack".to_string())?;
+    let meta: Value = serde_json::from_str(&raw).map_err(|e| format!("sushila-pack.json is not valid: {e}"))?;
+    let name = meta["name"].as_str().unwrap_or("pack").to_string();
+    let id = meta["id"].as_str().unwrap_or("").to_string();
+    if !safe_id_dots(&id) { return Err("the pack id in sushila-pack.json is not valid".into()); }
+    let idx = &meta["index"];
+    let (Some(text), Some(sig)) = (idx["text"].as_str(), idx["signature"].as_str()) else { return Err(format!("{name}: not signed by Sushila (no index in sushila-pack.json)")) };
+    if !SIGNING_KEYS.iter().any(|k| verify_signature(k, text, sig)) { return Err(format!("{name}: the Sushila signature does not match")); }
+    let index: Value = serde_json::from_str(text).map_err(err)?;
+    let listed: HashMap<String, Value> = index["files"].as_array().map(|a| a.iter().map(|f| (f["path"].as_str().unwrap_or("").to_string(), f.clone())).collect()).unwrap_or_default();
+    let files = meta["files"].as_array().cloned().unwrap_or_default();
+    let total: u64 = files.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum();
+    let mut done = 0u64;
+    for f in &files {
+        let p = f["path"].as_str().unwrap_or("");
+        if !safe_rel_path(p) || !PACK_EXT.iter().any(|e| p.to_lowercase().ends_with(e)) { return Err(format!("{name}: {p} is not an allowed data file")); }
+        let r = listed.get(f["src"].as_str().unwrap_or(""));
+        if r.map(|r| r["sha256"] != f["sha256"] || r["bytes"] != f["bytes"]).unwrap_or(true) { return Err(format!("{name}: {p} is not in the signed index")); }
+        if let Some(pg) = prog { if let Ok(mut g) = pg.lock() { *g = json!({ "label": format!("checking {id}: {p}"), "done": done, "total": total }); } }
+        let path = join_rel(dir, p);
+        if !path.exists() { return Err(format!("{name}: {p} is missing")); }
+        let got = sha256_cached(data, &path)?;
+        if Some(got.as_str()) != f["sha256"].as_str() { return Err(format!("{name}: {p} is damaged or changed")); }
+        done += f["bytes"].as_u64().unwrap_or(0);
+    }
+    let model = meta["serve"]["model"].as_str().unwrap_or("");
+    if !safe_rel_path(model) || !files.iter().any(|f| f["path"] == model) { return Err(format!("{name}: the model file is not part of the pack")); }
+    // sushila-pack.json's run settings are not covered by the signature (only the files are): check them like the catalog's
+    for a in meta["serve"]["args"].as_array().into_iter().flatten().chain(meta["serve"]["turboArgs"].as_array().into_iter().flatten()) {
+        let a = a.as_str().unwrap_or("");
+        if !pack_arg_ok(a, &files) { return Err(format!("{name}: engine option {a} is not allowed in a pack")); }
+    }
+    if let Some(e) = meta["serve"]["engine"].as_str() { if !["text", "image", "image-nunchaku", "music"].contains(&e) { return Err(format!("{name}: unknown engine {e}")); } }
+    let rec_files: Vec<Value> = files.iter().map(|f| json!({ "path": f["path"], "sha256": f["sha256"], "bytes": f["bytes"], "role": f["role"] })).collect();
+    Ok(json!({ "id": id, "name": meta["name"], "kind": meta.get("kind").cloned().unwrap_or(json!("text")), "engine": meta["serve"].get("engine").cloned().unwrap_or(json!("text")),
+        "bytes": total, "dir": dir.to_string_lossy(), "model": model, "args": meta["serve"].get("args").cloned().unwrap_or(json!([])),
+        "turboArgs": meta["serve"].get("turboArgs").cloned().unwrap_or(json!([])), "turboRequest": meta["serve"].get("turboRequest").cloned().unwrap_or(Value::Null),
+        "files": rec_files, "license": meta["license"], "scope": "user", "installedAt": now_iso(), "artifacts": meta.get("artifacts").cloned().unwrap_or(json!([])), "source": "model-packs folder" }))
+}
+
+impl Ctx {
+    /// Compares the model-packs folder with the installed list: folders not yet known (to verify), installed packs whose
+    /// folder is gone, and folders that are not packs.
+    pub fn scan_packs(&self) -> Scan {
+        let mut sc = Scan { new: vec![], gone: vec![], moved: vec![], problems: vec![] };
+        let known: HashMap<String, String> = self.packs().iter().map(|(id, p)| (p["dir"].as_str().unwrap_or("").to_string(), id.clone())).collect();
+        for e in std::fs::read_dir(&self.packs_dir).into_iter().flatten().flatten() {
+            let dir = e.path();
+            if !dir.is_dir() || e.file_name().to_string_lossy().starts_with('.') { continue; }
+            if known.contains_key(dir.to_string_lossy().as_ref()) { continue; }
+            if !dir.join("sushila-pack.json").exists() {
+                sc.problems.push(json!({ "folder": e.file_name().to_string_lossy(), "problem": "no sushila-pack.json: not a Sushila model pack (unzip the pack's file into its own folder)" }));
+                continue;
+            }
+            let id = std::fs::read_to_string(dir.join("sushila-pack.json")).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).and_then(|m| m["id"].as_str().map(String::from)).unwrap_or_default();
+            if self.packs().contains_key(&id) {
+                // an installed pack whose recorded folder is gone, found here: it moved (renamed folder, older layout)
+                if !Path::new(self.packs()[&id]["dir"].as_str().unwrap_or("")).exists() { sc.moved.push((id, dir)); continue; }
+                sc.problems.push(json!({ "folder": e.file_name().to_string_lossy(), "problem": format!("{id} is already installed in another folder") }));
+                continue;
+            }
+            sc.new.push((id, dir));
+        }
+        for (id, p) in self.packs() {
+            let d = PathBuf::from(p["dir"].as_str().unwrap_or(""));
+            if !d.exists() && !sc.moved.iter().any(|(m, _)| m == id) && (d.starts_with(&self.packs_dir) || d.parent().and_then(|p| p.file_name()).map(|n| n == "packs").unwrap_or(false)) { sc.gone.push(id.clone()); }
+        }
+        sc
+    }
+}
+
 pub struct EnginePlan { pub key: String, pub version: String, pub url: String, pub build: Value, pub server_rel: String, pub staging: PathBuf, pub dir: PathBuf, pub quiet: bool }
 pub struct Spawned { pub id: String, pub port: u16, pub health: String, pub log: PathBuf, pub already: bool }
 
@@ -601,7 +739,8 @@ pub async fn wait_ready(procs: Arc<Mutex<HashMap<String, tokio::process::Child>>
     Err(format!("{} did not become ready within 5 minutes; see {}", s.id, s.log.display()))
 }
 
-pub struct PackPlan { pub id: String, pub dir: PathBuf, pub pack: Value, pub quiet: bool }
+/// dir: where the download goes (hidden until complete, so the folder scan never sees half a pack); final_dir: model-packs/<id>.
+pub struct PackPlan { pub id: String, pub dir: PathBuf, pub final_dir: PathBuf, pub pack: Value, pub quiet: bool }
 
 // ---------- crashes: <data>/crashes.json (newest last, at most 50), shown on the Admin tab (Logs)
 pub fn record_crash(data: &Path, v: Value) {
@@ -631,6 +770,18 @@ pub fn kill_orphans(data: &Path) -> Vec<String> {
         }
     }
     killed
+}
+
+/// Engine options a pack may set: short plain options, or {pack}/<file> naming one of its own files. Never options
+/// that change where the engine listens or what it reads or writes outside the pack (the server sets those itself).
+pub fn pack_arg_ok(a: &str, files: &[Value]) -> bool {
+    if let Some(r) = a.strip_prefix("{pack}/") { return safe_rel_path(r) && files.iter().any(|f| f["path"] == r); }
+    // plain values cannot contain '/' or '\\': a name can only mean something inside the pack's own folder (the engine's
+    // working folder); "." and ".." are refused
+    if a.is_empty() || a.len() > 64 || !a.chars().all(|c| c.is_ascii_alphanumeric() || "_.=:-".contains(c)) || a.split('=').any(|p| !p.is_empty() && p.chars().all(|c| c == '.')) { return false; }
+    let flag = a.trim_start_matches('-').split('=').next().unwrap_or("").to_ascii_lowercase();
+    !["host", "port", "listen", "rpc", "api-key", "api_key", "log", "save", "slot", "hf-", "url", "ssl", "webui", "public", "metrics"]
+        .iter().any(|bad| flag.contains(bad))
 }
 
 pub fn safe_id_dots(id: &str) -> bool { !id.is_empty() && id.len() <= 80 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_') }

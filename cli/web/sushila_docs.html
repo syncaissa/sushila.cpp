@@ -30,7 +30,7 @@ td code{white-space:nowrap}.os{display:grid;grid-template-columns:repeat(auto-fi
 <div class="wrap">
 <nav class="toc">
   <a href="#start">Getting started</a><a href="#commands">All commands</a><a href="#os">Windows, macOS, Linux</a><a href="#serve">Serving and the web page</a>
-  <a href="#network">Other machines and the internet</a><a href="#admin">Admin password</a><a href="#api">API</a><a href="#files">Files and folders</a>
+  <a href="#network">Other machines and the internet</a><a href="#admin">Admin password</a><a href="#api">API</a><a href="#packs">Model packs folder</a><a href="#files">Files and folders</a>
   <a href="#service">Start automatically</a><a href="#trouble">Troubleshooting</a>
 </nav>
 <main>
@@ -175,6 +175,26 @@ Caddy or nginx (any reverse proxy that forwards to the port works).</div>
 </ul>
 <p>Any OpenAI client works: base URL <code>http://&lt;server&gt;:&lt;port&gt;/v1</code> and the access key as the API key.</p>
 
+<h2 id="packs">The model-packs folder</h2>
+<p>Every model pack is one folder inside <code>model-packs</code>: the model files plus <code>sushila-pack.json</code> (its name, how to run it,
+every file's SHA-256 and Sushila's signature). Adding a model is just adding a folder:</p>
+<ol>
+  <li>Download the pack's file (one <code>.zip</code> or <code>.sushilapack</code> per pack).</li>
+  <li>Unzip it into <code>model-packs</code>, so you get <code>model-packs/&lt;pack&gt;/</code>.</li>
+  <li>Within a few seconds the running server finds it, checks the signature and every file, and the model is available on the
+      Use and Admin tabs. No restart. The log says <code>new pack in …: &lt;pack&gt; verified and available</code>.</li>
+</ol>
+<p>Removing a folder removes the model (it is stopped first if it runs). A folder that fails the checks is listed on Admin → Packs with
+the reason and is never run. <code>sushila install &lt;pack&gt;</code>, <code>sushila install &lt;file&gt;.zip</code> and the Admin tab create exactly the
+same folders. Big packs are checked once: a file is read again only if its size or date changes.</p>
+<table>
+<tr><th>Where</th><th>Which folder</th></tr>
+<tr><td>Default</td><td><code>model-packs</code> in the data folder (below)</td></tr>
+<tr><td>Everything in one place (e.g. a USB drive)</td><td>a <code>model-packs</code> folder next to <code>sushila</code> / <code>sushila.exe</code>: used when it exists</td></tr>
+<tr><td>Anywhere else</td><td><code>--packs-dir &lt;folder&gt;</code> or the environment variable <code>SUSHILA_PACKS</code></td></tr>
+</table>
+<p><code>sushila engine info</code> shows which folder is used.</p>
+
 <h2 id="files">Files and folders</h2>
 <p>Created the first time; nothing is searched for, and no administrator rights are needed. The program itself can live anywhere.</p>
 <table>
@@ -186,7 +206,7 @@ Caddy or nginx (any reverse proxy that forwards to the port works).</div>
 <p>Another folder: <code>--data-dir &lt;folder&gt;</code> or the environment variable <code>SUSHILA_HOME</code>. Inside:</p>
 <table>
 <tr><td><code>engine/&lt;version&gt;/</code></td><td>Sushila.cpp (text, image/video and music engines)</td></tr>
-<tr><td><code>packs/&lt;pack&gt;/</code></td><td>Installed model packs</td></tr>
+<tr><td><code>model-packs/&lt;pack&gt;/</code></td><td>Installed model packs (one folder each; see above)</td></tr>
 <tr><td><code>logs/sushila.log</code></td><td>Every action, with its source (page, cli, server)</td></tr>
 <tr><td><code>logs/&lt;pack&gt;.log</code></td><td>The engine output of each model</td></tr>
 <tr><td><code>outputs/</code>, <code>queue.json</code></td><td>Finished queue jobs (images, songs, videos, texts) and the queue</td></tr>
