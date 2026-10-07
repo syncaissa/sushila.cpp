@@ -2,7 +2,7 @@
 
 **Paper claim** (section "Beyond Text", Table "YuE v1"): one 59-second song takes 1,210 s with YuE's official code on
 an RTX 4090. With Sushila's runner it takes 263 s, which is **4.60× faster**. The same models run with the same
-sampling distribution; only the way the models are run changes.
+sampling; only the way the models are run changes, and in float32 the output is identical (step 6).
 
 This guide reruns everything on a rented GPU: the official baseline, the exactness checks and the fast runs. It ends
 with a table you can put next to ours.
@@ -15,8 +15,8 @@ with a table you can put next to ours.
 ```
 run                           stage 1  stage 2    total  speed-up  what
 official                        370.2    821.9   1209.7     1.00x  official YuE infer.py
-fast_batched_k0                 202.4    108.9    329.3     3.67x  exact: KV cache + batched rows + batched guidance (eager)
-fast_batched_k0_graphs          187.1     57.9    263.0     4.60x  exact: as above + static caches and CUDA graphs
+fast_batched_k0                 202.4    108.9    329.3     3.67x  equivalent: KV cache + batched rows + batched guidance (eager)
+fast_batched_k0_graphs          187.1     57.9    263.0     4.60x  equivalent: as above + static caches and CUDA graphs
 ALL CHECKS PASS
 ```
 
@@ -101,21 +101,32 @@ repetition penalty, blocked token range, top-p.
 
 Output: `res/sampler_test.json`.
 
-## Step 6: check stage 2 against the official codes (≈ 3 min)
+## Step 6: check stage 2 against the official loop (≈ 4 min)
 
-Script: `test_stage2_full.py`. It takes the official run's stage-1 tokens and runs Sushila's stage 2 on them:
+Sushila's stage 2 makes two changes to how the 1B model runs. The model and the greedy choice of each code stay as they
+are.
 
-- one key-value cache across frames, where the official code re-runs the model on the whole sequence for every frame;
-- all 6-second rows of both tracks in one batch.
+- **One cache across frames:** it keeps one key-value cache across frames, where the official code re-runs the model on
+  the whole sequence for every frame.
+- **One batch:** it runs all 6-second rows of both tracks in one batch, at most 20 rows at a time to fit 24 GB.
 
-It then compares the codes with the official stage-2 output, code by code.
+Two checks follow.
 
-- **What to expect:** in float32 the codes are bit-for-bit identical. In bfloat16, the format both runs use, a
-  rounding difference at a near-tie can change a code in a few rows, so `codes_identical_fraction` is close to 1 but
-  may not be exactly 1.
-- **Speed:** stage 2 alone is ~8× faster (`speedup` in the output).
+**a. `test_stage2.py` in float32 (the pass/fail check).**
+- What it does: runs the official loop and Sushila's on the same 4 rows of 40 frames, in full precision.
+- **Pass:** `"tokens_identical": true`, i.e. 0 of 2,492 codes differ (our result).
+- Output: `res/stage2_test_cached_float32.json`.
 
-Output: `res/stage2_full_test.json`.
+**b. `test_stage2_full.py` on the whole song in bfloat16 (the format both real runs use).**
+- What it measures: the stage-2 time and the fraction of codes equal to the official run's.
+- **Expect about 0.48–0.49, not 1.** Stage 2 picks every code greedily, conditioned on the codes before it.
+  - In bfloat16 a batch of a different shape rounds differently.
+  - At a near-tie that changes one code.
+  - The rest of that 6-second row then follows another, equally greedy path.
+- Our runs: 0.479 (59 s song), 0.490 (2.5 min song).
+- This fraction is reported, not a pass/fail check.
+- Speed: stage 2 alone is 5–8× faster (`speedup` in the output).
+- Output: `res/stage2_full_test.json`.
 
 ## Step 7: check CUDA graphs against eager PyTorch (≈ 2 min)
 
@@ -167,8 +178,9 @@ To recompute it any time: `python3 summarize.py /workspace/yue`.
 | | Paper (RTX 4090) | Yours |
 |---|---:|---:|
 | Official total | 1,210 s | |
-| Exact runner, eager | 329 s (3.67×) | |
-| Exact runner + CUDA graphs | **263 s (4.60×)** | |
+| Equivalent runner, eager | 329 s (3.67×) | |
+| Equivalent runner + CUDA graphs | **263 s (4.60×)** | |
+| Stage 2, float32, vs official loop | 0 of 2,492 codes differ | |
 | Graph logits vs eager | max diff 0.0 | |
 | Sampler vs reference | max diff 0.0 | |
 
@@ -177,10 +189,10 @@ stays the slowest part because it re-runs the model for every frame.
 
 ## Where each piece of the speed-up comes from
 
-| Change | Where in the code | Exact? | Effect on our 4090 |
+| Change | Where in the code | Same result? | Effect on our 4090 |
 |---|---|---|---|
-| Stage 2: one KV cache across frames instead of re-running the whole sequence per frame | `yue_fast.stage2_batched` | yes: same codes | 822 → 109 s |
-| Stage 2: all rows of both tracks in one batch | `yue_fast.plan_stage2`, `stage2_batched` | yes | (inside the above) |
+| Stage 2: one KV cache across frames instead of re-running the whole sequence per frame | `yue_fast.stage2_batched` | same greedy procedure; identical codes in float32 (bfloat16: about half, see step 6) | 822 → 109 s |
+| Stage 2: all rows of both tracks in one batch | `yue_fast.plan_stage2`, `stage2_batched` | as above | (inside the above) |
 | Stage 1: guidance (unconditional) branch in the same pass as the conditional one | `yue_fast._Pair`, `stage1_generate` | same distribution | 370 → 202 s |
 | Both stages: static KV cache + CUDA graphs | `yue_fast.StaticRows`, `_PairG`, `stage2_batched_graph` | yes: logits identical | 202 → 187 s, 109 → 58 s |
 | Stage 1: top-k nucleus sampler | `yue_fast._probs` | same distribution | ~0.4 ms/token |

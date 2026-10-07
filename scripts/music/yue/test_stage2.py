@@ -40,4 +40,4 @@ per_row = [int((ours[i] != seq[i]).sum()) for i in range(B)] if ours.shape == se
 first_pos = [int((ours[i] != seq[i]).nonzero()[0]) - pids.shape[1] if per_row and per_row[i] else -1 for i in range(B)]
 r = {'mode': os.environ.get('MODE', 'cached'), 'dtype': os.environ.get('DT', 'bfloat16'), 'first_diff_after_prompt_per_row': first_pos, 'frames': F, 'rows': B, 'official_s': t_off, 'cached_s': t_ours, 'official_ms_per_frame': 1000 * t_off / F, 'cached_ms_per_frame': 1000 * t_ours / F,
      'speedup': t_off / t_ours, 'tokens_identical': same, 'tokens_different': diff, 'tokens_compared': int(seq.numel())}
-print(json.dumps(r)); json.dump(r, open(f"/workspace/yue/res/stage2_test_{os.environ.get('MODE', 'cached')}_{os.environ.get('DT', 'bfloat16')}.json", 'w'), indent=1)
+print(json.dumps(r)); json.dump(r, open(os.path.join(os.environ.get('W', '/workspace/yue'), 'res', f"stage2_test_{os.environ.get('MODE', 'cached')}_{os.environ.get('DT', 'bfloat16')}.json"), 'w'), indent=1)
