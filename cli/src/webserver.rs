@@ -19,7 +19,38 @@ const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="u
 
 // ---------- local web server ----------
 pub struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>>,
-                 sessions: std::sync::Mutex<HashMap<String, (std::time::Instant, String)>> }  // session -> (since, which password)
+                 sessions: std::sync::Mutex<HashMap<String, (std::time::Instant, String)>>,  // session -> (since, which password)
+                 metrics: std::sync::Mutex<Metrics>, started: std::time::Instant }
+
+/// Counters for /metrics (Prometheus text format), per model.
+#[derive(Default)]
+pub struct Metrics { requests: HashMap<(String, u16), u64>, inflight: HashMap<String, i64>, rejected: HashMap<String, u64>, seconds: HashMap<String, (f64, u64)> }
+
+/// One forwarded request: counted while in flight (admission control), timed, and logged with its request id when it
+/// ends, including when a streamed answer finishes or the client disconnects.
+struct InFlight { s: Arc<Srv>, model: String, rid: String, who: String, what: String, t0: std::time::Instant, status: u16 }
+impl Drop for InFlight {
+    fn drop(&mut self) {
+        let secs = self.t0.elapsed().as_secs_f64();
+        if let Ok(mut m) = self.s.metrics.lock() {
+            *m.inflight.entry(self.model.clone()).or_default() -= 1;
+            *m.requests.entry((self.model.clone(), self.status)).or_default() += 1;
+            let e = m.seconds.entry(self.model.clone()).or_default(); e.0 += secs; e.1 += 1;
+        }
+        crate::core::log(true, &format!("api {} {} {} {} -> {} in {:.0} ms", self.rid, self.who, self.model, self.what, self.status, secs * 1000.0));
+    }
+}
+/// The request id: the caller's (x-request-id, e.g. from a reverse proxy) if it is sane, else a new one.
+fn request_id(headers: &axum::http::HeaderMap) -> String {
+    headers.get("x-request-id").and_then(|h| h.to_str().ok()).filter(|r| !r.is_empty() && r.len() <= 64 && r.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')).map(String::from)
+        .unwrap_or_else(|| { let mut b = [0u8; 8]; let _ = getrandom::getrandom(&mut b); format!("r-{}", hex::encode(b)) })
+}
+/// A caller's name for logs: local, open, or the access key's name.
+fn who_name(who: &str, st: &Value) -> String {
+    if who == "local" || who.starts_with("open") { return who.chars().take(13).collect(); }
+    share(st).and_then(|sh| sh.get("keys")).and_then(|k| k.as_array()).and_then(|a| a.iter().find(|k| k.get("sha256").and_then(|x| x.as_str()) == Some(who)))
+        .and_then(|k| k.get("name").and_then(|n| n.as_str())).map(|n| format!("key:{n}")).unwrap_or_else(|| "key".into())
+}
 
 // ---------- the Admin tab: one password per computer
 // <data>/adminpassword holds an Argon2id hash of the admin password (not the password; it cannot be read back). It is
@@ -83,8 +114,18 @@ fn admin_ok(s: &Srv, headers: &axum::http::HeaderMap, st: &Value) -> bool {
 //   share.perMinute      requests per minute per key
 fn share(st: &Value) -> Option<&Value> { st.get("share").filter(|s| s.get("enabled").and_then(|e| e.as_bool()).unwrap_or(false)) }
 
+/// state.json as the owner last wrote it. Kept in memory and re-read only when the file changed (its time or size),
+/// so a request costs one file-status check instead of reading and parsing the file.
 pub fn read_state(dir: &Path) -> Value {
-    std::fs::read_to_string(dir.join("state.json")).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null)
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<HashMap<PathBuf, (std::time::SystemTime, u64, Value)>>> = std::sync::OnceLock::new();
+    let p = dir.join("state.json");
+    let Ok(meta) = std::fs::metadata(&p) else { return Value::Null };
+    let stamp = (meta.modified().unwrap_or(std::time::UNIX_EPOCH), meta.len());
+    let cache = CACHE.get_or_init(Default::default);
+    if let Some((t, n, v)) = cache.lock().unwrap().get(&p) { if (*t, *n) == stamp { return v.clone(); } }
+    let v: Value = std::fs::read_to_string(&p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
+    cache.lock().unwrap().insert(p, (stamp.0, stamp.1, v.clone()));
+    v
 }
 
 fn host_ok(headers: &axum::http::HeaderMap, port: u16, st: &Value) -> bool {
@@ -108,7 +149,12 @@ fn caller(headers: &axum::http::HeaderMap, st: &Value) -> Option<String> {
         .filter(|h| sh.get("keys").and_then(|k| k.as_array()).map(|a| a.iter().any(|k| k.get("sha256").and_then(|x| x.as_str()) == Some(h.as_str()))).unwrap_or(false));
     // share.open (sushila serve --open, a trusted network): anyone who can reach the port may chat and generate, without a
     // key (one shared rate-limit bucket); managing Sushila stays this computer's only
-    keyed.or_else(|| sh.get("open").and_then(|o| o.as_bool()).filter(|o| *o).map(|_| "open".to_string()))
+    // in open mode each browser is its own anonymous user (x-sushila-visitor, a random id the page keeps), so visitors
+    // never see each other's queue jobs
+    keyed.or_else(|| sh.get("open").and_then(|o| o.as_bool()).filter(|o| *o).map(|_| {
+        headers.get("x-sushila-visitor").and_then(|h| h.to_str().ok()).filter(|v| v.len() >= 16 && v.len() <= 64 && v.chars().all(|c| c.is_ascii_alphanumeric()))
+            .map(|v| format!("open-{v}")).unwrap_or_else(|| "open".to_string())
+    }))
 }
 
 async fn srv_page(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
@@ -141,7 +187,7 @@ fn with_cors_for(mut resp: axum::response::Response, st: &Value, origin: Option<
         let h = resp.headers_mut();
         let allow = if app_window { axum::http::HeaderValue::from_str(origin.unwrap()).unwrap_or(axum::http::HeaderValue::from_static("*")) } else { axum::http::HeaderValue::from_static("*") };
         h.insert("access-control-allow-origin", allow);
-        h.insert("access-control-allow-headers", axum::http::HeaderValue::from_static("authorization, content-type, x-sushila-model, x-sushila-token"));
+        h.insert("access-control-allow-headers", axum::http::HeaderValue::from_static("authorization, content-type, x-sushila-model, x-sushila-token, x-sushila-visitor, x-request-id"));
         h.insert("access-control-allow-methods", axum::http::HeaderValue::from_static("GET, POST, OPTIONS"));
     }
     resp
@@ -164,15 +210,19 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     let st = read_state(&s.data_dir);
     if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     let path = parts.uri.path().to_string();
-    if !(path.starts_with("/v1/") || path == "/health") { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); }
+    if path == "/health" || path == "/ready" || path == "/metrics" { return health(&s, &parts.headers, &st, &path); }
+    if !path.starts_with("/v1/") { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); }
+    let rid = request_id(&parts.headers);
     let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
     let with_cors = |r: axum::response::Response, st: &Value| with_cors_for(r, st, origin.as_deref());
     if parts.method == axum::http::Method::OPTIONS { return with_cors(axum::http::StatusCode::NO_CONTENT.into_response(), &st); }
     let deny = |code: axum::http::StatusCode, msg: &'static str| with_cors((code, msg).into_response(), &st);
+    let mut who_s = String::new();
     if path.starts_with("/v1/") {
         let Some(who) = caller(&parts.headers, &st) else {
             return deny(axum::http::StatusCode::UNAUTHORIZED, "an access key is required (Authorization: Bearer <key>), or open this page from Sushila Host Station");
         };
+        who_s = who_name(&who, &st);
         if who != "local" {
             let per_min = share(&st).and_then(|sh| sh.get("perMinute")).and_then(|v| v.as_u64()).unwrap_or(30).max(1) as u32;
             let mut hits = s.hits.lock().unwrap();
@@ -199,7 +249,27 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         _ => None,
     };
     let Some(up) = pick.and_then(|r| r.get("port")).and_then(|p| p.as_u64()) else {
-        return deny(axum::http::StatusCode::SERVICE_UNAVAILABLE, if running.is_empty() { "no model is running: start one in Sushila Host Station" } else { "name a running model (\"model\" field); GET /v1/models lists them" });
+        return deny(axum::http::StatusCode::SERVICE_UNAVAILABLE, if running.is_empty() { "no model is running: start one (sushila start <pack>, or the Admin tab)" } else { "name a running model (\"model\" field); GET /v1/models lists them" });
+    };
+    let model = running.iter().find(|(_, r)| r.get("port").and_then(|p| p.as_u64()) == Some(up)).map(|(k, _)| k.clone()).unwrap_or_default();
+    // admission control: each model serves `slots` requests at once (continuous batching) and lets up to 3x that wait
+    // in its engine; beyond, the caller gets 429 with Retry-After instead of an ever longer wait
+    let slots = pick.and_then(|r| r.get("slots")).and_then(|v| v.as_i64()).unwrap_or(1).max(1);
+    let limit = slots * 4;
+    let mut guard = {
+        let mut m = s.metrics.lock().unwrap();
+        let n = m.inflight.entry(model.clone()).or_default();
+        if *n >= limit {
+            *m.rejected.entry(model.clone()).or_default() += 1;
+            drop(m);
+            crate::core::log(true, &format!("api {rid} {who_s} {model} {path} -> 429 busy ({limit} in flight)"));
+            let mut r = deny(axum::http::StatusCode::TOO_MANY_REQUESTS, "busy: every slot of this model is in use and its waiting line is full; retry shortly");
+            r.headers_mut().insert("retry-after", axum::http::HeaderValue::from_static("2"));
+            r.headers_mut().insert("x-request-id", axum::http::HeaderValue::from_str(&rid).unwrap_or(axum::http::HeaderValue::from_static("r")));
+            return r;
+        }
+        *n += 1;
+        InFlight { s: s.clone(), model: model.clone(), rid: rid.clone(), who: who_s.clone(), what: format!("{} {}", parts.method, path), t0: std::time::Instant::now(), status: 0 }
     };
     let pq = parts.uri.path_and_query().map(|p| p.as_str().to_string()).unwrap_or(path.clone());
     // music servers have their own paths; video uses stable-diffusion.cpp's native async API (/sdcpp/v1/vid_gen, /sdcpp/v1/jobs/..)
@@ -207,20 +277,57 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         else { pq.strip_prefix("/v1/music").map(|r| r.to_string()).unwrap_or(pq) };
     let url = format!("http://127.0.0.1:{up}{upstream_path}");
     let method = reqwest::Method::from_bytes(parts.method.as_str().as_bytes()).unwrap_or(reqwest::Method::GET);
-    let mut r = s.http.request(method, url).body(bytes.to_vec());
+    let mut r = s.http.request(method, url).body(bytes.to_vec()).header("x-request-id", &rid);
     for h in ["content-type", "accept"] {
         if let Some(v) = parts.headers.get(h).and_then(|v| v.to_str().ok()) { r = r.header(h, v); }
     }
-    let resp = match r.send().await {
+    let mut resp = match r.send().await {
         Ok(resp) => {
             let status = axum::http::StatusCode::from_u16(resp.status().as_u16()).unwrap_or(axum::http::StatusCode::BAD_GATEWAY);
+            guard.status = status.as_u16();
             let ctype = resp.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("application/json").to_string();
-            let stream = resp.bytes_stream();
+            // the guard lives as long as the answer streams: in flight until the last byte (or a disconnect)
+            let stream = futures_util::StreamExt::map(resp.bytes_stream(), move |c| { let _ = &guard; c });
             (status, [("content-type", ctype), ("cache-control", "no-store".to_string())], axum::body::Body::from_stream(stream)).into_response()
         }
-        Err(e) => (axum::http::StatusCode::BAD_GATEWAY, format!("the model server did not answer: {e}")).into_response(),
+        Err(e) => { guard.status = 502; drop(guard); (axum::http::StatusCode::BAD_GATEWAY, format!("the model server did not answer: {e}")).into_response() }
     };
+    resp.headers_mut().insert("x-request-id", axum::http::HeaderValue::from_str(&rid).unwrap_or(axum::http::HeaderValue::from_static("r")));
     with_cors(resp, &st)
+}
+
+/// GET /health: the server is alive (200, for process monitors). GET /ready: 200 when at least one model is loaded and
+/// answering, else 503 (for load balancers). GET /metrics: Prometheus counters (this computer, or callers with a key).
+fn health(s: &Arc<Srv>, headers: &axum::http::HeaderMap, st: &Value, path: &str) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let running = st.get("running").and_then(|r| r.as_object()).cloned().unwrap_or_default();
+    let ready = running.values().filter(|r| r.get("ready").and_then(|x| x.as_bool()).unwrap_or(false)).count();
+    match path {
+        "/health" => axum::Json(json!({ "ok": true, "uptimeSeconds": s.started.elapsed().as_secs(), "models": running.len(), "ready": ready })).into_response(),
+        "/ready" => (if ready > 0 { axum::http::StatusCode::OK } else { axum::http::StatusCode::SERVICE_UNAVAILABLE }, axum::Json(json!({ "ready": ready }))).into_response(),
+        _ => {
+            let allowed = local_host(headers, s.port) || caller(headers, st).map(|w| !w.starts_with("open")).unwrap_or(false) || admin_ok(s, headers, st);
+            if !allowed { return (axum::http::StatusCode::UNAUTHORIZED, "metrics: this computer, or a key").into_response(); }
+            let m = s.metrics.lock().unwrap();
+            let mut t = String::from("# HELP sushila_requests_total Requests forwarded to models, by model and HTTP status.\n# TYPE sushila_requests_total counter\n");
+            for ((model, code), n) in &m.requests { t += &format!("sushila_requests_total{{model=\"{model}\",code=\"{code}\"}} {n}\n"); }
+            t += "# HELP sushila_inflight Requests in flight per model.\n# TYPE sushila_inflight gauge\n";
+            for (model, n) in &m.inflight { t += &format!("sushila_inflight{{model=\"{model}\"}} {n}\n"); }
+            t += "# HELP sushila_rejected_total Requests refused with 429 (model busy).\n# TYPE sushila_rejected_total counter\n";
+            for (model, n) in &m.rejected { t += &format!("sushila_rejected_total{{model=\"{model}\"}} {n}\n"); }
+            t += "# HELP sushila_request_seconds Time per request, until the last byte.\n# TYPE sushila_request_seconds summary\n";
+            for (model, (sum, n)) in &m.seconds { t += &format!("sushila_request_seconds_sum{{model=\"{model}\"}} {sum:.3}\nsushila_request_seconds_count{{model=\"{model}\"}} {n}\n"); }
+            t += "# HELP sushila_model_slots Parallel slots per running model.\n# TYPE sushila_model_slots gauge\n";
+            for (id, r) in &running { t += &format!("sushila_model_slots{{model=\"{id}\",ready=\"{}\"}} {}\n", r.get("ready").and_then(|x| x.as_bool()).unwrap_or(false), r.get("slots").and_then(|x| x.as_i64()).unwrap_or(1)); }
+            let q = read_queue(&s.data_dir);
+            let mut by: HashMap<String, u64> = HashMap::new();
+            for j in q.get("jobs").and_then(|j| j.as_array()).cloned().unwrap_or_default() { *by.entry(j.get("status").and_then(|x| x.as_str()).unwrap_or("?").to_string()).or_default() += 1; }
+            t += "# HELP sushila_queue_jobs Background queue jobs by status.\n# TYPE sushila_queue_jobs gauge\n";
+            for (k, n) in by { t += &format!("sushila_queue_jobs{{status=\"{k}\"}} {n}\n"); }
+            t += &format!("# HELP sushila_uptime_seconds Seconds since the server started.\n# TYPE sushila_uptime_seconds gauge\nsushila_uptime_seconds {}\n", s.started.elapsed().as_secs());
+            ([("content-type", "text/plain; version=0.0.4")], t).into_response()
+        }
+    }
 }
 
 /// POST /api/mode {"model": id, "mode": "turbo"|"regular"}: the browser page asks Host Station to restart a model with or
@@ -253,6 +360,7 @@ pub fn read_queue(dir: &Path) -> Value {
 fn queue_job(dir: &Path, id: &str) -> Option<Value> {
     read_queue(dir).get("jobs")?.as_array()?.iter().find(|j| j.get("id").and_then(|x| x.as_str()) == Some(id)).cloned()
 }
+/// This computer sees every job; a key (or an anonymous open-mode browser) sees its own.
 fn owns(who: &str, job: &Value) -> bool { who == "local" || job.get("owner").and_then(|o| o.as_str()) == Some(who) }
 pub fn safe_id(id: &str) -> bool { !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') }
 pub fn new_id() -> String {  // unique per call: time, process, a counter, hashed (no extra dependency)
@@ -409,6 +517,15 @@ async fn srv_install_link(axum::extract::State(s): axum::extract::State<Arc<Srv>
     axum::response::Redirect::to(&format!("/?install={pack}#admin/packs")).into_response()
 }
 
+/// GET /api/crashes: why the server or a model crashed (crashes.json), for the Admin tab.
+async fn srv_crashes(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required").into_response(); }
+    let v: Value = std::fs::read_to_string(s.data_dir.join("crashes.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(json!([]));
+    axum::Json(v).into_response()
+}
+
 async fn srv_docs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
     if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
@@ -476,10 +593,11 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
     let ip: std::net::IpAddr = bind.parse().map_err(|_| format!("not an IP address: {bind}"))?;
     let listener = tokio::net::TcpListener::bind((ip, port)).await.map_err(|e| format!("port {port} is busy: {e}"))?;
     let _ = cli_token(&data_dir);
-    let srv = Arc::new(Srv { port, data_dir, http: client()?, hits: std::sync::Mutex::new(HashMap::new()), sessions: std::sync::Mutex::new(HashMap::new()) });
+    let srv = Arc::new(Srv { port, data_dir, http: client()?, hits: std::sync::Mutex::new(HashMap::new()), sessions: std::sync::Mutex::new(HashMap::new()), metrics: Default::default(), started: std::time::Instant::now() });
     let app = axum::Router::new()
         .route("/", axum::routing::get(srv_page))
         .route("/docs", axum::routing::get(srv_docs))
+        .route("/api/crashes", axum::routing::get(srv_crashes))
         .route("/sushila.js", axum::routing::get(srv_js))
         .route("/api/state", axum::routing::get(srv_state))
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))

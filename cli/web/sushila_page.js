@@ -209,7 +209,13 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const f = (($('logf') || {}).value || '').toLowerCase();
       const pre = el('div', { class: 'logbox', id: 'logbox' }, f ? logText.split('\n').filter((l) => l.toLowerCase().includes(f)).join('\n') : logText);
       setTimeout(() => { const b = $('logbox'); if (b) b.scrollTop = b.scrollHeight; }, 0);
-      return [el('h2', {}, 'Log'), el('div', { class: 'sub' }, 'Every action of the server, from this page, the sushila commands and the queue: logs/sushila.log in the data folder (sushila logs -f). Each model also writes logs/<pack>.log.'),
+      let crashes = []; try { crashes = await (await api('/api/crashes')).json(); } catch (_) {}
+      const crashBox = crashes.length ? [el('h2', {}, 'Crashes'), el('div', { class: 'sub' }, 'Sushila restarts itself (the server at once; a model up to 3 times in 10 minutes). Newest first:'),
+        ...crashes.slice().reverse().slice(0, 10).map((c) => el('details', { class: 'task failed' },
+          el('summary', {}, el('b', {}, (c.what === 'model' ? 'Model ' + c.pack : 'Server') + ': ' + c.reason), el('span', { class: 'sub' }, ' · ' + (c.time || '').replace('T', ' ').slice(0, 19) + ' UTC' + (c.what === 'model' ? (c.restarted ? ' · restarted' : ' · not restarted') : ' · restarted' + (c.uptimeSeconds != null ? ' after ' + c.uptimeSeconds + ' s up' : '')))),
+          c.panic ? el('pre', {}, c.panic) : null, (c.stoppedEngines || []).length ? el('div', { class: 'sub' }, 'Engines left running by the crashed server were stopped: ' + c.stoppedEngines.join(', ')) : null,
+          el('div', { class: 'sub' }, 'Last log lines:'), el('pre', {}, c.logTail || '')))] : [];
+      return [...crashBox, el('h2', {}, 'Log'), el('div', { class: 'sub' }, 'Every action of the server, from this page, the sushila commands and the queue: logs/sushila.log in the data folder (sushila logs -f). Each model also writes logs/<pack>.log.'),
         el('div', { class: 'row' }, el('input', { id: 'logf', placeholder: 'filter', value: f, oninput: () => render() })), pre];
     }
     function settingsView() {
@@ -217,7 +223,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const field = (k, label, hint) => [el('label', { for: 'set-' + k }, label), el('input', { id: 'set-' + k, type: 'number', value: s[k] == null ? '' : s[k] }), hint ? el('div', { class: 'sub' }, hint) : null];
       const save = () => { const v = {}; for (const k of ['threads', 'contextSize', 'gpuLayers', 'parallel']) { const x = $('set-' + k).value; if (x !== '') v[k] = Number(x); } control({ action: 'settings', values: v }, 'Save settings'); };
       return [el('h2', {}, 'Settings'), ...field('gpuLayers', 'Layers on the GPU', '-1 = automatic: as many as fit (recommended)'), ...field('contextSize', 'Context size (tokens)'),
-        ...field('threads', 'CPU threads', '0 = automatic'), ...field('parallel', 'Parallel requests per model'),
+        ...field('threads', 'CPU threads', '0 = automatic'), ...field('parallel', 'Parallel requests per model', '0 = automatic: as many as the GPU memory allows (1-16)'),
         el('div', { class: 'row' }, el('button', { onclick: save }, 'Save'), el('span', { class: 'sub' }, 'Applies to models started after saving.')),
         el('h2', {}, 'Admin password'),
         el('label', { for: 'pwcur' }, 'Current password'), el('input', { id: 'pwcur', type: 'password', autocomplete: 'current-password' }),
@@ -298,7 +304,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     let models = [], model = null, ctrl = null;
     const msgs = [];
     const base = () => server || opts.base || '';  // '' = same origin (the page served by Host Station)
-    const auth = () => (!server && token ? { 'x-sushila-token': token } : keys[server] ? { authorization: 'Bearer ' + keys[server] } : {});
+    // one user = one identity: this computer (token), an access key, or in open mode this browser (a random id kept in
+    // this browser, shared by all its tabs, so every tab sees the same queue)
+    let visitor = store.get('sushila-visitor', ''); if (!visitor) { visitor = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join(''); store.set('sushila-visitor', visitor); }
+    const auth = () => Object.assign({ 'x-sushila-visitor': visitor }, !server && token ? { 'x-sushila-token': token } : keys[server] ? { authorization: 'Bearer ' + keys[server] } : {});
     const app = opts.container || document.getElementById('app');
     // the page's controls are found inside its own container, so it keeps working while the app shows another tab
     const $ = (id) => app.querySelector('#' + id) || document.getElementById(id);

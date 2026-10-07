@@ -48,10 +48,14 @@ impl Ctx {
         let mut s: Value = raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(json!({}));
         if !s.is_object() { s = json!({}); }
         let defaults = json!({ "catalogUrl": CATALOG_URL, "port": 8765, "enginePort": 8766, "threads": 0, "contextSize": 4096, "gpuLayers": -1,
-                               "scope": "user", "parallel": 1, "keepCopy": true });
+                               "scope": "user", "parallel": 0, "keepCopy": true });
         let mut settings = defaults.as_object().unwrap().clone();
         if let Some(o) = s.get("settings").and_then(|x| x.as_object()) { for (k, v) in o { settings.insert(k.clone(), v.clone()); } }
         if settings.get("gpuLayers").and_then(|v| v.as_i64()) == Some(99) { settings.insert("gpuLayers".into(), json!(-1)); }
+        if settings.get("settingsVersion").is_none() {  // 1 was the old default: now 0 = choose the parallel slots from the hardware
+            if settings.get("parallel").and_then(|v| v.as_i64()) == Some(1) { settings.insert("parallel".into(), json!(0)); }
+            settings.insert("settingsVersion".into(), json!(2));
+        }
         s["settings"] = Value::Object(settings);
         if !s["packs"].is_object() { s["packs"] = json!({}); }
         if !s["share"].is_object() { s["share"] = json!({ "enabled": false, "bind": "0.0.0.0", "hosts": [], "keys": [], "perMinute": 30 }); }
@@ -439,6 +443,23 @@ impl Ctx {
         while used.contains(&p) || p == self.setting("port").as_u64().unwrap_or(8765) || std::net::TcpListener::bind(("127.0.0.1", p as u16)).is_err() { p += 1; }
         p as u16
     }
+    /// How many requests a text model serves at once (continuous batching): from the GPU memory left after the model,
+    /// each slot needing its own key-value cache (about 0.35 GB plus 2.5% of the model's size per 4,096 tokens), 1-16.
+    /// CPU: 2 (batching helps a little there too). settings.parallel > 0 overrides it.
+    async fn auto_slots(&mut self, p: &Value) -> u64 {
+        let fixed = self.setting("parallel").as_u64().unwrap_or(0);
+        if fixed > 0 { return fixed; }
+        let key = self.state["engine"]["key"].as_str().map(String::from).unwrap_or_else(|| self.platform_key());
+        let model_gb = p["bytes"].as_f64().unwrap_or(0.0) / 1e9;
+        let ctx = self.setting("contextSize").as_f64().unwrap_or(4096.0);
+        let per_slot = (0.35 + 0.025 * model_gb) * ctx / 4096.0;
+        let free = if key.ends_with("-cuda") {
+            self.nvidia_gpu().await.map(|g| g["memoryGB"].as_f64().unwrap_or(0.0)).unwrap_or(0.0) - model_gb * 1.1 - 1.5
+        } else if key.starts_with("macos-aarch64") {
+            self.info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9 * 0.65 - model_gb * 1.1
+        } else if key.ends_with("-vulkan") { 2.0 * per_slot } else { return 2 };
+        ((free / per_slot).floor() as i64).clamp(1, 16) as u64
+    }
     async fn gpu_room_for(&mut self, p: &Value) -> bool {
         let key = self.state["engine"]["key"].as_str().map(String::from).unwrap_or_else(|| self.platform_key());
         let bytes = p["bytes"].as_f64().unwrap_or(0.0);
@@ -504,6 +525,7 @@ impl Ctx {
         }
         let rt = self.state["runtimes"]["image-nunchaku"].clone();
         let servers = self.state["engine"]["servers"].clone();
+        let slots = if engine == "text" { self.auto_slots(&p).await } else { 1 };
         let (program, args): (String, Vec<String>) = match engine.as_str() {
             "image-nunchaku" => {
                 if !rt.is_object() { return Err(format!("{id} needs the NVIDIA image runtime: install the pack again to set it up")); }
@@ -514,7 +536,7 @@ impl Ctx {
             "image" => (servers["image"].as_str().ok_or("this Sushila.cpp has no image engine: run `sushila engine install` to update it")?.into(),
                         [vec!["--listen-ip".into(), "127.0.0.1".into(), "--listen-port".into(), port.to_string(), "-t".into(), threads.to_string()], pack_args].concat()),
             _ => {
-                let ctx = self.setting("contextSize").as_u64().unwrap_or(4096); let par = self.setting("parallel").as_u64().unwrap_or(1).max(1);
+                let ctx = self.setting("contextSize").as_u64().unwrap_or(4096); let par = slots;
                 let ngl = self.setting("gpuLayers").as_i64().unwrap_or(-1);
                 (self.state["engine"]["server"].as_str().unwrap_or("").into(),
                  [vec!["-m".into(), join_rel(&dir, p["model"].as_str().unwrap_or("")).to_string_lossy().into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string(),
@@ -526,7 +548,7 @@ impl Ctx {
         if self.info["os"] == "linux" { if let Some(d) = self.state["engine"]["dir"].as_str() { c.env("LD_LIBRARY_PATH", d); } }
         if mode == "regular" { c.env("SUSHILA", "0"); }
         if engine == "image-nunchaku" { c.env("PYTHONNOUSERSITE", "1").env("PYTHONUNBUFFERED", "1").env("HF_HUB_OFFLINE", "1"); }
-        self.log(&format!("starting {id} ({}) on port {port}: {program} {}", if mode == "turbo" { "Accelerated" } else { "Standard" }, args.join(" ")));
+        self.log(&format!("starting {id} ({}, {slots} parallel slot{}) on port {port}: {program} {}", if mode == "turbo" { "Accelerated" } else { "Standard" }, if slots == 1 { "" } else { "s" }, args.join(" ")));
         let logs = self.data.join("logs"); let _ = std::fs::create_dir_all(&logs);
         let mut child = c.spawn().map_err(|e| format!("could not start {program}: {e}"))?;
         for pipe in [child.stdout.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>), child.stderr.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>)].into_iter().flatten() {
@@ -540,8 +562,10 @@ impl Ctx {
                 }
             });
         }
+        let engine_pid = child.id().unwrap_or(0);
         self.procs.lock().await.insert(id.to_string(), child);
-        self.state["running"][id] = json!({ "port": port, "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "startedAt": now_iso(), "ready": false, "mode": mode, "pid": std::process::id() });
+        self.state["running"][id] = json!({ "port": port, "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "startedAt": now_iso(), "ready": false, "mode": mode,
+                                            "pid": std::process::id(), "enginePid": engine_pid, "slots": slots });
         self.save()?;
         let health = format!("http://127.0.0.1:{port}{}", if engine == "image" { "/" } else { "/health" });
         Ok(Spawned { id: id.to_string(), port, health, log: logs.join(format!("{id}.log")), already: false })
@@ -578,6 +602,36 @@ pub async fn wait_ready(procs: Arc<Mutex<HashMap<String, tokio::process::Child>>
 }
 
 pub struct PackPlan { pub id: String, pub dir: PathBuf, pub pack: Value, pub quiet: bool }
+
+// ---------- crashes: <data>/crashes.json (newest last, at most 50), shown on the Admin tab (Logs)
+pub fn record_crash(data: &Path, v: Value) {
+    let p = data.join("crashes.json");
+    let mut list: Vec<Value> = std::fs::read_to_string(&p).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+    list.push(v);
+    let n = list.len(); if n > 50 { list.drain(..n - 50); }
+    let _ = std::fs::write(&p, serde_json::to_string_pretty(&list).unwrap_or_default());
+}
+/// The last n lines of a text file (e.g. a log), for crash reports.
+pub fn tail_lines(p: &Path, n: usize) -> String {
+    let t = std::fs::read(p).map(|b| { let s = b.len().saturating_sub(64 << 10); String::from_utf8_lossy(&b[s..]).to_string() }).unwrap_or_default();
+    let l: Vec<&str> = t.lines().collect();
+    l[l.len().saturating_sub(n)..].join("\n")
+}
+/// After the server died: stop the model engines it had started (they would keep their ports and GPU memory).
+pub fn kill_orphans(data: &Path) -> Vec<String> {
+    let st: Value = std::fs::read_to_string(data.join("state.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(Value::Null);
+    let mut sys = sysinfo::System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    let mut killed = vec![];
+    for (id, r) in st["running"].as_object().cloned().unwrap_or_default() {
+        let Some(pid) = r["enginePid"].as_u64().filter(|p| *p > 0) else { continue };
+        if let Some(pr) = sys.process(sysinfo::Pid::from_u32(pid as u32)) {
+            let name = pr.name().to_string_lossy().to_lowercase();
+            if ["sushila", "llama", "sd-server", "ace-server", "python"].iter().any(|k| name.contains(k)) && pr.kill() { killed.push(format!("{id} (pid {pid})")); }
+        }
+    }
+    killed
+}
 
 pub fn safe_id_dots(id: &str) -> bool { !id.is_empty() && id.len() <= 80 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_') }
 

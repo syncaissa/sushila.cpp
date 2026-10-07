@@ -121,9 +121,11 @@ async fn main() -> ExitCode {
     let mut cli = Cli::parse();
     // started without a command (e.g. double-clicked in Explorer or Finder): serve, and open the page in the browser
     let double_click = cli.cmd.is_none();
-    if double_click {
+    if double_click && std::env::var("SUSHILA_WORKER").is_err() {
         eprintln!("Sushila {}: starting the server; the page opens in your browser. Close this window (or Ctrl+C) to stop.\nCommands: sushila --help", env!("CARGO_PKG_VERSION"));
         cli.cmd = Some(Cmd::Serve { packs: vec![], port: None, host: None, public: false, standard: false, max: 1, open: false });
+    }
+    if double_click && std::env::var("SUSHILA_NO_BROWSER").is_err() && std::env::var("SUSHILA_WORKER").is_ok() {
         tokio::spawn(async {
             for _ in 0..600 {
                 tokio::time::sleep(Duration::from_secs(2)).await;
@@ -132,10 +134,61 @@ async fn main() -> ExitCode {
         });
     }
     let data = cli.data_dir.clone().unwrap_or_else(default_data_dir);
+    // `sushila serve` is a small supervisor: the real server runs as its child (SUSHILA_WORKER=1) and is restarted at
+    // once if it crashes; why it crashed goes to crashes.json and the log (Admin tab -> Logs).
+    if matches!(cli.cmd, Some(Cmd::Serve { .. })) && std::env::var("SUSHILA_WORKER").is_err() {
+        return supervise(data, cli.quiet).await;
+    }
+    if std::env::var("SUSHILA_WORKER").is_ok() {
+        let panic_file = data.join("logs").join("panic.txt");
+        std::panic::set_hook(Box::new(move |info| {
+            let bt = std::backtrace::Backtrace::force_capture();
+            let _ = std::fs::write(&panic_file, format!("{info}\n\n{bt}"));
+            eprintln!("sushila crashed: {info}");
+        }));
+    }
     let mut ctx = match Ctx::load(data, cli.quiet) { Ok(c) => c, Err(e) => { eprintln!("error: {e}"); return ExitCode::from(1); } };
     match dispatch(&cli, &mut ctx).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => { if cli.json { println!("{}", json!({ "ok": false, "error": e })); } else { eprintln!("error: {e}"); } ExitCode::from(1) }
+    }
+}
+
+/// Runs `sushila serve` as a child and restarts it when it crashes (not when it stops normally: `sushila stop`, Ctrl+C).
+/// A start-up error (port busy, another server owns the folder) is reported, not retried.
+async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
+    let exe = match std::env::current_exe() { Ok(e) => e, Err(e) => { eprintln!("error: {e}"); return ExitCode::from(1); } };
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let _ = std::fs::create_dir_all(data.join("logs"));
+    let _ = core::LOG_FILE.set(data.join("logs").join("sushila.log")); let _ = core::SOURCE.set("supervisor".into());
+    let stopping = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    { let s = stopping.clone(); tokio::spawn(async move { loop { if tokio::signal::ctrl_c().await.is_err() { return; } s.store(true, std::sync::atomic::Ordering::SeqCst); } }); }
+    let mut recent: Vec<std::time::Instant> = vec![];
+    let mut restarts = 0u32;
+    loop {
+        let t0 = std::time::Instant::now();
+        let mut c = tokio::process::Command::new(&exe);
+        c.args(&args).env("SUSHILA_WORKER", "1");
+        if restarts > 0 { c.env("SUSHILA_NO_BROWSER", "1").env_remove("SUSHILA_TEST_PANIC_AFTER"); }
+        let status = match c.status().await { Ok(s) => s, Err(e) => { eprintln!("error: could not start the server: {e}"); return ExitCode::from(1); } };
+        let up = t0.elapsed();
+        if status.success() || stopping.load(std::sync::atomic::Ordering::SeqCst) { return ExitCode::SUCCESS; }
+        if restarts == 0 && up < Duration::from_secs(8) && status.code() == Some(1) { return ExitCode::from(1); }  // did not start: the error is already printed
+        let mut reason = match status.code() { Some(c) => format!("exit code {c}"), None => "stopped by the operating system".into() };
+        #[cfg(unix)]
+        { use std::os::unix::process::ExitStatusExt; if let Some(sig) = status.signal() { reason = format!("killed by signal {sig}{}", match sig { 9 => " (SIGKILL: often out of memory)", 11 => " (SIGSEGV: memory fault)", 6 => " (SIGABRT)", _ => "" }); } }
+        let pf = data.join("logs").join("panic.txt");
+        let panic = std::fs::read_to_string(&pf).ok().filter(|_| std::fs::metadata(&pf).and_then(|m| m.modified()).map(|m| m.elapsed().map(|e| e <= up + Duration::from_secs(2)).unwrap_or(false)).unwrap_or(false));
+        let _ = std::fs::remove_file(&pf);
+        let killed = core::kill_orphans(&data);
+        core::record_crash(&data, json!({ "time": now_iso(), "what": "server", "reason": reason, "panic": panic.as_deref().map(|p| p.chars().take(4000).collect::<String>()),
+            "uptimeSeconds": up.as_secs(), "logTail": core::tail_lines(&data.join("logs").join("sushila.log"), 30), "stoppedEngines": killed }));
+        recent.retain(|t| t.elapsed() < Duration::from_secs(300)); recent.push(std::time::Instant::now());
+        let wait = if recent.len() > 5 { 60 } else { 1 };
+        core::log(quiet, &format!("the server stopped unexpectedly ({reason}{}); restarting in {wait} s (details: Admin tab -> Logs -> Crashes)",
+            panic.as_deref().map(|p| format!(": {}", p.lines().next().unwrap_or(""))).unwrap_or_default()));
+        restarts += 1;
+        for _ in 0..wait * 10 { if stopping.load(std::sync::atomic::Ordering::SeqCst) { return ExitCode::SUCCESS; } tokio::time::sleep(Duration::from_millis(100)).await; }
     }
 }
 
@@ -626,7 +679,13 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     let mut current: Option<(String, tokio::task::JoinHandle<()>, std::time::Instant)> = None;
     let progress = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
     let ctrl_c = tokio::signal::ctrl_c(); tokio::pin!(ctrl_c);
+    // for the crash-recovery test only: SUSHILA_TEST_PANIC_AFTER=<seconds> makes the server panic on purpose
+    if let Some(secs) = std::env::var("SUSHILA_TEST_PANIC_AFTER").ok().and_then(|v| v.parse::<u64>().ok()) {
+        std::thread::spawn(move || { std::thread::sleep(Duration::from_secs(secs)); std::process::abort(); });
+        tokio::spawn(async move { tokio::time::sleep(Duration::from_secs(secs.saturating_sub(1))).await; panic!("test panic (SUSHILA_TEST_PANIC_AFTER)"); });
+    }
     let mut last_pub = std::time::Instant::now();
+    let mut crash_counts: std::collections::HashMap<String, Vec<std::time::Instant>> = Default::default();
     loop {
         let mut changed = false;
         tokio::select! {
@@ -687,8 +746,21 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             }
         }
         // models that exited on their own
-        let dead: Vec<String> = { let mut g = ctx.procs.lock().await; g.iter_mut().filter_map(|(id, c)| c.try_wait().ok().flatten().map(|_| id.clone())).collect() };
-        for id in dead { if o.starting.contains(&id) { continue; } ctx.log(&format!("{id} stopped (see {})", ctx.data.join("logs").join(format!("{id}.log")).display())); ctx.stop_model(&id).await; }
+        let dead: Vec<(String, Option<i32>)> = { let mut g = ctx.procs.lock().await; g.iter_mut().filter_map(|(id, c)| c.try_wait().ok().flatten().map(|s| (id.clone(), s.code()))).collect() };
+        for (id, code) in dead {
+            if o.starting.contains(&id) { continue; }
+            // a model's engine crashed: record why, restart it (at most 3 times in 10 minutes)
+            let mode = ctx.state["running"][&id]["mode"].as_str().map(String::from);
+            let log = ctx.data.join("logs").join(format!("{id}.log"));
+            let r = crash_counts.entry(id.clone()).or_default(); r.retain(|t: &std::time::Instant| t.elapsed() < Duration::from_secs(600)); r.push(std::time::Instant::now());
+            let again = r.len() <= 3;
+            core::record_crash(&ctx.data, json!({ "time": now_iso(), "what": "model", "pack": id, "reason": code.map(|c| format!("exit code {c}")).unwrap_or("stopped by the operating system".into()),
+                "logTail": core::tail_lines(&log, 25), "restarted": again }));
+            ctx.log(&format!("{id} stopped unexpectedly ({}); {} (see {})", code.map(|c| format!("exit code {c}")).unwrap_or("killed".into()),
+                if again { "restarting it" } else { "not restarted: 3 crashes in 10 minutes" }, log.display()));
+            ctx.stop_model(&id).await;
+            if again { if let Err(e) = o.start(ctx, &id, mode.as_deref(), None).await { ctx.log(&format!("{id}: {e}")); } }
+        }
         // queue requests from pages: add / pause / resume / cancel / remove
         let inbox = ctx.data.join("queue-in");
         let mut files: Vec<PathBuf> = std::fs::read_dir(&inbox).map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().map(|x| x == "json").unwrap_or(false)).collect()).unwrap_or_default();

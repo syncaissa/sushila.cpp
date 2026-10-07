@@ -158,7 +158,21 @@ Caddy or nginx (any reverse proxy that forwards to the port works).</div>
 <tr><td><code>/v1/video/…</code>, <code>/v1/music/…</code></td><td>Video and music jobs (used by the page).</td></tr>
 <tr><td><code>/api/state</code></td><td>Installed packs, running models, actions in progress.</td></tr>
 <tr><td><code>/api/queue</code></td><td>The background queue.</td></tr>
+<tr><td><code>/health</code></td><td>The server is alive (200). For process monitors.</td></tr>
+<tr><td><code>/ready</code></td><td>200 when at least one model is loaded and answering, else 503. For load balancers.</td></tr>
+<tr><td><code>/metrics</code></td><td>Prometheus counters: requests by model and status, requests in flight, 429 refusals, time per request, slots, queue (this computer or a key).</td></tr>
 </table>
+<h3>Many users</h3>
+<ul>
+  <li><b>Parallel slots</b>: each text model serves several requests at once (continuous batching). Sushila chooses the number from the
+      GPU memory left after the model (1-16; Settings → "Parallel requests per model", 0 = automatic).</li>
+  <li><b>When busy</b>: up to 4 × slots requests per model are accepted (the rest of the slots' work waits inside the engine); beyond that the
+      answer is <code>429</code> with <code>Retry-After: 2</code>, which OpenAI clients and proxies retry by themselves.</li>
+  <li><b>Request ids</b>: every answer carries <code>x-request-id</code> (yours, if a proxy sends one); each request is one line in the log
+      (<code>api &lt;id&gt; &lt;caller&gt; &lt;model&gt; &lt;path&gt; -&gt; &lt;status&gt; in &lt;ms&gt;</code>).</li>
+  <li><b>More machines</b>: run <code>sushila serve --public</code> on each and put a load balancer in front (it can use <code>/ready</code>);
+      the API keeps no per-user state, so any machine can answer any request.</li>
+</ul>
 <p>Any OpenAI client works: base URL <code>http://&lt;server&gt;:&lt;port&gt;/v1</code> and the access key as the API key.</p>
 
 <h2 id="files">Files and folders</h2>
@@ -201,6 +215,7 @@ Caddy or nginx (any reverse proxy that forwards to the port works).</div>
   <li><b>A download stopped</b>: run the same command again; it resumes.</li>
   <li><b>A pack seems damaged</b>: <code>sushila verify &lt;pack&gt;</code>; reinstall it if a file is listed.</li>
   <li><b>Lost the admin password</b>: <code>sushila password --reset</code> on this computer.</li>
+  <li><b>It crashed</b>: Sushila restarts itself; Admin → Logs → Crashes shows why (exit code or signal, the error, the last log lines).</li>
 </ul>
 </main>
 </div>
