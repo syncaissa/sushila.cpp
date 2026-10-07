@@ -176,7 +176,13 @@ as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with 
   <li><b>A mistyped command</b> (<code>instal qwen</code>) gets a suggestion (with a small model, found by spelling and by matching words to commands and pack ids) (<code>Did you mean `sushila install qwen`? Run it? [y/N]</code>); nothing runs without a yes.</li>
   <li><code>?</code> lists the important commands, <code>urls</code> the addresses, <code>stop</code> stops the server.</li>
 </ul>
-<p><b>Typing, copy and paste.</b> The window shows a <code>sushila&gt;</code> prompt and a blinking block cursor where your typing goes.
+<p><b>The screen.</b> The window is drawn as one screen in your normal terminal (Windows Terminal or the Windows console, macOS Terminal, any Linux terminal):
+the output of the server and of your commands scrolls in the top part, the <code>sushila&gt;</code> input line stays fixed above the last line, and the ticker is the last line.
+Keys are read one at a time, so your typing is never mixed with output, a resize redraws everything, and blank lines are left out.
+Up/Down bring back earlier lines, PgUp/PgDn scroll back through the output, Esc clears the line, <code>clear</code> empties the window; Ctrl+C stops the server (twice: at once).
+The server runs under the screen as a child process; if it crashes it is restarted and the screen stays.
+Without a terminal (a service, output to a file, <code>SUSHILA_TUI=0</code>) the plain window is used.</p>
+<p><b>Typing, copy and paste.</b> A blinking block cursor shows where your typing goes.
 <code>copy</code> puts the last answer of the assistant on the clipboard; <code>copy urls</code> the addresses. Any text can be selected with the mouse
 and copied with a right-click (or Enter), and pasted with a right-click or Ctrl+V; in the Windows console the window menu (click the icon at the top left) also has Edit, Copy and Paste.
 A terminal window cannot hold buttons; the web page has them.</p>

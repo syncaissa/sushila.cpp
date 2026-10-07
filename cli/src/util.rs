@@ -102,7 +102,7 @@ async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opti
     let mut file = tokio::fs::OpenOptions::new().create(true).write(true).append(start > 0).truncate(start == 0).open(&part).await.map_err(|e| fatal(e.to_string()))?;
     let (mut done, t0, mut last) = (start, std::time::Instant::now(), std::time::Instant::now());
     let mut stream = resp.bytes_stream();
-    let tty = !quiet && std::io::IsTerminal::is_terminal(&std::io::stderr());
+    let tty = !quiet && (std::io::IsTerminal::is_terminal(&std::io::stderr()) || crate::tui::in_screen());
     loop {
         let chunk = match tokio::time::timeout(Duration::from_secs(60), stream.next()).await {
             Err(_) => { let _ = file.flush().await; return Err(again(format!("download stalled at {}", human(done)))); }

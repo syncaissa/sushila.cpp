@@ -21,6 +21,7 @@ mod cmds;
 mod assistant;
 mod window;
 mod ticker;
+mod tui;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -301,6 +302,8 @@ async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
     let _ = core::LOG_FILE.set(data.join("logs").join("sushila.log")); let _ = core::SOURCE.set("supervisor".into());
     let stopping = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     { let s = stopping.clone(); tokio::spawn(async move { loop { if tokio::signal::ctrl_c().await.is_err() { return; } s.store(true, std::sync::atomic::Ordering::SeqCst); } }); }
+    // a terminal: the screen (tui.rs) draws the window and runs the server under it
+    if tui::wanted(quiet) { if let Some(code) = tui::supervise(data.clone(), exe.clone(), args.clone()) { return code; } }
     let mut recent: Vec<std::time::Instant> = vec![];
     let mut restarts = 0u32;
     loop {
@@ -318,22 +321,28 @@ async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
             eprintln!("Sushila did not start. Fix the problem above and start it again (downloads resume where they stopped).");
             hold_window(); return ExitCode::from(1);
         }
-        let reason = match status.code() { Some(c) => format!("exit code {c}"), None => "stopped by the operating system".into() };
-        #[cfg(unix)]
-        let reason = { use std::os::unix::process::ExitStatusExt; match status.signal() { Some(sig) => format!("killed by signal {sig}{}", match sig { 9 => " (SIGKILL: often out of memory)", 11 => " (SIGSEGV: memory fault)", 6 => " (SIGABRT)", _ => "" }), None => reason } };
-        let pf = data.join("logs").join("panic.txt");
-        let panic = std::fs::read_to_string(&pf).ok().filter(|_| std::fs::metadata(&pf).and_then(|m| m.modified()).map(|m| m.elapsed().map(|e| e <= up + Duration::from_secs(2)).unwrap_or(false)).unwrap_or(false));
-        let _ = std::fs::remove_file(&pf);
-        let killed = core::kill_orphans(&data);
-        core::record_crash(&data, json!({ "time": now_iso(), "what": "server", "reason": reason, "panic": panic.as_deref().map(|p| p.chars().take(4000).collect::<String>()),
-            "uptimeSeconds": up.as_secs(), "logTail": core::tail_lines(&data.join("logs").join("sushila.log"), 30), "stoppedEngines": killed }));
+        let msg = server_crashed(&data, &status, up);
         recent.retain(|t| t.elapsed() < Duration::from_secs(300)); recent.push(std::time::Instant::now());
         let wait = if recent.len() > 5 { 60 } else { 1 };
-        core::log(quiet, &format!("the server stopped unexpectedly ({reason}{}); restarting in {wait} s (details: Admin tab -> Logs -> Crashes)",
-            panic.as_deref().map(|p| format!(": {}", p.lines().next().unwrap_or(""))).unwrap_or_default()));
+        core::log(quiet, &format!("{msg}; restarting in {wait} s (details: Admin tab -> Logs -> Crashes)"));
         restarts += 1;
         for _ in 0..wait * 10 { if stopping.load(std::sync::atomic::Ordering::SeqCst) { return ExitCode::SUCCESS; } tokio::time::sleep(Duration::from_millis(100)).await; }
     }
+}
+
+/// After the server stopped unexpectedly: why (exit code, signal, panic) goes to crashes.json, engines it left are
+/// stopped; returns the message for the window.
+fn server_crashed(data: &std::path::Path, status: &std::process::ExitStatus, up: Duration) -> String {
+    let reason = match status.code() { Some(c) => format!("exit code {c}"), None => "stopped by the operating system".into() };
+    #[cfg(unix)]
+    let reason = { use std::os::unix::process::ExitStatusExt; match status.signal() { Some(sig) => format!("killed by signal {sig}{}", match sig { 9 => " (SIGKILL: often out of memory)", 11 => " (SIGSEGV: memory fault)", 6 => " (SIGABRT)", _ => "" }), None => reason } };
+    let pf = data.join("logs").join("panic.txt");
+    let panic = std::fs::read_to_string(&pf).ok().filter(|_| std::fs::metadata(&pf).and_then(|m| m.modified()).map(|m| m.elapsed().map(|e| e <= up + Duration::from_secs(2)).unwrap_or(false)).unwrap_or(false));
+    let _ = std::fs::remove_file(&pf);
+    let killed = core::kill_orphans(data);
+    core::record_crash(data, json!({ "time": now_iso(), "what": "server", "reason": reason, "panic": panic.as_deref().map(|p| p.chars().take(4000).collect::<String>()),
+        "uptimeSeconds": up.as_secs(), "logTail": core::tail_lines(&data.join("logs").join("sushila.log"), 30), "stoppedEngines": killed }));
+    format!("the server stopped unexpectedly ({reason}{})", panic.as_deref().map(|p| format!(": {}", p.lines().next().unwrap_or(""))).unwrap_or_default())
 }
 
 fn out(json_mode: bool, v: Value, text: impl FnOnce() -> String) {
@@ -353,7 +362,7 @@ async fn remote(ctx: &Ctx, port: u16, body: Value) -> Result<(), String> {
     if !r.status().is_success() { return Err(format!("the server refused: {} {}", r.status(), r.text().await.unwrap_or_default())); }
     let id = r.json::<Value>().await.map_err(err)?["id"].as_str().unwrap_or("").to_string();
     if !ctx.quiet { eprintln!("sent to the running server ({}): task {id}", format!("http://127.0.0.1:{port}")); }
-    let tty = std::io::IsTerminal::is_terminal(&std::io::stderr());
+    let tty = std::io::IsTerminal::is_terminal(&std::io::stderr()) || tui::in_screen();
     loop {
         tokio::time::sleep(Duration::from_millis(700)).await;
         let st: Value = c.get(format!("http://127.0.0.1:{port}/api/state")).send().await.map_err(err)?.json().await.map_err(err)?;
@@ -736,10 +745,11 @@ fn quick_help() -> &'static str {
   sushila logs -f                   follow the log (in another terminal)
   sushila password                  set or change the Admin password (sushila password --reset if lost)
   sushila stop                      stop the server
-Typed in the server window: any of these commands (without \"sushila\" if you like; changes ask first), a question
-for the assistant (e.g. how do I add a coding model?), ? = this list, urls = the addresses again, stop = stop the server,
-copy = copy the last answer to the clipboard (copy urls: the addresses). Copy any text: select it with the mouse, then
-right-click (or Enter); paste: right-click or Ctrl+V. (Windows console: also the window menu, Edit.)
+Typed in the server window: any of these commands (without \"sushila\" if you like; changes ask first), or a question for the assistant (e.g. how do I add a coding model?).
+  ?  this list    urls  the addresses again    stop  stop the server    clear  empty the window
+  copy  copy the last answer to the clipboard (copy urls: the addresses)
+  Up/Down  earlier lines    PgUp/PgDn  scroll back through the window    Esc  clear the line
+Copy any text: select it with the mouse, then right-click (or Enter); paste: right-click or Ctrl+V (Windows console: also the window menu, Edit).
 The scrolling line at the bottom shows every command in turn: ticker off hides it, ticker on shows it again.\n"
 }
 fn url_banner(u: &Value) -> String {
@@ -926,7 +936,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     }
     // the server's own window: typed commands run, questions go to the assistant, near-misses are suggested (window.rs);
     // started after the password question above, which reads the same input
-    if !j && std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+    if !j && (std::io::IsTerminal::is_terminal(&std::io::stdin()) || tui::in_screen()) {
         let w = window::Window { exe: std::env::current_exe().map_err(err)?, data: ctx.data.clone(), port, rt: tokio::runtime::Handle::current(), last: Default::default() };
         let banner = url_banner(&u);
         ticker::console_setup();

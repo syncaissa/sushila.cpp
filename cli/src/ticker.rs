@@ -49,6 +49,25 @@ fn console_input() {
 }
 #[cfg(not(windows))]
 fn console_input() {}
+/// Before the screen (tui.rs) takes the window: escape sequences, UTF-8, QuickEdit and the cursor (Windows).
+pub fn console_prepare() { console_input(); let _ = enable_vt(); }
+
+/// The ticker's text for the screen, which draws it itself: refreshed every 5 s, one character further at each call.
+pub struct Feed { dir: std::path::PathBuf, jobs: std::collections::HashMap<String, String>, msg: Vec<char>, offset: usize, last: Option<Instant> }
+impl Feed {
+    pub fn new(dir: std::path::PathBuf) -> Self { Feed { dir, jobs: Default::default(), msg: vec![], offset: 0, last: None } }
+    pub fn next(&mut self, port: u16, width: usize) -> String {
+        if self.last.map(|l| l.elapsed() > Duration::from_secs(5)).unwrap_or(true) {
+            self.last = Some(Instant::now());
+            let tips: Vec<String> = tips(port).into_iter().map(|x| x.1).collect();
+            let items: Vec<String> = live(&self.dir, &mut self.jobs).into_iter().map(|x| x.0).collect();
+            self.msg = rebuild(&Ui { current: interleave(&tips, &items, 4), offset: 0 });
+            if self.offset >= self.msg.len() { self.offset = 0; }
+        }
+        self.offset = (self.offset + 1) % self.msg.len().max(1);
+        window(&self.msg, self.offset, width)
+    }
+}
 pub fn console_setup() {
     if !std::io::IsTerminal::is_terminal(&std::io::stderr()) { return; }
     console_input();
@@ -83,7 +102,7 @@ fn enable_vt() -> bool {
 
 /// Whether this window can show a ticker at all (a terminal that understands escape sequences, not turned off).
 pub fn wanted(json: bool, quiet: bool, setting: &serde_json::Value) -> bool {
-    !json && !quiet && std::io::IsTerminal::is_terminal(&std::io::stderr()) && std::env::var("TERM").map(|t| t != "dumb").unwrap_or(true)
+    !crate::tui::in_screen() && !json && !quiet && std::io::IsTerminal::is_terminal(&std::io::stderr()) && std::env::var("TERM").map(|t| t != "dumb").unwrap_or(true)
         && std::env::var("SUSHILA_TICKER").map(|v| v != "0" && v != "off").unwrap_or(true) && !off_setting(setting)
 }
 pub fn off_setting(v: &serde_json::Value) -> bool { v == "off" || *v == false }
@@ -101,6 +120,7 @@ fn setup(rows: usize) {
 /// A progress line rewritten in place (\r), cut to one row of this window: a line wider than the window wraps, every
 /// rewrite then leaves a row behind, and under the ticker the wrapped part covers the ticker line.
 pub fn progress(line: &str) {
+    if crate::tui::in_screen() { eprint!("\r{line}"); return; }  // the screen fits it to the window
     match size() { Some((c, _)) if c > 10 => eprint!("\r{}", fit_middle(line, c - 2)), _ => eprint!("\r{line:<100}") }
 }
 /// Exactly `width` characters; a longer line loses its middle (the name), so the numbers at the end stay readable.
@@ -111,6 +131,7 @@ pub fn fit_middle(s: &str, width: usize) -> String {
     c[..head].iter().chain(['…'].iter()).chain(c[c.len() - (width - head - 1)..].iter()).collect()
 }
 pub fn progress_clear() {
+    if crate::tui::in_screen() { eprint!("\r"); return; }
     match size() { Some((c, _)) if c > 10 => eprint!("\r{}\r", " ".repeat(c - 2)), _ => eprint!("\r{:<100}\r", "") }
 }
 /// The scroll region back to the whole window and the last line cleared: the terminal is left as it was.

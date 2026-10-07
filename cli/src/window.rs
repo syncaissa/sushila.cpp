@@ -38,6 +38,14 @@ pub fn changes_things(c: &Cmd) -> bool {
 }
 /// Commands that cannot run inside the server's window: serve itself, and those that run until Ctrl+C (which would stop the server too).
 fn refused(c: &Cmd) -> Option<&'static str> {
+    if crate::tui::in_screen() {
+        match c {
+            Cmd::Chat { .. } => return Some("this window takes one line at a time: chat on the Inference page, or run sushila chat in another terminal"),
+            Cmd::Assistant { question: None } => return Some("just type your question here, it is answered right away"),
+            Cmd::Password { .. } => return Some("change it on the Admin page, or run sushila password in another terminal"),
+            _ => {}
+        }
+    }
     match c {
         Cmd::Serve { .. } => Some("the server is already running in this window"),
         Cmd::Top { once: false, .. } | Cmd::Logs { follow: true, .. } | Cmd::Watch { once: false, .. } =>
@@ -127,7 +135,10 @@ fn show(a: &[String]) -> String { std::iter::once("sushila".to_string()).chain(a
 fn run(exe: &Path, args: &[String]) {
     crate::core::log(true, &format!("[window] ran: {}", show(args)));
     crate::ticker::pause(true);  // the command writes to this terminal: the ticker line stays still meanwhile
-    let r = std::process::Command::new(exe).args(args).status();
+    let mut c = std::process::Command::new(exe);
+    // under the screen the typed lines come through stdin: a command must not take them
+    if crate::tui::in_screen() { c.stdin(std::process::Stdio::null()); }
+    let r = c.args(args).status();
     crate::ticker::pause(false);
     match r {
         Ok(s) if !s.success() => eprintln!("({} ended with {s})", show(args)),

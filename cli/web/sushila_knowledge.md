@@ -60,7 +60,9 @@ commands that delete or change things (remove, uninstall, clean, update, restore
 password --reset, home <folder>) ask for a yes first. A question (for example "how do I add a coding model?")
 is answered by the Sushila assistant. A mistyped command gets a suggestion ("Did you mean `sushila install ...`?")
 that runs only if you answer y. `?` lists the important commands, `urls` the addresses, `stop` stops the server.
-The window shows a `sushila>` prompt and a blinking block cursor. `copy` puts the last answer on the clipboard (`copy urls`:
+The window is one screen: the output scrolls in the top part, the `sushila>` input line stays fixed above the last
+line, with a blinking block cursor, and typing is never mixed with output. Up/Down bring back earlier lines, PgUp/PgDn
+scroll back through the output, Esc clears the line, `clear` empties the window. `copy` puts the last answer on the clipboard (`copy urls`:
 the addresses); any text can be selected with the mouse and copied with a right-click (or Enter), and pasted with a
 right-click or Ctrl+V (Windows console: also the window menu, Edit). Downloads show a bar that fills as they go.
 Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal: Ctrl+C in this window stops the server.

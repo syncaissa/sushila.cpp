@@ -33,6 +33,9 @@ dirs = "5"
 getrandom = "0.2"
 argon2 = "0.5"
 rpassword = "7"
+crossterm = "0.28"
+os_pipe = "1"
+unicode-width = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_System_Console", "Win32_Foundation"] }
