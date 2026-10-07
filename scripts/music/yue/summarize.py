@@ -11,7 +11,7 @@ LABEL = {'fast_batched_k0': 'exact: KV cache + batched rows + batched guidance (
          'fast_batched_k0_graphs': 'exact: as above + static caches and CUDA graphs',
          'fast_spec_k3_graphs': 'same distribution: + speculative sampling, 0.5B draft, k=3',
          'fast_spec_k4_graphs': 'same distribution: + speculative sampling, 0.5B draft, k=4'}
-out = {'work_dir': W, 'segments': int(os.environ.get('NSEG', '2')), 'runs': {}, 'checks': {}}
+out = {'work_dir': W, 'segments': int(os.environ.get('NSEG', '2')), 'max_new_tokens': int(os.environ.get('MAXTOK', '3000')), 'runs': {}, 'checks': {}}
 base = os.path.join(R, 'base_seed42')
 if not os.path.exists(os.path.join(base, 'timing.json')): sys.exit('no official run yet: ' + base)
 out['runs']['official'] = dict(tj(base), label='official YuE infer.py', speedup=1.0)

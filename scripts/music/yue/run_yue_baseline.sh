@@ -21,7 +21,7 @@ for seed in ${SEEDS:-42}; do
   log "official YuE, seed $seed, ${NSEG:-2} segments"
   python3 infer_timed.py --stage1_model m-a-p/YuE-s1-7B-anneal-en-cot --stage2_model m-a-p/YuE-s2-1B-general \
     --genre_txt ../prompt_egs/genre.txt --lyrics_txt ../prompt_egs/lyrics.txt --run_n_segments ${NSEG:-2} --stage2_batch_size 4 \
-    --output_dir $out --max_new_tokens 3000 --repetition_penalty 1.1 --seed $seed > $out/infer.log 2>&1
+    --output_dir $out --max_new_tokens ${MAXTOK:-3000} --repetition_penalty 1.1 --seed $seed > $out/infer.log 2>&1
   grep -E "TIMING|Error|error" $out/infer.log | tail -3 | tee -a $W/res/run.log
 done
 log BASELINE_DONE

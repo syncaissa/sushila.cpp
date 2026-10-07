@@ -224,9 +224,9 @@ Full walk-through: [REPRODUCE_YUE.md](REPRODUCE_YUE.md). Songs: `https://files.s
 
 ### Production settings (⏳ next)
 
-- **The full song**: all **6** lyrics sections of the same official example, about 3 minutes.
+- **The full song**: as many sections of the same official example as YuE's code generates. Its `infer.py` runs `min(run_n_segments + 1, sections)` prompts including a header, so with 6 lyrics sections it makes at most **5**. Each is up to 30 s (3,000 tokens; YuE writes 100 tokens per second of music), so the song is about **2.5 minutes**.
 - Everything else as in the lab.
-- Command: `NSEG=6 W=/workspace/yue6 bash scripts/music/yue/reproduce_yue.sh`.
+- Command: `NSEG=6 W=/workspace/yue6 bash scripts/music/yue/reproduce_yue.sh` (our run used `NSEG=7`, which YuE caps to the same 5 sections).
 - Songs will go to `https://files.sushila.ai/public/temp/yue-songs-20261007_fullSong/`.
 
 ---

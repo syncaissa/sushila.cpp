@@ -13,7 +13,7 @@ for cfg in ${CFGS:-"batched:0" "spec:4" "spec:6"}; do   # mode:k[:graphs], graph
   log "stage 1 $mode (k=$k), stage 2 batched"
   SUSHILA_STAGE1=$mode SUSHILA_K=$k SUSHILA_STAGE2=batched python3 infer_fast.py --stage1_model m-a-p/YuE-s1-7B-anneal-en-cot --stage2_model m-a-p/YuE-s2-1B-general \
     --genre_txt ../prompt_egs/genre.txt --lyrics_txt ../prompt_egs/lyrics.txt --run_n_segments ${NSEG:-2} --stage2_batch_size 4 \
-    --output_dir $out --max_new_tokens 3000 --repetition_penalty 1.1 --seed 42 > $out/infer.log 2>&1
+    --output_dir $out --max_new_tokens ${MAXTOK:-3000} --repetition_penalty 1.1 --seed 42 > $out/infer.log 2>&1
   grep -E "TIMING|SPEC|Traceback|Error" $out/infer.log | tail -4 | tee -a $W/res/fast.log
 done
 log YUE_FAST_DONE
