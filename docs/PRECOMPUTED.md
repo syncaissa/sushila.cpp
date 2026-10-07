@@ -1,6 +1,6 @@
 # Precomputed work in B2 (bucket `sushila-ai`)
 
-Generated 2026-10-06T18:59Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
+Generated 2026-10-07T02:47Z by `scripts/precompute/b2_index.py`. Everything here was computed once and is kept forever (never delete under `precomputed/`). Each folder has one `CHECKSUMS.json` listing every file with its sha256, and `CHECKSUMS.json.sig`, an Ed25519 signature checked by Sushila Host Station.
 
 | Model | Contents | Size | Signed | Saved |
 |---|---|---:|:---:|---|
@@ -8,6 +8,8 @@ Generated 2026-10-06T18:59Z by `scripts/precompute/b2_index.py`. Everything here
 | `deepseek-r1-distill-llama-70b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 88.6 GB | yes | 2026-10-05 |
 | `gemma3-27b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (23) | 38.8 GB | yes | 2026-10-05 |
 | `kimi-dev-72b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (30) | 93.1 GB | yes | 2026-10-06 |
+| `llama3.1-8b` | draft-head (2), checkpoints (2), training-data (2), config.env (1), weights (19) | 22.7 GB | yes | 2026-10-06 |
+| `llama3.3-70b` | checkpoints (2), draft-head (2), training-data (2), config.env (1), weights (24) | 88.6 GB | yes | 2026-10-07 |
 | `qwen2.5-0.5b-q4km` | landscape (48), landscapes-earlier (4), calibration (7), weights (1) | 0.8 GB | yes | 2026-10-05 |
 | `qwen2.5-coder-7b` | weights (1) | 4.7 GB | yes | 2026-10-05 |
 | `qwen3-235b-a22b` | draft-head (2), checkpoints (2), training-data (2), config.env (1), weights (43) | 271.4 GB | yes | 2026-10-05 |
@@ -74,6 +76,34 @@ EAGLE-3 draft head for the reasoning model, refitted from the Llama-3.3-70B head
   - `training-data/` (2 files, 0.02 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
   - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
   - `weights/` (30 files, 88.92 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `llama3.1-8b`
+
+
+
+- **Use:** python3 -m sglang.launch_server --model-path <sglang_target> --speculative-algorithm EAGLE3 --speculative-num-steps 4 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --speculative-draft-model-path draft-head/
+- **Results:** -
+- **Bound to:** `{"sglang_target": {"repo": "unsloth/Llama-3.1-8B-Instruct", "revision": "4699cc75b550f9c6f3173fb80f4703b62d946aa5"}, "warm_start_head": {"repo": "lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B", "revision": "28a53ce8911434c031d7c78392abb26d898ec293"}, "ollama_gguf": {"tag": "llama3.1:8b", "sha256": "667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29"}}`
+- **Folders:**
+  - `draft-head/` (2 files, 0.85 GB): the precomputed draft head chosen on validation prompts (ready to serve)
+  - `checkpoints/` (2 files, 0.85 GB): every other trained head checkpoint (for re-selection or further training)
+  - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
+  - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
+  - `weights/` (19 files, 21.00 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
+
+### `llama3.3-70b`
+
+
+
+- **Use:** python3 -m sglang.launch_server --model-path <sglang_target> --speculative-algorithm EAGLE3 --speculative-num-steps 4 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --speculative-draft-model-path draft-head/
+- **Results:** -
+- **Bound to:** `{"sglang_target": {"repo": "casperhansen/llama-3.3-70b-instruct-awq", "revision": "64d255621f40b42adaf6d1f32a47e1d4534c0f14"}, "warm_start_head": {"repo": "lmsys/sglang-EAGLE3-LLaMA3.3-Instruct-70B", "revision": "5279b1b6b12d66c44264cbfd125bc8e43f147787"}, "ollama_gguf": {"tag": "llama3.3:70b", "sha256": "4824460d29f2058aaf6e1118a63a7a197a09bed509f0e7d4e2efb1ee273b447d"}}`
+- **Folders:**
+  - `checkpoints/` (2 files, 3.15 GB): every other trained head checkpoint (for re-selection or further training)
+  - `draft-head/` (2 files, 3.15 GB): the precomputed draft head chosen on validation prompts (ready to serve)
+  - `training-data/` (2 files, 0.01 GB): the model's own answers the head was fitted on (regen.jsonl) and the prompts
+  - `config.env/` (1 files, 0.00 GB): the pipeline configuration that produced the artifacts
+  - `weights/` (24 files, 82.31 GB): the model files themselves (sglang/: the 4-bit file SGLang serves; ollama/: the GGUF Ollama serves; or the pack files)
 
 ### `qwen2.5-0.5b-q4km`
 
