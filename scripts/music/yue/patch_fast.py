@@ -24,10 +24,17 @@ rep("""    with torch.no_grad():
         if os.environ.get('SUSHILA_STAGE1') == 'spec' and '_DRAFT' not in globals():
             _DRAFT = AutoModelForCausalLM.from_pretrained(os.environ.get('SUSHILA_DRAFT', 'm-a-p/YuE-s1-0.5B'), torch_dtype=torch.bfloat16, attn_implementation='sdpa').to(device).eval()
         _st = {}
+        def _replay(seg):  # SUSHILA_REPLAY=<official output dir>: that run's new tokens for this segment (same song, same length)
+            d = os.environ.get('SUSHILA_REPLAY')
+            if not d: return None
+            import json as _json
+            ids = np.load(os.path.join(d, 'stage1_ids.npy')); segs = _json.load(open(os.path.join(d, 'stage1_segments.json')))
+            g = next(x for x in segs if x['segment'] == seg)
+            return ids[g['gen_end'] - g['new_tokens']:g['gen_end']].tolist()
         output_seq = stage1_generate(getattr(model, '_orig_mod', model), input_ids, guidance_scale, max_new_tokens, 100, mmtokenizer.eoa, mmtokenizer.eoa,
                                      draft=globals().get('_DRAFT') if os.environ.get('SUSHILA_STAGE1') == 'spec' else None,
                                      k=int(os.environ.get('SUSHILA_K', '4')), seed=args.seed * 1000 + i, stats=_st,
-                                     graphs=os.environ.get('SUSHILA_GRAPHS') == '1')
+                                     graphs=os.environ.get('SUSHILA_GRAPHS') == '1', replay=_replay(i))
         if _st.get('rounds'): print('SPEC', json.dumps(_st) if 'json' in globals() else _st, flush=True); _SEG_STATS = globals().setdefault('_SPEC_STATS', []); _SEG_STATS.append(_st)
         if output_seq[0][-1].item() != mmtokenizer.eoa:
             output_seq = torch.cat((output_seq, torch.as_tensor([[mmtokenizer.eoa]]).to(model.device)), dim=1)
@@ -60,4 +67,9 @@ if os.environ.get('SUSHILA_STAGE2') == 'batched':
         _k = (np.asarray(prompt).astype(np.int32).tobytes(), batch_size)
         return _S2[_k] if _k in _S2 else _orig_s2g(model, prompt, batch_size)
 stage2_result = stage2_inference(model_stage2, stage1_output_set, stage2_output_dir, batch_size=args.stage2_batch_size)""")
+# SUSHILA_S2_DTYPE=float32: run stage 2 in float32 (our stage 2 then gives exactly the official loop's float32 codes)
+rep("""model_stage2.to(device)
+model_stage2.eval()""", """model_stage2.to(device)
+if os.environ.get('SUSHILA_S2_DTYPE') == 'float32': model_stage2 = model_stage2.float()
+model_stage2.eval()""")
 open(p, 'w').write(s); print('patched', p)

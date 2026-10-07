@@ -12,11 +12,6 @@ const PACK_EXT: [&str; 7] = [".gguf", ".safetensors", ".json", ".mclp", ".mclk",
 
 /// The data folder: the same one the desktop app uses (ai.sushila.hoststation), so packs installed with either show up
 /// in both. SUSHILA_HOME or --data-dir chooses another (e.g. /var/lib/sushila on a server).
-pub fn default_data_dir() -> PathBuf {
-    if let Ok(h) = std::env::var("SUSHILA_HOME") { if !h.is_empty() { return PathBuf::from(h); } }
-    dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("ai.sushila.hoststation")
-}
-
 pub struct Ctx {
     pub data: PathBuf,
     /// The model-packs folder: one folder per pack (see packs_dir_for).
@@ -26,6 +21,7 @@ pub struct Ctx {
     pub info: Value,
     gpu: Option<Option<Value>>,
     other_gpu: Option<Option<String>>,
+    other_vram: Option<Option<f64>>,
     pub quiet: bool,
     pub procs: Arc<Mutex<HashMap<String, tokio::process::Child>>>,
 }
@@ -79,7 +75,7 @@ impl Ctx {
             let _ = std::fs::remove_dir(&old);
             let _ = std::fs::write(data.join("state.json"), serde_json::to_string_pretty(&s).unwrap_or_default());  // the new folders, at once
         }
-        Ok(Ctx { data, packs_dir, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())) })
+        Ok(Ctx { data, packs_dir, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, other_vram: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())) })
     }
     pub fn log(&self, line: &str) { log(self.quiet, line) }
     pub fn setting(&self, k: &str) -> Value { self.state["settings"][k].clone() }
@@ -177,6 +173,34 @@ impl Ctx {
             .map(|l| l.trim().to_string());
         self.other_gpu = Some(hit.clone());
         hit
+    }
+    /// Memory the AMD/Intel GPU can use for a model, in GB: its own memory (Windows: the display driver's
+    /// HardwareInformation.qwMemorySize, which unlike AdapterRAM is not capped at 4 GB; Linux: amdgpu's
+    /// mem_info_vram_total), or for integrated graphics (Iris, Xe, UHD, Radeon Graphics), which use system memory,
+    /// half of the computer's memory. None when unknown.
+    pub async fn other_gpu_memory_gb(&mut self) -> Option<f64> {
+        if let Some(v) = self.other_vram { return v; }
+        let name = self.other_gpu().await.unwrap_or_default().to_lowercase();
+        let v = if name.is_empty() { None } else {
+            let dedicated = match self.info["os"].as_str() {
+                Some("windows") => run_capture("powershell", &["-NoProfile", "-Command",
+                    "Get-ItemProperty -Path 'HKLM:\\SYSTEM\\ControlSet001\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0*' -Name HardwareInformation.qwMemorySize -ErrorAction SilentlyContinue | ForEach-Object { $_.'HardwareInformation.qwMemorySize' }"], 20).await
+                    .filter(|r| r["code"] == 0).and_then(|r| r["stdout"].as_str().unwrap_or("").lines().filter_map(|l| l.trim().parse::<f64>().ok()).reduce(f64::max)),
+                Some("linux") => std::fs::read_dir("/sys/class/drm").ok().and_then(|d| d.flatten()
+                    .filter_map(|e| std::fs::read_to_string(e.path().join("device/mem_info_vram_total")).ok()?.trim().parse::<f64>().ok()).reduce(f64::max)),
+                _ => None,
+            }.map(|b| b / 1e9);
+            let integrated = !(name.contains("arc") || name.contains(" rx ") || name.contains("radeon rx") || name.contains("radeon pro"))
+                && (name.contains("iris") || name.contains("uhd") || name.contains(" xe") || name.contains("radeon(tm) graphics") || name.contains("radeon graphics") || name.contains("vega"));
+            let shared = self.info["memory_bytes"].as_f64().map(|b| b / 1e9 * 0.5);
+            match (dedicated, integrated) {
+                (Some(d), false) if d >= 1.0 => Some(d),
+                (_, true) => shared,
+                (d, false) => d.filter(|d| *d >= 1.0),
+            }
+        };
+        self.other_vram = Some(v);
+        v
     }
     pub fn gpu_label(key: &str) -> &'static str {
         if key.ends_with("-cuda") { "NVIDIA GPU (CUDA)" } else if key.ends_with("-vulkan") { "GPU (Vulkan)" } else if key.starts_with("macos-aarch64") { "Apple GPU (Metal)" } else { "CPU" }
@@ -482,13 +506,16 @@ impl Ctx {
             self.nvidia_gpu().await.map(|g| g["memoryGB"].as_f64().unwrap_or(0.0)).unwrap_or(0.0) - model_gb * 1.1 - 1.5
         } else if key.starts_with("macos-aarch64") {
             self.info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9 * 0.65 - model_gb * 1.1
-        } else if key.ends_with("-vulkan") { 2.0 * per_slot } else { return 2 };
+        } else if key.ends_with("-vulkan") {
+            match self.other_gpu_memory_gb().await { Some(gb) => gb - model_gb * 1.1 - 1.0, None => 2.0 * per_slot }
+        } else { return 2 };
         ((free / per_slot).floor() as i64).clamp(1, 16) as u64
     }
     async fn gpu_room_for(&mut self, p: &Value) -> bool {
         let key = self.state["engine"]["key"].as_str().map(String::from).unwrap_or_else(|| self.platform_key());
         let bytes = p["bytes"].as_f64().unwrap_or(0.0);
         if key.starts_with("macos-aarch64") { return self.info["memory_bytes"].as_f64().unwrap_or(0.0) >= bytes * 1.5 + 6e9; }
+        if key.ends_with("-vulkan") { return self.other_gpu_memory_gb().await.map(|gb| gb * 1e9 >= bytes * 1.25 + 2e9).unwrap_or(false); }
         if !key.ends_with("-cuda") { return false; }
         self.nvidia_gpu().await.map(|g| g["memoryGB"].as_f64().unwrap_or(0.0) * 1e9 >= bytes * 1.25 + 3e9).unwrap_or(false)
     }
@@ -567,7 +594,10 @@ impl Ctx {
                 let ngl = self.setting("gpuLayers").as_i64().unwrap_or(-1);
                 (self.state["engine"]["server"].as_str().unwrap_or("").into(),
                  [vec!["-m".into(), join_rel(&dir, p["model"].as_str().unwrap_or("")).to_string_lossy().into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string(),
-                       "-t".into(), threads.to_string(), "-c".into(), (ctx * par).to_string(), "-np".into(), par.to_string(), "-ngl".into(), if ngl < 0 { "auto".into() } else { ngl.to_string() }], pack_args].concat())
+                       "-t".into(), threads.to_string(), "-c".into(), (ctx * par).to_string(), "-np".into(), par.to_string(), "-ngl".into(), if ngl < 0 { "auto".into() } else { ngl.to_string() }],
+                       // selftest asks for the engine's load log (level 4 prints "offloaded N/M layers to GPU")
+                       std::env::var("SUSHILA_ENGINE_LOG_LEVEL").ok().filter(|v| v.parse::<u8>().is_ok()).map(|v| vec!["-lv".into(), v]).unwrap_or_default(),
+                       pack_args].concat())
             }
         };
         let mut c = command(&program, &args);
@@ -614,7 +644,8 @@ impl Ctx {
 /// there is one (everything in one folder, e.g. on a USB drive); else <data folder>/model-packs.
 pub fn packs_dir_for(data: &Path) -> PathBuf {
     if let Ok(p) = std::env::var("SUSHILA_PACKS") { if !p.is_empty() { return PathBuf::from(p); } }
-    if let Some(d) = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("model-packs"))) { if d.is_dir() { return d; } }
+    // model-packs always lives in the application folder; a model-packs folder next to the program makes that folder a
+    // candidate application folder (portable use), found by locate::resolve
     data.join("model-packs")
 }
 

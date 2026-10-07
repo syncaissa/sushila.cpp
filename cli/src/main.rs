@@ -15,6 +15,7 @@ mod webserver;
 mod core;
 mod jobs;
 mod util;
+mod locate;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -99,7 +100,7 @@ enum Cmd {
     Stop { pack: Option<String> },
     /// The shared log of every action (logs/sushila.log): `sushila logs [-f] [-n 40]`
     Logs { #[arg(short, long)] follow: bool, #[arg(short, default_value_t = 40)] n: usize },
-    /// The address of the inference page (opens with just the address on this computer)
+    /// The Inference URL, the Admin URL (this computer only) and the API address
     Url,
     /// Access keys for other machines (when serving on the network): `keys add <name>`, `keys list`, `keys remove <name>`
     Keys { #[command(subcommand)] act: KeysCmd },
@@ -107,6 +108,10 @@ enum Cmd {
     Service { #[command(subcommand)] act: ServiceCmd },
     /// The Admin tab's password: `sushila password` sets it, or changes it (asks the current one first); lost it? `--reset` (this computer only)
     Password { #[arg(long)] reset: bool },
+    /// Sushila's home folder (model-packs, settings, logs, engine): `home` shows it and any other homes found,
+    /// `home <folder>` makes that folder the home (replaces the remembered one), `home --reset` forgets it (search again)
+    #[command(alias = "location")]
+    Home { folder: Option<PathBuf>, #[arg(long)] reset: bool },
     /// End-to-end check: engine, the smallest model, one answer (exit code 0 = everything works)
     Selftest { #[arg(long, default_value = DEFAULT_MODEL)] pack: String },
 }
@@ -136,7 +141,22 @@ async fn main() -> ExitCode {
             }
         });
     }
-    let data = cli.data_dir.clone().unwrap_or_else(default_data_dir);
+    // the application folder: explicit, remembered, or found by searching (asks when several exist); the worker child
+    // of `serve` gets it through SUSHILA_HOME, so it is never asked twice
+    // `location <folder>` / `location --reset` change the choice itself, so they run before any search or question
+    if let Some(Cmd::Home { folder, reset }) = &cli.cmd {
+        if *reset { locate::forget(); println!("forgotten: the next start searches again (and asks if it finds several)"); return ExitCode::SUCCESS; }
+        if let Some(f) = folder {
+            let f = std::path::absolute(f).unwrap_or(f.clone());
+            if let Err(e) = std::fs::create_dir_all(&f) { eprintln!("error: {e}"); return ExitCode::from(1); }
+            locate::remember(&f);
+            println!("Sushila now uses {} (the remembered home is replaced; it takes effect at the next start, so stop a running server first: `sushila stop`)", locate::describe(&f));
+            return ExitCode::SUCCESS;
+        }
+    }
+    let (data, warning) = locate::resolve(cli.data_dir.clone());
+    if let Some(w) = &warning { if !cli.quiet { eprintln!("note: {w}"); } }
+    std::env::set_var("SUSHILA_HOME", &data);
     if let Some(p) = &cli.packs_dir { std::env::set_var("SUSHILA_PACKS", std::path::absolute(p).unwrap_or(p.clone())); }
     // `sushila serve` is a small supervisor: the real server runs as its child (SUSHILA_WORKER=1) and is restarted at
     // once if it crashes; why it crashed goes to crashes.json and the log (Admin tab -> Logs).
@@ -279,7 +299,7 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
         }
         Cmd::Engine { act: EngineCmd::Info } => {
             let gpu = ctx.nvidia_gpu().await; let other = ctx.other_gpu().await;
-            let v = json!({ "sushila": env!("CARGO_PKG_VERSION"), "engine": ctx.state["engine"], "platform": ctx.platform_key(), "nvidia": gpu, "otherGpu": other, "dataDir": ctx.data.to_string_lossy(), "packsDir": ctx.packs_dir.to_string_lossy(), "cpus": ctx.info["cpus"], "memory": ctx.info["memory_bytes"] });
+            let v = json!({ "sushila": env!("CARGO_PKG_VERSION"), "engine": ctx.state["engine"], "platform": ctx.platform_key(), "nvidia": gpu, "otherGpu": other, "otherGpuMemoryGB": ctx.other_gpu_memory_gb().await, "dataDir": ctx.data.to_string_lossy(), "packsDir": ctx.packs_dir.to_string_lossy(), "cpus": ctx.info["cpus"], "memory": ctx.info["memory_bytes"] });
             out(j, v.clone(), || {
                 let e = &ctx.state["engine"];
                 format!("sushila {}\nengine:   {}\nplatform: {}\nGPU:      {}\ndata:     {}\npacks:    {}  (drop pack folders here)",
@@ -373,10 +393,17 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
         Cmd::Url => {
             let port = ctx.setting("port").as_u64().unwrap_or(8765);
             ctx.save()?;
-            let u = format!("http://localhost:{port}/");
-            out(j, json!({ "url": u }), || u.clone());
+            let network = ctx.state["share"]["enabled"].as_bool().unwrap_or(false);
+            let u = urls(port as u16, network);
+            out(j, json!({ "url": u["inference"], "urls": u }), || url_banner(&u).replace(" is running", "").replace(" Stop: Ctrl+C or close this window\n", ""));
         }
         Cmd::Keys { act } => keys(ctx, act, j)?,
+        Cmd::Home { .. } => {
+            let others: Vec<String> = locate::candidates().into_iter().filter(|p| std::fs::canonicalize(p).ok() != std::fs::canonicalize(&ctx.data).ok()).map(|p| locate::describe(&p)).collect();
+            out(j, json!({ "home": ctx.data.to_string_lossy(), "dataDir": ctx.data.to_string_lossy(), "packsDir": ctx.packs_dir.to_string_lossy(), "remembered": locate::pointer_file().filter(|f| f.is_file()).map(|f| f.to_string_lossy().to_string()), "others": others }),
+                || format!("home: {}\nmodel packs: {}\nremembered in: {}{}", locate::describe(&ctx.data), ctx.packs_dir.display(), locate::pointer_file().map(|f| f.display().to_string()).unwrap_or_default(),
+                    if others.is_empty() { String::new() } else { format!("\nother Sushila folders found:\n  {}\nmake one of them the home: `sushila home <folder>`", others.join("\n  ")) }));
+        }
         Cmd::Password { reset } => {
             let f = ctx.data.join("adminpassword");
             if *reset {
@@ -430,22 +457,40 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
         Cmd::Serve { packs, port, host, public, standard, max, open } => serve(ctx, packs, *port, if *public { Some("0.0.0.0".into()) } else { host.clone() }, *standard, *max, *open, j).await?,
         Cmd::Selftest { pack } => {
             let t0 = std::time::Instant::now();
-            let mut steps = vec![];
-            ctx.load_catalog().await?; steps.push("catalog reachable and parsed");
+            let mut steps: Vec<String> = vec![];
+            ctx.load_catalog().await?; steps.push("catalog reachable and parsed".into());
             if !ctx.engine_ok() { ctx.install_engine(None).await?; }
-            steps.push("engine installed (signed build, sha256 checked)");
-            ctx.install_pack(pack).await?; steps.push("pack installed (signed index, every sha256 checked)");
+            steps.push("engine installed (signed build, sha256 checked)".into());
+            ctx.install_pack(pack).await?; steps.push("pack installed (signed index, every sha256 checked)".into());
             let bad = ctx.verify_pack(pack)?; if !bad.is_empty() { return Err(format!("verify: {}", bad.join(", "))); }
-            steps.push("pack verified");
-            let port = ctx.start_model(pack, None).await?; steps.push("model started and healthy");
+            steps.push("pack verified".into());
+            std::env::set_var("SUSHILA_ENGINE_LOG_LEVEL", "4");  // so the GPU check below can read "offloaded N/M layers to GPU"
+            ctx.stop_model(pack).await;
+            let port = ctx.start_model(pack, None).await?; steps.push("model started and healthy".into());
             let t1 = std::time::Instant::now();
             let r = jobs::run("text", pack, port, &json!({ "prompt": "Reply with one word: hello", "max_tokens": 32, "temperature": 0 }), None, |_| {}).await;
             let gen_s = t1.elapsed().as_secs_f64();
             ctx.stop_model(pack).await;
             let text = String::from_utf8_lossy(&r?.bytes).to_string();
             if text.trim().is_empty() { return Err("the model answered with nothing".into()); }
-            steps.push("answer generated");
-            let v = json!({ "ok": true, "platform": ctx.platform_key(), "engine": ctx.state["engine"]["key"], "pack": pack, "answer": text.trim(), "answer_seconds": gen_s, "total_seconds": t0.elapsed().as_secs_f64(), "steps": steps });
+            steps.push("answer generated".into());
+            // GPU check: a computer with a GPU must run on it, or users never see the speed
+            let key = ctx.state["engine"]["key"].as_str().unwrap_or("").to_string();
+            let mac_gpu = ctx.platform_key().starts_with("macos-aarch64");
+            let found = if let Some(g) = ctx.nvidia_gpu().await { Some(g["name"].as_str().unwrap_or("NVIDIA GPU").to_string()) } else if let Some(g) = ctx.other_gpu().await { Some(g) } else if mac_gpu { Some("Apple GPU".into()) } else { None };
+            let on_gpu_build = key.ends_with("-cuda") || key.ends_with("-vulkan") || mac_gpu;
+            let log_text = std::fs::read_to_string(ctx.data.join("logs").join(format!("{pack}.log"))).unwrap_or_default();
+            let layers = log_text.lines().rev().find_map(|l| { let i = l.find("offloaded ")?; if !l.contains("layers to GPU") { return None; }
+                let f = l[i + 10..].split_whitespace().next()?; let (a, b) = f.split_once('/')?; Some((a.parse::<u32>().ok()?, b.parse::<u32>().ok()?)) });
+            if let Some(g) = &found {
+                if !on_gpu_build { return Err(format!("GPU check: this computer has a GPU ({g}) but the CPU engine ({key}) is installed; run `sushila engine install` (it picks the build for this GPU: CUDA on NVIDIA, Vulkan on AMD/Intel, Metal on Apple) and run the test again")); }
+                match layers {
+                    Some((a, b)) if a < b => return Err(format!("GPU check: only {a} of {b} layers ran on the GPU ({g}); the model should fit entirely")),
+                    Some((a, b)) => steps.push(format!("GPU used: {a}/{b} layers on {g}")),
+                    None => steps.push(format!("GPU engine on {g} (layer count not reported)")),
+                }
+            } else { steps.push("no GPU found: CPU engine (expected)".into()); }
+            let v = json!({ "ok": true, "platform": ctx.platform_key(), "engine": ctx.state["engine"]["key"], "gpu": found, "gpuLayers": layers.map(|(a, b)| format!("{a}/{b}")), "pack": pack, "answer": text.trim(), "answer_seconds": gen_s, "total_seconds": t0.elapsed().as_secs_f64(), "steps": steps });
             out(j, v.clone(), || format!("{}\nanswer: {}\nPASS on {} with {} ({:.1} s)", steps.iter().map(|s| format!("ok  {s}")).collect::<Vec<_>>().join("\n"), text.trim(), ctx.platform_key(), Ctx::gpu_label(ctx.state["engine"]["key"].as_str().unwrap_or("")), t0.elapsed().as_secs_f64()));
         }
     }
@@ -542,6 +587,21 @@ fn open_browser(url: &str) {
     let _ = if cfg!(windows) { std::process::Command::new("cmd").args(["/c", "start", "", url]).spawn() }
             else if cfg!(target_os = "macos") { std::process::Command::new("open").arg(url).spawn() }
             else { std::process::Command::new("xdg-open").arg(url).spawn() };
+}
+/// The addresses people need, printed whenever the server starts (console window or terminal) and by `sushila url`.
+/// The Admin tab answers only on this computer (localhost); other machines reach the Inference page and the API.
+fn urls(port: u16, network: bool) -> Value {
+    let home = std::env::var("SUSHILA_HOME").unwrap_or_default();
+    let lan = if network { local_ip() } else { None };
+    json!({ "inference": format!("http://localhost:{port}/"), "admin": format!("http://localhost:{port}/admin"),
+            "api": format!("http://localhost:{port}/v1"), "network": lan.map(|ip| format!("http://{ip}:{port}/")), "home": home })
+}
+fn url_banner(u: &Value) -> String {
+    let mut b = format!("\n==============================================================\n Sushila {} is running\n   Inference URL:  {}\n   Admin URL:      {}   (this computer only)\n   API (OpenAI):   {}\n",
+        env!("CARGO_PKG_VERSION"), u["inference"].as_str().unwrap_or(""), u["admin"].as_str().unwrap_or(""), u["api"].as_str().unwrap_or(""));
+    if let Some(n) = u["network"].as_str() { b += &format!("   Other machines: {n}   (Inference page and API; needs an access key unless --open)\n"); }
+    if let Some(h) = u["home"].as_str().filter(|h| !h.is_empty()) { b += &format!("   Home folder:    {h}   (model-packs, settings, logs; change: sushila home <folder>)\n"); }
+    b + " Stop: Ctrl+C or close this window\n==============================================================\n"
 }
 fn local_ip() -> Option<String> { let s = std::net::UdpSocket::bind("0.0.0.0:0").ok()?; s.connect("8.8.8.8:80").ok()?; Some(s.local_addr().ok()?.ip().to_string()) }
 fn read_json(p: &std::path::Path) -> Option<Value> { std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()) }
@@ -685,9 +745,11 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     let (addr, stop_tx) = webserver::start(ctx.data.clone(), port, if bind == "localhost" { "127.0.0.1" } else { &bind }).await
         .map_err(|e| format!("{e} (is another server already running? `sushila status`)"))?;
     ctx.log(&format!("serving on {addr} (data {})", ctx.data.display()));
+    let u = urls(port, network);
+    if !j { eprintln!("{}", url_banner(&u)); }
     if !webserver::password_set(&ctx.data) {
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) { if let Err(e) = ask_password(ctx, false) { ctx.log(&format!("admin password: {e}")); } }
-        else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/#admin on this computer to set it")); }
+        else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/admin on this computer to set it")); }
     }
     if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };
@@ -697,8 +759,8 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     let mut ids: Vec<String> = if packs.is_empty() { ctx.packs().keys().take(max).cloned().collect() } else { packs.to_vec() };
     if ids.is_empty() { ctx.log("no packs installed: installing the default model"); ctx.load_catalog().await?; let id = ctx.best_variant(DEFAULT_MODEL).await; ctx.install_pack(&id).await?; ids.push(id); }
     for id in &ids { if let Err(e) = o.start(ctx, id, if standard { Some("regular") } else { None }, None).await { ctx.log(&format!("{id}: {e}")); } }
-    out(j, json!({ "ok": true, "page": page, "api": format!("{addr}/v1"), "models": ids }), || format!(
-        "\nSushila is serving {} (loading in the background: `sushila status`)\n  page:  {page}\n  API:   {addr}/v1  (OpenAI-compatible; header x-sushila-token: <token>, or Authorization: Bearer <key> from other machines)\n  log:   {}\n  stop:  Ctrl+C, or `sushila stop`\n",
+    out(j, json!({ "ok": true, "page": page, "urls": u, "api": format!("{addr}/v1"), "models": ids }), || format!(
+        "Models: {} (loading in the background: `sushila status`)\n  page:  {page}\n  API:   header x-sushila-token: <token> here, or Authorization: Bearer <key> from other machines\n  log:   {}\n",
         ids.join(", "), ctx.data.join("logs").join("sushila.log").display()));
     // the queue: one job at a time, like the desktop app
     let qpath = ctx.data.join("queue.json");

@@ -621,6 +621,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/admin", axum::routing::get(srv_admin))
         .route("/api/admin/:what", axum::routing::post(srv_login))
         .route("/install/:pack", axum::routing::get(srv_install_link))
+        .route("/admin", axum::routing::get(|| async { axum::response::Redirect::to("/#admin") }))
         .route("/api/queue", axum::routing::get(srv_queue).post(srv_queue_add).options(srv_queue_add))
         .route("/api/queue/:id/output", axum::routing::get(srv_queue_output))
         .route("/api/queue/:id/:action", axum::routing::post(srv_queue_action).options(srv_queue_action))

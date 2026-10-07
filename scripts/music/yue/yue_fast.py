@@ -226,10 +226,13 @@ def _probs(lc, lu, g, seen, n_new, args):
 
 @torch.no_grad()
 def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, draft=None, k=4, seed=None,
-                    rp=1.1, top_p=0.93, temperature=1.0, block=(0, 32002), stats=None, graphs=False):
+                    rp=1.1, top_p=0.93, temperature=1.0, block=(0, 32002), stats=None, graphs=False, replay=None):
     """Returns output_seq [1, L + new] like model.generate in infer.py. With draft, speculative sampling (Leviathan et
     al.): drafts of k tokens accepted with min(1, p/q), the first rejection replaced by a draw from max(0, p - q); the
-    tokens follow the same distribution as without the draft."""
+    tokens follow the same distribution as without the draft.
+    replay: a list of token ids (another run's new tokens for this segment, e.g. the official run's). Every step does
+    its full work, sampling included, but then takes the replayed token instead of its own draw, so the output is that
+    run's song exactly and the timing covers exactly the same tokens (same song, same length)."""
     gen = torch.Generator(device=input_ids.device)
     if seed is not None: gen.manual_seed(seed)
     args = {'rp': rp, 'top_p': top_p, 'temperature': temperature, 'min_new': min_new, 'eoa': eoa, 'block_lo': block[0], 'block_hi': block[1]}
@@ -251,6 +254,7 @@ def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, d
     draw1 = lambda p: int(torch.multinomial(p, 1, generator=gen))
     probs = lambda lc, lu, sn, n: _probs(lc, lu, guidance, sn, n, args)
     ref = lambda lc, lu, sn, n: (lambda: _probs_ref(lc, lu, guidance, sn, n, args))
+    if replay is not None: assert D is None, 'replay works with plain sampling, not speculative'
     if D is None:
         pT = probs(T.last[0], T.last[1], seen, 0); refT = ref(T.last[0], T.last[1], seen, 0)
     else:
@@ -258,8 +262,10 @@ def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, d
     rounds = drafted = accepted = 0
     while len(out) < max_new:
         if D is None:  # plain sampling, guidance batched with the conditional pass
-            t = draw(pT, refT); out.append(t); seen[t] = True
-            if t == eoa or len(out) >= max_new: break
+            t = draw(pT, refT)
+            if replay is not None: t = int(replay[len(out)])
+            out.append(t); seen[t] = True
+            if t == eoa or len(out) >= max_new or (replay is not None and len(out) >= len(replay)): break
             lg = T.feed(torch.tensor([t], device=input_ids.device))[:, -1]
             pT = probs(lg[0], lg[1], seen, len(out)); refT = ref(lg[0], lg[1], seen, len(out))
             continue
