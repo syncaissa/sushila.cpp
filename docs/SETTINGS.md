@@ -66,7 +66,7 @@ Common settings for both: 1024×1024 (A) and 768×768 (B); 8 steps; guidance (cf
 
 Raw results: `results/cache_plan_zimage_20261006/`, `results/zimage_4090_20261005/`.
 
-### Production settings (⏳ being measured)
+### Production settings (✅ measured 2026-10-07, `results/zimage_production_20261007/`)
 
 | Setting | Value |
 |---|---|
@@ -91,7 +91,23 @@ Raw results: `results/cache_plan_zimage_20261006/`, `results/zimage_4090_2026100
 3. Run `W=/workspace/zprod bash scripts/image/bench_zimage_production.sh`. It takes about 1 h and writes
    `$W/results.json` (times, quality scores, faithfulness), `$W/img/<engine>-<size>/` and the crop sheets.
 
-Samples: `https://files.sushila.ai/public/temp/image-samples-20261007_higherRes/`.
+Results (L40S, median of 10 images, standard bf16 → Sushila int4):
+
+| Size | Standard | Sushila | Speed-up | Peak memory | MUSIQ (std / sushila) | CLIP (std / sushila) |
+|---|---:|---:|---:|---|---|---|
+| 768² (lab) | 2.03 s | 1.18 s | 1.72× | 22.1 → 13.8 GB | 73.8 / 71.9 | 0.875 / 0.882 |
+| 1024² | 3.69 s | 2.24 s | 1.65× | 23.3 → 14.9 GB | 72.6 / 72.3 | 0.871 / 0.882 |
+| **1536²** | 10.72 s | 6.94 s | **1.54×** | 26.5 → 18.1 GB | 69.9 / 68.1 | 0.865 / 0.869 |
+| 2048² | 21.38 s | 15.94 s | 1.34× | **30.9 → 22.6 GB** (only Sushila fits a 24 GB card) | 60.9 / 59.8 | 0.871 / 0.875 |
+
+How to read the results:
+
+- **Detail:** the detail crops show finer detail up to 1536². At 2048² the image is clean but slightly softer per
+  pixel, near the model's training resolution. No-reference scores fall with size for both engines.
+- **Equal quality, different images:** Sushila's images are different renderings of the same prompt and seed (SSIM
+  0.69–0.74, LPIPS 0.35–0.44 to standard). Their quality scores are equal.
+
+Samples: `https://files.sushila.ai/public/temp/image-samples-20261007_higherRes/` (64 files).
 
 ---
 
