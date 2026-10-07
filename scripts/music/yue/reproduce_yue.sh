@@ -8,7 +8,9 @@
 #   4 Sushila's stage 2 gives the official stage-2 codes                    test_stage2_full.py
 #   5 the song with Sushila's runner: eager, then CUDA graphs (+ speculative with the 0.5B if SPEC=1)
 #   6 results.json + table                                                 summarize.py
+#   NSEG=6 W=/workspace/yue6 ...  : the full song (all 6 lyrics sections, ~3 min of music) instead of the first 2 (~1 min)
 set -uo pipefail
+export NSEG=${NSEG:-2}
 W=${W:-/workspace/yue}; HERE=$(cd "$(dirname "$0")" && pwd); export W; mkdir -p $W/res
 log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a $W/res/reproduce.log; }
 log "step 1: official YuE"; [ -f $W/res/base_seed42/timing.json ] && log "  (already done, kept)" || SEEDS=42 bash $HERE/run_yue_baseline.sh
