@@ -72,7 +72,7 @@ const LISTED = [
   { name: 'Llama 3.1 70B Instruct', hf: 'https://huggingface.co/bartowski/Meta-Llama-3.1-70B-Instruct-GGUF', license: 'Llama 3.1 Community License' },
 ];
 
-// Measured results (paper, Table "Every model measured", 2026-10-06). Text: vanilla Ollama vs Sushila.cpp on the same
+// Measured results (paper, Table "Every model in the per-model pipeline", 2026-10-07). Text: vanilla Ollama vs Sushila.cpp on the same
 // A100, 160 unseen prompts, greedy, 256 tokens; images/video/music: the reference engine vs Sushila on one RTX 4090.
 // [model, kind, baseline + hardware, baseline speed, Sushila speed, speedup, our precomputed part]
 const RESULTS = [
@@ -84,13 +84,13 @@ const RESULTS = [
   ['Qwen3 30B-A3B', 'chat (MoE)', 'Ollama 0.35.1, A100', '163.8 tok/s', '270.6 tok/s', '1.65×', 'draft head: +1%'],
   ['Llama 3.1 8B (16-bit)', 'chat', 'Ollama 0.35.1, A100', '143.3 tok/s', '222.2 tok/s', '1.55×', 'draft head refitted to its answers: +11%'],
   ['Gemma 3 27B', 'chat', 'Ollama 0.35.1, A100', '46.5 tok/s', '56.6 tok/s', '1.22×', 'draft head over a community one: +9%'],
-  ['Qwen2.5 0.5B', 'chat (CPU)', 'llama.cpp, 8 CPU threads', '145.5 tok/s', '183.3 tok/s', '1.26×', 'output-layer landscape (exact)'],
+  ['Qwen2.5 0.5B', 'chat (CPU)', 'llama.cpp, 8 CPU threads', '145.5 tok/s', '183.3 tok/s', '1.26×', 'output-layer landscape (approx., ≥99.4% top-1; vs stock llama.cpp)'],
   ['Z-Image-Turbo', 'images', 'stable-diffusion.cpp, RTX 4090', '', '', '1.10×', 'cache plan (SSIM 0.98)'],
-  ['Wan 2.2 TI2V-5B', 'video', 'stable-diffusion.cpp, RTX 4090', '892 s/clip', '542 s/clip', '1.65×', 'cache plan (frame SSIM 0.93), 720p 5 s'],
+  ['Wan 2.2 TI2V-5B', 'video', 'stable-diffusion.cpp, RTX 4090', '889 s/clip', '549 s/clip', '1.62×', 'cache plan (frame SSIM 0.93), 720p 5 s, medians of 5 prompts; vs the same engine without the plan (Wan official bf16: 536 s on one prompt)'],
   ['ACE-Step 1.5', 'music', 'acestep.cpp, RTX 4090', '5.16 s/song', '4.05 s/song', '1.27×', 'faster sampler (same distribution)'],
-  ['YuE v1 (long songs)', 'music', 'official YuE code, RTX 4090', '1,210 s/song', '263 s/song', '4.60×', 'equivalent runner: one cache, batching, CUDA graphs (identical in float32)'],
+  ['YuE v1', 'music', 'official YuE code, RTX 4090', '1,210 s/song', '263 s/song', '4.60×', 'equivalent runner: one cache, batching, CUDA graphs (same distribution; stage 2 = official in float32) (59 s song; full song 3.01×); research code, not yet in Sushila.cpp'],
 ];
-const RESULTS_AVG = [['Average, 8 text models', '2.58×', 'geometric mean 2.35×'], ['Average, all 13 models', '2.35×', 'geometric mean 2.06×']];
+const RESULTS_AVG = [['Average, 8 GPU chat and coding models vs Ollama', '2.58×', 'geometric mean 2.35×'], ['Average, all 13 models', '2.34×', 'geometric mean 2.06×'], ['Average, 12 without YuE', '2.16×', 'geometric mean 1.93×']];
 const RESULTS_MORE = [
   ['Qwen3 235B-A22B (out of scope)', 'chat (MoE)', 'Ollama, 2× A100', '', '', '0.73×', 'draft heads slow it; SGLang alone 1.25×'],
 ];
@@ -2115,7 +2115,7 @@ async function logDownload(db, request, { file, kind, system, bytes, packId, use
 const HOST_RUNTIMES = ['image-nunchaku'];
 const HOST_PACKS = [
   { id: 'qwen2.5-0.5b-q4km', category: 'Text (LLM)', name: 'Qwen2.5 0.5B Instruct (4-bit)', model: 'precomputed/qwen2.5-0.5b-q4km', minRamGB: 2,
-    description: 'Small and fast; runs on any computer. With the precomputed output-layer landscape: CPU decoding 1.13-1.26x faster with identical output.',
+    description: 'Small and fast; runs on any computer. With the precomputed output-layer landscape: CPU decoding 1.07-1.26x faster, with the same greedy output on our test prompts (top-1 agreement 99.4-100% by domain).',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/blob/main/LICENSE', artifacts: ['output-layer landscape'],
     files: [['weights/gguf/qwen2.5-0.5b-q4km.gguf', 'qwen2.5-0.5b-q4km.gguf', 'weights'],
       ['landscape/manifest.json', 'qwen2.5-0.5b-q4km.gguf.sushila/manifest.json', 'manifest'],
