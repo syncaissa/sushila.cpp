@@ -345,6 +345,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .modesw.turbo::before{transform:translateX(100%)}.modesw.none::before{opacity:0}
 .modesw button{position:relative;z-index:1;border:0;border-radius:99px;background:transparent;color:var(--mut);padding:5px 14px;font-size:13px;font-weight:600}
 .modesw button.on{color:#fff;background:transparent}.modesw button:disabled{opacity:.4}
+.modewait{display:inline-flex;align-items:center;gap:8px;margin-left:10px;padding:4px 14px 4px 8px;border-radius:99px;background:#f5b301;color:#1a1a1a;font-weight:700;font-size:14px;box-shadow:0 0 0 3px rgba(245,179,1,.35);animation:mwpulse 1.2s ease-in-out infinite}
+.modewait .hg{display:inline-block;font-size:28px;line-height:1;animation:mwflip 1.6s ease-in-out infinite}
+.modewait.hidden{display:none}
+@keyframes mwflip{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(360deg)}}
+@keyframes mwpulse{0%,100%{box-shadow:0 0 0 3px rgba(245,179,1,.35)}50%{box-shadow:0 0 0 7px rgba(245,179,1,.15)}}
 .maxed .top,.maxed #remote,.maxed .chat>.bar2{display:none}.maxed .chat{max-width:none;margin:0;padding:12px 18px}.maxed #chatlog{min-height:calc(100vh - 170px)}
 .qpanel{max-width:900px;margin:10px auto 30px;padding:10px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}.qpanel summary{cursor:pointer}
 .qjob{border-top:1px solid var(--line);padding:8px 0}.qjob img,.qjob video{max-width:100%;border-radius:8px;margin-top:6px}.qjob .row{margin:6px 0 0}
@@ -384,7 +389,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const head = el('div', { class: 'top' }, embedded && opts.onBack ? el('button', { class: 'ghost', onclick: opts.onBack }, '◀ Host Station') : null, opts.title === '' ? null : el('h1', {}, opts.title || 'Sushila'),
       el('div', { class: 'bar2' }, el('span', { class: 'sub' }, 'Server'), serverSel, el('span', { class: 'sub' }, 'Model'), modelSel,
         el('div', { class: 'modesw', id: 'modesw', role: 'group', 'aria-label': 'Speed mode' },
-          el('button', { 'data-mode': 'regular', onclick: () => switchMode('regular') }, 'Standard'), el('button', { 'data-mode': 'turbo', onclick: () => switchMode('turbo') }, 'Accelerated'))),
+          el('button', { 'data-mode': 'regular', onclick: () => switchMode('regular') }, 'Standard'), el('button', { 'data-mode': 'turbo', onclick: () => switchMode('turbo') }, 'Accelerated')),
+        // while the model restarts in the other mode: a large turning hourglass right next to the switch
+        el('span', { class: 'modewait hidden', id: 'modewait', role: 'status', 'aria-live': 'polite' }, el('span', { class: 'hg' }, '⏳'), el('span', { id: 'modewaittext' }, ''))),
       el('span', { class: 'sp' }), el('span', { class: 'pill', id: 'status' }, '…'),
       el('button', { class: 'ghost', id: 'maxbtn', title: 'Only the conversation, as large as the window', onclick: () => setMax(true) }, '⛶ Maximize'),
       embedded && opts.onBrowser ? el('button', { class: 'ghost', onclick: () => opts.onBrowser(model && model.packId) }, 'Open in browser') : null);
@@ -472,6 +479,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     async function switchMode(mode) {
       if (!model || server || (model.mode || 'regular') === mode) return;
       setStatus(mode === 'turbo' ? 'switching to Accelerated…' : 'switching to Standard…');
+      const wait = $('modewait'), wtext = $('modewaittext'), t0 = Date.now(), label = mode === 'turbo' ? 'Switching to Accelerated' : 'Switching to Standard';
+      const tick = () => { if (wtext) wtext.textContent = label + '… ' + Math.round((Date.now() - t0) / 1000) + ' s (the model restarts)'; };
+      if (wait) { tick(); wait.classList.remove('hidden'); }
+      const timer = setInterval(tick, 1000);
+      $('modesw') && $('modesw').querySelectorAll('button').forEach((b) => { b.disabled = true; });
       try {
         if (opts.setMode) await opts.setMode(model.packId, mode);
         else {
@@ -486,6 +498,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         }
         want = model.packId; await loadModels();
       } catch (e) { setStatus('Could not switch: ' + (e.message || e), 'off'); }
+      finally { clearInterval(timer); if (wait) wait.classList.add('hidden'); showMode(); }
     }
     const kept = {};  // pack id -> {nodes, msgs}: switching models (or tabs in the app) keeps each one's conversation and results
     function pickModel() {

@@ -37,6 +37,10 @@ p.w.location.hash = '#admin/actions'; await sleep(300); ok(p.d.body.textContent.
 p.w.location.hash = '#admin/logs'; await sleep(300); ok(p.d.body.textContent.includes('hello log'), 'Logs tab shows the shared log');
 p.w.location.hash = '#admin/settings'; await sleep(300); ok(p.d.querySelector('#set-gpuLayers').value === '-1', 'Settings tab shows the settings');
 p.w.location.hash = ''; await sleep(300); ok(!p.d.getElementById('app').classList.contains('hidden') && p.d.getElementById('manage').classList.contains('hidden'), 'Use tab shows the inference page');
+{ const sw = p.d.getElementById('modesw'), w = p.d.getElementById('modewait');
+  ok(w && w.classList.contains('hidden'), 'mode switch: no hourglass while nothing changes');
+  const std = sw && sw.querySelector('button[data-mode="regular"]'); if (std) std.click(); await sleep(300);
+  ok(w && !w.classList.contains('hidden') && w.textContent.includes('⏳') && w.textContent.includes('Switching to Standard') && std.disabled, 'mode switch: a large hourglass next to the switch while the model restarts, buttons locked'); }
 p = await page('', '#admin/packs');
 ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].length === 1 && p.d.getElementById('manage').classList.contains('hidden'), 'remote visitor: only Use, no management');
 p = await page('tok123', '#admin/packs', '?install=qwen3-4b'); await sleep(300);
