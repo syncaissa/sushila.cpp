@@ -7,8 +7,8 @@ W = sys.argv[1] if len(sys.argv) > 1 else os.environ.get('W', '/workspace/yue');
 def tj(d):
     t = json.load(open(os.path.join(d, 'timing.json')))
     return {'stage1_s': round(t['stage1_done'] - t['start'], 1), 'stage2_s': round(t['stage2_done'] - t['stage2_start'], 1), 'total_s': round(t['end'] - t['start'], 1)}
-LABEL = {'fast_batched_k0': 'exact: KV cache + batched rows + batched guidance (eager)',
-         'fast_batched_k0_graphs': 'exact: as above + static caches and CUDA graphs',
+LABEL = {'fast_batched_k0': 'equivalent: KV cache + batched rows + batched guidance (eager)',
+         'fast_batched_k0_graphs': 'equivalent: as above + static caches and CUDA graphs',
          'fast_spec_k3_graphs': 'same distribution: + speculative sampling, 0.5B draft, k=3',
          'fast_spec_k4_graphs': 'same distribution: + speculative sampling, 0.5B draft, k=4'}
 out = {'work_dir': W, 'segments': int(os.environ.get('NSEG', '2')), 'max_new_tokens': int(os.environ.get('MAXTOK', '3000')), 'runs': {}, 'checks': {}}
@@ -20,7 +20,7 @@ for d in sorted(glob.glob(os.path.join(R, 'fast_*'))):
     k = os.path.basename(d)
     if not os.path.exists(os.path.join(d, 'timing.json')): continue
     r = tj(d); r['label'] = LABEL.get(k, k); r['speedup'] = round(B / r['total_s'], 2); out['runs'][k] = r
-for name, f in [('graphs_vs_eager', 'final.log'), ('sampler', 'sampler_test.json'), ('stage2_exact', 'stage2_full_test.json')]:
+for name, f in [('graphs_vs_eager', 'final.log'), ('sampler', 'sampler_test.json'), ('stage2_float32', 'stage2_test_cached_float32.json'), ('stage2_bfloat16_song', 'stage2_full_test.json')]:
     p = os.path.join(R, f)
     if not os.path.exists(p): continue
     if f.endswith('.log'):
@@ -33,7 +33,9 @@ for f in ['yue_commit.txt', 'xcodec_commit.txt', 'models.txt']:
 ok = True
 g = out['checks'].get('graphs_vs_eager', {}); ok &= bool(g) and all(v == 0.0 for v in g.values())
 s = out['checks'].get('sampler', {}); ok &= s.get('pass', False)
-e = out['checks'].get('stage2_exact', {}); ok &= e.get('codes_identical_fraction', 0) >= 0.99
+e = out['checks'].get('stage2_float32', {}); ok &= bool(e.get('tokens_identical'))
+# bfloat16 (what both real runs use): a near-tie rounds differently at some frame and the rest of that row follows
+# another greedy path, so about half the codes match over a whole song; reported, not a pass/fail check
 out['checks_pass'] = ok
 json.dump(out, open(os.path.join(R, 'results.json'), 'w'), indent=1)
 print(f"{'run':28s} {'stage 1':>8s} {'stage 2':>8s} {'total':>8s} {'speed-up':>9s}  what")

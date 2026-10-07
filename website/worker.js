@@ -88,7 +88,7 @@ const RESULTS = [
   ['Z-Image-Turbo', 'images', 'stable-diffusion.cpp, RTX 4090', '', '', '1.10×', 'cache plan (SSIM 0.98)'],
   ['Wan 2.2 TI2V-5B', 'video', 'stable-diffusion.cpp, RTX 4090', '892 s/clip', '542 s/clip', '1.65×', 'cache plan (frame SSIM 0.93), 720p 5 s'],
   ['ACE-Step 1.5', 'music', 'acestep.cpp, RTX 4090', '5.16 s/song', '4.05 s/song', '1.27×', 'faster sampler (same distribution)'],
-  ['YuE v1 (long songs)', 'music', 'official YuE code, RTX 4090', '1,210 s/song', '263 s/song', '4.60×', 'exact runner: one cache, batching, CUDA graphs (same distribution)'],
+  ['YuE v1 (long songs)', 'music', 'official YuE code, RTX 4090', '1,210 s/song', '263 s/song', '4.60×', 'equivalent runner: one cache, batching, CUDA graphs (identical in float32)'],
 ];
 const RESULTS_AVG = [['Average, 8 text models', '2.58×', 'geometric mean 2.35×'], ['Average, all 13 models', '2.35×', 'geometric mean 2.06×']];
 const RESULTS_MORE = [

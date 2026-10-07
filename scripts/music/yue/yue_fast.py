@@ -59,8 +59,25 @@ def stage2_static(model, prompt_ids, codec_ids, block_lo, block_hi):
     return torch.cat([prompt_ids, out], dim=1)
 
 
+S2_MAX_ROWS = int(__import__('os').environ.get('SUSHILA_S2_ROWS', '20'))  # rows per stage-2 batch: each row keeps its own key-value
+# cache (~0.2 MB per token for the 1B model, ~2,700 tokens per row), so 20 rows fit in 24 GB; a 2.5-minute song has ~50
+
+
+def _chunked(fn):
+    """Run a stage-2 batch function on at most S2_MAX_ROWS rows at a time. Rows never see each other (attention mask),
+    so the output is the same as one big batch; only the time grows with the number of chunks."""
+    def run(model, rows, *a):
+        outs = []
+        for i in range(0, len(rows), S2_MAX_ROWS):
+            outs += fn(model, rows[i:i + S2_MAX_ROWS], *a)
+            torch.cuda.empty_cache()
+        return outs
+    run.__doc__ = fn.__doc__
+    return run
+
+
 @torch.no_grad()
-def stage2_batched(model, rows, prefix, suffix, block_lo, block_hi, pad_id):
+def _stage2_rows(model, rows, prefix, suffix, block_lo, block_hi, pad_id):
     """Every stage-2 row of a song in one batch: rows = list of 1-D int arrays of codebook-0 ids (already offset), of
     different lengths; each row's prompt is prefix + row + suffix, left-padded (masked) to the longest. Teacher-forced and
     greedy exactly like the official per-row loop; rows do not see each other (attention mask), so each row's tokens are
@@ -101,6 +118,9 @@ def stage2_batched(model, rows, prefix, suffix, block_lo, block_hi, pad_id):
         step(tok)
     o = out.cpu().numpy()
     return [o[i, :8 * len(r)] for i, r in enumerate(rows)]
+
+
+stage2_batched = _chunked(_stage2_rows)
 
 
 def plan_stage2(stage1_files, batch_size):
@@ -305,7 +325,7 @@ def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, d
 class StaticRows:
     """R rows of left-padded sequences in a static cache; feed(ids [R, T]) advances every row by T tokens and returns
     logits [R, T, V] (float32). One CUDA graph per T, captured on first use."""
-    def __init__(self, model, ids, mask, max_new):
+    def __init__(self, model, ids, mask, max_new, last_only=False):
         from transformers import StaticCache
         self.m, self.dev = model, ids.device
         R, L = ids.shape
@@ -315,7 +335,9 @@ class StaticRows:
         m2 = torch.zeros((R, self.max_len), dtype=torch.long, device=self.dev); m2[:, :L] = mask
         out = model(input_ids=ids, attention_mask=m2, position_ids=(mask.cumsum(-1) - 1).clamp_min(0),
                     cache_position=torch.arange(L, device=self.dev), past_key_values=self.cache, use_cache=True,
-                    num_logits_to_keep=1)  # only the last position's logits (the full [R, L, V] tensor does not fit for long rows)
+                    **({'num_logits_to_keep': 1} if last_only else {}))
+        # last_only: only the last position's logits, for many long rows (draft_refit.py). Off by default: a different
+        # matrix shape rounds the bfloat16 logits differently (max diff 0.125 on the 7B), and the runner must equal eager
         self.last = out.logits[:, -1, :].float()
         self.pos = ((mask.cumsum(-1) - 1).clamp_min(0))[:, -1:] + 1  # next position id per row [R, 1]
         self.p = L  # next cache slot
@@ -368,7 +390,7 @@ class StaticRows:
 
 
 @torch.no_grad()
-def stage2_batched_graph(model, rows, prefix, suffix, block_lo, block_hi, pad_id):
+def _stage2_rows_graph(model, rows, prefix, suffix, block_lo, block_hi, pad_id):
     """stage2_batched on CUDA graphs (same tokens, same layout)."""
     import numpy as np
     dev = next(model.parameters()).device
@@ -394,6 +416,9 @@ def stage2_batched_graph(model, rows, prefix, suffix, block_lo, block_hi, pad_id
         S.feed(tok)
     o = out.cpu().numpy()
     return [o[i, :8 * len(r)] for i, r in enumerate(rows)]
+
+
+stage2_batched_graph = _chunked(_stage2_rows_graph)
 
 
 class _PairG:

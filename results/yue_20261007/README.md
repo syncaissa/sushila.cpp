@@ -6,8 +6,8 @@ Pod `sushila-yue2` (RTX 4090, driver 570.195.03), torch 2.4.1+cu124, transformer
 | Run | Stage 1 s | Stage 2 s | Total s | Speed-up | Check |
 |---|---:|---:|---:|---:|---|
 | Official `infer.py` | 370.2 | 821.9 | 1209.7 | 1.00× | reference |
-| Exact runner, eager (one cache, batched rows, batched guidance) | 202.4 | 108.9 | 329.3 | 3.67× | official stage-2 codes |
-| **Exact runner + CUDA graphs** | **187.1** | **57.9** | **263.0** | **4.60×** | logits = eager (max diff 0.0, `final.log`) |
+| Equivalent runner, eager (one cache, batched rows, batched guidance) | 202.4 | 108.9 | 329.3 | 3.67× | same procedure; stage-2 codes identical in float32, 48% equal in bfloat16 (near-ties) |
+| **Equivalent runner + CUDA graphs** | **187.1** | **57.9** | **263.0** | **4.60×** | logits = eager (max diff 0.0, `final.log`) |
 | + speculative, published 0.5B draft, k=3 | 225.2 | 57.1 | 299.4 | 4.04× | same distribution |
 | + speculative, published 0.5B draft, k=4 | 273.7 | 58.7 | 350.5 | 3.45× | same distribution |
 

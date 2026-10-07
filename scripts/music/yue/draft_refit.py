@@ -79,7 +79,7 @@ def gen_batch(model, ctxs, max_new, guidance, eoa, seed):
     for b, c in enumerate(ctxs):
         ids[b, L - len(c):] = torch.tensor(c, device=dev); mask[b, L - len(c):] = 1
         ids[B + b, -1] = c[-1]; mask[B + b, -1] = 1
-    S = StaticRows(model, ids, mask, max_new + 4)
+    S = StaticRows(model, ids, mask, max_new + 4, last_only=True)
     V = model.config.vocab_size
     seen = torch.zeros((B, V), dtype=torch.bool, device=dev)
     for b, c in enumerate(ctxs): seen[b, torch.tensor(c, device=dev)] = True
