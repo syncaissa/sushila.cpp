@@ -228,18 +228,16 @@ async fn main() -> ExitCode {
     let mut cli = Cli::parse();
     // started without a command (e.g. double-clicked in Explorer or Finder): serve, and open the page in the browser
     let double_click = cli.cmd.is_none();
-    if double_click && std::env::var("SUSHILA_WORKER").is_err() {
-        eprintln!("Sushila {}: starting the server; the page opens in your browser. Close this window (or Ctrl+C) to stop.\nCommands: sushila --help", env!("CARGO_PKG_VERSION"));
+    // no command (double-click): serve. Both the supervisor and its worker child (SUSHILA_WORKER=1, started with the same
+    // empty arguments) must turn "no command" into `serve`, or the worker finds no command and crashes in a loop
+    if double_click {
+        if std::env::var("SUSHILA_WORKER").is_err() {
+            eprintln!("Sushila {}: starting the server; the page opens in your browser. Close this window (or Ctrl+C) to stop.\nCommands: sushila --help", env!("CARGO_PKG_VERSION"));
+        }
         cli.cmd = Some(Cmd::Serve { packs: vec![], port: None, host: None, public: false, standard: false, max: 1, open: false });
     }
-    if double_click && std::env::var("SUSHILA_NO_BROWSER").is_err() && std::env::var("SUSHILA_WORKER").is_ok() {
-        tokio::spawn(async {
-            for _ in 0..600 {
-                tokio::time::sleep(Duration::from_secs(2)).await;
-                if http_text("http://127.0.0.1:8765/api/state", 2).await.ok().map(|s| s.contains("\"ready\":true")).unwrap_or(false) { open_browser("http://localhost:8765/"); return; }
-            }
-        });
-    }
+    // double-click: the worker opens the browser once its server answers (serve() knows the real port; see SUSHILA_DOUBLE_CLICK)
+    if double_click && std::env::var("SUSHILA_WORKER").is_err() { std::env::set_var("SUSHILA_DOUBLE_CLICK", "1"); }
     // the application folder: explicit, remembered, or found by searching (asks when several exist); the worker child
     // of `serve` gets it through SUSHILA_HOME, so it is never asked twice
     // `location <folder>` / `location --reset` change the choice itself, so they run before any search or question
@@ -888,6 +886,16 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     ctx.log(&format!("serving on {addr} (data {})", ctx.data.display()));
     let u = urls(port, network);
     if !j { eprintln!("{}", url_banner(&u)); }
+    // started by a double-click: open the page in the browser when the server is ready (on its real port), once
+    if std::env::var("SUSHILA_DOUBLE_CLICK").is_ok() && std::env::var("SUSHILA_NO_BROWSER").is_err() {
+        let page = format!("http://localhost:{port}/");
+        tokio::spawn(async move {
+            for _ in 0..600 {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                if http_text(&format!("http://127.0.0.1:{port}/api/state"), 2).await.ok().map(|s| s.contains("\"ready\":true")).unwrap_or(false) { open_browser(&page); return; }
+            }
+        });
+    }
     if !webserver::password_set(&ctx.data) {
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) { if let Err(e) = ask_password(ctx, false) { ctx.log(&format!("admin password: {e}")); } }
         else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/admin on this computer to set it")); }
