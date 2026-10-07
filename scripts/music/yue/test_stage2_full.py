@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Whole-song stage 2: Sushila's batched runner on the baseline's stage-1 output vs the official stage-2 output saved
-by the baseline run (official 824 s on an RTX 4090). Run from YuE/inference. Usage: python3 test_stage2_full.py <baseline dir>"""
+by the baseline run (official stage-2 time read from <baseline dir>/timing.json). Run from YuE/inference. Usage: python3 test_stage2_full.py <baseline dir>"""
 import sys, os, time, json, glob
 import numpy as np, torch
 sys.path.insert(0, os.getcwd()); sys.path.append('xcodec_mini_infer'); sys.path.append(os.path.join('xcodec_mini_infer', 'descriptaudiocodec'))
@@ -25,7 +25,8 @@ for ci, (f, a, b, n) in enumerate(calls):
 torch.cuda.synchronize(); t = time.time()
 outs = stage2_batched(model, rows, np.array([mm.soa, mm.stage_1]), np.array([mm.stage_2]), 46358, 53526, mm.eoa)
 torch.cuda.synchronize(); dt = time.time() - t
-res = {'rows': len(rows), 'frames_max': max(len(r) for r in rows), 'seconds': dt, 'official_seconds': 1205.6 - 381.8}
+_tj = json.load(open(os.path.join(base, 'timing.json')))  # the official run's own stage-2 time (824 s on our RTX 4090)
+res = {'rows': len(rows), 'frames_max': max(len(r) for r in rows), 'seconds': dt, 'official_seconds': _tj['stage2_done'] - _tj['stage2_start']}
 same = tot = 0
 for f in files:
     cs = [ci for ci, c in enumerate(calls) if c[0] == f]
@@ -36,4 +37,4 @@ for f in files:
     same += int((mine[:, :m] == off[:, :m]).sum()); tot += mine[:, :m].size
     res[os.path.basename(f)[-10:]] = {'shape_ours': list(mine.shape), 'shape_official': list(off.shape)}
 res['codes_identical_fraction'] = same / tot; res['speedup'] = res['official_seconds'] / dt
-print(json.dumps(res)); json.dump(res, open('/workspace/yue/res/stage2_full_test.json', 'w'), indent=1)
+print(json.dumps(res)); json.dump(res, open(os.path.join(os.environ.get('W', '/workspace/yue'), 'res', 'stage2_full_test.json'), 'w'), indent=1)

@@ -1,0 +1,14 @@
+patched infer_fast.py
+[22:25:38] stage 1 batched (k=0), stage 2 batched
+TIMING {"start": 0.0, "stage1_done": 202.4, "stage2_start": 212.6, "stage2_done": 321.4, "end": 329.3}
+[22:31:13] stage 1 batched (k=0), stage 2 batched
+TIMING {"start": 0.0, "stage1_done": 187.1, "stage2_start": 197.3, "stage2_done": 255.2, "end": 263.0}
+[22:35:43] stage 1 spec (k=3), stage 2 batched
+SPEC {'rounds': 1216, 'drafted': 3648, 'accepted': 1403, 'new_tokens': 2619}
+Stage1 inference...:  67%|██████▋   | 2/3 [01:33<00:46, 46.61s/it]SPEC {'rounds': 1250, 'drafted': 3750, 'accepted': 1369, 'new_tokens': 2619}
+TIMING {"start": 0.0, "stage1_done": 225.2, "stage2_start": 235.4, "stage2_done": 292.5, "end": 299.4}
+[22:40:49] stage 1 spec (k=4), stage 2 batched
+SPEC {'rounds': 1307, 'drafted': 5228, 'accepted': 1478, 'new_tokens': 2785}
+Stage1 inference...:  67%|██████▋   | 2/3 [01:47<00:53, 53.89s/it]SPEC {'rounds': 1424, 'drafted': 5695, 'accepted': 1576, 'new_tokens': 3000}
+TIMING {"start": 0.0, "stage1_done": 273.7, "stage2_start": 284.1, "stage2_done": 342.8, "end": 350.5}
+[22:46:46] YUE_FAST_DONE

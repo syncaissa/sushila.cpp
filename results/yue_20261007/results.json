@@ -1,0 +1,50 @@
+{
+ "work_dir": "/workspace/yue",
+ "runs": {
+  "official": {
+   "stage1_s": 370.2,
+   "stage2_s": 821.9,
+   "total_s": 1209.7,
+   "label": "official YuE infer.py",
+   "speedup": 1.0
+  },
+  "fast_batched_k0": {
+   "stage1_s": 202.4,
+   "stage2_s": 108.9,
+   "total_s": 329.3,
+   "label": "exact: KV cache + batched rows + batched guidance (eager)",
+   "speedup": 3.67
+  },
+  "fast_batched_k0_graphs": {
+   "stage1_s": 187.1,
+   "stage2_s": 57.9,
+   "total_s": 263.0,
+   "label": "exact: as above + static caches and CUDA graphs",
+   "speedup": 4.6
+  },
+  "fast_spec_k3_graphs": {
+   "stage1_s": 225.2,
+   "stage2_s": 57.1,
+   "total_s": 299.4,
+   "label": "same distribution: + speculative sampling, 0.5B draft, k=3",
+   "speedup": 4.04
+  },
+  "fast_spec_k4_graphs": {
+   "stage1_s": 273.7,
+   "stage2_s": 58.7,
+   "total_s": 350.5,
+   "label": "same distribution: + speculative sampling, 0.5B draft, k=4",
+   "speedup": 3.45
+  }
+ },
+ "checks": {
+  "graphs_vs_eager": {
+   "m-a-p/YuE-s1-0.5B": 0.0,
+   "m-a-p/YuE-s1-7B-anneal-en-cot": 0.0
+  }
+ },
+ "yue_commit": "6d4f0b1f8ce6a55fb2392e959394c46e07ee334d",
+ "xcodec_commit": "fe781a67815ab47b4a3a5fce1e8d0a692da7e4e5",
+ "models": "Fetching 12 files:   0%|          | 0/12 [00:00<?, ?it/s]\nFetching 12 files:  67%|\u2588\u2588\u2588\u2588\u2588\u2588\u258b   | 8/12 [00:00<00:00, 23.15it/s]\nFetching 12 files:  75%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c  | 9/12 [00:20<00:06,  2.22s/it]\nFetching 12 files:  83%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e | 10/12 [00:21<00:04,  2.17s/it]\nFetching 12 files:  92%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f| 11/12 [00:22<00:02,  2.04s/it]\nFetching 12 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 12/12 [00:23<00:00,  1.95s/it]\nFetching 12 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 12/12 [00:23<00:00,  1.95s/it]\nm-a-p/YuE-s1-7B-anneal-en-cot /root/.cache/huggingface/hub/models--m-a-p--YuE-s1-7B-anneal-en-cot/snapshots/454c20e1748888800f8e4b3da45125f55482d967\n\nFetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]\nFetching 9 files:  89%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589 | 8/9 [00:00<00:00, 14.63it/s]\nFetching 9 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 9/9 [00:07<00:00,  1.20it/s]\nm-a-p/YuE-s2-1B-general /root/.cache/huggingface/hub/models--m-a-p--YuE-s2-1B-general/snapshots/9dfa90b7013f6b5e7eb5eb2991620dca33058a0e\n\nFetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]\nFetching 9 files:  89%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589 | 8/9 [00:00<00:00, 10.19it/s]\nFetching 9 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 9/9 [00:02<00:00,  3.10it/s]\nm-a-p/YuE-s1-0.5B /root/.cache/huggingface/hub/models--m-a-p--YuE-s1-0.5B/snapshots/65b4514ee5d821275cf4204f307425ed94fb936e",
+ "checks_pass": false
+}

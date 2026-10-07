@@ -88,10 +88,10 @@ const RESULTS = [
   ['Z-Image-Turbo', 'images', 'stable-diffusion.cpp, RTX 4090', '', '', '1.10×', 'cache plan (SSIM 0.98)'],
   ['Wan 2.2 TI2V-5B', 'video', 'stable-diffusion.cpp, RTX 4090', '892 s/clip', '542 s/clip', '1.65×', 'cache plan (frame SSIM 0.93), 720p 5 s'],
   ['ACE-Step 1.5', 'music', 'acestep.cpp, RTX 4090', '5.16 s/song', '4.05 s/song', '1.27×', 'faster sampler (same distribution)'],
+  ['YuE v1 (long songs)', 'music', 'official YuE code, RTX 4090', '1,210 s/song', '263 s/song', '4.60×', 'exact runner: one cache, batching, CUDA graphs (same distribution)'],
 ];
-const RESULTS_AVG = [['Average, 8 text models', '2.58×', 'geometric mean 2.35×'], ['Average, all 12 models', '2.16×', 'geometric mean 1.93×']];
+const RESULTS_AVG = [['Average, 8 text models', '2.58×', 'geometric mean 2.35×'], ['Average, all 13 models', '2.35×', 'geometric mean 2.06×']];
 const RESULTS_MORE = [
-  ['YuE (long songs, in progress)', 'music', 'official YuE code, RTX 4090', '1,213 s/song', '325 s/song', '3.73×', 'exact batched runner; draft model next'],
   ['Qwen3 235B-A22B (out of scope)', 'chat (MoE)', 'Ollama, 2× A100', '', '', '0.73×', 'draft heads slow it; SGLang alone 1.25×'],
 ];
 

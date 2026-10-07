@@ -1,0 +1,3 @@
+[22:25:25] graph check m-a-p/YuE-s1-0.5B: {"model": "m-a-p/YuE-s1-0.5B", "max_abs_logit_diff": 0.0, "argmax_agree": "80/80", "eager_ms_T1": 20.97, "graph_ms_T1": 3.71, "eager_ms_T4": 20.46, "graph_ms_T4": 3.66}
+[22:25:38] graph check m-a-p/YuE-s1-7B-anneal-en-cot: {"model": "m-a-p/YuE-s1-7B-anneal-en-cot", "max_abs_logit_diff": 0.0, "argmax_agree": "80/80", "eager_ms_T1": 29.55, "graph_ms_T1": 17.5, "eager_ms_T4": 30.17, "graph_ms_T4": 17.8}
+[22:46:46] YUE_FINAL_DONE

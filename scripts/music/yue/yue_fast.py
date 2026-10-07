@@ -162,8 +162,9 @@ class _Pair:
         self.cache.crop(keep); self.mask = self.mask[:, :keep]; self.nextpos = self.nextpos - n
 
 
-def _probs(lc, lu, g, seen, n_new, args):
-    """one position: conditional and unconditional logits -> the sampling distribution (float32, full vocabulary)"""
+def _probs_ref(lc, lu, g, seen, n_new, args):
+    """one position: conditional and unconditional logits -> the sampling distribution (float32, full vocabulary).
+    The reference: a full sort for top-p (kept to check _probs against)."""
     s = g * (torch.log_softmax(lc, -1) - torch.log_softmax(lu, -1)) + torch.log_softmax(lu, -1)
     s = torch.where(seen, torch.where(s < 0, s * args['rp'], s / args['rp']), s)
     if n_new < args['min_new']:
@@ -175,6 +176,32 @@ def _probs(lc, lu, g, seen, n_new, args):
     rm = (torch.cumsum(sp, 0) - sp) > args['top_p']; rm[0] = False
     p = p.clone(); p[si[rm]] = 0.0
     return p / p.sum()
+
+
+TOPK = 2048  # YuE's nucleus is ~5 tokens (median); a nucleus wider than this falls back to the full sort (exact either way)
+
+
+def _probs(lc, lu, g, seen, n_new, args):
+    """The same distribution as _probs_ref without a full sort or any host sync: top-p over the TOPK largest
+    probabilities. Returns (p, covered): covered (a GPU bool) says the nucleus fit in TOPK; when it did not, the caller
+    discards its draw and redraws from _probs_ref, so the tokens follow exactly the same distribution."""
+    lsu = torch.log_softmax(lu, -1)
+    s = g * (torch.log_softmax(lc, -1) - lsu) + lsu
+    s = torch.where(seen, torch.where(s < 0, s * args['rp'], s / args['rp']), s)
+    mk = args.setdefault('_masks', {})
+    key = n_new < args['min_new']
+    if key not in mk:
+        m = torch.zeros(s.shape[-1], dtype=torch.bool, device=s.device)
+        m[args['block_lo']:args['block_hi']] = True
+        if key: m[args['eoa']] = True
+        mk[key] = m
+    s = s.masked_fill(mk[key], -float('inf')) / args['temperature']
+    p = torch.softmax(s, -1)
+    vals, idx = torch.topk(p, min(TOPK, p.shape[-1]))
+    before = torch.cumsum(vals, 0) - vals
+    keep = before <= args['top_p']; keep[0] = True
+    q = torch.zeros_like(p).scatter_(0, idx, vals * keep)
+    return q / q.sum(), before[-1] > args['top_p']  # covered: the last of the TOPK is already outside the nucleus
 
 
 @torch.no_grad()
@@ -192,49 +219,63 @@ def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, d
     T = mk(model)
     D = mk(draft) if draft is not None else None
     out = []
-    draw = lambda p: int(torch.multinomial(p, 1, generator=gen))
-    pT = _probs(T.last[0], T.last[1], guidance, seen, 0, args)
+    def draw(pc, ref):  # pc = (p, covered) from _probs; ref() recomputes the reference distribution if not covered
+        p, covered = pc
+        t, ok = torch.multinomial(p, 1, generator=gen), covered
+        t, ok = int(t), bool(ok)  # one host sync per token
+        if not ok:
+            stats_fb[0] += 1
+            t = int(torch.multinomial(ref(), 1, generator=gen))
+        return t
+    stats_fb = [0]
+    draw1 = lambda p: int(torch.multinomial(p, 1, generator=gen))
+    probs = lambda lc, lu, sn, n: _probs(lc, lu, guidance, sn, n, args)
+    ref = lambda lc, lu, sn, n: (lambda: _probs_ref(lc, lu, guidance, sn, n, args))
+    if D is None:
+        pT = probs(T.last[0], T.last[1], seen, 0); refT = ref(T.last[0], T.last[1], seen, 0)
+    else:
+        pT = _probs_ref(T.last[0], T.last[1], guidance, seen, 0, args)
     rounds = drafted = accepted = 0
     while len(out) < max_new:
         if D is None:  # plain sampling, guidance batched with the conditional pass
-            t = draw(pT); out.append(t); seen[t] = True
+            t = draw(pT, refT); out.append(t); seen[t] = True
             if t == eoa or len(out) >= max_new: break
             lg = T.feed(torch.tensor([t], device=input_ids.device))[:, -1]
-            pT = _probs(lg[0], lg[1], guidance, seen, len(out), args)
+            pT = probs(lg[0], lg[1], seen, len(out)); refT = ref(lg[0], lg[1], seen, len(out))
             continue
         # speculative round: pT is the target's distribution for the next token; the draft proposes up to k tokens
         kk = min(k, max_new - len(out))
         qs, ds, seen_d = [], [], seen.clone()
-        qd = _probs(D.last[0, :V] if D.last.shape[-1] >= V else torch.nn.functional.pad(D.last[0], (0, V - D.last.shape[-1]), value=-1e4),
+        qd = _probs_ref(D.last[0, :V] if D.last.shape[-1] >= V else torch.nn.functional.pad(D.last[0], (0, V - D.last.shape[-1]), value=-1e4),
                     D.last[1, :V] if D.last.shape[-1] >= V else torch.nn.functional.pad(D.last[1], (0, V - D.last.shape[-1]), value=-1e4),
                     guidance, seen_d, len(out), args)
         for j in range(kk):
-            d = draw(qd); qs.append(qd); ds.append(d); seen_d[d] = True
+            d = draw1(qd); qs.append(qd); ds.append(d); seen_d[d] = True
             if d == eoa or j == kk - 1: break
             lg = D.feed(torch.tensor([d], device=input_ids.device))[:, -1]
             if lg.shape[-1] < V: lg = torch.nn.functional.pad(lg, (0, V - lg.shape[-1]), value=-1e4)
-            qd = _probs(lg[0], lg[1], guidance, seen_d, len(out) + len(ds), args)
+            qd = _probs_ref(lg[0], lg[1], guidance, seen_d, len(out) + len(ds), args)
         # verify all drafts in one target pass: logits after each draft
         lgT = T.feed(torch.tensor(ds, device=input_ids.device))  # [2, n, V]
         n = len(ds); acc = 0; nxt = None; p = pT
         for j in range(n):
             if j > 0:
                 seen[ds[j - 1]] = True
-                p = _probs(lgT[0, j - 1], lgT[1, j - 1], guidance, seen, len(out) + j, args)
+                p = _probs_ref(lgT[0, j - 1], lgT[1, j - 1], guidance, seen, len(out) + j, args)
             q = qs[j]; d = ds[j]
             if torch.rand((), generator=gen, device=input_ids.device) * q[d] <= p[d]:
                 acc += 1
                 continue
             r = (p - q).clamp_min(0); z = r.sum()
-            nxt = draw(r / z if z > 0 else p)
+            nxt = draw1(r / z if z > 0 else p)
             break
         rounds += 1; drafted += n; accepted += acc
         out.extend(ds[:acc])
         if acc == n:  # all accepted: the bonus token comes from the target's distribution after the last draft
             seen[ds[-1]] = True
-            p = _probs(lgT[0, n - 1], lgT[1, n - 1], guidance, seen, len(out), args)
+            p = _probs_ref(lgT[0, n - 1], lgT[1, n - 1], guidance, seen, len(out), args)
             if ds[-1] != eoa:
-                nxt = draw(p)
+                nxt = draw1(p)
         if eoa in ds[:acc]:
             out = out[:out.index(eoa) + 1]; break
         T.rollback(n - acc)
@@ -248,9 +289,9 @@ def stage1_generate(model, input_ids, guidance, max_new, min_new, eoa, pad_id, d
             D.feed(torch.tensor([ds[-1]], device=input_ids.device))
         lgD = D.feed(torch.tensor([nxt], device=input_ids.device))[:, -1]; D.last = lgD
         lg = T.feed(torch.tensor([nxt], device=input_ids.device))[:, -1]
-        pT = _probs(lg[0], lg[1], guidance, seen, len(out), args)
+        pT = _probs_ref(lg[0], lg[1], guidance, seen, len(out), args)
     if stats is not None:
-        stats.update({'rounds': rounds, 'drafted': drafted, 'accepted': accepted, 'new_tokens': len(out)})
+        stats.update({'rounds': rounds, 'drafted': drafted, 'accepted': accepted, 'new_tokens': len(out), 'topk_fallbacks': stats_fb[0]})
     return torch.cat([input_ids, torch.tensor([out], device=input_ids.device, dtype=input_ids.dtype)], 1)
 
 
@@ -273,7 +314,8 @@ class StaticRows:
         self.valid = torch.zeros((R, self.max_len), dtype=torch.bool, device=self.dev); self.valid[:, :L] = mask.bool()
         m2 = torch.zeros((R, self.max_len), dtype=torch.long, device=self.dev); m2[:, :L] = mask
         out = model(input_ids=ids, attention_mask=m2, position_ids=(mask.cumsum(-1) - 1).clamp_min(0),
-                    cache_position=torch.arange(L, device=self.dev), past_key_values=self.cache, use_cache=True)
+                    cache_position=torch.arange(L, device=self.dev), past_key_values=self.cache, use_cache=True,
+                    num_logits_to_keep=1)  # only the last position's logits (the full [R, L, V] tensor does not fit for long rows)
         self.last = out.logits[:, -1, :].float()
         self.pos = ((mask.cumsum(-1) - 1).clamp_min(0))[:, -1:] + 1  # next position id per row [R, 1]
         self.p = L  # next cache slot
