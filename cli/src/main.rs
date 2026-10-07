@@ -464,6 +464,8 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             ctx.install_pack(pack).await?; steps.push("pack installed (signed index, every sha256 checked)".into());
             let bad = ctx.verify_pack(pack)?; if !bad.is_empty() { return Err(format!("verify: {}", bad.join(", "))); }
             steps.push("pack verified".into());
+            std::env::set_var("SUSHILA_ENGINE_LOG_LEVEL", "4");  // so the GPU check below can read "offloaded N/M layers to GPU"
+            ctx.stop_model(pack).await;
             let port = ctx.start_model(pack, None).await?; steps.push("model started and healthy".into());
             let t1 = std::time::Instant::now();
             let r = jobs::run("text", pack, port, &json!({ "prompt": "Reply with one word: hello", "max_tokens": 32, "temperature": 0 }), None, |_| {}).await;
@@ -481,7 +483,7 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             let layers = log_text.lines().rev().find_map(|l| { let i = l.find("offloaded ")?; if !l.contains("layers to GPU") { return None; }
                 let f = l[i + 10..].split_whitespace().next()?; let (a, b) = f.split_once('/')?; Some((a.parse::<u32>().ok()?, b.parse::<u32>().ok()?)) });
             if let Some(g) = &found {
-                if !on_gpu_build { return Err(format!("GPU check: this computer has a GPU ({g}) but the CPU engine ({key}) is installed; run `sushila engine install --build vulkan` or report this")); }
+                if !on_gpu_build { return Err(format!("GPU check: this computer has a GPU ({g}) but the CPU engine ({key}) is installed; run `sushila engine install` (it picks the build for this GPU: CUDA on NVIDIA, Vulkan on AMD/Intel, Metal on Apple) and run the test again")); }
                 match layers {
                     Some((a, b)) if a < b => return Err(format!("GPU check: only {a} of {b} layers ran on the GPU ({g}); the model should fit entirely")),
                     Some((a, b)) => steps.push(format!("GPU used: {a}/{b} layers on {g}")),

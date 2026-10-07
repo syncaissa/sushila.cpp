@@ -12,12 +12,6 @@ const PACK_EXT: [&str; 7] = [".gguf", ".safetensors", ".json", ".mclp", ".mclk",
 
 /// The data folder: the same one the desktop app uses (ai.sushila.hoststation), so packs installed with either show up
 /// in both. SUSHILA_HOME or --data-dir chooses another (e.g. /var/lib/sushila on a server).
-/// The application folder when nothing else says otherwise (main resolves the real one with locate::resolve).
-pub fn default_data_dir() -> PathBuf {
-    if let Ok(h) = std::env::var("SUSHILA_HOME") { if !h.is_empty() { return PathBuf::from(h); } }
-    crate::locate::os_default()
-}
-
 pub struct Ctx {
     pub data: PathBuf,
     /// The model-packs folder: one folder per pack (see packs_dir_for).
@@ -600,7 +594,10 @@ impl Ctx {
                 let ngl = self.setting("gpuLayers").as_i64().unwrap_or(-1);
                 (self.state["engine"]["server"].as_str().unwrap_or("").into(),
                  [vec!["-m".into(), join_rel(&dir, p["model"].as_str().unwrap_or("")).to_string_lossy().into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string(),
-                       "-t".into(), threads.to_string(), "-c".into(), (ctx * par).to_string(), "-np".into(), par.to_string(), "-ngl".into(), if ngl < 0 { "auto".into() } else { ngl.to_string() }], pack_args].concat())
+                       "-t".into(), threads.to_string(), "-c".into(), (ctx * par).to_string(), "-np".into(), par.to_string(), "-ngl".into(), if ngl < 0 { "auto".into() } else { ngl.to_string() }],
+                       // selftest asks for the engine's load log (level 4 prints "offloaded N/M layers to GPU")
+                       std::env::var("SUSHILA_ENGINE_LOG_LEVEL").ok().filter(|v| v.parse::<u8>().is_ok()).map(|v| vec!["-lv".into(), v]).unwrap_or_default(),
+                       pack_args].concat())
             }
         };
         let mut c = command(&program, &args);
