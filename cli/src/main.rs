@@ -752,7 +752,7 @@ Typed in the server window: any of these commands (without \"sushila\" if you li
   Up/Down  earlier lines    Esc  clear the line    !<command>  a command of the system shell (e.g. !dir, !ls)
 Scroll up with the mouse wheel or the scroll bar: everything stays in the window.
 Copy any text: select it with the mouse, then right-click (or Enter); paste: right-click or Ctrl+V (Windows console: also the window menu, Edit).
-The scrolling line at the bottom shows every command in turn: ticker off hides it, ticker on shows it again.\n"
+While a line is being processed the input line shows \"processing request...\" (Ctrl+C cancels a command).\n"
 }
 fn url_banner(u: &Value) -> String {
     let mut b = format!("\n==============================================================\n Sushila {} is running\n   Inference:      {}\n   Admin:          {}   (this computer only)\n   Documentation:  {}\n   API (OpenAI):   {}\n",

@@ -69,7 +69,7 @@ the image runtime) above the input line: the whole job's percentage, then the cu
 the addresses); any text can be selected with the mouse and copied with a right-click (or Enter), and pasted with a
 right-click or Ctrl+V (Windows console: also the window menu, Edit). Downloads show a bar that fills as they go.
 Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal: Ctrl+C in this window stops the server.
-The bottom line of the window is a scrolling ticker: one sentence for every command, with live news in between (models
+Optional (off unless `sushila config set ticker on`): the bottom line of the window is a scrolling ticker: one sentence for every command, with live news in between (models
 running, queue progress, GPU memory). It has no keys of its own. `ticker off` hides it in this window;
 `sushila config set ticker off` keeps it off.
 

@@ -35,9 +35,9 @@ enum Esc { None, Start, Csi, Osc(String), OscEnd(String) }
 /// waiting for its answer, or a line rewritten with \r) is `open`. Escape sequences are removed (OSC 52, the clipboard,
 /// is passed on; OSC 7770 is a progress event), blank lines are dropped.
 /// `bar`: the open line is rewritten with \r, so lines from the screen go before it; otherwise (a question) after it.
-pub struct Pane { pub lines: Vec<Line>, pub open: Option<String>, bar: bool, cr: bool, esc: Esc, utf: Vec<u8>, pub clipboard: Vec<String>, pub progress: Vec<serde_json::Value> }
+pub struct Pane { pub lines: Vec<Line>, pub open: Option<String>, bar: bool, cr: bool, esc: Esc, utf: Vec<u8>, pub clipboard: Vec<String>, pub progress: Vec<serde_json::Value>, pub signals: Vec<String> }
 impl Pane {
-    pub fn new() -> Self { Pane { lines: vec![], open: None, bar: false, cr: false, esc: Esc::None, utf: vec![], clipboard: vec![], progress: vec![] } }
+    pub fn new() -> Self { Pane { lines: vec![], open: None, bar: false, cr: false, esc: Esc::None, utf: vec![], clipboard: vec![], progress: vec![], signals: vec![] } }
     pub fn feed(&mut self, bytes: &[u8]) {
         self.utf.extend_from_slice(bytes);
         let text = match std::str::from_utf8(&self.utf) {
@@ -68,6 +68,8 @@ impl Pane {
     fn osc(&mut self, o: String) {
         if o.starts_with("52;") { self.clipboard.push(o); }
         else if let Some(j) = o.strip_prefix("7770;") { if let Ok(v) = serde_json::from_str(j) { self.progress.push(v); } }
+        // OSC 7771: the server's window loop: "idle" (ready for the next line) or "ask" (waits for an answer)
+        else if let Some(x) = o.strip_prefix("7771;") { self.signals.push(x.to_string()); }
     }
     fn push(&mut self, c: char) {
         // a line started or rewritten after \r is a progress line
@@ -110,6 +112,9 @@ struct Screen {
     rx: mpsc::Receiver<Ev>, tx: mpsc::Sender<Ev>, out: std::io::Stdout, stopping: bool,
     ready: bool,  // the server reads typed lines (its address banner was shown)
     bars: Vec<(String, String, Option<f64>, Instant)>,  // progress rows above the input line: id, text, fraction, last update
+    busy: Option<Instant>,  // a typed line is being processed (until the server says it is done)
+    spin: Instant,
+    queue: std::collections::VecDeque<String>,  // lines entered while busy: run in order when it is done
 }
 
 impl Screen {
@@ -152,9 +157,25 @@ impl Screen {
         while before - skipped >= space && start < self.pos { skipped += shown[start].width().unwrap_or(0); start += 1; }
         let mut vis = String::new(); let mut w = 0;
         for c in &shown[start..] { let cw = c.width().unwrap_or(0); if w + cw > space { break; } vis.push(*c); w += cw; }
-        let _ = queue!(o, style::SetForegroundColor(style::Color::Cyan), style::SetAttribute(style::Attribute::Bold), style::Print(&prompt),
-            style::SetAttribute(style::Attribute::Reset), style::ResetColor, style::Print(&vis));
-        let col = (width(&prompt) + before - skipped) as u16;
+        let busy = self.busy.map(|t| t.elapsed().as_secs());
+        let mut busy_col = 0u16;
+        if let Some(secs) = busy {
+            const SPIN: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+            let f = (self.spin.duration_since(self.busy.unwrap()).as_millis() / 150) as usize % SPIN.len();
+            let q = if self.queue.is_empty() { String::new() } else { format!(", {} waiting", self.queue.len()) };
+            let msg = format!("{} processing request... {secs} s (Ctrl+C cancels{q}) > ", SPIN[f]);
+            let typed: String = self.input.iter().collect();
+            let line = cut(&format!("{msg}{typed}"), cols - 1);
+            let mw = width(&msg).min(width(&line));
+            let (m, t): (String, String) = (line.chars().take(msg.chars().count().min(line.chars().count())).collect(), line.chars().skip(msg.chars().count()).collect());
+            let _ = queue!(o, style::SetForegroundColor(style::Color::Yellow), style::SetAttribute(style::Attribute::Bold), style::Print(m),
+                style::SetAttribute(style::Attribute::Reset), style::ResetColor, style::Print(&t));
+            busy_col = mw.saturating_add(width(&t)).min(cols - 1) as u16;
+        } else {
+            let _ = queue!(o, style::SetForegroundColor(style::Color::Cyan), style::SetAttribute(style::Attribute::Bold), style::Print(&prompt),
+                style::SetAttribute(style::Attribute::Reset), style::ResetColor, style::Print(&vis));
+        }
+        let col = if busy.is_some() { busy_col } else { (width(&prompt) + before - skipped) as u16 };
         if self.ticker_on && rows >= 5 {
             let text = self.ticker_text(cols);
             let _ = queue!(self.out, style::Print("\r\n"), style::SetAttribute(style::Attribute::Reverse), style::Print(text), style::SetAttribute(style::Attribute::Reset), cursor::MoveUp(1));
@@ -169,7 +190,7 @@ impl Screen {
             self.port_read = Instant::now();
             let st = crate::webserver::read_state(&self.data);
             self.port = st["owner"]["port"].as_u64().or(st["settings"]["port"].as_u64()).unwrap_or(8765) as u16;
-            if crate::ticker::off_setting(&st["settings"]["ticker"]) { self.ticker_on = false; }
+            if !crate::ticker::on_setting(&st["settings"]["ticker"]) { self.ticker_on = false; }
         }
         self.feed.next(self.port, cols - 1, std::mem::take(&mut self.step))
     }
@@ -192,6 +213,15 @@ impl Screen {
                         match self.bars.iter_mut().find(|b| b.0 == id) { Some(b) => { b.1 = text; b.2 = frac; b.3 = Instant::now(); } None => self.bars.push((id, text, frac, Instant::now())) }
                     }
                     if !self.ready && self.pane.lines.iter().any(|l| l.text.contains(" is running")) { self.ready = true; }
+                    for sig in std::mem::take(&mut self.pane.signals) { if sig == "idle" { self.ready = true; } self.busy = None; }
+                    // done: the next line typed ahead runs now
+                    if self.busy.is_none() && self.secret.is_none() {
+                        if let Some(next) = self.queue.pop_front() {
+                            let keep = std::mem::replace(&mut self.input, next.chars().collect());
+                            if let Some(g) = self.submit(stdin.as_deref_mut()) { got = Some(g); }
+                            self.input = keep; self.pos = self.pos.min(self.input.len());
+                        }
+                    }
                 }
                 Ev::OutEnd => {}
                 Ev::Key(Event::Resize(..)) => self.dirty = true,
@@ -211,6 +241,8 @@ impl Screen {
             }
         }
         for o in std::mem::take(&mut self.pane.clipboard) { let _ = write!(self.out, "\x1b]{o}\x07"); }
+        // while busy the message moves (spinner and seconds), so it is clear the window is working
+        if self.busy.is_some() && self.spin.elapsed() >= Duration::from_millis(150) { self.spin = Instant::now(); self.dirty = true; }
         // the ticker moves one character every 0.44 s, however often the rows are drawn
         if self.ticker_on && self.tick.elapsed() >= TICK { self.tick = Instant::now(); self.step = true; self.dirty = true; }
         if self.dirty { self.render(); }
@@ -218,6 +250,21 @@ impl Screen {
     }
     fn key(&mut self, k: event::KeyEvent, stdin: Option<&mut std::process::ChildStdin>) -> Option<Got> {
         let ctrl = k.modifiers == KeyModifiers::CONTROL;
+        // processing: typing goes on (shown after the message); Enter queues the line, it runs when this one is done;
+        // Ctrl+C cancels the running command (the server's window loop sees the file)
+        if self.busy.is_some() {
+            if ctrl && k.code == KeyCode::Char('c') {
+                let _ = std::fs::write(self.data.join("window-cancel"), "");
+                self.note("cancelling... (a command is stopped; an answer that is being written ends by itself in a moment)");
+                return None;
+            }
+            if k.code == KeyCode::Enter {
+                let l: String = std::mem::take(&mut self.input).into_iter().collect();
+                self.pos = 0;
+                if !l.trim().is_empty() { self.queue.push_back(l.trim().to_string()); }
+                return None;
+            }
+        }
         match k.code {
             KeyCode::Char('c') if ctrl => { if !self.input.is_empty() { self.input.clear(); self.pos = 0; return None; } return Some(Got::Stop); }
             KeyCode::Char('u') if ctrl => { self.input.drain(..self.pos); self.pos = 0; }
@@ -261,6 +308,7 @@ impl Screen {
             _ => match stdin {
                 Some(i) => {
                     if !self.ready { self.note("the server is still starting: this runs as soon as it is up"); }
+                    self.busy = Some(Instant::now());
                     if i.write_all(format!("{t}\n").as_bytes()).and_then(|_| i.flush()).is_err() { self.note("the server is not reading input right now; try again in a moment"); }
                 }
                 None => self.note("the server is not running right now; try again in a moment"),
@@ -313,9 +361,9 @@ pub fn supervise(data: PathBuf, exe: PathBuf, args: Vec<String>) -> Option<ExitC
     let (tx, rx) = mpsc::channel();
     { let tx = tx.clone(); std::thread::spawn(move || loop { match event::read() { Ok(e) => { if tx.send(Ev::Key(e)).is_err() { return; } } Err(_) => std::thread::sleep(Duration::from_millis(50)) } }); }
     let mut s = Screen { pane: Pane::new(), input: vec![], pos: 0, history: vec![], hpos: None, secret: None,
-        feed: crate::ticker::Feed::new(data.clone()), ticker_on: !crate::ticker::off_setting(&crate::webserver::read_state(&data)["settings"]["ticker"]),
+        feed: crate::ticker::Feed::new(data.clone()), ticker_on: crate::ticker::on_setting(&crate::webserver::read_state(&data)["settings"]["ticker"]),
         port: 8765, data: data.clone(), up: 0, dirty: true, tick: Instant::now(), port_read: Instant::now() - Duration::from_secs(60), step: false,
-        rx, tx, out: std::io::stdout(), stopping: false, ready: false, bars: vec![] };
+        rx, tx, out: std::io::stdout(), stopping: false, ready: false, bars: vec![], busy: None, spin: Instant::now(), queue: Default::default() };
     s.note(&format!("Sushila {}: starting the server. Type a command or a question below; ? lists the important commands.", env!("CARGO_PKG_VERSION")));
     let code = run(&mut s, &data, &exe, &args);
     s.close();

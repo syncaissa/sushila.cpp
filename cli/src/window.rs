@@ -136,14 +136,13 @@ fn show(a: &[String]) -> String { std::iter::once("sushila".to_string()).chain(a
 fn run(exe: &Path, args: &[String]) {
     crate::core::log(true, &format!("[window] ran: {}", show(args)));
     if crate::tui::in_screen() {
-        let what = show(args);
-        match std::process::Command::new(exe).args(args).stdin(std::process::Stdio::null()).spawn() {
-            Ok(mut c) => { std::thread::spawn(move || match c.wait() {
-                Ok(s) if s.success() => eprintln!("(finished: {what})"),
-                Ok(s) => eprintln!("({what} ended with {s})"),
-                Err(e) => eprintln!("({what}: {e})"),
-            }); }
+        let mut c = std::process::Command::new(exe);
+        c.args(args).stdin(std::process::Stdio::null());
+        match wait_or_cancel(c) {
+            Ok(Some(s)) if !s.success() => eprintln!("({} ended with {s})", show(args)),
+            Ok(None) => eprintln!("(cancelled: {})", show(args)),
             Err(e) => eprintln!("could not run it: {e}"),
+            _ => {}
         }
         return;
     }
@@ -194,8 +193,19 @@ fn shell(cmd: &str, dir: &Path) {
     let mut c = if cfg!(windows) { let mut c = std::process::Command::new("cmd"); c.args(["/C", cmd]); c } else { let mut c = std::process::Command::new("sh"); c.args(["-c", cmd]); c };
     c.current_dir(dir).stdin(std::process::Stdio::null());
     if crate::tui::in_screen() {
-        match c.spawn() { Ok(mut ch) => { std::thread::spawn(move || { let _ = ch.wait(); }); } Err(e) => eprintln!("could not run it: {e}") }
+        match wait_or_cancel(c) { Ok(None) => eprintln!("(cancelled)"), Err(e) => eprintln!("could not run it: {e}"), _ => {} }
     } else { let _ = c.status(); }
+}
+/// Under the screen: runs the command and waits, unless Ctrl+C there asks to cancel (the file window-cancel in the
+/// home folder): then the command is stopped. Ok(None) = cancelled.
+fn wait_or_cancel(mut c: std::process::Command) -> std::io::Result<Option<std::process::ExitStatus>> {
+    let cancel = PathBuf::from(std::env::var("SUSHILA_HOME").unwrap_or_default()).join("window-cancel");
+    let mut ch = c.spawn()?;
+    loop {
+        if let Some(s) = ch.try_wait()? { return Ok(Some(s)); }
+        if cancel.exists() { let _ = std::fs::remove_file(&cancel); let _ = ch.kill(); let _ = ch.wait(); return Ok(None); }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
 }
 
 /// The clipboard's text (Windows PowerShell Get-Clipboard, macOS pbpaste, Linux wl-paste, xclip or xsel); "" if none.
@@ -214,6 +224,7 @@ pub struct Window { pub exe: PathBuf, pub data: PathBuf, pub port: u16, pub rt: 
 impl Window {
     fn ask(&self, lines: &mut dyn Iterator<Item = std::io::Result<String>>, prompt: &str) -> String {
         eprint!("{prompt}"); let _ = std::io::stderr().flush();
+        signal("ask");
         lines.next().and_then(|l| l.ok()).unwrap_or_default().trim().to_string()
     }
     fn confirm(&self, lines: &mut dyn Iterator<Item = std::io::Result<String>>, prompt: &str) -> bool {
@@ -315,10 +326,16 @@ impl Window {
 }
 
 /// The reader thread's loop (stdin of the server's window).
+/// Tells the screen (tui.rs) where the window loop is: "idle" = ready for the next line, "ask" = waits for an answer.
+pub fn signal(state: &str) { if crate::tui::in_screen() { eprint!("\x1b]7771;{state}\x07"); let _ = std::io::stderr().flush(); } }
+
 pub fn read_loop(w: Window, banner: String) {
     let stdin = std::io::stdin();
     let mut lines = stdin.lock().lines();
     crate::ticker::prompt();
+    let cancel = w.data.join("window-cancel");
+    let _ = std::fs::remove_file(&cancel);
+    signal("idle");
     while let Some(Ok(line)) = lines.next() {
         match line.trim().to_lowercase().as_str() {
             "" => {}
@@ -335,6 +352,8 @@ pub fn read_loop(w: Window, banner: String) {
             "stop" | "quit" | "exit" | "q" => { eprintln!("stopping..."); let _ = std::fs::write(w.data.join("shutdown-request.json"), "{}"); break; }
             _ => w.line(&line, &mut lines),
         }
+        let _ = std::fs::remove_file(&cancel);
+        signal("idle");
         crate::ticker::prompt();
     }
 }

@@ -691,8 +691,8 @@ async fn config(ctx: &mut Ctx, act: &crate::ConfigCmd, j: bool) -> Result<(), St
     refresh(ctx);
     match act {
         crate::ConfigCmd::List => {
-            let v: Value = SETTINGS.iter().map(|s| (s.0.to_string(), ctx.setting(s.0))).chain([("catalogUrl".to_string(), ctx.setting("catalogUrl")), ("ticker".to_string(), json!(if crate::ticker::off_setting(&ctx.setting("ticker")) { "off" } else { "on" }))]).collect::<serde_json::Map<_, _>>().into();
-            out(j, v.clone(), || SETTINGS.iter().map(|s| format!("{:<12} {:<8} {}", s.0, ctx.setting(s.0).to_string(), s.1)).chain([format!("{:<12} {}", "catalogUrl", ctx.setting("catalogUrl")), format!("{:<12} {:<8} the scrolling line at the bottom of the server window (on/off)", "ticker", if crate::ticker::off_setting(&ctx.setting("ticker")) { "off" } else { "on" })]).collect::<Vec<_>>().join("\n"));
+            let v: Value = SETTINGS.iter().map(|s| (s.0.to_string(), ctx.setting(s.0))).chain([("catalogUrl".to_string(), ctx.setting("catalogUrl")), ("ticker".to_string(), json!(if crate::ticker::on_setting(&ctx.setting("ticker")) { "on" } else { "off" }))]).collect::<serde_json::Map<_, _>>().into();
+            out(j, v.clone(), || SETTINGS.iter().map(|s| format!("{:<12} {:<8} {}", s.0, ctx.setting(s.0).to_string(), s.1)).chain([format!("{:<12} {}", "catalogUrl", ctx.setting("catalogUrl")), format!("{:<12} {:<8} the scrolling line of tips at the bottom of the server window (off unless set on)", "ticker", if crate::ticker::on_setting(&ctx.setting("ticker")) { "on" } else { "off" })]).collect::<Vec<_>>().join("\n"));
         }
         crate::ConfigCmd::Get { key } => {
             if key != "catalogUrl" && key != "ticker" && !SETTINGS.iter().any(|s| s.0 == key) { return Err(format!("unknown setting {key}; `sushila config list` shows them")); }

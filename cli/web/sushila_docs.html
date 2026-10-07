@@ -188,7 +188,9 @@ Without a terminal (a service, output to a file, <code>SUSHILA_TUI=0</code>) the
 <code>copy</code> puts the last answer of the assistant on the clipboard; <code>copy urls</code> the addresses. Any text can be selected with the mouse
 and copied with a right-click (or Enter), and pasted with a right-click or Ctrl+V; in the Windows console the window menu (click the icon at the top left) also has Edit, Copy and Paste.
 A terminal window cannot hold buttons; the web page has them.</p>
-<p><b>The ticker.</b> The bottom line of the window scrolls, like an LED message board, one short sentence for every command
+<p><b>Processing.</b> After Enter the input line shows a moving "processing request... N s" message in yellow until the line is done; typing waits until then
+(a question from the command, such as [y/N], can be answered). Ctrl+C cancels a running command.</p>
+<p><b>The ticker (optional, off unless <code>sushila config set ticker on</code>).</b> The bottom line of the window scrolls, like an LED message board, one short sentence for every command
 ("To add a new model pack: sushila install &lt;pack&gt; …", with this server's real addresses), with live news in between (models
 running and their mode, the queue's job and progress, GPU memory, requests served). Everything else scrolls above it; download
 progress is kept to one row, with a bar that fills as the download goes, so it never runs into it. It has no keys of its own (every typed line is a command or a question); type <b>?</b> for the important commands.

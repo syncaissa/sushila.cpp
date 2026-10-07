@@ -103,9 +103,10 @@ fn enable_vt() -> bool {
 /// Whether this window can show a ticker at all (a terminal that understands escape sequences, not turned off).
 pub fn wanted(json: bool, quiet: bool, setting: &serde_json::Value) -> bool {
     !crate::tui::in_screen() && !json && !quiet && std::io::IsTerminal::is_terminal(&std::io::stderr()) && std::env::var("TERM").map(|t| t != "dumb").unwrap_or(true)
-        && std::env::var("SUSHILA_TICKER").map(|v| v != "0" && v != "off").unwrap_or(true) && !off_setting(setting)
+        && std::env::var("SUSHILA_TICKER").map(|v| v != "0" && v != "off").unwrap_or(true) && on_setting(setting)
 }
-pub fn off_setting(v: &serde_json::Value) -> bool { v == "off" || *v == false }
+/// The ticker is off unless the setting turns it on (`sushila config set ticker on`).
+pub fn on_setting(v: &serde_json::Value) -> bool { v == "on" || *v == true }
 
 fn emit(s: &str) { let mut e = std::io::stderr().lock(); let _ = e.write_all(s.as_bytes()); let _ = e.flush(); }
 
@@ -288,7 +289,7 @@ pub fn start(dir: std::path::PathBuf, port: u16) {
             if last.elapsed() > Duration::from_secs(5) {
                 last = Instant::now();
                 // `sushila config set ticker off` while the server runs
-                if off_setting(&crate::webserver::read_state(&dir)["settings"]["ticker"]) { ON.store(false, SeqCst); }
+                if !on_setting(&crate::webserver::read_state(&dir)["settings"]["ticker"]) { ON.store(false, SeqCst); }
                 let items = live(&dir, &mut jobs);
                 let mut ui = UI.lock().unwrap();
                 // the live items between the sentences, one every 4, so they come round every half minute or so
@@ -332,7 +333,7 @@ mod tests {
         assert_eq!(window(&m, 0, 8), "abc • ab"); assert_eq!(window(&m, 4, 3), "• a"); assert_eq!(window(&[], 0, 3), "   ");
         assert!(tips(8797).iter().any(|t| t.1.contains("http://localhost:8797/admin")));
         assert_eq!(interleave(&["a".into(), "b".into(), "c".into()], &["L1".into(), "L2".into()], 2), vec!["L1", "a", "b", "L2", "c"]);
-        assert!(off_setting(&serde_json::json!("off")) && off_setting(&serde_json::json!(false)) && !off_setting(&serde_json::json!("on")) && !off_setting(&serde_json::Value::Null));
+        assert!(on_setting(&serde_json::json!("on")) && on_setting(&serde_json::json!(true)) && !on_setting(&serde_json::json!("off")) && !on_setting(&serde_json::Value::Null), "off unless set on");
         assert_eq!(fit("abcdef", 4), "abc…"); assert_eq!(fit("ab", 4), "ab  ");
         assert_eq!(bar(Some(0.5), 10).chars().filter(|&c| c == '█' || c == '#').count(), 5); assert_eq!(bar(None, 10).chars().count(), 12);
     }
