@@ -13,18 +13,23 @@ use tokio::sync::oneshot;
 use crate::net::client;
 
 pub const APP_JS: &str = include_str!("../web/sushila_page.js");
+/// The documentation (one self-contained file; the website can serve the same file).
+pub const DOCS_HTML: &str = include_str!("../web/sushila_docs.html");
 const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sushila Inference</title></head><body><div id="app"></div><script src="/sushila.js"></script></body></html>"#;
 
 // ---------- local web server ----------
 pub struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>>,
-                 sessions: std::sync::Mutex<HashMap<String, std::time::Instant>> }
+                 sessions: std::sync::Mutex<HashMap<String, (std::time::Instant, String)>> }  // session -> (since, which password)
 
 // ---------- the Admin tab: one password per computer
 // <data>/adminpassword holds an Argon2id hash of the admin password (not the password; it cannot be read back). It is
-// created the first time (in the terminal, or on the Admin tab from this computer only). Lost it? Delete the file and
-// restart: the server asks again, so the owner of the machine is never locked out. The sushila commands do not need it:
-// they run as the same user and prove it with <data>/admin-cli.token, a random file only that user can read.
+// created the first time (in the terminal, or on the Admin tab from this computer only). Changing it needs the current
+// password (Admin tab or `sushila password`). Lost it? On this computer: `sushila password --reset` (as the user who owns
+// the data folder), so the owner is never locked out and nobody else can reset it. The sushila commands do not need the
+// password: they run as the same user and prove it with <data>/admin-cli.token, a random file only that user can read.
 pub fn password_set(dir: &Path) -> bool { dir.join("adminpassword").exists() }
+/// Which password a session was made with: a login ends when the password is changed or reset.
+fn password_id(dir: &Path) -> String { std::fs::read(dir.join("adminpassword")).map(|b| hex::encode(Sha256::digest(&b))).unwrap_or_default() }
 pub fn set_password(dir: &Path, pw: &str) -> Result<(), String> {
     use argon2::{password_hash::{PasswordHasher, SaltString}, Argon2};
     if pw.chars().count() < 8 { return Err("the admin password needs at least 8 characters".into()); }
@@ -66,8 +71,8 @@ fn admin_ok(s: &Srv, headers: &axum::http::HeaderMap, st: &Value) -> bool {
     if given.len() < 32 { return false; }
     if given == cli_token(&s.data_dir) { return true; }
     let mut ss = s.sessions.lock().unwrap();
-    if !password_set(&s.data_dir) { ss.clear(); return false; }  // reset (file deleted): sessions of the old password end
-    ss.retain(|_, t| t.elapsed() < Duration::from_secs(12 * 3600));
+    let pid = password_id(&s.data_dir);  // changed or reset: sessions of the old password end
+    ss.retain(|_, (t, p)| t.elapsed() < Duration::from_secs(12 * 3600) && !pid.is_empty() && *p == pid);
     ss.contains_key(given)
 }
 
@@ -404,6 +409,12 @@ async fn srv_install_link(axum::extract::State(s): axum::extract::State<Arc<Srv>
     axum::response::Redirect::to(&format!("/?install={pack}#admin/packs")).into_response()
 }
 
+async fn srv_docs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    ([("content-type", "text/html; charset=utf-8"), ("cache-control", "no-store")], DOCS_HTML).into_response()
+}
+
 /// GET /api/admin: {passwordSet, loggedIn, local}: what the Admin tab should show.
 async fn srv_admin(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
@@ -413,7 +424,7 @@ async fn srv_admin(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
     axum::Json(json!({ "passwordSet": password_set(&s.data_dir), "loggedIn": admin_ok(&s, &headers, &st), "allowed": local_host(&headers, s.port) || remote_ok })).into_response()
 }
 /// POST /api/login {password} -> {session}; POST /api/setup {password}: the first password, only from this computer
-/// and only while none is set; POST /api/logout.
+/// and only while none is set; POST /api/admin/change {current, password} (logged in + the current password); POST /api/admin/logout.
 async fn srv_login(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(what): axum::extract::Path<String>, req: axum::extract::Request) -> axum::response::Response {
     use axum::response::IntoResponse;
     let (parts, body) = req.into_parts();
@@ -422,7 +433,7 @@ async fn srv_login(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum
     if !host_ok(&parts.headers, s.port, &st) || !(local_host(&parts.headers, s.port) || remote_ok) { return (axum::http::StatusCode::FORBIDDEN, "admin is available on this computer only").into_response(); }
     let Ok(bytes) = axum::body::to_bytes(body, 4096).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let pw = serde_json::from_slice::<Value>(&bytes).ok().and_then(|v| v.get("password").and_then(|p| p.as_str()).map(String::from)).unwrap_or_default();
-    let new_session = |s: &Srv| { let mut b = [0u8; 24]; let _ = getrandom::getrandom(&mut b); let id = hex::encode(b); s.sessions.lock().unwrap().insert(id.clone(), std::time::Instant::now()); id };
+    let new_session = |s: &Srv| { let mut b = [0u8; 24]; let _ = getrandom::getrandom(&mut b); let id = hex::encode(b); s.sessions.lock().unwrap().insert(id.clone(), (std::time::Instant::now(), password_id(&s.data_dir))); id };
     match what.as_str() {
         "setup" => {
             if password_set(&s.data_dir) { return (axum::http::StatusCode::CONFLICT, "a password is already set (delete the adminpassword file to start over)").into_response(); }
@@ -435,6 +446,22 @@ async fn srv_login(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum
             let ok = tokio::task::spawn_blocking(move || check_password(&dir, &pw2)).await.unwrap_or(false);
             if !ok { tokio::time::sleep(Duration::from_secs(1)).await; return (axum::http::StatusCode::UNAUTHORIZED, "wrong password").into_response(); }
             axum::Json(json!({ "session": new_session(&s) })).into_response()
+        }
+        "change" => {
+            // changing needs a logged-in session AND the current password; a lost password is reset only with
+            // `sushila password --reset` on this computer
+            if !admin_ok(&s, &parts.headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "log in first").into_response(); }
+            let v = serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null);
+            let (cur, new) = (v.get("current").and_then(|p| p.as_str()).unwrap_or("").to_string(), v.get("password").and_then(|p| p.as_str()).unwrap_or("").to_string());
+            let dir = s.data_dir.clone();
+            if !tokio::task::spawn_blocking(move || check_password(&dir, &cur)).await.unwrap_or(false) { tokio::time::sleep(Duration::from_secs(1)).await; return (axum::http::StatusCode::UNAUTHORIZED, "wrong current password").into_response(); }
+            if let Err(e) = set_password(&s.data_dir, &new) { return (axum::http::StatusCode::BAD_REQUEST, e).into_response(); }
+            let keep = parts.headers.get("x-sushila-admin").and_then(|h| h.to_str().ok()).unwrap_or("").to_string();
+            let pid = password_id(&s.data_dir);
+            let mut ss = s.sessions.lock().unwrap();
+            ss.retain(|k, _| *k == keep);  // other browsers log in again with the new password
+            if let Some(v) = ss.get_mut(&keep) { v.1 = pid; }
+            axum::Json(json!({ "ok": true })).into_response()
         }
         "logout" => {
             if let Some(t) = parts.headers.get("x-sushila-admin").and_then(|h| h.to_str().ok()) { s.sessions.lock().unwrap().remove(t); }
@@ -452,6 +479,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
     let srv = Arc::new(Srv { port, data_dir, http: client()?, hits: std::sync::Mutex::new(HashMap::new()), sessions: std::sync::Mutex::new(HashMap::new()) });
     let app = axum::Router::new()
         .route("/", axum::routing::get(srv_page))
+        .route("/docs", axum::routing::get(srv_docs))
         .route("/sushila.js", axum::routing::get(srv_js))
         .route("/api/state", axum::routing::get(srv_state))
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))

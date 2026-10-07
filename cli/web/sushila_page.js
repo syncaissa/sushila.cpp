@@ -88,13 +88,20 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     let admin = { passwordSet: true, loggedIn: false, allowed: false }, sub = 'packs';
     document.head.append(el('style', {}, `
 .snav{display:flex;gap:2px;align-items:center;padding:6px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
-.snav b{margin-right:12px}.snav a{padding:6px 12px;border-radius:8px;color:var(--mut);text-decoration:none;font-weight:600;font-size:14px}
+.snav b{margin-right:12px}.smenu{position:relative;margin-right:8px}.smenu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 4px}.smenu summary::-webkit-details-marker{display:none}
+.smenu>div{position:absolute;top:30px;left:0;z-index:20;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.smenu>div a{display:block;color:var(--ink)}.snav a{padding:6px 12px;border-radius:8px;color:var(--mut);text-decoration:none;font-weight:600;font-size:14px}
 .snav a.on{background:var(--accbg);color:var(--acc)}.manage{max-width:1100px;margin:0 auto;padding:16px 22px 40px}
 .manage h2{font-size:18px;margin:18px 0 8px}.manage table td,.manage table th{font-size:14px}.manage .acts{display:flex;gap:6px;flex-wrap:wrap}
 .manage button{padding:5px 11px;font-size:13px}.task{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0;background:var(--card)}
 .task.failed{border-color:var(--err)}.logbox{background:var(--code);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;height:65vh;overflow:auto;white-space:pre-wrap;word-break:break-word}
 .manage label{display:block;font-weight:600;font-size:13px;margin:10px 0 4px}.manage .kv td:first-child{color:var(--mut);width:180px}`));
-    const nav = el('nav', { class: 'snav' }, el('b', {}, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
+    // the ☰ menu on every page and tab: Use, Admin (this computer), Documentation (/docs, the same file the website uses)
+    const menu = el('details', { class: 'smenu' }, el('summary', { 'aria-label': 'Menu' }, '☰'),
+      el('div', {}, el('a', { href: '#', onclick: (e) => { e.currentTarget.closest('details').open = false; } }, 'Use'),
+        local ? el('a', { href: '#admin', onclick: (e) => { e.currentTarget.closest('details').open = false; } }, 'Admin') : null,
+        el('a', { href: '/docs' }, 'Documentation')));
+    const nav = el('nav', { class: 'snav' }, menu, el('b', {}, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
       el('span', { style: 'flex:1' }), local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
     const box = el('div', { id: 'manage', class: 'manage hidden' });
     document.body.prepend(nav); document.body.append(box);
@@ -122,8 +129,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       };
       const key = (e) => { if (e.key === 'Enter') go(); };
       return [el('h2', {}, first ? 'Create the admin password' : 'Admin login'),
-        el('p', { class: 'sub' }, first ? 'The first time: choose a password (at least 8 characters) for managing Sushila from this page. It is stored only as a one-way hash in the file adminpassword in the data folder. Lost it? Delete that file and restart Sushila: it is asked again.'
-          : 'Managing Sushila (packs, engine, queue, logs, settings) needs the admin password. Lost it? Delete the adminpassword file in the data folder and restart Sushila.'),
+        el('p', { class: 'sub' }, first ? 'The first time: choose a password (at least 8 characters) for managing Sushila from this page. It is stored only as a one-way hash in the file adminpassword in the data folder. Lost it later? On this computer, in a terminal: sushila password --reset'
+          : 'Managing Sushila (packs, engine, queue, logs, settings) needs the admin password. Lost it? On this computer, in a terminal: sushila password --reset'),
         el('label', { for: 'apw' }, 'Password'), el('input', { id: 'apw', type: 'password', autocomplete: first ? 'new-password' : 'current-password', onkeydown: key }),
         first ? [el('label', { for: 'apw2' }, 'Again'), el('input', { id: 'apw2', type: 'password', autocomplete: 'new-password', onkeydown: key })] : null,
         el('div', { class: 'row' }, el('button', { onclick: go }, first ? 'Save the password' : 'Log in'))];
@@ -212,6 +219,16 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       return [el('h2', {}, 'Settings'), ...field('gpuLayers', 'Layers on the GPU', '-1 = automatic: as many as fit (recommended)'), ...field('contextSize', 'Context size (tokens)'),
         ...field('threads', 'CPU threads', '0 = automatic'), ...field('parallel', 'Parallel requests per model'),
         el('div', { class: 'row' }, el('button', { onclick: save }, 'Save'), el('span', { class: 'sub' }, 'Applies to models started after saving.')),
+        el('h2', {}, 'Admin password'),
+        el('label', { for: 'pwcur' }, 'Current password'), el('input', { id: 'pwcur', type: 'password', autocomplete: 'current-password' }),
+        el('label', { for: 'pwnew' }, 'New password (at least 8 characters)'), el('input', { id: 'pwnew', type: 'password', autocomplete: 'new-password' }),
+        el('label', { for: 'pwnew2' }, 'New password again'), el('input', { id: 'pwnew2', type: 'password', autocomplete: 'new-password' }),
+        el('div', { class: 'row' }, el('button', { onclick: async () => {
+          if ($('pwnew').value !== $('pwnew2').value) { say('The two new passwords do not match.'); return; }
+          const r = await api('/api/admin/change', { method: 'POST', body: JSON.stringify({ current: $('pwcur').value, password: $('pwnew').value }) }).catch(() => null);
+          for (const id of ['pwcur', 'pwnew', 'pwnew2']) $(id).value = '';
+          say(r && r.ok ? 'Admin password changed.' : 'Not changed: ' + (r ? await r.text() : 'the server did not answer'));
+        } }, 'Change password'), el('span', { class: 'sub' }, 'Lost it? On this computer: sushila password --reset')),
         el('h2', {}, 'Access from other machines'),
         el('p', { class: 'sub' }, sh.enabled ? ('On' + (sh.open ? ', open to anyone who can reach the port (no key)' : ', ' + sh.keys + ' access key(s)')) : 'Off: only this computer can use it.'),
         el('pre', {}, 'sushila serve --public --port ' + (s.port || 8765) + '     # reachable at http://<this machine>:' + (s.port || 8765) + '/\nsushila keys add <name>                  # an access key for another machine or app')];

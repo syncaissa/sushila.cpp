@@ -102,7 +102,7 @@ enum Cmd {
     Keys { #[command(subcommand)] act: KeysCmd },
     /// Start `sushila serve` when the computer starts: `service install [--packs a,b] [--host 0.0.0.0]`, `service remove`
     Service { #[command(subcommand)] act: ServiceCmd },
-    /// The Admin tab's password: `sushila password` sets or changes it; `--reset` deletes it (asked again at the next start)
+    /// The Admin tab's password: `sushila password` sets it, or changes it (asks the current one first); lost it? `--reset` (this computer only)
     Password { #[arg(long)] reset: bool },
     /// End-to-end check: engine, the smallest model, one answer (exit code 0 = everything works)
     Selftest { #[arg(long, default_value = DEFAULT_MODEL)] pack: String },
@@ -113,7 +113,7 @@ enum EngineCmd { Install { /// cpu, vulkan, cuda, or a full key like linux-x86_6
 #[derive(Subcommand)]
 enum KeysCmd { Add { name: String }, List, Remove { name: String } }
 #[derive(Subcommand)]
-enum ServiceCmd { Install { #[arg(long)] packs: Option<String>, #[arg(long)] host: Option<String>, #[arg(long)] port: Option<u16> }, Remove }
+enum ServiceCmd { Install { #[arg(long)] packs: Option<String>, #[arg(long)] host: Option<String>, #[arg(long)] port: Option<u16>, #[arg(long)] public: bool }, Remove }
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -313,8 +313,23 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
         Cmd::Keys { act } => keys(ctx, act, j)?,
         Cmd::Password { reset } => {
             let f = ctx.data.join("adminpassword");
-            if *reset { let _ = std::fs::remove_file(&f); out(j, json!({ "ok": true }), || format!("admin password removed ({}); it is asked again at the next start", f.display())); }
-            else { ask_password(ctx, true)?; out(j, json!({ "ok": true }), || "admin password saved (as an Argon2 hash in the adminpassword file)".into()); }
+            if *reset {
+                // the way back for an owner who lost the password: only on this computer, as the user who owns the data folder
+                let _ = std::fs::remove_file(&f);
+                ctx.log("admin password reset from the command line");
+                if std::io::IsTerminal::is_terminal(&std::io::stdin()) { ask_password(ctx, true)?; out(j, json!({ "ok": true }), || "admin password reset and a new one saved".into()); }
+                else { out(j, json!({ "ok": true }), || format!("admin password removed ({}); set a new one with `sushila password` or on the Admin tab of this computer", f.display())); }
+            } else {
+                if webserver::password_set(&ctx.data) {
+                    // changing it needs the current one (lost it? `sushila password --reset`)
+                    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) { return Err("run this in a terminal".into()); }
+                    let cur = rpassword::prompt_password("Current admin password: ").map_err(err)?;
+                    if !webserver::check_password(&ctx.data, &cur) { std::thread::sleep(Duration::from_secs(1)); ctx.log("admin password change refused: wrong current password"); return Err("wrong current password (lost it? `sushila password --reset`)".into()); }
+                }
+                ask_password(ctx, true)?;
+                ctx.log("admin password changed from the command line");
+                out(j, json!({ "ok": true }), || "admin password saved (as an Argon2 hash in the adminpassword file)".into());
+            }
         }
         Cmd::Service { act } => service(ctx, act, j)?,
         Cmd::Run { pack, prompt, out: file, standard, size, seed, lyrics, duration, frames, max_tokens } => {
@@ -396,10 +411,11 @@ fn service(ctx: &mut Ctx, act: &ServiceCmd, j: bool) -> Result<(), String> {
     let data = ctx.data.to_string_lossy().to_string();
     let run = |c: &str, a: &[&str]| std::process::Command::new(c).args(a).status().map(|s| s.success()).unwrap_or(false);
     match act {
-        ServiceCmd::Install { packs, host, port } => {
+        ServiceCmd::Install { packs, host, port, public } => {
             let mut args = vec!["--data-dir".to_string(), data.clone(), "serve".into()];
             if let Some(p) = packs { args.extend(p.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty())); }
             if let Some(h) = host { args.extend(["--host".into(), h.clone()]); }
+            if *public { args.push("--public".into()); }
             if let Some(p) = port { args.extend(["--port".into(), p.to_string()]); }
             let how = match os.as_str() {
                 "linux" => {

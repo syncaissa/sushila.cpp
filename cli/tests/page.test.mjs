@@ -12,6 +12,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
   if (token) w.SUSHILA_TOKEN = token;
   w.confirm = () => true;
   w.fetch = async (u, o = {}) => { u = String(u); if (o.method === 'POST') sent.push({ u, body: o.body, h: o.headers });
+    if (u.includes('/api/admin/change')) { const b = JSON.parse(o.body); const good = b.current === 'correct horse'; return { ok: good, status: good ? 200 : 401, json: async () => ({ ok: good }), text: async () => good ? '' : 'wrong current password' }; }
     if (u.includes('/api/admin/setup') || u.includes('/api/admin/login')) { const pw = JSON.parse(o.body).password; if (pw !== 'correct horse') return { ok: false, status: 401, json: async () => ({}), text: async () => 'wrong password' }; A.passwordSet = true; A.loggedIn = true; return { ok: true, status: 200, json: async () => ({ session: 's'.repeat(48) }), text: async () => '' }; }
     const j = u.includes('/api/admin') ? A : u.includes('/api/state') ? state : u.includes('/api/catalog') ? catalog : u.includes('/api/logs') ? { next: 20, text: '2026 [server] hello log\n' } : u.includes('/api/queue') ? { paused: false, jobs: [{ id: 'job-1', kind: 'text', model: 'qwen', status: 'ready', title: 'poem' }] } : u.includes('/api/control') ? { id: 'task-x' } : {};
     return { ok: true, status: 200, json: async () => j, text: async () => JSON.stringify(j) }; };
@@ -49,4 +50,11 @@ p.d.getElementById('apw').value = 'wrong one'; [...p.d.querySelectorAll('#manage
 ok(p.d.body.textContent.includes('wrong password') && !p.d.body.textContent.includes('Installed'), 'wrong password: refused, nothing shown');
 p = await page('tok123', '#admin', '', { passwordSet: true, loggedIn: false, allowed: false });
 ok(p.d.body.textContent.includes('only on the computer'), 'not allowed from this address: explained');
+p = await page('tok123', '#admin/settings'); await sleep(300);
+const chg = async (cur) => { p.d.getElementById('pwcur').value = cur; p.d.getElementById('pwnew').value = 'brand new pw'; p.d.getElementById('pwnew2').value = 'brand new pw';
+  [...p.d.querySelectorAll('#manage button')].find((b) => b.textContent === 'Change password').click(); await sleep(400); };
+await chg('guess'); ok(p.d.body.textContent.includes('wrong current password'), 'change: a wrong current password is refused');
+await chg('correct horse'); ok(p.d.body.textContent.includes('Admin password changed'), 'change: with the current password it works');
+p = await page('tok123', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Use,Admin,Documentation' && p.d.querySelector('.smenu a[href="/docs"]'), 'the ☰ menu: Use, Admin, Documentation');
+p = await page('', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Use,Documentation', 'remote visitor: ☰ menu without Admin');
 console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0);
