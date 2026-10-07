@@ -84,7 +84,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     let session = ''; try { session = sessionStorage.getItem('sushila-admin') || ''; } catch (_) {}
     const api = (path, opts = {}) => fetch(path, Object.assign({}, opts, { headers: Object.assign({ 'x-sushila-token': token, 'x-sushila-admin': session, 'content-type': 'application/json' }, opts.headers || {}) }));
     const TABS = [['', 'Use'], ['admin', 'Admin']];
-    const SUB = [['packs', 'Packs'], ['engine', 'Engine'], ['queue', 'Queue'], ['logs', 'Logs'], ['settings', 'Settings']];
+    const SUB = [['packs', 'Packs'], ['engine', 'Engine'], ['queue', 'Queue'], ['actions', 'Recent actions'], ['logs', 'Logs'], ['settings', 'Settings']];
     let admin = { passwordSet: true, loggedIn: false, allowed: false }, sub = 'packs';
     document.head.append(el('style', {}, `
 .snav{display:flex;gap:2px;align-items:center;padding:6px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -151,15 +151,23 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (view === 'admin' && sub === 'packs' && !catalog) { try { catalog = await (await api('/api/catalog')).json(); } catch (_) { catalog = { packs: [] }; } }
       render();
     }
-    function tasks() {
-      const list = (st.tasks || []).slice(-6).reverse();
-      if (!list.length) return null;
-      return el('div', {}, el('h2', {}, 'Recent actions'), ...list.map((t) => el('div', { class: 'task ' + (t.status || '') },
+    // one action (install, start, update ...) with its progress and error
+    const taskRow = (t) => el('div', { class: 'task ' + (t.status || '') },
         el('b', {}, t.action + (t.target ? ' ' + t.target : '')), ' ', el('span', { class: 'pill ' + (t.status === 'done' ? 'on' : t.status === 'failed' ? 'off' : '') }, t.status),
         el('span', { class: 'sub' }, ' from ' + (t.source || '?') + ', ' + (t.started || '').slice(11, 19)),
         t.status === 'running' && t.total ? el('div', {}, el('div', { class: 'sub' }, t.label + ': ' + human(t.done) + ' of ' + human(t.total)),
           el('div', { class: 'bar' }, el('i', { style: 'width:' + Math.min(100, 100 * t.done / t.total).toFixed(1) + '%' }))) : null,
-        t.error ? el('div', { class: 'sub', style: 'color:var(--err);white-space:pre-wrap' }, t.error) : null)));
+        t.error ? el('div', { class: 'sub', style: 'color:var(--err);white-space:pre-wrap' }, t.error) : null);
+    // the Recent actions tab: every action of this server run, newest first
+    function actionsView() {
+      const list = (st.tasks || []).slice().reverse();
+      return [el('h2', {}, 'Recent actions'), list.length ? null : el('div', { class: 'sub' }, 'Nothing yet: installs, starts, stops and updates appear here, from this page, the terminal or the API.'), ...list.map(taskRow)];
+    }
+    // on the other tabs: only what is running now, with a link to the full list
+    function runningNow() {
+      const list = (st.tasks || []).filter((t) => t.status === 'running' || t.status === 'queued').reverse();
+      if (!list.length) return null;
+      return el('div', {}, el('div', { class: 'sub' }, 'Running now · ', el('a', { href: '#admin/actions' }, 'all recent actions')), ...list.map(taskRow));
     }
     const running = (id) => (st.running || []).find((r) => r.packId === id);
     function packsView() {
@@ -303,9 +311,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && sub !== 'logs' && admin.loggedIn) return;  // do not redraw while typing
       if (!admin.loggedIn) { if (!(document.activeElement && box.contains(document.activeElement))) box.replaceChildren(note ? el('div', { class: 'msg err' }, note) : '', ...[].concat(loginView()).flat().filter(Boolean)); else if (note && !box.querySelector('.msg')) box.prepend(el('div', { class: 'msg err' }, note)); return; }
       const subnav = el('div', { class: 'snav', style: 'border:0;padding:6px 0' }, ...SUB.map(([h, t]) => el('a', { href: '#admin/' + h, class: h === sub ? 'on' : '' }, t)));
-      const body = sub === 'packs' ? packsView() : sub === 'engine' ? engineView() : sub === 'queue' ? await queueView() : sub === 'logs' ? await logsView() : settingsView();
+      const body = sub === 'packs' ? packsView() : sub === 'engine' ? engineView() : sub === 'queue' ? await queueView() : sub === 'actions' ? actionsView() : sub === 'logs' ? await logsView() : settingsView();
       const focus = document.activeElement && document.activeElement.id, val = focus && $(focus) ? $(focus).value : null;
-      box.replaceChildren(subnav, note ? el('div', { class: 'msg ok' }, note) : '', tasks(), ...[].concat(body));
+      box.replaceChildren(subnav, note ? el('div', { class: 'msg ok' }, note) : '', sub === 'actions' ? null : runningNow(), ...[].concat(body).filter((x) => x != null));
       if (focus && $(focus)) { $(focus).focus(); if (val != null && $(focus).value !== val) $(focus).value = val; }
     }
     function route() {

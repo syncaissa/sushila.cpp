@@ -23,7 +23,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
 }
 let p = await page('tok123', '#admin/packs');
 ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].map((a) => a.textContent).join(',') === 'Use,Admin', 'local page: Use and Admin');
-ok([...p.d.querySelectorAll('#manage .snav a')].map((a) => a.textContent).join(',') === 'Packs,Engine,Queue,Logs,Settings', 'Admin: Packs, Engine, Queue, Logs, Settings');
+ok([...p.d.querySelectorAll('#manage .snav a')].map((a) => a.textContent).join(',') === 'Packs,Engine,Queue,Recent actions,Logs,Settings', 'Admin: Packs, Engine, Queue, Recent actions, Logs, Settings');
 ok(p.d.body.textContent.includes('Installed') && p.d.body.textContent.includes('Qwen3 4B'), 'Packs: installed and available packs listed');
 ok(p.d.body.textContent.includes('needs other hardware'), 'Packs: a pack for other hardware is marked');
 ok(p.d.body.textContent.includes('file 1 of 1') && p.d.querySelector('.bar i'), 'a running install shows progress (started from the CLI)');
@@ -33,6 +33,7 @@ ok(p.sent.some((s) => s.u === '/api/control' && JSON.parse(s.body).action === 'i
 ok(p.sent.some((s) => JSON.parse(s.body || '{}').action === 'stop'), 'Stop sends a stop request');
 p.w.location.hash = '#admin/engine'; await sleep(300); ok(p.d.body.textContent.includes('NVIDIA GPU (CUDA)'), 'Engine tab shows the GPU');
 p.w.location.hash = '#admin/queue'; await sleep(300); ok(p.d.body.textContent.includes('poem') && p.d.querySelector('a.dlbtn'), 'Queue tab lists jobs with Open');
+p.w.location.hash = '#admin/actions'; await sleep(300); ok(p.d.body.textContent.includes('Recent actions') && p.d.body.textContent.includes('install qwen3-4b') && !p.d.body.textContent.includes('Running now'), 'Recent actions tab lists the actions (and only there in full)');
 p.w.location.hash = '#admin/logs'; await sleep(300); ok(p.d.body.textContent.includes('hello log'), 'Logs tab shows the shared log');
 p.w.location.hash = '#admin/settings'; await sleep(300); ok(p.d.querySelector('#set-gpuLayers').value === '-1', 'Settings tab shows the settings');
 p.w.location.hash = ''; await sleep(300); ok(!p.d.getElementById('app').classList.contains('hidden') && p.d.getElementById('manage').classList.contains('hidden'), 'Use tab shows the inference page');
