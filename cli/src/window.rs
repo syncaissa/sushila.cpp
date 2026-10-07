@@ -136,7 +136,25 @@ fn run(exe: &Path, args: &[String]) {
     }
 }
 
-pub struct Window { pub exe: PathBuf, pub data: PathBuf, pub port: u16, pub rt: tokio::runtime::Handle }
+/// Puts text on the clipboard: the system's tool (Windows clip, macOS pbcopy, Linux wl-copy, xclip or xsel), else the
+/// terminal's own clipboard sequence (OSC 52: Windows Terminal, iTerm2, most Linux terminals).
+pub fn to_clipboard(text: &str) -> &'static str {
+    use std::process::{Command, Stdio};
+    let tools: &[(&str, &[&str])] = if cfg!(windows) { &[("clip", &[])] } else if cfg!(target_os = "macos") { &[("pbcopy", &[])] }
+        else { &[("wl-copy", &[]), ("xclip", &["-selection", "clipboard"]), ("xsel", &["--clipboard", "--input"])] };
+    // clip reads UTF-16 with a byte-order mark as Unicode (plain bytes would be read in the old code page)
+    let bytes: Vec<u8> = if cfg!(windows) { [0xFFu8, 0xFE].into_iter().chain(text.encode_utf16().flat_map(|u| u.to_le_bytes())).collect() } else { text.as_bytes().to_vec() };
+    for (t, a) in tools {
+        let Ok(mut c) = Command::new(t).args(*a).stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null()).spawn() else { continue };
+        let ok = c.stdin.take().map(|mut i| i.write_all(&bytes).is_ok()).unwrap_or(false);
+        if ok && c.wait().map(|s| s.success()).unwrap_or(false) { return "copied to the clipboard"; }
+    }
+    use base64::Engine;
+    eprint!("\x1b]52;c;{}\x07", base64::engine::general_purpose::STANDARD.encode(text.as_bytes()));
+    "sent to the terminal's clipboard (if the terminal allows it; else select the text with the mouse)"
+}
+
+pub struct Window { pub exe: PathBuf, pub data: PathBuf, pub port: u16, pub rt: tokio::runtime::Handle, pub last: std::sync::Mutex<String> }
 impl Window {
     fn ask(&self, lines: &mut dyn Iterator<Item = std::io::Result<String>>, prompt: &str) -> String {
         eprint!("{prompt}"); let _ = std::io::stderr().flush();
@@ -172,10 +190,18 @@ impl Window {
         }
         if is_question(line) {
             eprintln!();
-            match self.assistant(line, None, true) {
+            let r = self.assistant(line, None, true);
+            if let Ok(v) = &r { if let Some(a) = v["answer"].as_str() { *self.last.lock().unwrap() = a.to_string(); } }
+            match r {
                 Ok(v) if v["mode"] == "quote" => eprintln!("\n[quoted from Sushila's notes ({} is a small model): {}]", v["model"].as_str().unwrap_or(""), v["sources"].as_array().map(|a| a.iter().filter_map(|s| s["title"].as_str()).collect::<Vec<_>>().join("; ")).unwrap_or_default()),
                 Ok(v) => eprintln!("\n[answered by {} from: {}]", v["model"].as_str().unwrap_or(""), v["sources"].as_array().map(|a| a.iter().filter_map(|s| s["title"].as_str()).collect::<Vec<_>>().join("; ")).unwrap_or_default()),
-                Err(e) => eprintln!("the assistant could not answer: {e}"),
+                Err(e) => {
+                    // the first model is still downloading (a .part file in a pack folder): say so instead
+                    let downloading = std::fs::read_dir(self.data.join("model-packs")).into_iter().flatten().flatten()
+                        .any(|d| std::fs::read_dir(d.path()).into_iter().flatten().flatten().any(|f| f.file_name().to_string_lossy().ends_with(".part")));
+                    if downloading { eprintln!("the model is still downloading; ask again when it says it is ready (the documentation: urls)"); }
+                    else { eprintln!("the assistant could not answer: {e}"); }
+                }
             }
             return;
         }
@@ -218,9 +244,16 @@ impl Window {
 pub fn read_loop(w: Window, banner: String) {
     let stdin = std::io::stdin();
     let mut lines = stdin.lock().lines();
+    crate::ticker::prompt();
     while let Some(Ok(line)) = lines.next() {
         match line.trim().to_lowercase().as_str() {
             "" => {}
+            "copy" | "copy answer" => {
+                let a = w.last.lock().unwrap().clone();
+                if a.trim().is_empty() { eprintln!("no answer yet to copy; copy urls copies the addresses (any text: select it with the mouse, then right-click)"); }
+                else { eprintln!("the last answer ({} characters): {}", a.chars().count(), to_clipboard(&a)); }
+            }
+            "copy urls" | "copy url" => eprintln!("the addresses: {}", to_clipboard(banner.trim().trim_matches('=').trim())),
             "?" | "man" | "help" | "h" => eprintln!("{}", crate::quick_help()),
             "urls" | "url" => eprintln!("{banner}"),
             "ticker off" => { crate::ticker::set_on(false); eprintln!("ticker off (ticker on shows it again; sushila config set ticker off keeps it off)"); }
@@ -228,6 +261,7 @@ pub fn read_loop(w: Window, banner: String) {
             "stop" | "quit" | "exit" | "q" => { eprintln!("stopping..."); let _ = std::fs::write(w.data.join("shutdown-request.json"), "{}"); break; }
             _ => w.line(&line, &mut lines),
         }
+        crate::ticker::prompt();
     }
 }
 

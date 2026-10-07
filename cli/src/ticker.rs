@@ -33,6 +33,46 @@ fn enable_vt() -> bool {
         mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0 || SetConsoleMode(h, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0
     }
 }
+/// The server window ready for typing: a big blinking cursor that is always shown, and (Windows console) QuickEdit on,
+/// so text can be selected with the mouse and copied (Enter or right-click) and pasted (right-click or Ctrl+V).
+#[cfg(windows)]
+fn console_input() {
+    use windows_sys::Win32::System::Console::{GetConsoleMode, GetStdHandle, SetConsoleMode, SetConsoleCursorInfo, CONSOLE_CURSOR_INFO,
+        ENABLE_EXTENDED_FLAGS, ENABLE_INSERT_MODE, ENABLE_QUICK_EDIT_MODE, STD_ERROR_HANDLE, STD_INPUT_HANDLE};
+    unsafe {
+        let i = GetStdHandle(STD_INPUT_HANDLE);
+        let mut mode = 0u32;
+        if GetConsoleMode(i, &mut mode) != 0 { SetConsoleMode(i, mode | ENABLE_EXTENDED_FLAGS | ENABLE_QUICK_EDIT_MODE | ENABLE_INSERT_MODE); }
+        let info = CONSOLE_CURSOR_INFO { dwSize: 100, bVisible: 1 };
+        SetConsoleCursorInfo(GetStdHandle(STD_ERROR_HANDLE), &info);
+    }
+}
+#[cfg(not(windows))]
+fn console_input() {}
+pub fn console_setup() {
+    if !std::io::IsTerminal::is_terminal(&std::io::stderr()) { return; }
+    console_input();
+    // cursor shown, as a blinking block (DECSCUSR 1; terminals that do not know it ignore it)
+    if enable_vt() { emit("\x1b[?25h\x1b[1 q"); }
+}
+/// The prompt of the server window, so it is always clear where typing goes.
+pub fn prompt() { if std::io::IsTerminal::is_terminal(&std::io::stderr()) { emit(if enable_vt() { "\x1b[1;36msushila>\x1b[0m " } else { "sushila> " }); } }
+
+/// A bar that fills as the download goes ("[#######.............]"); without a known size, stars that come and go.
+pub fn bar(frac: Option<f64>, width: usize) -> String {
+    let utf8 = UTF8.load(SeqCst);
+    let (full, empty) = if utf8 { ('█', '░') } else { ('#', '.') };
+    match frac {
+        Some(f) => { let n = ((f.clamp(0.0, 1.0) * width as f64).round() as usize).min(width); format!("[{}{}]", full.to_string().repeat(n), empty.to_string().repeat(width - n)) }
+        None => {
+            // a group of stars that grows, travels and shrinks, one step every 0.3 s
+            let t = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0) / 300) as usize;
+            let k = t % (2 * width); let pos = if k < width { k } else { 2 * width - k - 1 };
+            let len = 1 + (t / 3) % 5;
+            format!("[{}]", (0..width).map(|i| if i + len > pos && i <= pos { '*' } else { ' ' }).collect::<String>())
+        }
+    }
+}
 #[cfg(not(windows))]
 fn enable_vt() -> bool {
     // a locale that is set but not UTF-8 (e.g. LANG=C on an old server): ASCII symbols
@@ -94,7 +134,7 @@ const SEP: &str = " • ";
 
 /// One task-first sentence per command (several for commands with subcommands), grouped like the commands document;
 /// {u} is this server's address. A unit test fails if a clap command has no sentence here.
-pub const SENTENCES: [(&str, &str, &str); 70] = [
+pub const SENTENCES: [(&str, &str, &str); 71] = [
     ("Getting started", "url", "To see this server's addresses again: type urls here, or sushila url"),
     ("Getting started", "open", "To open the Admin page: go to {u}/admin in your browser (or sushila open admin)"),
     ("Getting started", "open", "To read the documentation: {u}/docs (or sushila open docs)"),
@@ -162,6 +202,7 @@ pub const SENTENCES: [(&str, &str, &str); 70] = [
     ("Getting started", "assistant", "To ask Sushila in the browser: the ☰ menu, Ask Sushila ({u}/#assistant)"),
     ("Using models", "open", "To use the models in the browser: {u}/"),
     ("Getting started", "help", "To see the important commands here: type ? (or man, or help)"),
+    ("Getting started", "help", "To copy the last answer: type copy here (copy urls: the addresses; any text: select it, right-click)"),
     ("Running server and models", "stop", "To hide this line: type ticker off (ticker on shows it again)"),
     ("Housekeeping", "home", "To use another home folder: sushila home <folder> (takes effect at the next start)"),
     ("Getting started", "packs", "To see what fits this computer: sushila search --fits"),
@@ -252,7 +293,8 @@ pub fn start(dir: std::path::PathBuf, port: u16) {
             // would otherwise let the log run over the ticker line
             if again.elapsed() > Duration::from_secs(2) { again = Instant::now(); emit(&format!("\x1b7\x1b[1;{}r\x1b8", rows - 1)); }
             let text = { let mut ui = UI.lock().unwrap(); ui.offset = (ui.offset + 1) % msg.len().max(1); window(&msg, ui.offset, cols - 1) };
-            emit(&format!("\x1b7\x1b[{rows};1H\x1b[7m{text}\x1b[0m\x1b8"));
+            // the cursor is hidden while the line is drawn and shown again where the typing is, so it never flickers
+            emit(&format!("\x1b[?25l\x1b7\x1b[{rows};1H\x1b[7m{text}\x1b[0m\x1b8\x1b[?25h"));
         }
     });
 }
@@ -264,7 +306,7 @@ pub fn pause(p: bool) { CHILD.store(p, SeqCst); }
 pub fn active() -> bool { RUNNING.load(SeqCst) }
 /// Stops drawing and leaves the terminal clean (end of serve, errors, panics).
 pub struct Guard;
-impl Drop for Guard { fn drop(&mut self) { set_on(false); } }
+impl Drop for Guard { fn drop(&mut self) { set_on(false); if RUNNING.load(SeqCst) { emit("\x1b[?25h\x1b[0 q"); } } }
 /// After the server process died without cleaning up (the supervisor): the whole window scrolls again, last line cleared.
 pub fn hard_reset() { if let Some((_, rows)) = size() { emit(&format!("\x1b7\x1b[r\x1b[{rows};1H\x1b[2K\x1b8")); } }
 
@@ -278,7 +320,8 @@ mod tests {
         assert_eq!(interleave(&["a".into(), "b".into(), "c".into()], &["L1".into(), "L2".into()], 2), vec!["L1", "a", "b", "L2", "c"]);
         assert!(off_setting(&serde_json::json!("off")) && off_setting(&serde_json::json!(false)) && !off_setting(&serde_json::json!("on")) && !off_setting(&serde_json::Value::Null));
         assert_eq!(fit("abcdef", 4), "abc…"); assert_eq!(fit("ab", 4), "ab  ");
-        assert_eq!(fit_middle("abcdefghij 42%", 10), "abc…ij 42%"); assert_eq!(fit_middle("ab", 4), "ab  ");
+        assert_eq!(fit_middle("abcdefghij 42%", 10), "abc…ij 42%");
+        assert_eq!(bar(Some(0.5), 10).chars().filter(|&c| c == '█' || c == '#').count(), 5); assert_eq!(bar(None, 10).chars().count(), 12); assert_eq!(fit_middle("ab", 4), "ab  ");
     }
     #[test] fn joins() {
         let ui = Ui { current: vec!["live".into(), "tip".into()], offset: 0 };

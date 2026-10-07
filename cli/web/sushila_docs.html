@@ -176,10 +176,14 @@ as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with 
   <li><b>A mistyped command</b> (<code>instal qwen</code>) gets a suggestion (with a small model, found by spelling and by matching words to commands and pack ids) (<code>Did you mean `sushila install qwen`? Run it? [y/N]</code>); nothing runs without a yes.</li>
   <li><code>?</code> lists the important commands, <code>urls</code> the addresses, <code>stop</code> stops the server.</li>
 </ul>
+<p><b>Typing, copy and paste.</b> The window shows a <code>sushila&gt;</code> prompt and a blinking block cursor where your typing goes.
+<code>copy</code> puts the last answer of the assistant on the clipboard; <code>copy urls</code> the addresses. Any text can be selected with the mouse
+and copied with a right-click (or Enter), and pasted with a right-click or Ctrl+V; in the Windows console the window menu (click the icon at the top left) also has Edit, Copy and Paste.
+A terminal window cannot hold buttons; the web page has them.</p>
 <p><b>The ticker.</b> The bottom line of the window scrolls, like an LED message board, one short sentence for every command
 ("To add a new model pack: sushila install &lt;pack&gt; …", with this server's real addresses), with live news in between (models
 running and their mode, the queue's job and progress, GPU memory, requests served). Everything else scrolls above it; download
-progress is kept to one row so it never runs into it. It has no keys of its own (every typed line is a command or a question); type <b>?</b> for the important commands.
+progress is kept to one row, with a bar that fills as the download goes, so it never runs into it. It has no keys of its own (every typed line is a command or a question); type <b>?</b> for the important commands.
 <code>ticker off</code> / <code>ticker on</code> hide or show it; <code>sushila config set ticker off</code> keeps it off. It is off by itself when the output
 is not a terminal, with <code>--json</code> or <code>--quiet</code>, with <code>TERM=dumb</code> or <code>SUSHILA_TICKER=0</code>, and in windows narrower than 40 columns.
 Windows: escape sequences and UTF-8 are turned on for the console at start (Windows Terminal and the classic console); where symbols cannot be shown it uses ASCII.

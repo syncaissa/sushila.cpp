@@ -117,7 +117,8 @@ async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opti
         if !quiet && last.elapsed() > Duration::from_millis(if tty { 300 } else { 15000 }) {
             let rate = (done - start) as f64 / t0.elapsed().as_secs_f64().max(0.1);
             let pct = if total > 0 { format!("{:5.1}%", 100.0 * done as f64 / total as f64) } else { String::new() };
-            let line = format!("  {label}: {pct} {} of {} ({}/s)", human(done), if total > 0 { human(total) } else { "?".into() }, human(rate as u64));
+            let bar = if tty { format!("{} ", crate::ticker::bar(if total > 0 { Some(done as f64 / total as f64) } else { None }, 20)) } else { String::new() };
+            let line = format!("  {label}: {bar}{pct} {} of {} ({}/s)", human(done), if total > 0 { human(total) } else { "?".into() }, human(rate as u64));
             if tty { crate::ticker::progress(&line); } else { eprintln!("{line}"); }
             last = std::time::Instant::now();
         }

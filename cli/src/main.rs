@@ -362,7 +362,8 @@ async fn remote(ctx: &Ctx, port: u16, body: Value) -> Result<(), String> {
             Some("done") => { if tty && !ctx.quiet { crate::ticker::progress_clear(); } return Ok(()); }
             Some("failed") => { if tty && !ctx.quiet { eprintln!(); } return Err(t["error"].as_str().unwrap_or("failed").to_string()); }
             _ => if !ctx.quiet && t["total"].as_u64().unwrap_or(0) > 0 {
-                let line = format!("  {}: {:.1}% of {}", t["label"].as_str().unwrap_or(""), 100.0 * t["done"].as_f64().unwrap_or(0.0) / t["total"].as_f64().unwrap_or(1.0), human(t["total"].as_u64().unwrap_or(0)));
+                let f = t["done"].as_f64().unwrap_or(0.0) / t["total"].as_f64().unwrap_or(1.0);
+                let line = format!("  {}: {} {:.1}% of {}", t["label"].as_str().unwrap_or(""), crate::ticker::bar(Some(f), 20), 100.0 * f, human(t["total"].as_u64().unwrap_or(0)));
                 if tty { crate::ticker::progress(&line); }
             },
         }
@@ -515,7 +516,7 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             ctx.save()?;
             let network = ctx.state["share"]["enabled"].as_bool().unwrap_or(false);
             let u = urls(port as u16, network);
-            out(j, json!({ "url": u["inference"], "urls": u }), || url_banner(&u).replace(" is running", "").replace(" Type a command (e.g. install, ps, status), a question, or ? for help. Stop: Ctrl+C, type stop, or close this window\n", ""));
+            out(j, json!({ "url": u["inference"], "urls": u }), || url_banner(&u).replace(" is running", "").replace(" Type a command (e.g. install, ps, status), a question, or ? for help. Stop: Ctrl+C, type stop, or close this window\n", "").replace(" Copy: select with the mouse, then right-click (or Enter); paste: right-click or Ctrl+V; copy = copy the last answer\n", ""));
         }
         Cmd::Keys { act } => keys(ctx, act, j)?,
         Cmd::Home { .. } => {
@@ -736,7 +737,9 @@ fn quick_help() -> &'static str {
   sushila password                  set or change the Admin password (sushila password --reset if lost)
   sushila stop                      stop the server
 Typed in the server window: any of these commands (without \"sushila\" if you like; changes ask first), a question
-for the assistant (e.g. how do I add a coding model?), ? = this list, urls = the addresses again, stop = stop the server.
+for the assistant (e.g. how do I add a coding model?), ? = this list, urls = the addresses again, stop = stop the server,
+copy = copy the last answer to the clipboard (copy urls: the addresses). Copy any text: select it with the mouse, then
+right-click (or Enter); paste: right-click or Ctrl+V. (Windows console: also the window menu, Edit.)
 The scrolling line at the bottom shows every command in turn: ticker off hides it, ticker on shows it again.\n"
 }
 fn url_banner(u: &Value) -> String {
@@ -744,7 +747,7 @@ fn url_banner(u: &Value) -> String {
         env!("CARGO_PKG_VERSION"), u["inference"].as_str().unwrap_or(""), u["admin"].as_str().unwrap_or(""), u["docs"].as_str().unwrap_or(""), u["api"].as_str().unwrap_or(""));
     if let Some(n) = u["network"].as_str() { b += &format!("   Other machines: {n}   (Inference page and API; needs an access key unless --open)\n"); }
     if let Some(h) = u["home"].as_str().filter(|h| !h.is_empty()) { b += &format!("   Home folder:    {h}   (model-packs, settings, logs; change: sushila home <folder>)\n"); }
-    b + " Type a command (e.g. install, ps, status), a question, or ? for help. Stop: Ctrl+C, type stop, or close this window\n==============================================================\n"
+    b + " Type a command (e.g. install, ps, status), a question, or ? for help. Stop: Ctrl+C, type stop, or close this window\n Copy: select with the mouse, then right-click (or Enter); paste: right-click or Ctrl+V; copy = copy the last answer\n==============================================================\n"
 }
 fn local_ip() -> Option<String> { let s = std::net::UdpSocket::bind("0.0.0.0:0").ok()?; s.connect("8.8.8.8:80").ok()?; Some(s.local_addr().ok()?.ip().to_string()) }
 fn read_json(p: &std::path::Path) -> Option<Value> { std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()) }
@@ -924,8 +927,9 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     // the server's own window: typed commands run, questions go to the assistant, near-misses are suggested (window.rs);
     // started after the password question above, which reads the same input
     if !j && std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        let w = window::Window { exe: std::env::current_exe().map_err(err)?, data: ctx.data.clone(), port, rt: tokio::runtime::Handle::current() };
+        let w = window::Window { exe: std::env::current_exe().map_err(err)?, data: ctx.data.clone(), port, rt: tokio::runtime::Handle::current(), last: Default::default() };
         let banner = url_banner(&u);
+        ticker::console_setup();
         std::thread::spawn(move || window::read_loop(w, banner));
     }
     // the ticker line at the bottom of this window (off: --json, --quiet, not a terminal, TERM=dumb, SUSHILA_TICKER=0, setting ticker off)

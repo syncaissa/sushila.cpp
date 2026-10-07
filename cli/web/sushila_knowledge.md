@@ -60,6 +60,9 @@ commands that delete or change things (remove, uninstall, clean, update, restore
 password --reset, home <folder>) ask for a yes first. A question (for example "how do I add a coding model?")
 is answered by the Sushila assistant. A mistyped command gets a suggestion ("Did you mean `sushila install ...`?")
 that runs only if you answer y. `?` lists the important commands, `urls` the addresses, `stop` stops the server.
+The window shows a `sushila>` prompt and a blinking block cursor. `copy` puts the last answer on the clipboard (`copy urls`:
+the addresses); any text can be selected with the mouse and copied with a right-click (or Enter), and pasted with a
+right-click or Ctrl+V (Windows console: also the window menu, Edit). Downloads show a bar that fills as they go.
 Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal: Ctrl+C in this window stops the server.
 The bottom line of the window is a scrolling ticker: one sentence for every command, with live news in between (models
 running, queue progress, GPU memory). It has no keys of its own. `ticker off` hides it in this window;
