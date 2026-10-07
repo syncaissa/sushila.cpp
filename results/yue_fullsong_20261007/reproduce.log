@@ -1,0 +1,21 @@
+[11:38:19] step 1: official YuE
+[12:18:13] step 3: sampler
+{"trials": 300, "covered": 152, "max_abs_diff_covered": 0.0, "pass": true}
+[12:18:15] step 4: stage 2 against the official codes
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 284.00 MiB. GPU 0 has a total capacity of 23.53 GiB of which 275.69 MiB is free. Including non-PyTorch memory, this process has 23.25 GiB memory in use. Of the allocated memory 21.38 GiB is allocated by PyTorch, and 1.42 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+[12:19:39] steps 2 + 5: graph check, then the song (batched:0:0 batched:0:1)
+[12:20:59] step 1: official YuE
+[12:20:59]   (already done, kept)
+[12:20:59] step 3: sampler
+{"trials": 300, "covered": 152, "max_abs_diff_covered": 0.0, "pass": true}
+[12:21:02] step 4: stage 2 against the official codes
+{"rows": 46, "frames_max": 300, "seconds": 277.38648557662964, "official_seconds": 1493.018144607544, "itrack.npy": {"shape_ours": [8, 6681], "shape_official": [8, 6681]}, "vtrack.npy": {"shape_ours": [8, 6681], "shape_official": [8, 6681]}, "codes_identical_fraction": 0.49034575662325997, "speedup": 5.3824473153544785}
+[12:25:46] steps 2 + 5: graph check, then the song (batched:0:0 batched:0:1)
+[12:54:52] step 6: summary
+run                           stage 1  stage 2    total  speed-up  what
+official                        840.2   1493.0   2352.9     1.00x  official YuE infer.py
+fast_batched_k0                 630.5    279.4    930.1     2.53x  exact: KV cache + batched rows + batched guidance (eager)
+fast_batched_k0_graphs          615.1    144.8    781.0     3.01x  exact: as above + static caches and CUDA graphs
+checks: {"graphs_vs_eager": {"m-a-p/YuE-s1-0.5B": 0.0, "m-a-p/YuE-s1-7B-anneal-en-cot": 0.0}, "sampler": {"trials": 300, "covered": 152, "max_abs_diff_covered": 0.0, "pass": true}, "stage2_bfloat16_song": {"rows": 46, "frames_max": 300, "seconds": 277.38648557662964, "official_seconds": 1493.018144607544, "itrack.npy": {"shape_ours": [8, 6681], "shape_official": [8, 6681]}, "vtrack.npy": {"shape_ours": [8, 6681], "shape_official": [8, 6681]}, "codes_identical_fraction": 0.49034575662325997, "speedup": 5.3824473153544785}}
+A CHECK FAILED OR IS MISSING
+[12:54:52] REPRODUCE_YUE_DONE

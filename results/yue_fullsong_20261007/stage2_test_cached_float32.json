@@ -1,0 +1,20 @@
+{
+ "mode": "cached",
+ "dtype": "float32",
+ "first_diff_after_prompt_per_row": [
+  -1,
+  -1,
+  -1,
+  -1
+ ],
+ "frames": 40,
+ "rows": 4,
+ "official_s": 16.546123504638672,
+ "cached_s": 7.761938810348511,
+ "official_ms_per_frame": 413.6530876159668,
+ "cached_ms_per_frame": 194.04847025871277,
+ "speedup": 2.1316998122400492,
+ "tokens_identical": true,
+ "tokens_different": 0,
+ "tokens_compared": 2492
+}
