@@ -18,7 +18,9 @@ name="${1:?usage: day0_landscape.sh <model>}"
 SD="$(cd "$(dirname "$0")" && pwd)"
 OUT="${DAY0_DIR:-$WORK_DIR/day0}/$name"
 THRESH="${THRESH:-99.5}"; RECALL="${RECALL:-98}"; TYPE="${PREVIEW_TYPE:-q4_0}"; TOKENS="${TOKENS:-1000}"
-THREADS="${THREADS:-$(nproc)}"
+# threads: the CPU quota of this container if it has one (cloud pods often report the host's cores), else nproc
+quota=$( { awk '$1!="max"{print int($1/$2)}' /sys/fs/cgroup/cpu.max 2>/dev/null || awk 'NR==FNR{q=$1;next}{if(q>0)print int(q/$1)}' /sys/fs/cgroup/cpu/cpu.cfs_quota_us /sys/fs/cgroup/cpu/cpu.cfs_period_us 2>/dev/null || true; } | head -1 )
+THREADS="${THREADS:-$( [ -n "$quota" ] && [ "$quota" -gt 0 ] && echo $quota || nproc)}"
 mkdir -p "$OUT"
 trap 'log "ERROR: day0_landscape.sh failed at line $LINENO (exit $?)"' ERR   # never die silently under set -e
 # byte range of a file without pipes (file start length out): "tail | head" makes tail die of SIGPIPE, which
@@ -50,6 +52,8 @@ wmax=$(echo "$WIDTHS" | tr ',' '\n' | sort -n | tail -1); nmax=$(echo "$CANDS" |
 log "hidden size $hidden, widths $WIDTHS, candidates $CANDS, preview $TYPE, bar top-1 >= $THRESH% and recall40 >= $RECALL% in every domain"
 
 dump() { # text dir [chunks]
+    # a finished pass is kept (re-running the script resumes after it)
+    if grep -q "Final estimate" "$2/perplexity.log" 2>/dev/null && ls "$2"/*.f32 > /dev/null 2>&1; then log "  kept: $2"; return; fi
     mkdir -p "$2"; rm -f "${2:?}"/*.f32
     GGML_MC_DUMP="$2" "$BIN_DIR/llama-perplexity" -m "$model" -f "$1" -c 512 -t "$THREADS" ${3:+--chunks $3} \
         -ngl 0 --no-repack --no-op-offload > "$2/perplexity.log" 2>&1 || die "dump failed: $2"

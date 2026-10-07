@@ -1,0 +1,36 @@
+[21:47:39] setup done: sglang 0.5.21, ollama Warning: client version is 0.35.1
+[21:50:11] model pinned: casperhansen/llama-3.3-70b-instruct-awq at 64d255621f40b42adaf6d1f32a47e1d4534c0f14
+[21:50:11] stopped at line 71
+[21:50:32] model pinned: casperhansen/llama-3.3-70b-instruct-awq at 64d255621f40b42adaf6d1f32a47e1d4534c0f14
+[21:50:47] models and prompts ready (main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[21:50:54] models and prompts ready (Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 main: 26 val: 20 mtbench: 80 train: 2300 humaneval: 40 gsm8k: 100 mt40: 40 gsm40: 40 ood: 160 )
+[21:51:54] model pinned: casperhansen/llama-3.3-70b-instruct-awq at 64d255621f40b42adaf6d1f32a47e1d4534c0f14
+[22:03:13] base_main: 5088 tokens in 136.3 s = 37.3 tok/s (median per prompt 37.5)
+[22:18:49] base_ood: 34282 tokens in 922.6 s = 37.2 tok/s (median per prompt 37.2)
+[22:22:37] base_mt_t07: 7944 tokens in 214.1 s = 37.1 tok/s (median per prompt 37.1)
+[22:32:16] base_gsm100: 20968 tokens in 563.4 s = 37.2 tok/s (median per prompt 37.2)
+[22:37:44] pub_main: 5088 tokens in 64.7 s = 78.6 tok/s (median per prompt 81.0)
+[22:44:18] pub_ood: 34286 tokens in 388.1 s = 88.3 tok/s (median per prompt 89.8)
+[22:46:20] pub_mt_t07: 7838 tokens in 100.8 s = 77.7 tok/s (median per prompt 80.7)
+[23:03:32] answers: 2000 conversations from 2300 prompts -> /workspace/sushila/llama3.3-70b/regen.jsonl
+[23:25:45] chunk_00: capture 833 s, train 500 s, 'acc_0': 0.8333333134651184
+[23:42:19] chunk_01: capture 503 s, train 491 s, 'acc_0': 0.4000000059604645
+[23:47:10] val_ckpt_chunk_00: 3588 tokens in 41.0 s = 87.6 tok/s (median per prompt 84.4)
+[23:52:16] val_ckpt_chunk_01: 3588 tokens in 40.6 s = 88.3 tok/s (median per prompt 88.1)
+[23:52:30] chosen on validation: head_ckpt_chunk_01 (88.30955793543136 tok/s)
+[23:53:46] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/llama3.3-70b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/llama3.3-70b/CHECKSUMS.json are in B2 
+[23:58:23] ours_main: 5088 tokens in 59.0 s = 86.3 tok/s (median per prompt 87.2)
+[00:04:27] ours_ood: 34290 tokens in 358.5 s = 95.7 tok/s (median per prompt 95.7)
+[00:06:08] ours_mt_t07: 8278 tokens in 95.0 s = 87.2 tok/s (median per prompt 89.4)
+[00:09:50] ours_gsm100: 20955 tokens in 216.5 s = 96.8 tok/s (median per prompt 98.2)
+[00:34:54] load base: concurrency 1: 37.2 tok/s total, 37.2 tok/s per user (median);concurrency 4: 138.7 tok/s total, 35.2 tok/s per user (median);concurrency 16: 433.2 tok/s total, 28.2 tok/s per user (median);concurrency 64: 861.6 tok/s total, 15.1 tok/s per user (median);
+[00:52:51] load pub: concurrency 1: 88.2 tok/s total, 89.6 tok/s per user (median);concurrency 4: 206.1 tok/s total, 52.8 tok/s per user (median);concurrency 16: 247.9 tok/s total, 16.0 tok/s per user (median);concurrency 64: 244.6 tok/s total, 4.2 tok/s per user (median);
+[01:09:28] load ours: concurrency 1: 95.6 tok/s total, 95.7 tok/s per user (median);concurrency 4: 224.6 tok/s total, 56.5 tok/s per user (median);concurrency 16: 272.8 tok/s total, 17.4 tok/s per user (median);concurrency 64: 280.4 tok/s total, 4.8 tok/s per user (median);
+[01:13:09] Ollama llama3.3:70b is "name=Llama 3.1 70B Instruct 2024 12 version=2024-12 finetune=Instruct"; SGLang serves /root/.cache/huggingface/hub/models--casperhansen--llama-3.3-70b-instruct-awq/snapshots/64d255621f40b42adaf6d1f32a47e1d4534c0f14 (check they are the same model)
+[01:18:20] ollama_main: 4964 tokens: 23.8 tok/s with prompt processing (208.4 s), 24.3 tok/s decode only
+[01:42:18] ollama_ood: 33495 tokens: 23.6 tok/s with prompt processing (1416.7 s), 24.3 tok/s decode only
+[01:48:15] ollama_mt_t07: 7962 tokens: 23.7 tok/s with prompt processing (335.4 s), 24.3 tok/s decode only
+[02:03:18] ollama_gsm100: 20899 tokens: 23.8 tok/s with prompt processing (878.6 s), 24.3 tok/s decode only
+[02:06:29] summary: /workspace/sushila/llama3.3-70b/summary.md
+[02:07:23] saved to B2: precomputed: 7 files -> b2://sushila-ai/precomputed/llama3.3-70b/ (CHECKSUMS.json) verified: all 7 files listed in precomputed/llama3.3-70b/CHECKSUMS.json are in B2 
+[02:07:23] DONE
