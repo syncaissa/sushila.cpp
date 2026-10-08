@@ -233,7 +233,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           ['paused', 'failed', 'cancelled'].includes(j.status) ? el('button', { class: 'ghost', onclick: act(j.id, 'resume') }, 'Continue') : null,
           ['queued', 'paused', 'running'].includes(j.status) ? el('button', { class: 'ghost', onclick: act(j.id, 'cancel') }, 'Cancel') : el('button', { class: 'danger', onclick: act(j.id, 'remove') }, 'Remove'))));
       return [el('h2', {}, 'Queue'), el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: act('all', q.paused ? 'resume' : 'pause') }, q.paused ? 'Continue the queue' : 'Pause the queue'),
-          el('span', { class: 'sub' }, 'Jobs are added from the Use tab ("Add to queue"); one runs at a time, also when this page is closed.')),
+          el('span', { class: 'sub' }, 'Jobs are added from the Inference page ("Add to queue"); one runs at a time, also when this page is closed.')),
         rows.length ? el('table', {}, el('tbody', {}, rows)) : el('p', { class: 'sub' }, 'The queue is empty.')];
     }
     async function logsView() {
@@ -290,7 +290,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           let visitor = ''; try { visitor = JSON.parse(localStorage.getItem('sushila-visitor') || '""') || ''; } catch (_) {}
           const h = Object.assign({ 'content-type': 'application/json', 'x-sushila-visitor': visitor }, token ? { 'x-sushila-token': token } : keys[''] ? { authorization: 'Bearer ' + keys[''] } : {});
           const r = await fetch('/api/assistant', { method: 'POST', headers: h, body: JSON.stringify({ question, history: asked.slice(-4) }) });
-          if (!r.ok) throw new Error(r.status === 401 ? 'an access key is needed (enter it on the Use tab first)' : (await r.text()) || r.status);
+          if (!r.ok) throw new Error(r.status === 401 ? 'an access key is needed (enter it on the Inference page first)' : (await r.text()) || r.status);
           const a = await r.json();
           // quote mode (a model under 3B): the sections themselves, shown as quotes, then their commands and the hint
           if (a.mode === 'quote') {
@@ -355,8 +355,9 @@ body{background:radial-gradient(1200px 600px at 10% -10%,var(--accbg),transparen
   box-shadow:0 6px 24px rgba(16,24,40,.06);padding:12px 16px;gap:12px;flex-wrap:wrap}
 .top .lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-right:2px}
 .top{flex-wrap:nowrap}.pickbar{flex:1 1 auto;min-width:0;flex-wrap:nowrap}.srvbar{flex:0 1 auto}
-#mdl{flex:1 1 auto;min-width:0;width:100%;font-size:15px;padding:9px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+#mdl{flex:1 1 auto;min-width:0;width:100%;max-width:none;font-size:15px;padding:9px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
 button.icon{font-size:17px;padding:6px 11px;line-height:1.2}
+#stopbtn,.top .pill{white-space:nowrap}
 .hero{text-align:center;padding:36px 10px 26px}.hero h2{margin:8px 0 4px;font-size:22px;font-weight:700}.heroicon{font-size:38px}
 #chatlog:has(.bubble) .hero{display:none}
 #srv{font-size:13px;padding:6px 10px;border-radius:10px;background:var(--bg);max-width:220px}
@@ -374,7 +375,10 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
 .bubble{border-radius:14px}.bubble.user{background:var(--accbg)}
 .gallery img{border-radius:12px;box-shadow:0 4px 14px rgba(16,24,40,.08)}
 .qpanel{border-radius:16px;max-width:1100px}
-@media (max-width:760px){.top{margin:8px;border-radius:12px;flex-wrap:wrap}.pickbar{flex-basis:100%}.modewait{margin-left:0}}
+.composer>div{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+@media (max-width:760px){.top{margin:8px;border-radius:12px;flex-wrap:wrap}.pickbar{flex-basis:100%}.modewait{margin-left:0}
+  .composer{flex-wrap:wrap}.composer textarea{flex-basis:100%;min-height:72px}.composer>div{width:100%}.composer>div button{flex:1}
+  .chat,.music{margin:10px 8px;border-radius:14px}.chat{padding:14px}.composer{margin:0 -14px -14px;padding:12px 14px}}
 .modewait{display:inline-flex;align-items:center;gap:8px;margin-left:10px;padding:4px 14px 4px 8px;border-radius:99px;background:#f5b301;color:#1a1a1a;font-weight:700;font-size:14px;box-shadow:0 0 0 3px rgba(245,179,1,.35);animation:mwpulse 1.2s ease-in-out infinite}
 .modewait .hg{display:inline-block;font-size:28px;line-height:1;animation:mwflip 1.6s ease-in-out infinite}
 .modewait.hidden{display:none}
@@ -842,12 +846,13 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       $('iprompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) makeImage(); });
       if (autoPrompt) { $('iprompt').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeImage(); } }
     }
-    // the sizes an image model's engine makes: up to 2048 everywhere; 4K (3840x2160) only on the standard engine
-    // (stable-diffusion.cpp), experimental: beyond the size the model was trained at, much memory, not measured
+    // the sizes an image model's engine makes: up to 2048 everywhere (the NVIDIA 4-bit runtime stops at 2048); 4K
+    // (3840x2160) on the standard engine (stable-diffusion.cpp)
     function imageSizes(m) {
       const sizes = [['768x768', 'Square 768 (fastest)'], ['1024x1024', 'Square 1024'], ['768x1024', 'Portrait 768x1024'], ['1024x768', 'Landscape 1024x768'],
         ['1536x1536', 'Square 1536'], ['2048x2048', 'Square 2048 (2K; GPU with 24 GB+)'], ['2048x1152', 'Wide 2048x1152 (2K)'], ['1152x2048', 'Tall 1152x2048 (2K)']];
-      if (!(m && m.engine === 'image-nunchaku')) sizes.push(['3840x2160', '4K 3840x2160 (experimental, slow, much memory)'], ['2160x3840', '4K tall 2160x3840 (experimental)']);
+      // 4K measured with the standard engine on an RTX 3090 (24 GB): 165 s, decoded in tiles automatically
+      if (!(m && m.engine === 'image-nunchaku')) sizes.push(['3840x2160', '4K 3840x2160 (about 3 min on a 24 GB GPU)'], ['2160x3840', '4K tall 2160x3840 (about 3 min on a 24 GB GPU)']);
       return sizes;
     }
     // where the server saved a picture (this computer only): the path, Show in folder (file manager), Copy path

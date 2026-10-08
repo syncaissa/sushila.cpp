@@ -13,6 +13,9 @@ raw results of every run we report. See **[REPRODUCE.md](REPRODUCE.md)**, and
 
 ## Replicate the paper
 
+Every speedup was measured on the machines and software versions named in the paper. Rerun on a similar machine with the
+same versions for a consistent check; we do not guarantee the same performance on other machines, versions or settings.
+
 - **[docs/REPLICATE_ALL.md](docs/REPLICATE_ALL.md)**: every table and figure of the paper, with its command,
   hardware, time, expected numbers, pass rule and raw results, and the known gaps.
 - **[docs/REPRODUCE.md](docs/REPRODUCE.md)**: text models, one command per model (`scripts/reproduce/retest.sh`).

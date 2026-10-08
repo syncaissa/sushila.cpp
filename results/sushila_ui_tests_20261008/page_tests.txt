@@ -1,0 +1,37 @@
+ok   local page: Inference and Admin, Sushila named once
+ok   Admin: Packs, Engine, Queue, Recent actions, Logs, Settings
+ok   Packs: installed and available packs listed
+ok   Packs: a pack for other hardware is marked
+ok   a running install shows progress (started from the CLI)
+ok   Install sends /api/control with the token
+ok   Stop sends a stop request
+ok   Engine tab shows the GPU
+ok   Queue tab lists jobs with Open
+ok   Recent actions tab lists the actions (and only there in full)
+ok   Logs tab shows the shared log
+ok   Settings tab shows the settings
+ok   Use tab shows the inference page
+ok   picker: each pack per mode, with what it does and whether it runs
+ok   picker: no Standard/Accelerated switch; a Stop button
+ok   picker: no hourglass while nothing changes
+ok   picker: a stopped entry asks before it starts
+ok   picker: start goes to /api/use with the mode
+ok   picker: a large hourglass while it starts, picker locked
+ok   remote visitor: only Use, no management
+ok   /install/<pack> link: asks, then installs
+ok   first start: Admin asks to create the password, nothing else shown
+ok   after setting it: the Admin tabs open
+ok   password set: login form
+ok   wrong password: refused, nothing shown
+ok   not allowed from this address: explained
+ok   change: a wrong current password is refused
+ok   change: with the current password it works
+ok   the ☰ menu: Inference, Admin, Documentation, API + the addresses
+ok   remote visitor: ☰ menu without Admin or the home folder
+ok   Ask Sushila: #assistant opens the panel
+ok   Ask Sushila: sends the question with the token
+ok   Ask Sushila: shows the answer and its sources
+ok   Ask Sushila: follow-up questions carry the conversation
+ok   Ask Sushila: quote mode shows the sections as quotes, their commands and the hint
+ok   remote visitor: Ask Sushila is available too
+all passed

@@ -165,7 +165,8 @@ NVIDIA: a recent driver is enough (the CUDA runtime comes with the engine).</div
 <p>Every page has the ☰ menu with Inference, Admin (this computer only), this documentation and the API, followed by the four addresses and, on this computer, the home folder: the same lines the server prints when it starts. Each running model's engine listens on an internal port
 (8766, 8767, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
 <p><b>Accelerated or Standard</b>: Accelerated uses Sushila's precomputed files for the model (faster); Standard is the plain model,
-as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with <code>--standard</code>.</p>
+as Ollama or stock llama.cpp would run it. Choose the mode in the Inference page's model picker (each pack is listed in both modes), or start with <code>--standard</code>.</p>
+<p><b>One model pack at a time</b>: starting a pack (Inference page, Admin page or <code>sushila start</code>) stops the others after asking. The assistant's chat model (Qwen3 4B) keeps running for the terminal and Ask Sushila; while an image, music or video pack uses the GPU it runs on the CPU, so a question never interrupts a picture, and it returns to the GPU afterwards. Pictures are saved in <code>outputs/images/&lt;date&gt;/</code> in the home folder (Show in folder, Copy path under each one).</p>
 <h3 id="window">The server window</h3>
 <p>The window where <code>sushila serve</code> runs (it opens when you double-click <code>sushila</code>) takes typed lines:</p>
 <ul>

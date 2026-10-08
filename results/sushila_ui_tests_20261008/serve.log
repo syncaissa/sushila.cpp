@@ -1,0 +1,32 @@
+[00:25:20] serving on http://127.0.0.1:8765 (data /root/it/home)
+
+==============================================================
+ Sushila 0.1.1 is running
+   Inference:      http://localhost:8765/
+   Admin:          http://localhost:8765/admin   (this computer only)
+   Documentation:  http://localhost:8765/docs
+   API (OpenAI):   http://localhost:8765/v1
+   Home folder:    /root/it/home   (model-packs, settings, logs; change: sushila home <folder>)
+ Type a command (e.g. install, ps, status), a question, or ? for help. Stop: Ctrl+C, type stop, or close this window
+ Copy: select with the mouse, then right-click (or Enter); paste: right-click or Ctrl+V; copy = copy the last answer
+==============================================================
+
+[00:25:20] no admin password yet: open http://localhost:8765/admin on this computer to set it
+[00:25:20] starting qwen3-4b-instruct-2507 (Standard, 4 parallel slots) on port 8766: /root/it/home/engine/0.1.1/sushila-server -m /root/it/home/model-packs/qwen3-4b-instruct-2507/Qwen3-4B-Instruct-2507-Q4_K_M.gguf --host 127.0.0.1 --port 8766 -t 16 -c 16384 -np 4 -ngl auto
+Models: qwen3-4b-instruct-2507 (loading in the background: `sushila status`)
+  page:  http://localhost:8765/
+  API:   header x-sushila-token: <token> here, or Authorization: Bearer <key> from other machines
+  log:   /root/it/home/logs/sushila.log
+
+[00:25:22] qwen3-4b-instruct-2507 is ready on port 8766
+[00:26:20] request from inference page: start z-image-turbo-nvidia
+[00:26:20] qwen3-4b-instruct-2507 (the assistant) moves to the CPU while z-image-turbo-nvidia uses the GPU
+[00:26:21] starting qwen3-4b-instruct-2507 (Standard, 2 parallel slots) on port 8766: /root/it/home/engine/0.1.1/sushila-server -m /root/it/home/model-packs/qwen3-4b-instruct-2507/Qwen3-4B-Instruct-2507-Q4_K_M.gguf --host 127.0.0.1 --port 8766 -t 16 -c 8192 -np 2 -ngl 0
+[00:26:21] starting z-image-turbo-nvidia (Accelerated, 1 parallel slot) on port 8767: /root/it/home/runtime/image-nunchaku/0.1.0/python/bin/python3.11 /root/it/home/runtime/image-nunchaku/0.1.0/server/sushila_image_server.py --host 127.0.0.1 --port 8767 --name z-image-turbo-nvidia --model-dir /root/it/home/model-packs/z-image-turbo-nvidia/model_index.json --transformer /root/it/home/model-packs/z-image-turbo-nvidia/transformer/svdq-int4_r128-z-image-turbo.safetensors
+[00:26:25] qwen3-4b-instruct-2507 is ready on port 8766
+[00:27:07] z-image-turbo-nvidia is ready on port 8767
+[00:28:04] request from inference page: stop z-image-turbo-nvidia
+[00:28:04] qwen3-4b-instruct-2507 (the assistant) goes back to the GPU
+[00:28:05] starting qwen3-4b-instruct-2507 (Standard, 4 parallel slots) on port 8766: /root/it/home/engine/0.1.1/sushila-server -m /root/it/home/model-packs/qwen3-4b-instruct-2507/Qwen3-4B-Instruct-2507-Q4_K_M.gguf --host 127.0.0.1 --port 8766 -t 16 -c 16384 -np 4 -ngl auto
+[00:28:05] stop z-image-turbo-nvidia: done
+[00:28:07] qwen3-4b-instruct-2507 is ready on port 8766

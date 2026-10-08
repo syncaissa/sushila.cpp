@@ -1,0 +1,25 @@
+{
+ "date": "2026-10-08",
+ "gpu": "NVIDIA GeForce RTX 3090 24 GB (RunPod)",
+ "build": "sushila 0.1.1 build 8 candidate",
+ "one_pack_at_a_time": {
+  "start z-image-turbo-nvidia (Accelerated) via /api/use": "assistant qwen3-4b moved to CPU (-ngl 0, 2 slots), ready in 4 s; image pack ready in 46 s",
+  "stop z-image-turbo-nvidia": "assistant back on GPU (4 slots), GPU memory 5.1 GB"
+ },
+ "image_nvidia_4bit_accelerated_2048x2048_s": 34.0,
+ "assistant_question_on_cpu_during_that_image_s": 12.2,
+ "image_not_interrupted": true,
+ "image_saved_to": "home/outputs/images/2026-10-08/002754-a-red-fox-in-fresh-snow-1.png",
+ "standard_engine_sd_cpp_q4k_8_steps": {
+  "2048x2048_s": 65.0,
+  "3840x2160_s": 165.4,
+  "gpu_memory_mib": 11841,
+  "note": "4K VAE decode ran out of memory once and retried with spatial tiling automatically"
+ },
+ "tests": {
+  "page": "page_tests.txt (all passed)",
+  "rust": "rust_tests.txt (24 passed)"
+ },
+ "screenshots": "screenshots/ (desk, desk-dark, phone, desk-imgchip; Playwright Chromium 1366x860 and 390x844)",
+ "full_size_images": "B2 results/sushila-ui-tests-20261008/"
+}

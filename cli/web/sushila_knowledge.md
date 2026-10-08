@@ -92,12 +92,24 @@ do not fit. On an NVIDIA GPU, `sushila install z-image-turbo` installs the varia
 when that one fits.
 
 ## Standard and Accelerated
-Every model has a switch: Standard runs the plain model, as Ollama or the reference engine would. Accelerated adds
+Every model has two modes: Standard runs the plain model, as Ollama or the reference engine would. Accelerated adds
 Sushila's precomputed files and methods for that model, for example a draft head that lets the engine check several
 tokens at once, a precomputed output-layer landscape, or a cache plan for images and video. For text, Accelerated
 gives the model's own answers (up to rare numerical near-ties) faster. For images and video the cache plan is slightly
-lossy (measured similarity about 0.93-0.98 to Standard); switch back to Standard if you see a difference. Change it on
-the page or with `sushila mode <pack> standard|accelerated`.
+lossy (measured similarity about 0.93-0.98 to Standard); choose Standard if you see a difference. The model picker on
+the Inference page lists each pack in both modes, e.g. "Z-Image-Turbo (Accelerated)"; or `sushila mode <pack> standard|accelerated`.
+
+## The Inference page and running models
+The Inference page (http://localhost:8765/) has one model picker: every installed pack, once per mode, with what it
+does (Chat, Code, Image, Music, Video) and whether it runs. Choosing one that is stopped asks first and starts it; ■ Stop
+stops it. Chips by kind (Chat, Image, ...) jump to that kind. One model pack runs at a time: starting one stops the
+others, on the page, the Admin page and with `sushila start` alike (all show the same state). The assistant's chat model
+(Qwen3 4B) is the exception: it keeps running so the terminal and Ask Sushila always answer; while an image, music or
+video pack uses the GPU it moves to the CPU (slower answers, but a picture being drawn is never interrupted) and returns
+to the GPU when that pack stops. Pictures made on the page are also saved in the home folder (outputs/images/<date>/);
+under each one, Show in folder opens it in Explorer or Finder and Copy path copies its location. Sizes go up to
+2048x2048 for every image model (34 s at 2048 on an RTX 3090 with the NVIDIA 4-bit pack, Accelerated); 4K (3840x2160)
+for the standard image engine only (about 3 minutes on a 24 GB GPU; measured once on an RTX 3090).
 
 ## What speed to expect
 The speedups measured for the paper (same computer, same prompts): Llama-3.3-70B 4.05x over vanilla Ollama on an A100

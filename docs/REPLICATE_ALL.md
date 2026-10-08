@@ -18,6 +18,12 @@ not change.
 
 - **Ratios, not absolute speed.** Every speedup in the paper is a ratio of two runs on the same machine, in the same
   session. Your GPU or CPU changes both runs. The ratio should stay close.
+- **Similar machines, same versions.** Each number holds for the machine and software versions it was measured with
+  (the paper's Table 31 and appendix "Exact Versions, for Retesting"). For a consistent check, rerun on a similar
+  machine (same GPU class, driver and CUDA generation) with the same versions and model files. We do not guarantee the
+  same speedups on other machines, versions or settings: there a gain may be smaller, larger or absent (on an 8 GB laptop
+  GPU, for example, image generation is far slower than on the desktop GPU we measured). `sushila bench <pack>` measures
+  Standard against Accelerated on your own computer.
 - **Same-machine baselines.** Always run the baseline yourself, on your machine. Never compare your speed with our
   speed.
 - **Default pass rule.** A speedup is reproduced when your ratio is within 10% of the paper's, or higher. Quality
