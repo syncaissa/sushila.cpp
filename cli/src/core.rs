@@ -79,6 +79,9 @@ impl Ctx {
         }
         s["settings"] = Value::Object(settings);
         if !s["packs"].is_object() { s["packs"] = json!({}); }
+        // older catalogs put a desktop-GPU speed in the image pack names ("Accelerated: 0.9 s on a desktop RTX 4090 ...");
+        // a laptop is much slower, so the names lose it (the measured speeds are in the docs and `sushila bench`)
+        if let Some(m) = s["packs"].as_object_mut() { for p in m.values_mut() { if let Some(n) = p["name"].as_str() { let c = plain_name(n); if c != n { p["name"] = json!(c); } } } }
         if !s["share"].is_object() { s["share"] = json!({ "enabled": false, "bind": "0.0.0.0", "hosts": [], "keys": [], "perMinute": 30 }); }
         if s["token"].as_str().map(|t| t.is_empty()).unwrap_or(true) { s["token"] = json!(random_token()); }
         if !s["running"].is_object() { s["running"] = json!({}); }
@@ -174,7 +177,8 @@ impl Ctx {
         for p in packs.iter().filter(|p| p["hidden"] != true) {
             let fits = self.pack_fits(p).await;
             let bytes: u64 = p["files"].as_array().map(|a| a.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum()).unwrap_or(0);
-            rows.push(json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "category": p["category"], "bytes": bytes, "fits": fits,
+            let popular = popular_packs(self.catalog.as_ref().unwrap()).contains(&p["id"].as_str().unwrap_or("").to_string());
+            rows.push(json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "category": p["category"], "bytes": bytes, "fits": fits, "popular": popular,
                               "license": p["license"], "variantOf": p["variantOf"], "minRamGB": p["minRamGB"], "description": p["description"] }));
         }
         let v = json!({ "updated": now_iso(), "engineVersion": self.catalog.as_ref().unwrap()["engine"]["version"], "packs": rows });
@@ -1147,6 +1151,32 @@ pub fn turbo_request(p: &Value) -> Option<Value> {
     }
     if out.is_empty() { None } else { Some(Value::Object(out)) }
 }
+/// The popular packs (settings.keepPopular): those the catalog marks "popular", else one per kind: chat, code, pictures,
+/// songs, video. best_variant then picks the build for this computer (e.g. the NVIDIA image pack).
+pub fn popular_packs(catalog: &Value) -> Vec<String> {
+    let marked: Vec<String> = catalog["packs"].as_array().map(|a| a.iter().filter(|p| p["popular"] == true).filter_map(|p| p["id"].as_str().map(String::from)).collect()).unwrap_or_default();
+    if !marked.is_empty() { return marked; }
+    ["qwen3-4b-instruct-2507", "qwen2.5-coder-7b", "z-image-turbo", "ace-step-15", "wan2.2-ti2v-5b"].iter().map(|s| s.to_string()).collect()
+}
+/// Free bytes on the disk that holds `dir` (None when unknown).
+pub fn free_disk(dir: &std::path::Path) -> Option<u64> {
+    let home = std::fs::canonicalize(dir).unwrap_or(dir.to_path_buf());
+    sysinfo::Disks::new_with_refreshed_list().list().iter().filter(|d| home.starts_with(d.mount_point())).max_by_key(|d| d.mount_point().as_os_str().len()).map(|d| d.available_space())
+}
+/// A pack name without a speed claim in brackets: "Z-Image-Turbo for NVIDIA GPUs (Accelerated: 0.9 s on ...)" ->
+/// "Z-Image-Turbo for NVIDIA GPUs (Accelerated on NVIDIA kernels)"; other names come back unchanged.
+pub fn plain_name(n: &str) -> String {
+    match (n.find(" (Accelerated:"), n.ends_with(')')) {
+        (Some(i), true) if n[i..].contains(" s ") || n[i..].contains(" s;") =>
+            format!("{} ({} NVIDIA kernels)", &n[..i], if n.contains("50-series") { "FP4" } else { "4-bit" }),
+        _ => n.to_string(),
+    }
+}
+#[test] fn plain_names() {
+    assert_eq!(plain_name("Z-Image-Turbo for NVIDIA GPUs (Accelerated: 0.9 s on a desktop RTX 4090; slower on 8-16 GB GPUs)"), "Z-Image-Turbo for NVIDIA GPUs (4-bit NVIDIA kernels)");
+    assert_eq!(plain_name("Qwen3 4B Instruct 2507 (chat, 4-bit)"), "Qwen3 4B Instruct 2507 (chat, 4-bit)");
+}
+
 pub fn can_turbo(p: &Value) -> bool {
     let e = p["engine"].as_str().unwrap_or("text");
     let n = |k: &str| p[k].as_array().map(|a| !a.is_empty()).unwrap_or(false);

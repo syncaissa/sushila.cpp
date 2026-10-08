@@ -77,6 +77,8 @@ pub async fn upload(dir: &Path, rel: &str) -> Result<Value, String> {
     let q = |k: &str, v: &str| format!("{k}={}", v.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect::<String>());
     let path = format!("/api/app/upload?{}&{}&{}", q("name", &p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()),
         q("title", &meta["prompt"].as_str().unwrap_or("").chars().take(300).collect::<String>()), q("model", meta["pack"].as_str().unwrap_or("")));
+    // where it was made: on this computer for its user (local=1), or here for someone on another device (local=0)
+    let path = format!("{path}&local={}", if meta["remote"] == true { 0 } else { 1 });
     let v = call(dir, reqwest::Method::POST, &path, Some((bytes, ct)), true).await?;
     note(dir, json!({ "rel": rel, "id": v["id"], "link": v["link"], "file": v["file"], "created": v["created"] }));
     crate::core::log(true, &format!("shared {rel}: {}", v["link"].as_str().unwrap_or("")));

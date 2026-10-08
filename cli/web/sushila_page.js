@@ -55,6 +55,16 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .meta{font-size:12px;color:var(--mut);margin-top:4px}.composer{position:sticky;bottom:0;background:var(--bg);padding:10px 0;display:flex;gap:8px}
 .composer textarea{flex:1;resize:vertical;min-height:52px}
 @media (max-width:640px){main,.chat{padding:12px}.top{padding:10px 12px}.bubble.user{margin-left:6%}}
+.toasts{position:fixed;right:18px;bottom:18px;z-index:1000;display:flex;flex-direction:column;gap:10px;width:min(440px,calc(100vw - 36px))}
+.toast{display:flex;gap:12px;align-items:flex-start;background:var(--card);color:var(--ink);border:1px solid var(--line);border-left:6px solid var(--acc);border-radius:12px;
+padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:15px;line-height:1.45;animation:tin .18s ease-out}
+.toast.ok{border-left-color:var(--ok)}.toast.err{border-left-color:var(--err)}.toast.warn{border-left-color:var(--warn)}.toast.ask{border-left-color:var(--acc)}
+.toast.out{opacity:0;transform:translateY(8px);transition:all .18s}.ticon{flex:none;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;background:var(--acc)}
+.toast.ok .ticon{background:var(--ok)}.toast.err .ticon{background:var(--err)}.toast.warn .ticon{background:var(--warn)}
+.tbody{flex:1;min-width:0}.ttitle{font-weight:700;margin-bottom:2px}.ttext{white-space:pre-line;overflow-wrap:anywhere}.tacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tclose{flex:none;background:transparent;border:0;color:var(--mut);font-size:20px;line-height:1;padding:0 4px}
+@keyframes tin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (max-width:640px){.toasts{right:10px;left:10px;bottom:10px;width:auto}}
 `;
   const el = (tag, attrs = {}, ...kids) => {
     const n = document.createElement(tag);
@@ -68,6 +78,34 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
   const $ = (id) => document.getElementById(id);
   const gb = (b) => (b / 1e9).toFixed(b >= 1e10 ? 0 : 1) + ' GB';
   const style = () => document.head.append(el('style', {}, CSS));
+  // ------------------------------------------------------------------ toasts: every notice and every question
+  // A card at the bottom right (full width on a phone) instead of the browser's dialog boxes: it does not block the page,
+  // says clearly what happens, and a question has its buttons on it. Notices close by themselves; questions wait.
+  let toastBox = null;
+  function toast(text, o = {}) {  // o: { kind: ok|err|warn|info|ask, title, actions: [{ label, primary, danger, onclick }], ms, onclose }
+    if (!toastBox || !toastBox.isConnected) { toastBox = el('div', { class: 'toasts', role: 'region', 'aria-label': 'Notifications' }); document.body.append(toastBox); }
+    const kind = o.kind || 'info';
+    const t = el('div', { class: 'toast ' + kind, role: o.actions ? 'alertdialog' : 'status', 'aria-live': kind === 'err' ? 'assertive' : 'polite' });
+    let closed = false;
+    const close = () => { if (closed) return; closed = true; t.classList.add('out'); setTimeout(() => t.remove(), 180); };
+    t.append(el('div', { class: 'ticon', 'aria-hidden': 'true' }, { ok: '✓', err: '!', warn: '!', info: 'i', ask: '?' }[kind] || 'i'),
+      el('div', { class: 'tbody' }, o.title ? el('div', { class: 'ttitle' }, o.title) : null, el('div', { class: 'ttext' }, text),
+        o.actions ? el('div', { class: 'tacts' }, ...o.actions.map((a) => el('button', { class: a.primary ? '' : a.danger ? 'danger' : 'ghost', onclick: () => { close(); if (a.onclick) a.onclick(); } }, a.label))) : null),
+      el('button', { class: 'tclose', title: 'Close', 'aria-label': 'Close', onclick: () => { close(); if (o.onclose) o.onclose(); } }, '×'));
+    toastBox.append(t);
+    while (toastBox.children.length > 4) toastBox.firstChild.remove();
+    if (!o.actions) setTimeout(close, o.ms || (kind === 'err' ? 14000 : 7000));
+    const b = t.querySelector('.tacts button'); if (b && b.focus) b.focus();
+    return close;
+  }
+  // a yes/no question as a toast: resolves true (the first button) or false (Cancel, ×)
+  const ask = (text, okLabel = 'OK', o = {}) => new Promise((res) => {
+    let done = false; const fin = (v) => { if (!done) { done = true; res(v); } };
+    toast(text, { kind: 'ask', title: o.title, onclose: () => fin(false),
+      actions: [{ label: okLabel, primary: !o.danger, danger: !!o.danger, onclick: () => fin(true) }, { label: o.cancel || 'Cancel', onclick: () => fin(false) }] });
+  });
+  // the Library's "Upload and copy link", reachable from the Inference page (set by the Library on this computer)
+  let shareFromInference = null;
 
 
   manager();
@@ -98,7 +136,14 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .chip{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:6px 14px;font-weight:600}.chip.on{background:var(--acc);color:#fff;border-color:transparent}
 .libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:6px}
 .libcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 2px 10px rgba(16,24,40,.04)}
-.libprev{background:var(--code);display:flex;align-items:center;justify-content:center;min-height:80px}.libprev img,.libprev video{width:100%;max-height:260px;object-fit:contain;display:block}.libprev audio{width:94%;margin:16px 0}
+.libtable td{vertical-align:middle}.lthumb{width:76px}.lopen{padding:0;border:0;background:var(--code);border-radius:8px;width:68px;height:52px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.lopen img{width:100%;height:100%;object-fit:cover}.lticon{font-size:22px}.lname b{display:block;max-width:420px}.lacts{white-space:nowrap}.lacts button,.lacts .dlbtn{padding:5px 9px;font-size:13px;margin:0 2px}.tablewrap{overflow-x:auto}
+.lbox{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px}.lboxin{background:var(--card);border-radius:14px;padding:14px;max-width:min(1100px,96vw);max-height:94vh;overflow:auto}
+.lboxin img,.lboxin video{max-width:100%;max-height:76vh;display:block;margin:0 auto;border-radius:10px}.lboxin audio{width:min(600px,80vw)}
+.libprev{position:relative;background:var(--code);display:flex;align-items:center;justify-content:center;min-height:80px}
+.mfull{position:absolute;top:6px;right:6px;border:0;border-radius:8px;padding:3px 8px;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;z-index:2}
+.mviews{position:absolute;bottom:6px;right:6px;border-radius:99px;padding:2px 9px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;z-index:2;pointer-events:none}
+.libprev:fullscreen img,.libprev:fullscreen video{max-height:100vh;height:100%;object-fit:contain}.libprev img,.libprev video{width:100%;max-height:260px;object-fit:contain;display:block}.libprev audio{width:94%;margin:16px 0}
 .libbody{padding:10px 12px;display:flex;flex-direction:column;gap:4px}.libbody .row{margin-top:6px}.libbody button,.libbody .dlbtn{padding:5px 10px;font-size:13px;margin:0}
 .lyr{white-space:pre-wrap;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;max-height:160px;overflow:auto;background:var(--code);padding:6px;border-radius:8px}
 .adminhead{display:flex;align-items:center;gap:10px;margin:8px 0 14px;flex-wrap:wrap}.adminhead h1{font-size:22px;margin:0 6px 0 0}
@@ -109,6 +154,12 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .secbody{padding:0 16px 14px;border-top:1px solid var(--line)}.secbody>h2:first-child{display:none}.pill.warn{color:var(--warn);border-color:var(--warn)}.pill.mut{color:var(--mut)}
 .downbar{position:sticky;top:0;z-index:50;background:#fff4e5;color:#7a4b00;border-bottom:2px solid #f5b301;padding:10px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .downbar .dlbtn{margin:0}
+.spacebox{width:min(1000px,96vw)}.spacebox h3{margin:18px 0 6px}.warnnote{margin:12px 0;padding:10px 14px;border-radius:10px;background:var(--accbg);font-size:14px}
+.srvstat{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 14px;background:var(--card)}
+.srvstat .dot{width:12px;height:12px;border-radius:50%;flex:none;background:var(--ok);box-shadow:0 0 0 4px rgba(18,122,58,.15)}.srvstat.down{border-color:var(--err);background:var(--errbg)}.srvstat.down .dot{background:var(--err);box-shadow:0 0 0 4px rgba(180,35,24,.15)}
+.switch{display:flex;align-items:center;gap:10px;cursor:pointer;max-width:420px}.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch .slider{flex:none;position:relative;width:46px;height:26px;border-radius:99px;background:var(--line);transition:background .15s}.switch .slider::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .15s}
+.switch input:checked+.slider{background:var(--acc)}.switch input:checked+.slider::after{transform:translateX(20px)}.switch input:focus-visible+.slider{outline:2px solid var(--acc);outline-offset:2px}
 .snav b{margin-right:12px}.snav .brand{display:inline-flex;align-items:center;gap:8px;font-size:16px;letter-spacing:.2px}
 .snav .mark{width:30px;height:30px;border-radius:8px;background:#fff;box-shadow:0 0 0 1px var(--line);object-fit:contain}
 .snav{padding:8px 18px;gap:4px;box-shadow:0 1px 0 var(--line)}.smenu{position:relative;margin-right:8px}.smenu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 4px}.smenu summary::-webkit-details-marker{display:none}
@@ -142,15 +193,16 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     document.body.prepend(nav); document.body.append(box);
     // when Sushila stops while this page is open: a banner says so, with a Start button (sushila:// starts the program on
     // Windows, where Sushila registers that link for this user), and the page comes back by itself when it runs again
-    const down = el('div', { class: 'downbar hidden', role: 'alert' }, el('b', {}, 'Sushila is not running on this computer. '),
+    const down = el('div', { class: 'downbar hidden', role: 'alert' }, el('b', {}, 'The Sushila.cpp server is not running on this computer. '),
       el('a', { class: 'dlbtn', href: 'sushila://start' }, '▶ Start Sushila'),
-      el('span', { class: 'sub' }, ' or double-click sushila.exe (Windows), or run sushila serve in a terminal. This page reconnects by itself.'));
+      el('span', { class: 'sub' }, ' or double-click sushila.exe (Windows), or run sushila serve in a terminal. Not installed? Get it at ', el('a', { href: 'https://sushila.ai/install', target: '_blank', rel: 'noopener' }, 'sushila.ai/install'), '. This page reconnects by itself.'));
     document.body.prepend(down);
-    let wasDown = false;
+    let wasDown = false, serverUp = true;
     setInterval(async () => {
       if (document.hidden) return;
       let ok = false; try { ok = (await fetch('/health', { cache: 'no-store' })).ok; } catch (_) {}
-      down.classList.toggle('hidden', ok);
+      down.classList.toggle('hidden', ok); serverUp = ok;
+      if (!ok && view === 'admin') render();
       if (ok && wasDown) location.reload();
       wasDown = !ok;
     }, 3000);
@@ -187,21 +239,56 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     // ---------- the Library: every picture, song and video made here (outputs/ in the home folder), searchable by any
     // field, sortable, with Show in folder, Download, Copy path and Delete (to the Library's trash: Restore or Delete permanently)
     const lib = { items: null, trash: [], folder: '', q: '', kind: '', pack: '', sort: 'new', inTrash: false, msg: '',
-      acct: { signedIn: false }, signin: null, shared: null, showShared: false };  // share links: the sushila.ai account (e-mail code, no password)
+      acct: { signedIn: false }, signin: null, shared: null, showShared: false, layout: (() => { try { return localStorage.getItem('sushila-lib-layout') || 'grid'; } catch (_) { return 'grid'; } })() };  // share links: the sushila.ai account (e-mail code, no password)
     const fileUrl = (x, dl) => '/api/library/file?rel=' + encodeURIComponent(x.rel) + (x.trash ? '&trash=1' : '') + (dl ? '&download=1' : '') + '&t=' + encodeURIComponent(token);
+    // on every picture, song and video: ⛶ shows it full screen (Esc returns); shared ones show their views on sushila.ai
+    const viewsText = (n) => (n || 0).toLocaleString() + ' view' + (n === 1 ? '' : 's');
+    function mediaBox(media, views) {
+      const box = el('div', { class: 'libprev' }, media);
+      const full = el('button', { class: 'mfull', title: 'Full screen (Esc to return)', 'aria-label': 'Full screen', onclick: () => {
+        const t = media.tagName === 'AUDIO' ? box : media;
+        if (document.fullscreenElement) document.exitFullscreen(); else if (t.requestFullscreen) t.requestFullscreen().catch(() => {}); else if (t.webkitRequestFullscreen) t.webkitRequestFullscreen();
+      } }, '⛶');
+      box.append(full); if (views != null) box.append(el('span', { class: 'mviews' }, '👁 ' + viewsText(views)));
+      return box;
+    }
+    // the Inference page's "Upload and copy link": the file it just made (by path, else the newest of that kind since it
+    // was asked for), signed in here first when needed
+    if (local) shareFromInference = async (kind, since, path) => {
+      await libLoad();
+      const norm = (f) => String(f || '').replace(/\\/g, '/');
+      const x = (lib.items || []).find((i) => path ? norm(i.path) === norm(path) : i.kind === kind && Date.parse(i.created) >= since - 5000);
+      if (!x) { toast('It is not in the Library yet; try again in a moment.', { kind: 'warn', title: 'Upload and copy link' }); return; }
+      if (x.link) { try { await navigator.clipboard.writeText(x.link); } catch (_) {} toast(x.link, { kind: 'ok', title: 'Already uploaded. The link is copied.' }); return; }
+      if (!lib.acct.signedIn) {
+        lib.signin = { step: 'email', email: '', pending: x, purpose: 'SIGN_IN' };
+        toast('Sign in with your e-mail (a code, no password) on the Library tab; the upload continues after that.', { kind: 'info', title: 'Sign in to sushila.ai first' });
+        location.hash = '#library'; return;
+      }
+      await libShare(x);
+    };
     async function libLoad() {
       try { const j = await (await api('/api/library')).json(); lib.items = j.items || []; lib.trash = j.trash || []; lib.folder = j.folder || ''; } catch (e) { lib.items = []; lib.msg = 'Could not read the Library: ' + e.message; }
       try { lib.acct = await (await api('/api/share/me')).json(); } catch (_) {}
+      lib.views = {};
+      if (lib.acct && lib.acct.signedIn) { try { for (const m of (await shareCall('list')).items || []) lib.views[m.link] = m.views || 0; } catch (_) {} }
     }
     const SHARE_NOTICE = 'Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported. Manage your uploads at sushila.ai/mycontent.';
     const shareCall = async (act, body) => { const r = await api('/api/share/' + act, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; };
     // Share link: asks once per file, signs in by e-mail code when needed, uploads, copies the link
     async function libShare(x) {
       if (!lib.acct.signedIn) { lib.signin = { step: 'email', email: '', pending: x, purpose: 'SIGN_IN' }; libRender(); return; }
-      if (!window.confirm('Upload "' + x.name + '" to sushila.ai and make a link?\n\nAnyone with the link can open it. It is labelled AI-generated. You can delete the link at any time (Shared links, or sushila.ai/mycontent).\n\n' + SHARE_NOTICE)) return;
+      if (!await ask('Anyone with the link can open it. It is labelled AI-generated, and you can delete it at any time (Shared links, or sushila.ai/mycontent).\n\n' + SHARE_NOTICE,
+        'Upload and copy link', { title: 'Upload "' + x.name + '" to sushila.ai?' })) return;
       lib.msg = 'Uploading ' + x.name + '…'; libRender();
-      try { const m = await shareCall('upload', { rel: x.rel }); try { navigator.clipboard.writeText(m.link); } catch (_) {} lib.msg = 'Link (copied): ' + m.link; }
-      catch (e) { lib.msg = 'Could not share: ' + e.message; if (/sign in/i.test(e.message)) lib.acct.signedIn = false; }
+      try {
+        const m = await shareCall('upload', { rel: x.rel }); let copied = false;
+        try { await navigator.clipboard.writeText(m.link); copied = true; } catch (_) {}
+        lib.msg = 'Link' + (copied ? ' (copied)' : '') + ': ' + m.link;
+        toast(m.link, { kind: 'ok', title: copied ? 'Uploaded. The link is copied.' : 'Uploaded. Here is the link:', ms: 15000,
+          actions: [{ label: 'Copy link', primary: true, onclick: () => { try { navigator.clipboard.writeText(m.link); } catch (_) {} } }, { label: 'Open', onclick: () => window.open(m.link, '_blank', 'noopener') }] });
+      }
+      catch (e) { lib.msg = 'Could not upload: ' + e.message; toast(e.message, { kind: 'err', title: 'Could not upload' }); if (/sign in/i.test(e.message)) lib.acct.signedIn = false; }
       await libLoad(); libRender();
     }
     function signinPanel() {
@@ -236,11 +323,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           el('a', { href: (lib.acct.site || 'https://sushila.ai') + '/mycontent', target: '_blank', rel: 'noopener' }, 'My content on sushila.ai')),
         el('div', { class: 'sub', style: 'font-weight:600;margin:6px 0' }, j.notice || SHARE_NOTICE),
         (j.items || []).length ? el('div', { class: 'libgrid' }, ...j.items.map((m) => el('div', { class: 'libcard' },
-          el('div', { class: 'libprev' }, m.kind === 'image' ? el('img', { src: m.file, loading: 'lazy' }) : m.kind === 'video' ? el('video', { src: m.file, controls: true, preload: 'metadata' }) : el('audio', { src: m.file, controls: true, preload: 'none' })),
+          mediaBox(m.kind === 'image' ? el('img', { src: m.link + '/file', loading: 'lazy' }) : m.kind === 'video' ? el('video', { src: m.link + '/file', controls: true, preload: 'metadata' }) : el('audio', { src: m.link + '/file', controls: true, preload: 'none' }), m.views || 0),
           el('div', { class: 'libbody' }, el('b', {}, (m.title || m.id).slice(0, 120)), el('div', { class: 'sub' }, [m.model, human(m.bytes || 0), 'shared ' + when(m.created), (m.views || 0) + ' view' + (m.views === 1 ? '' : 's')].filter(Boolean).join(' · ')),
             el('a', { href: m.link, target: '_blank', rel: 'noopener', style: 'word-break:break-all' }, m.link),
             el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(m.link); lib.msg = 'Copied: ' + m.link; } catch (_) {} libRender(); } }, 'Copy link'),
-              el('button', { class: 'danger', onclick: async () => { if (!window.confirm('Delete this link? The file is removed from sushila.ai; your copy stays on this computer.')) return; try { await shareCall('delete', { id: m.id }); lib.msg = 'Link deleted.'; } catch (e) { lib.msg = e.message; } await libLoad(); libRender(); } }, 'Delete link'))))))
+              el('button', { class: 'danger', onclick: async () => { if (!await ask('The link stops working for everyone at once. The file goes to the trash on sushila.ai/mycontent, where you can restore it; it is deleted automatically after 30 days. Your copy stays on this computer.', 'Delete link', { title: 'Delete this link?', danger: true })) return; try { const r = await shareCall('delete', { id: m.id }); lib.msg = 'Link deleted.'; toast(r.note || 'The link stopped working.', { kind: 'ok', title: 'Link deleted' }); } catch (e) { lib.msg = e.message; toast(e.message, { kind: 'err', title: 'Could not delete the link' }); } await libLoad(); libRender(); } }, 'Delete link'))))))
           : el('div', { class: 'sub', style: 'margin:20px 0' }, 'No shared links yet: 🔗 Share link on any file makes one.')];
     }
     async function libAct(act, rel, what) {
@@ -268,20 +355,42 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const preview = x.kind === 'image' ? el('img', { src, alt: title(x), loading: 'lazy' }) : x.kind === 'video' ? el('video', { src, controls: true, preload: 'metadata', muted: true, playsinline: true })
         : el('audio', { src, controls: true, preload: 'none' });
       const facts = [x.kind === 'image' ? 'Picture' : x.kind === 'music' ? 'Song' : 'Video', x.pack, x.size, x.duration ? x.duration + ' s' : null, x.frames ? x.frames + ' frames' : null,
-        x.seed != null && x.seed !== -1 ? 'seed ' + x.seed : null, human(x.bytes || 0), x.trash ? 'deleted ' + when(x.deleted) : when(x.created)].filter(Boolean).join(' · ');
+        x.seed != null && x.seed !== -1 ? 'seed ' + x.seed : null, human(x.bytes || 0), x.remote ? 'made for another device' : null, x.trash ? 'deleted ' + when(x.deleted) : when(x.created)].filter(Boolean).join(' · ');
       const acts = x.trash
         ? [el('button', { onclick: () => libAct('restore', x.rel, 'Restored ' + x.name) }, '↩ Restore'),
-           el('button', { class: 'danger', onclick: () => { if (window.confirm('Delete "' + x.name + '" permanently? This cannot be undone.')) libAct('purge', x.rel, 'Deleted permanently: ' + x.name); } }, 'Delete permanently')]
+           el('button', { class: 'danger', onclick: async () => { if (await ask('This cannot be undone.', 'Delete permanently', { title: 'Delete "' + x.name + '" permanently?', danger: true })) libAct('purge', x.rel, 'Deleted permanently: ' + x.name); } }, 'Delete permanently')]
         : [el('button', { class: 'ghost', onclick: () => libReveal(x.path) }, '📁 Show in folder'), el('a', { class: 'dlbtn', href: fileUrl(x, true) }, '⬇ Download'),
            el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(x.path); lib.msg = 'Copied: ' + x.path; } catch (_) { lib.msg = x.path; } libRender(); } }, 'Copy path'),
-           x.link ? null : el('button', { class: 'ghost', onclick: () => libShare(x) }, '🔗 Share link'),
+           x.link ? null : el('button', { class: 'ghost', onclick: () => libShare(x) }, '⬆ Upload and copy link'),
            el('button', { class: 'danger', onclick: () => libAct('delete', x.rel, 'Moved to the trash: ' + x.name + ' (Trash: restore or delete permanently)') }, '🗑 Delete')];
-      return el('div', { class: 'libcard' }, el('div', { class: 'libprev' }, preview), el('div', { class: 'libbody' }, el('b', {}, title(x).slice(0, 160)),
+      return el('div', { class: 'libcard' }, mediaBox(preview, x.link && lib.views && x.link in lib.views ? lib.views[x.link] : null), el('div', { class: 'libbody' }, el('b', {}, title(x).slice(0, 160)),
         el('div', { class: 'sub' }, facts), x.lyrics && x.lyrics !== '[Instrumental]' ? el('details', {}, el('summary', { class: 'sub' }, 'Lyrics'), el('pre', { class: 'lyr' }, x.lyrics)) : null,
         el('div', { class: 'sub', style: 'word-break:break-all' }, x.path),
         x.link ? el('div', { class: 'sub' }, '🔗 ', el('a', { href: x.link, target: '_blank', rel: 'noopener', style: 'word-break:break-all' }, x.link), ' ',
           el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(x.link); lib.msg = 'Copied: ' + x.link; } catch (_) {} libRender(); } }, 'Copy link')) : null,
         el('div', { class: 'row' }, ...acts.filter(Boolean))));
+    }
+    // Details: one file per line, with a small preview, what it is, model, size, date, link and views, and the actions
+    function libTable(items) {
+      const thumb = (x) => x.kind === 'image' ? el('img', { src: fileUrl(x), alt: '', loading: 'lazy' }) : el('span', { class: 'lticon' }, x.kind === 'music' ? '🎵' : '🎬');
+      const open = (x) => { const m = x.kind === 'image' ? el('img', { src: fileUrl(x), alt: title(x) }) : x.kind === 'video' ? el('video', { src: fileUrl(x), controls: true, autoplay: true }) : el('audio', { src: fileUrl(x), controls: true, autoplay: true });
+        const box = el('div', { class: 'lbox', onclick: (e) => { if (e.target === box) box.remove(); } }, el('div', { class: 'lboxin' }, m, el('div', { class: 'row' }, el('b', {}, title(x).slice(0, 120)), el('span', { style: 'flex:1' }),
+          el('button', { onclick: () => { const t = m.tagName === 'AUDIO' ? box : m; if (t.requestFullscreen) t.requestFullscreen().catch(() => {}); } }, '⛶ Full screen'), el('button', { class: 'ghost', onclick: () => box.remove() }, 'Close'))));
+        document.body.append(box); };
+      return el('div', { class: 'tablewrap' }, el('table', { class: 'libtable' }, el('thead', {}, el('tr', {}, ...['', 'File', 'Kind', 'Model', 'Size', lib.inTrash ? 'Deleted' : 'Made', 'Link', ''].map((h) => el('th', {}, h)))),
+        el('tbody', {}, ...items.map((x) => el('tr', {},
+          el('td', { class: 'lthumb' }, el('button', { class: 'lopen', title: 'Open', onclick: () => open(x) }, thumb(x))),
+          el('td', { class: 'lname' }, el('b', {}, title(x).slice(0, 140)), el('div', { class: 'sub' }, x.name), x.lyrics && x.lyrics !== '[Instrumental]' ? el('div', { class: 'sub' }, '♪ with lyrics') : null),
+          el('td', {}, x.kind === 'image' ? 'Picture' : x.kind === 'music' ? 'Song' : 'Video', x.size ? el('div', { class: 'sub' }, x.size) : null, x.duration ? el('div', { class: 'sub' }, x.duration + ' s') : null),
+          el('td', { class: 'sub' }, x.pack || ''), el('td', { class: 'num' }, human(x.bytes || 0)), el('td', { class: 'sub' }, x.trash ? when(x.deleted) : when(x.created)),
+          el('td', { class: 'sub' }, x.link ? el('a', { href: x.link, target: '_blank', rel: 'noopener' }, x.link.replace(/^https?:\/\//, '')) : '—', x.link && lib.views && x.link in lib.views ? el('div', {}, '👁 ' + viewsText(lib.views[x.link])) : null),
+          el('td', { class: 'lacts' }, ...(x.trash
+            ? [el('button', { class: 'ghost', onclick: () => libAct('restore', x.rel, 'Restored ' + x.name) }, '↩ Restore'),
+               el('button', { class: 'danger', onclick: async () => { if (await ask('This cannot be undone.', 'Delete permanently', { title: 'Delete "' + x.name + '" permanently?', danger: true })) libAct('purge', x.rel, 'Deleted permanently: ' + x.name); } }, 'Delete permanently')]
+            : [el('button', { class: 'ghost', title: 'Show in folder', onclick: () => libReveal(x.path) }, '📁'), el('a', { class: 'dlbtn', title: 'Download', href: fileUrl(x, true) }, '⬇'),
+               x.link ? el('button', { class: 'ghost', title: 'Copy link', onclick: () => { try { navigator.clipboard.writeText(x.link); } catch (_) {} toast(x.link, { kind: 'ok', title: 'Link copied' }); } }, '🔗 Copy link')
+                 : el('button', { class: 'ghost', onclick: () => libShare(x) }, '⬆ Upload and copy link'),
+               el('button', { class: 'danger', title: 'Delete (to the trash)', onclick: () => libAct('delete', x.rel, 'Moved to the trash: ' + x.name + ' (Trash: restore or delete permanently)') }, '🗑')])))))));
     }
     function libRender() {
       if (view !== 'library') return;
@@ -294,16 +403,18 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('button', { class: 'ghost', onclick: async () => { await libLoad(); libRender(); } }, '↻ Refresh'),
         el('button', { class: lib.showShared ? '' : 'ghost', onclick: () => { lib.showShared = !lib.showShared; lib.inTrash = false; if (lib.showShared && !lib.acct.signedIn) { lib.showShared = false; lib.signin = { step: 'email', email: '', pending: null, purpose: 'SIGN_IN' }; } libRender(); } }, lib.showShared ? '← Back to the Library' : '🔗 Shared links'),
         el('button', { class: lib.inTrash ? '' : 'ghost', onclick: () => { lib.inTrash = !lib.inTrash; lib.showShared = false; libRender(); } }, lib.inTrash ? '← Back to the Library' : '🗑 Trash (' + lib.trash.length + ')'),
-        lib.inTrash && lib.trash.length ? el('button', { class: 'danger', onclick: () => { if (window.confirm('Delete all ' + lib.trash.length + ' files in the trash permanently?')) libAct('empty', '', 'The trash is empty.'); } }, 'Empty trash') : null);
+        lib.inTrash && lib.trash.length ? el('button', { class: 'danger', onclick: async () => { if (await ask('This cannot be undone.', 'Empty trash', { title: 'Delete all ' + lib.trash.length + ' files in the trash permanently?', danger: true })) libAct('empty', '', 'The trash is empty.'); } }, 'Empty trash') : null);
       const where = el('div', { class: 'sub libwhere' }, 'Your files are in ', el('code', { style: 'user-select:all' }, lib.folder), ' (pictures in images/, songs in music/, videos in video/, one folder per day).');
       const bar = el('div', { class: 'libbar' },
         el('input', { id: 'libq', type: 'search', placeholder: 'Search prompts, lyrics, models, file names, dates, sizes, seeds…', value: lib.q, oninput: (e) => { lib.q = e.target.value; libRender(); } }),
         el('div', { class: 'row', style: 'margin:0' }, ...KINDS.map(([k, t]) => el('button', { class: 'chip' + (lib.kind === k ? ' on' : ''), onclick: () => { lib.kind = k; libRender(); } }, t)),
           el('select', { onchange: (e) => { lib.pack = e.target.value; libRender(); } }, el('option', { value: '' }, 'All models'), ...packs.map((p) => el('option', { value: p, selected: p === lib.pack }, p))),
-          el('select', { onchange: (e) => { lib.sort = e.target.value; libRender(); } }, ...SORTS.map(([k, t]) => el('option', { value: k, selected: k === lib.sort }, t)))));
+          el('select', { onchange: (e) => { lib.sort = e.target.value; libRender(); } }, ...SORTS.map(([k, t]) => el('option', { value: k, selected: k === lib.sort }, t))),
+          el('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Layout' }, ...[['grid', '▦ Large'], ['list', '☰ Details']].map(([k, t]) => el('button', { class: lib.layout === k ? 'on' : '', role: 'radio', 'aria-checked': String(lib.layout === k),
+            onclick: () => { lib.layout = k; try { localStorage.setItem('sushila-lib-layout', k); } catch (_) {} libRender(); } }, t)))));
       if (lib.showShared) { box.replaceChildren(head, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', el('div', { class: 'sub' }, 'Reading your shared links…')); sharedView().then((v) => { if (lib.showShared && view === 'library') box.replaceChildren(head, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', ...v); }); return; }
       box.replaceChildren(head, where, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', signinPanel() || '', bar,
-        shown.length ? el('div', { class: 'libgrid' }, ...shown.map(libCard))
+        shown.length ? (lib.layout === 'list' ? libTable(shown) : el('div', { class: 'libgrid' }, ...shown.map(libCard)))
           : el('div', { class: 'sub', style: 'margin:30px 0;text-align:center' }, lib.inTrash ? 'The trash is empty.' : (lib.items.length ? 'Nothing matches the search.' : 'Nothing made yet: pictures, songs and videos from the Inference page appear here.')));
       if (focus === 'libq') { const q = $('libq'); q.focus(); if (caret != null) q.setSelectionRange(caret, caret); }
     }
@@ -373,9 +484,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     }
     const running = (id) => (st.running || []).find((r) => r.packId === id);
     // the same rule as the inference page: one model pack at a time, asked first
-    function startAsk(p, mode) {
+    async function startAsk(p, mode) {
       const others = (st.running || []).filter((r) => r.packId !== p.id);
-      if (others.length && !window.confirm('Start ' + p.name + (p.turbo ? (mode === 'turbo' ? ' (Accelerated)' : ' (Standard)') : '') + '?\n\nThis stops ' + others.map((r) => r.name).join(', ') + ': one model pack runs at a time.')) return;
+      if (others.length && !await ask('This stops ' + others.map((r) => r.name).join(', ') + ': one model pack runs at a time.', 'Start', { title: 'Start ' + p.name + (p.turbo ? (mode === 'turbo' ? ' (Accelerated)' : ' (Standard)') : '') + '?' })) return;
       control({ action: 'start', pack: p.id, mode });
     }
     function packsView() {
@@ -391,7 +502,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
               : [p.turbo ? el('button', { onclick: () => startAsk(p, 'turbo') }, 'Start Accelerated') : null,
                  el('button', { class: p.turbo ? 'ghost' : '', onclick: () => startAsk(p, 'regular') }, p.turbo ? 'Standard' : 'Start')],
             el('button', { class: 'ghost', onclick: () => control({ action: 'verify', pack: p.id }) }, 'Verify'),
-            el('button', { class: 'danger', onclick: () => { if (confirm('Remove ' + p.name + '? Its files are deleted.')) control({ action: 'remove', pack: p.id }); } }, 'Remove')));
+            el('button', { class: 'danger', onclick: async () => { if (await ask('Its files are deleted from this computer. You can install it again later.', 'Remove', { title: 'Remove ' + p.name + '?', danger: true })) control({ action: 'remove', pack: p.id }); } }, 'Remove')));
       });
       const avail = ((catalog && catalog.packs) || []).filter((p) => !ids.has(p.id));
       const arow = (p) => el('tr', { style: p.id === want ? 'outline:2px solid var(--acc)' : '' }, el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, p.id + (p.license ? ' · ' + p.license : ''))),
@@ -401,7 +512,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (want && !ids.has(want) && !packsView.asked) {
         packsView.asked = true;
         const p = avail.find((x) => x.id === want);
-        if (p && confirm('Install ' + p.name + ' (' + human(p.bytes) + ') on this computer?')) control({ action: 'install', pack: want }, 'Install ' + p.name);
+        if (p) ask('It downloads ' + human(p.bytes) + ' and checks every file.', 'Install', { title: 'Install ' + p.name + ' on this computer?' }).then((y) => { if (y) control({ action: 'install', pack: want }, 'Install ' + p.name); });
       }
       const probs = st.packProblems || [];
       const hfGo = () => { const v = ($('hfspec').value || '').trim(); if (!v) return; control({ action: 'install-hf', spec: v.startsWith('hf:') ? v : 'hf:' + v }, 'Download ' + v); };
@@ -512,6 +623,98 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         log, el('div', { class: 'composer' }, q, btn));
       return asstPanel;
     }
+    // the top of Admin: the server's status (always), and "keep popular model packs ready" (a switch; asked once)
+    function serverBar() {
+      if (!serverUp) return el('div', { class: 'srvstat down', role: 'alert' }, el('span', { class: 'dot' }),
+        el('div', {}, el('b', {}, 'The Sushila.cpp server is not running.'), el('div', { class: 'sub' }, 'Start it on this computer: ',
+          el('a', { href: 'sushila://start' }, '▶ Start Sushila'), ' (Windows), or double-click sushila.exe, or run ', el('code', {}, 'sushila serve'), '. Not installed yet? Install it from ',
+          el('a', { href: 'https://sushila.ai/install', target: '_blank', rel: 'noopener' }, 'sushila.ai/install'), '. This page reconnects by itself.')));
+      const run = (st.running || []), eng = st.engine && st.engine.version;
+      const pop = ((catalog && catalog.packs) || []).filter((p) => p.popular && p.fits !== false);
+      const have = new Set((st.packs || []).map((p) => p.id));
+      // one per kind: an installed variant counts (e.g. the NVIDIA picture pack for z-image-turbo)
+      const ready = pop.filter((p) => have.has(p.id) || (st.packs || []).some((q) => q.variantOf === p.id || q.id.startsWith(p.id + '-'))).length;
+      const left = pop.filter((p) => !have.has(p.id)).reduce((n, p) => n + (p.bytes || 0), 0);
+      const on = !!(st.settings && st.settings.keepPopular);
+      const busy = (st.tasks || []).find((t) => t.status === 'running' && t.source === 'keep popular packs ready');
+      return el('div', { class: 'srvstat up' }, el('span', { class: 'dot' }),
+        el('div', { style: 'flex:1;min-width:220px' }, el('b', {}, 'Sushila.cpp server is running'),
+          el('div', { class: 'sub' }, ['version ' + (st.appVersion || '?'), eng ? 'engine ' + eng : 'no engine yet', 'http://localhost:' + ((st.settings && st.settings.port) || 7874),
+            run.length ? run.map((r) => r.name + (r.ready ? '' : ' (loading)')).join(', ') + ' running' : 'no model running'].join(' · '))),
+        el('label', { class: 'switch', title: 'Downloads the popular model packs (chat, code, pictures, songs, video) that fit this computer, one at a time, and keeps them installed' },
+          el('input', { type: 'checkbox', id: 'keeppop', checked: on, onchange: (e) => setKeepPopular(e.target.checked) }), el('span', { class: 'slider' }),
+          el('span', {}, el('b', {}, 'Keep popular model packs ready'), el('span', { class: 'sub', style: 'display:block' },
+            !pop.length ? 'chat, code, pictures, songs and video, downloaded in the background' : on ? (busy ? 'downloading ' + busy.target + (busy.total ? ' · ' + Math.round(100 * busy.done / busy.total) + '%' : '') + ' · ' : '') + ready + ' of ' + pop.length + ' ready'
+              : ready + ' of ' + pop.length + ' installed' + (left ? ' · about ' + human(left) + ' to download' : '')))));
+    }
+    function setKeepPopular(v) {
+      control({ action: 'settings', values: { keepPopular: v } }, v ? 'Keep popular model packs ready' : 'Stop keeping popular packs ready');
+      toast(v ? 'They download in the background, one at a time, and stay installed. Watch the progress here or in Recent actions; switch it off at any time.' : 'Nothing new is downloaded; packs already installed stay.',
+        { kind: 'ok', title: v ? 'Popular model packs: downloading in the background' : 'Popular model packs: switched off' });
+    }
+    function askPopular() {  // once per browser, after the admin login, while the choice was never made
+      let asked = false; try { asked = !!localStorage.getItem('sushila-asked-popular'); } catch (_) {}
+      if (asked || !admin.loggedIn || !st.settings || st.settings.keepPopular != null || !catalog) return;
+      const pop = (catalog.packs || []).filter((p) => p.popular && p.fits !== false), have = new Set((st.packs || []).map((p) => p.id));
+      const left = pop.filter((p) => !have.has(p.id)); if (!left.length) return;
+      try { localStorage.setItem('sushila-asked-popular', '1'); } catch (_) {}
+      ask('Chat, code, pictures, songs and video: ' + left.map((p) => p.name).join(', ') + ' (about ' + human(left.reduce((n, p) => n + (p.bytes || 0), 0)) + '). They download one at a time while you work, and stay ready. You can switch this off at the top of Admin.',
+        'Yes, download and keep ready', { title: 'Download all the popular model packs in the background?', cancel: 'Not now' }).then((y) => { if (y) setKeepPopular(true); });
+    }
+    // Make space on this computer: every model pack (Remove) and every file Sushila made, largest first, with where it
+    // is; each file can be uploaded (Upload and copy link, recommended first) and deleted permanently; the trash emptied
+    let spaceBox = null;
+    async function makeSpace() {
+      if (spaceBox) spaceBox.remove();
+      const body = el('div', {}, el('div', { class: 'sub' }, 'Reading…'));
+      spaceBox = el('div', { class: 'lbox', onclick: (e) => { if (e.target === spaceBox) { spaceBox.remove(); spaceBox = null; } } },
+        el('div', { class: 'lboxin spacebox' }, el('div', { class: 'row', style: 'margin:0 0 6px' }, el('h2', { style: 'margin:0' }, '🧹 Make space on this computer'), el('span', { style: 'flex:1' }),
+          el('button', { class: 'ghost', onclick: () => { spaceBox.remove(); spaceBox = null; } }, 'Close')), body));
+      document.body.append(spaceBox);
+      const draw = async () => {
+        await libLoad();
+        try { sys = await (await api('/api/system')).json(); } catch (_) {}
+        const packs = [...(st.packs || [])].sort((a, b) => (b.bytes || 0) - (a.bytes || 0)), files = [...(lib.items || [])].sort((a, b) => (b.bytes || 0) - (a.bytes || 0));
+        const sum = (a) => a.reduce((n, x) => n + (x.bytes || 0), 0), trashBytes = sum(lib.trash || []);
+        const kinds = [['image', '🖼 Pictures', 'images'], ['music', '🎵 Songs', 'music'], ['video', '🎬 Videos', 'video']];
+        const sep = lib.folder.includes('\\') ? '\\' : '/';
+        body.replaceChildren(
+          el('div', { class: 'sub' }, sys && sys.disk ? 'Free on this disk: ' + sys.disk.freeGB + ' GB of ' + sys.disk.totalGB + ' GB. ' : '', 'Model packs use ' + human(sum(packs)) + ', your files ' + human(sum(files)) + ', the trash ' + human(trashBytes) + '.'),
+          el('h3', {}, 'Model packs (' + human(sum(packs)) + ')'),
+          el('div', { class: 'sub' }, 'Removing a pack deletes its files from ', el('code', {}, st.packsDir || 'model-packs'), '; you can install it again at any time.'),
+          packs.length ? el('table', {}, el('tbody', {}, ...packs.map((p) => { const r = (st.running || []).find((x) => x.packId === p.id);
+            return el('tr', {}, el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, p.id + (r ? ' · running now' : ''))), el('td', { class: 'num' }, p.bytes ? human(p.bytes) : ''),
+              el('td', { class: 'lacts' }, el('button', { class: 'danger', onclick: async () => {
+                if (!await ask((r ? 'It is running: it stops first. ' : '') + 'Its ' + (p.bytes ? human(p.bytes) + ' of ' : '') + 'files are deleted from this computer; you can install it again later.', 'Remove', { title: 'Remove ' + p.name + '?', danger: true })) return;
+                await control({ action: 'remove', pack: p.id }, 'Remove ' + p.name); setTimeout(draw, 1500); } }, '🗑 Remove'))); })))
+            : el('div', { class: 'sub' }, 'No model packs installed.'),
+          el('h3', {}, 'Your pictures, songs and videos (' + human(sum(files)) + ')'),
+          el('div', { class: 'sub' }, 'They are in ', el('code', { style: 'user-select:all' }, lib.folder), ' ', el('button', { class: 'ghost', onclick: () => libReveal(lib.folder) }, '📁 Open the folder')),
+          el('div', { class: 'row' }, ...kinds.map(([k, t, f]) => { const a = files.filter((x) => x.kind === k);
+            return el('span', { class: 'pill' }, t + ': ' + a.length + ' · ' + human(sum(a)) + ' · ' + lib.folder + sep + f); })),
+          el('div', { class: 'note warnnote' }, '💡 Before you delete a file, we recommend ', el('b', {}, 'Upload and copy link'), ': it keeps a copy on sushila.ai that opens from its link. Deleting here removes the file from this computer for good.'),
+          files.length ? el('div', { class: 'tablewrap' }, el('table', { class: 'libtable' }, el('tbody', {}, ...files.slice(0, 200).map((x) => el('tr', {},
+            el('td', { class: 'lthumb' }, x.kind === 'image' ? el('img', { src: fileUrl(x), alt: '', loading: 'lazy', style: 'width:64px;height:48px;object-fit:cover;border-radius:6px' }) : el('span', { class: 'lticon' }, x.kind === 'music' ? '🎵' : '🎬')),
+            el('td', { class: 'lname' }, el('b', {}, title(x).slice(0, 100)), el('div', { class: 'sub', style: 'word-break:break-all' }, x.path)),
+            el('td', { class: 'num' }, human(x.bytes || 0)),
+            el('td', { class: 'lacts' }, x.link ? el('span', { class: 'pill on', title: x.link }, '✓ on sushila.ai') : el('button', { onclick: async () => { await libShare(x); draw(); } }, '⬆ Upload and copy link'),
+              el('button', { class: 'danger', onclick: async () => {
+                const t = 'Delete "' + x.name + '" permanently?';
+                const msg = x.link ? 'Its copy on sushila.ai (' + x.link + ') stays. The file on this computer is gone for good.' : 'It is not uploaded yet: we recommend Upload and copy link first, so a copy stays on sushila.ai. Deleted here, it is gone for good.';
+                if (!await ask(msg, x.link ? 'Delete permanently' : 'Delete permanently anyway', { title: t, danger: true, cancel: x.link ? 'Cancel' : 'Cancel (upload first)' })) return;
+                try { for (const act of ['delete', 'purge']) { const r = await api('/api/library/' + act, { method: 'POST', body: JSON.stringify({ rel: x.rel }) }); if (!r.ok) throw new Error(await r.text()); }
+                  toast(human(x.bytes || 0) + ' freed.', { kind: 'ok', title: 'Deleted ' + x.name }); } catch (e) { toast(String(e.message || e), { kind: 'err', title: 'Could not delete' }); }
+                draw(); } }, 'Delete permanently')))))))
+            : el('div', { class: 'sub' }, 'Nothing made yet.'),
+          files.length > 200 ? el('div', { class: 'sub' }, 'The 200 largest are shown; the Library tab lists all ' + files.length + '.') : null,
+          el('h3', {}, 'Trash (' + human(trashBytes) + ')'),
+          (lib.trash || []).length ? el('div', { class: 'row' }, el('span', { class: 'sub' }, (lib.trash || []).length + ' files deleted from the Library still use space.'),
+            el('button', { class: 'danger', onclick: async () => { if (!await ask('This cannot be undone.', 'Empty trash', { title: 'Delete all ' + lib.trash.length + ' files in the trash permanently?', danger: true })) return;
+              await api('/api/library/empty', { method: 'POST', body: JSON.stringify({ rel: '' }) }).catch(() => {}); toast(human(trashBytes) + ' freed.', { kind: 'ok', title: 'The trash is empty' }); draw(); } }, 'Empty trash'))
+            : el('div', { class: 'sub' }, 'The trash is empty.'));
+      };
+      draw();
+    }
     async function render() {
       const app = $('app'); if (!app) return;
       for (const a of nav.querySelectorAll('a')) a.classList.toggle('on', a.dataset.tab === view);
@@ -520,10 +723,12 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (view === 'assistant') { const p = assistantPanel(); if (box.firstChild !== p || box.childNodes.length !== 1) box.replaceChildren(p); return; }
       if (view === 'library') { if (lib.items === null) { libRender(); await libLoad(); } if (!box.querySelector('.libbar') || libFresh) { libFresh = false; libRender(); } return; }  // drawn once; Refresh or an action redraws
       if (document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && sub !== 'logs' && admin.loggedIn) return;  // do not redraw while typing
-      if (!admin.loggedIn) { if (!(document.activeElement && box.contains(document.activeElement))) box.replaceChildren(note ? el('div', { class: 'msg err' }, note) : '', ...[].concat(loginView()).flat().filter(Boolean)); else if (note && !box.querySelector('.msg')) box.prepend(el('div', { class: 'msg err' }, note)); return; }
+      if (!admin.loggedIn) { if (!(document.activeElement && box.contains(document.activeElement))) box.replaceChildren(serverBar(), note ? el('div', { class: 'msg err' }, note) : '', ...[].concat(loginView()).flat().filter(Boolean)); else if (note && !box.querySelector('.msg')) box.prepend(el('div', { class: 'msg err' }, note)); return; }
       const h = healthLine(), live = (st.now || []).length + (st.tasks || []).filter((t) => t.status === 'running').length;
+      if (!catalog) { catalog = {}; api('/api/catalog').then((r) => r.json()).then((c) => { catalog = c; render(); askPopular(); }).catch(() => { catalog = { packs: [] }; }); }
       const top = el('div', { class: 'adminhead' }, el('h1', {}, 'Admin'), el('span', { class: 'pill ' + h.level, title: h.text }, h.level === 'on' ? '✅ healthy' : h.level === 'off' ? '⛔ needs attention' : h.level === 'warn' ? '⚠️ notes' : '…'),
         live ? el('span', { class: 'pill on' }, '⏳ ' + live + ' running') : null, el('span', { style: 'flex:1' }),
+        el('button', { onclick: () => makeSpace() }, '🧹 Make space on this computer'),
         el('button', { class: 'ghost', onclick: () => { SUB.forEach(([k]) => openSecs.add(k)); saveOpen(); catalog = null; poll(); } }, 'Show all'),
         el('button', { class: 'ghost', onclick: () => { openSecs.clear(); saveOpen(); render(); } }, 'Hide all'));
       const badge = { now: live ? live + ' running' : '', packs: (st.packs || []).length + ' installed', queue: '', actions: (st.tasks || []).length ? (st.tasks || []).length + '' : '', logs: '', health: h.level === 'on' ? '✅' : h.level === 'off' ? '⛔' : h.level === 'warn' ? '⚠️' : '' };
@@ -538,7 +743,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         secs.push(d);
       }
       const focus = document.activeElement && document.activeElement.id, val = focus && $(focus) ? $(focus).value : null;
-      box.replaceChildren(top, note ? el('div', { class: 'msg ok' }, note) : '', ...secs);
+      box.replaceChildren(serverBar(), top, note ? el('div', { class: 'msg ok' }, note) : '', ...secs);
+      if (catalog && catalog.packs) askPopular();
       if (focus && $(focus)) { $(focus).focus(); if (val != null && $(focus).value !== val) $(focus).value = val; }
       if (scrollTo) { const t = $('sec-' + scrollTo); if (t && t.scrollIntoView) t.scrollIntoView({ block: 'start' }); scrollTo = ''; }
     }
@@ -584,7 +790,17 @@ button.icon{font-size:17px;padding:6px 11px;line-height:1.2}
 #chatlog:has(.bubble) .hero{display:none}
 #srv{font-size:13px;padding:6px 10px;border-radius:10px;background:var(--bg);max-width:220px}
 #stopbtn{border-radius:10px}
-.kinds{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:1100px;margin:14px auto 0;padding:0 16px}
+.pickbtn{display:inline-flex;align-items:center;gap:8px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-weight:600;max-width:min(520px,60vw)}
+.pickbtn:hover{border-color:var(--acc)}.pkname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pkmode{font-size:12px;font-weight:600;color:var(--acc);background:var(--accbg);border-radius:99px;padding:1px 8px}.pkcaret{color:var(--mut)}
+.picker{max-width:1100px;margin:12px auto 0;padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(16,24,40,.12)}
+.pkhead{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.pkhead input{flex:1;min-width:180px}.pknote{margin:8px 2px 4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex-wrap:wrap}.seg button{background:transparent;color:var(--ink);border:0;border-radius:0;padding:6px 12px;font-weight:600}
+.seg button+button{border-left:1px solid var(--line)}.seg button.on{background:var(--acc);color:#fff}.seg .cnt{font-size:11px;opacity:.7}
+.pklist{display:flex;flex-direction:column;gap:8px;margin-top:10px;max-height:min(60vh,560px);overflow:auto}
+.pkrow{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.pkrow.cur{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}.pkkind{display:flex;flex-direction:column;align-items:center;font-size:22px}.pkkind small{font-size:11px;color:var(--mut);font-weight:600}
+.pkinfo b{display:block}.pkinfo .pill{margin-top:4px;display:inline-block}.pkacts{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+@media (max-width:640px){.pkrow{grid-template-columns:44px 1fr}.pkacts{grid-column:1/-1;align-items:stretch}.pickbtn{max-width:calc(100vw - 96px)}.picker{margin:10px 8px 0;padding:10px}.pickbar{flex-wrap:wrap;min-width:0}}
 .chip{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:7px 16px;font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.04)}
 .chip:hover{border-color:var(--acc)}.chip.on{background:linear-gradient(135deg,var(--acc),#6366f1);color:#fff;border-color:transparent}
 #main{max-width:1100px;margin:0 auto}
@@ -593,6 +809,9 @@ button.icon{font-size:17px;padding:6px 11px;line-height:1.2}
 .composer{background:var(--card);border-top:1px solid var(--line);margin:0 -20px -18px;padding:12px 20px;border-radius:0 0 16px 16px}
 .composer textarea,.music textarea{border-radius:12px}
 button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient(135deg,var(--acc),#4f46e5);border-color:transparent}
+.seg button:not(.on),.seg button:not(.on):hover{background:transparent!important;color:var(--ink)!important}.seg button.on{background:linear-gradient(135deg,var(--acc),#4f46e5)!important;color:#fff!important}
+.lopen,.lopen:hover{background:var(--code)!important;border:1px solid var(--line)!important}.pickbtn,.pickbtn:hover{background:var(--card)!important;color:var(--ink)!important;border:1px solid var(--line)!important}.pickbtn:hover{border-color:var(--acc)!important}
+.tclose,.tclose:hover{background:transparent!important;color:var(--mut)!important;border:0!important}
 .big{border-radius:12px;padding:12px 26px}
 .bubble{border-radius:14px}.bubble.user{background:var(--accbg)}
 .gallery img{border-radius:12px;box-shadow:0 4px 14px rgba(16,24,40,.08)}
@@ -646,8 +865,11 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     const remoteBox = el('div', { class: 'bar2 hidden', id: 'remote' },
       el('input', { id: 'rurl', placeholder: 'https://ai.example.com', type: 'url' }), el('input', { id: 'rkey', placeholder: 'access key', type: 'password' }),
       el('button', { onclick: addRemote }, 'Connect'), el('button', { class: 'ghost', onclick: () => { $('remote').classList.add('hidden'); fillServers(); } }, 'Cancel'));
+    // the model picker: one button shows the model in use; it opens a panel with every pack, filtered by what it makes
+    // (or a search), each with its mode, whether it runs, and Start / Use / Stop. The <select> behind it keeps the state.
+    const pickBtn = el('button', { class: 'pickbtn', id: 'pickbtn', 'aria-haspopup': 'true', 'aria-expanded': 'false', onclick: () => togglePicker() });
     const head = el('div', { class: 'top' }, embedded && opts.onBack ? el('button', { class: 'ghost', onclick: opts.onBack }, '◀ Host Station') : null, embedded && opts.title !== '' ? el('h1', {}, opts.title || 'Sushila') : null,
-      el('div', { class: 'bar2 pickbar' }, el('label', { class: 'lbl', for: 'mdl' }, 'Model'), modelSel,
+      el('div', { class: 'bar2 pickbar' }, el('label', { class: 'lbl', for: 'pickbtn' }, 'Model'), pickBtn, el('span', { class: 'hidden' }, modelSel),
         el('button', { class: 'ghost', id: 'stopbtn', title: 'Stop this model pack', onclick: () => stopPack() }, '■ Stop'),
         // while a pack starts, stops or changes mode: a large turning hourglass right next to the picker
         el('span', { class: 'modewait hidden', id: 'modewait', role: 'status', 'aria-live': 'polite' }, el('span', { class: 'hg' }, '⏳'), el('span', { id: 'modewaittext' }, ''))),
@@ -661,9 +883,55 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     const restore = el('button', { class: 'restorebtn', onclick: () => setMax(false) }, '⤡ Restore');
     const qpanel = el('details', { id: 'qpanel', class: 'qpanel' }, el('summary', {}, el('b', { id: 'qsum' }, 'Queue')), el('div', { id: 'qlist', class: 'sub' }, 'Loading…'));
     if (qs.get('queue') === '1') qpanel.open = true;
-    // quick access by what a pack does: one chip per kind of installed pack (the picker below lists every pack and mode)
-    const kinds = el('div', { class: 'kinds', id: 'kinds', role: 'toolbar', 'aria-label': 'What to make' });
-    app.replaceChildren(head, kinds, el('div', { style: 'padding:0 22px' }, remoteBox), main, qpanel, restore);
+    const picker = el('div', { class: 'picker hidden', id: 'picker', role: 'dialog', 'aria-label': 'Choose a model' });
+    let pickFilter = store.get('sushila-pick-kind', ''), pickQ = '', pickItems = [];
+    app.replaceChildren(head, picker, el('div', { style: 'padding:0 22px' }, remoteBox), main, qpanel, restore);
+    const KIND_LABEL = { chat: 'Chat', code: 'Code', image: 'Pictures', music: 'Music', video: 'Video' };
+    const KIND_ICON = { chat: '💬', code: '💻', image: '🖼', music: '🎵', video: '🎬' };
+    function togglePicker(on) {
+      const open = on == null ? picker.classList.contains('hidden') : on;
+      picker.classList.toggle('hidden', !open); pickBtn.setAttribute('aria-expanded', String(open));
+      if (open) { renderPicker(); const q = $('pickq'); if (q && q.focus) q.focus(); }
+    }
+    function renderPicker() {
+      const cur = model;
+      pickBtn.replaceChildren(el('span', { class: 'pkicon' }, cur ? KIND_ICON[kindOf(cur)] || '💬' : '＋'),
+        el('span', { class: 'pkname' }, cur ? cur.name : (packs.length ? 'Choose a model' : 'No model installed')),
+        cur ? el('span', { class: 'pkmode' }, modeName(cur.mode)) : null, el('span', { class: 'pkcaret' }, '▾'));
+      if (picker.classList.contains('hidden')) return;
+      const list = packs.length ? packs : models.map((m) => Object.assign({ id: m.packId }, m));
+      const counts = {}; list.forEach((p) => { const k = kindOf(p); counts[k] = (counts[k] || 0) + 1; });
+      const tabs = [['', 'All', list.length], ...Object.keys(KIND_LABEL).filter((k) => counts[k]).map((k) => [k, KIND_LABEL[k], counts[k]])];
+      if (pickFilter && !counts[pickFilter]) pickFilter = '';
+      const q = pickQ.trim().toLowerCase();
+      const shown = list.filter((p) => (!pickFilter || kindOf(p) === pickFilter) && (!q || (p.name + ' ' + p.id + ' ' + KIND_LABEL[kindOf(p)]).toLowerCase().includes(q)))
+        .sort((a, b) => (!!models.find((m) => m.packId === b.id)) - (!!models.find((m) => m.packId === a.id)) || a.name.localeCompare(b.name));
+      const row = (p) => {
+        const run = models.find((m) => m.packId === p.id), k = kindOf(p);
+        const modes = p.turbo ? ['turbo', 'regular'] : ['regular'];
+        const sel = run ? (run.mode || 'regular') : (p.mode && modes.includes(p.mode) ? p.mode : modes[0]);
+        const chosen = { mode: sel };
+        const modeBox = modes.length > 1 ? el('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Mode' }, ...modes.map((md) => el('button', {
+          class: md === sel ? 'on' : '', role: 'radio', 'aria-checked': String(md === sel), title: md === 'turbo' ? 'Sushila\'s precomputed files for this model' : 'The plain model',
+          onclick: (e) => { chosen.mode = md; e.target.parentNode.querySelectorAll('button').forEach((b) => { b.classList.toggle('on', b === e.target); b.setAttribute('aria-checked', String(b === e.target)); }); } }, modeName(md)))) : el('span', { class: 'sub' }, 'Standard');
+        const status = run ? el('span', { class: 'pill on' }, (run.ready ? '● Running' : '◌ Loading') + (run.cpu ? ' on the CPU' : '') + ' · ' + modeName(run.mode)) : el('span', { class: 'pill' }, 'Stopped');
+        const go = (md) => { togglePicker(false); modelSel.value = p.id + '|' + md; pickModel(true); };
+        const acts = server ? [run ? el('button', { onclick: () => go(run.mode || 'regular') }, 'Use') : null]
+          : [el('button', { onclick: () => go(chosen.mode) }, run && (run.mode || 'regular') === chosen.mode ? (cur && cur.packId === p.id ? 'In use' : 'Use') : run ? 'Switch mode' : 'Start'),
+             run ? el('button', { class: 'ghost', onclick: () => { togglePicker(false); ask('It frees the memory it uses.', 'Stop', { title: 'Stop ' + p.name + '?' }).then((y) => { if (y) usePack('stop', p.id); }); } }, 'Stop') : null];
+        return el('div', { class: 'pkrow' + (cur && cur.packId === p.id ? ' cur' : '') }, el('div', { class: 'pkkind' }, el('span', {}, KIND_ICON[k] || '💬'), el('small', {}, KIND_LABEL[k] || 'Chat')),
+          el('div', { class: 'pkinfo' }, el('b', {}, p.name), el('div', { class: 'sub' }, [p.bytes ? (p.bytes >= 1e9 ? gb(p.bytes) : Math.max(1, Math.round(p.bytes / 1e6)) + ' MB') : null, p.custom ? 'your own model' : null].filter(Boolean).join(' · ')), status),
+          el('div', { class: 'pkacts' }, modeBox, el('div', { class: 'row', style: 'margin:0' }, ...acts.filter(Boolean))));
+      };
+      picker.replaceChildren(el('div', { class: 'pkhead' },
+          el('div', { class: 'seg tabs2', role: 'tablist', 'aria-label': 'What it makes' }, ...tabs.map(([k, t, n]) => el('button', { class: k === pickFilter ? 'on' : '', role: 'tab', 'aria-selected': String(k === pickFilter),
+            onclick: () => { pickFilter = k; store.set('sushila-pick-kind', k); renderPicker(); } }, t + ' ', el('span', { class: 'cnt' }, String(n))))),
+          el('input', { id: 'pickq', type: 'search', placeholder: 'Search models…', value: pickQ, oninput: (e) => { pickQ = e.target.value; renderPicker(); const i = $('pickq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }),
+          el('button', { class: 'ghost', onclick: () => togglePicker(false) }, 'Close')),
+        el('div', { class: 'sub pknote' }, server ? 'Models running on ' + server.replace(/^https?:\/\//, '') + '.' : 'One model runs at a time: starting one stops the other. Accelerated uses Sushila\'s precomputed files for the model; Standard runs the plain model. More models: Admin → Model packs.'),
+        shown.length ? el('div', { class: 'pklist' }, ...shown.map(row)) : el('div', { class: 'sub', style: 'padding:18px' }, list.length ? 'No model matches.' : 'No model installed yet: Admin → Model packs.'));
+    }
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !picker.classList.contains('hidden')) togglePicker(false); });
     function setMax(on) { app.classList.toggle('maxed', on); if (on && $('q')) $('q').focus(); }
     // replies with ``` code blocks: shown as code, each with a Copy button (text only: nothing in a reply is run)
     function rich(text) {
@@ -728,7 +996,8 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
           || runVals[0] || '';
         if (pickVal) modelSel.value = pickVal;
         want = '';
-        fillKinds(items);
+        pickItems = items; renderPicker();
+        if (!models.length && packs.length && !server) togglePicker(true);
         setStatus(server ? 'Remote: ' + server.replace(/^https?:\/\//, '') : 'This computer', models.length ? 'on' : 'off');
         // opened from another machine (http://<server>:<port>/): the server may need an access key; ask once, keep it in this browser
         if (!server && !token && !embedded && models.length) {
@@ -769,35 +1038,20 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         }
         if (action === 'start') want = id;
         setStatus(action === 'stop' ? (p.name || id) + ' stopped' : (p.name || id) + ' is ready', 'on');
-      } catch (e) { setStatus('Could not ' + action + ' ' + (p.name || id) + ': ' + (e.message || e), 'off'); }
+        toast(action === 'stop' ? 'Its memory is free again.' : 'You can use it now.', { kind: 'ok', title: action === 'stop' ? (p.name || id) + ' stopped' : (p.name || id) + ' (' + modeName(md) + ') is ready' });
+      } catch (e) { setStatus('Could not ' + action + ' ' + (p.name || id) + ': ' + (e.message || e), 'off'); toast(String(e.message || e), { kind: 'err', title: 'Could not ' + action + ' ' + (p.name || id) }); }
       finally { clearInterval(timer); if (wait) wait.classList.add('hidden'); busyPack = false; modelSel.disabled = false; await loadModels(); }
-    }
-    function fillKinds(items) {
-      const box = $('kinds'); if (!box) return;
-      const list = packs.length ? packs : models.map((m) => Object.assign({ id: m.packId }, m));
-      const present = Object.keys(KIND).filter((k) => list.some((p) => kindOf(p) === k));
-      const cur = model ? kindOf(model) : '';
-      box.replaceChildren(...present.map((k) => el('button', { class: 'chip' + (k === cur ? ' on' : ''), onclick: () => {
-        // the running pack of that kind, else its first pack in the mode it was last used in
-        const ofKind = list.filter((p) => kindOf(p) === k).map((p) => p.id);
-        const v = items.find((x) => x.run && ofKind.includes(x.value.split('|')[0]))
-          || items.find((x) => { const [id, md] = x.value.split('|'); const p = list.find((q) => q.id === id); return ofKind.includes(id) && (!p || !p.mode || p.mode === md); });
-        if (!v || modelSel.disabled) return;
-        if (modelSel.value !== v.value) { modelSel.value = v.value; pickModel(true); }
-      } }, KIND[k])));
-      box.classList.toggle('hidden', present.length < 2);
     }
     function stopPack() {
       if (!model || server || busyPack) return;
-      if (!window.confirm('Stop ' + model.name + ' (' + modeName(model.mode) + ')?')) return;
-      usePack('stop', model.packId);
+      ask('It frees the memory it uses; start it again from this page.', 'Stop', { title: 'Stop ' + model.name + ' (' + modeName(model.mode) + ')?' }).then((y) => { if (y) usePack('stop', model.packId); });
     }
     // the Stop button follows the pack shown; its tooltip says what Accelerated does for it
     function showMode() {
       const b = $('stopbtn'); if (!b) return;
       const m = model;
       b.disabled = !m || !!server || busyPack;
-      b.title = !m ? '' : server ? 'Only the computer running the model can stop it.' : 'Stop ' + m.name + '. ' + (m.turbo && m.kind === 'image' ? 'Accelerated: 768x768 in 6 steps on Nunchaku 4-bit kernels (0.9 s on a desktop RTX 4090; GPUs with less than 18 GB, such as laptop GPUs, are much slower, because parts of the model are moved between system and GPU memory for each image). Standard: the published 1024x1024, 8 steps.' : m.turbo ? 'Accelerated uses this model\'s precomputed Sushila files (landscape, draft model); Standard runs the plain model, as Ollama does.' : '');
+      b.title = !m ? '' : server ? 'Only the computer running the model can stop it.' : 'Stop ' + m.name + '. ' + (m.turbo && m.kind === 'image' ? 'Accelerated: 768x768 in 6 steps on Nunchaku 4-bit kernels. The speed depends on the GPU: about a second on a large server or desktop GPU, much longer on a PC or laptop GPU with less than 18 GB, because parts of the model are moved between system and GPU memory for each image. Standard: the published 1024x1024, 8 steps. sushila bench measures your computer.' : m.turbo ? 'Accelerated uses this model\'s precomputed Sushila files (landscape, draft model); Standard runs the plain model, as Ollama does.' : '');
     }
     const kept = {};  // pack id -> {nodes, msgs}: switching models (or tabs in the app) keeps each one's conversation and results
     function pickModel(asked) {
@@ -806,23 +1060,27 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       if (asked === true && pid && !server && !models.find((m) => m.packId === pid && (m.mode || 'regular') === pmode)) {
         const p = packs.find((x) => x.id === pid) || { name: pid };
         const others = models.filter((m) => m.packId !== pid);
-        const msg = 'Start ' + p.name + ' (' + modeName(pmode) + ')?' + (others.length ? '\n\nThis stops ' + others.map((m) => m.name).join(', ') + ': one model pack runs at a time.' : '');
-        if (!window.confirm(msg)) { modelSel.value = lastValue; return; }
-        usePack('start', pid, pmode);
+        const title = 'Start ' + p.name + ' (' + modeName(pmode) + ')?';
+        const body = others.length ? 'This stops ' + others.map((m) => m.name).join(', ') + ': one model pack runs at a time.' : 'It loads the model on this computer; that takes a moment.';
+        const back = lastValue; modelSel.value = back;
+        ask(body, 'Start', { title }).then((y) => { if (y) { modelSel.value = pid + '|' + pmode; usePack('start', pid, pmode); } else { modelSel.value = back; renderPicker(); } });
         return;
       }
       lastValue = modelSel.value;
-      setTimeout(() => { const c = $('kinds'); if (c) c.querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', !!model && b.textContent === KIND[kindOf(model)])); }, 0);
+      setTimeout(renderPicker, 0);
       const next = models.find((m) => m.packId === pid && (m.mode || 'regular') === (pmode || m.mode || 'regular')) || null, prev = model;
       if (prev && next && prev.packId === next.packId && prev.mode === next.mode && main.childNodes.length) { model = next; showMode(); return; }  // same model (e.g. after a refresh)
       if (prev && main.childNodes.length) kept[prev.packId] = { nodes: [...main.childNodes], msgs: msgs.slice() };
       model = next;
-      showMode();
+      showMode(); renderPicker();
       msgs.length = 0;
       if (model && kept[model.packId]) { main.replaceChildren(...kept[model.packId].nodes); msgs.push(...kept[model.packId].msgs); return; }
       if (!model) { main.replaceChildren(el('div', { class: 'chat' }, el('div', { class: 'sub' }, server ? 'No model is running on that server.' : 'No model is running. In Sushila Host Station, press Start server (or Run inference) next to a model.'))); return; }
       (model.kind === 'music' ? musicScreen : model.kind === 'video' ? videoScreen : model.kind === 'image' ? imageScreen : chatScreen)();
     }
+    // made on this computer: upload it to sushila.ai and copy the link (the Library's flow: sign-in, notice, toast)
+    const shareBtn = (kind, since, path) => (server || !shareFromInference ? null
+      : el('button', { class: 'ghost sharebtn', onclick: () => shareFromInference(kind, since, path) }, '⬆ Upload and copy link'));
     const keyHint = () => (server && !keys[server] ? el('div', { class: 'sub' }, 'This server needs an access key: choose "Add a remote server…" again with the key.') : null);
     // ---------- the background queue (Host Station runs it; the same queue for the app window and every page)
     const outUrl = (id, dl) => base() + '/api/queue/' + encodeURIComponent(id) + '/output?' + (server ? 'key=' + encodeURIComponent(keys[server] || '') : 't=' + encodeURIComponent(token)) + (dl ? '&download=1' : '');
@@ -953,7 +1211,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       if (!prompt || !model) { $('vmsg').className = 'msg err'; $('vmsg').textContent = 'Describe the video first.'; return; }
       const [w, h] = $('vsize').value.split('x').map(Number), frames = +$('vlen').value, fps = 24, seed = $('vseed').value.trim();
       $('vgo').disabled = true; $('vstop').classList.remove('hidden'); $('vmsg').className = 'msg';
-      const t0 = performance.now(), tick = () => { $('vmsg').textContent = `Making the video… ${Math.round((performance.now() - t0) / 1000)} s (the first one after starting also loads the model)`; };
+      const started = Date.now(), t0 = performance.now(), tick = () => { $('vmsg').textContent = `Making the video… ${Math.round((performance.now() - t0) / 1000)} s (the first one after starting also loads the model)`; };
       tick();
       const hdr = Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth());
       try {
@@ -970,7 +1228,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
             const res = j.result || {}, mime = res.mime_type || 'video/webm', src = `data:${mime};base64,${res.b64_json}`, secs = ((performance.now() - t0) / 1000).toFixed(0);
             const ext = (res.output_format || 'webm') === 'webp' ? 'webp' : (res.output_format || 'webm');
             $('vgallery').prepend(el('figure', { class: 'track' }, el('video', { src, controls: true, loop: true, autoplay: true, muted: true, playsinline: true, style: 'width:100%;border-radius:10px' }),
-              el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${res.frame_count || frames} frames · ${secs} s · `, el('a', { href: src, download: 'sushila-video.' + ext, class: 'dlbtn' }, '⬇ Download'))));
+              el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${res.frame_count || frames} frames · ${secs} s · `, el('a', { href: src, download: 'sushila-video.' + ext, class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('video', started))));
             $('vmsg').textContent = `Done in ${secs} s.`;
             break;
           }
@@ -1065,7 +1323,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       if (!style || !model) { $('mmsg').className = 'msg err'; $('mmsg').textContent = 'Describe the style first (2. Style).'; return; }
       if (!lyrics) lyrics = '[Instrumental]'; else if (lyrics === '[auto]') lyrics = '';
       $('mgo').disabled = true; $('mmsg').className = 'msg';
-      const t0 = performance.now();
+      const t0 = performance.now(), started = Date.now();
       try {
         const req = { caption: style, lyrics, duration: songLength(), seed: -1, output_format: 'mp3' };
         const planned = await (await musicJob('/lm', req, 'Writing the song (step 1 of 2)')).json();
@@ -1076,7 +1334,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         if (!blob) throw new Error('The server returned no audio.');
         const src = URL.createObjectURL(blob), secs = ((performance.now() - t0) / 1000).toFixed(0);
         $('tracks').prepend(el('div', { class: 'track' }, el('b', {}, style), el('div', { class: 'meta' }, `made in ${secs} s` + (lyrics && lyrics !== '[Instrumental]' ? ' · with your lyrics' : '')),
-          el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-song.mp3', class: 'dlbtn' }, '⬇ Download')));
+          el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-song.mp3', class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('music', started)));
         $('mmsg').textContent = `Done in ${secs} s.`;
       } catch (e) { await showProblem($('mmsg'), e, 'making your song'); }
       finally { $('mgo').disabled = false; }
@@ -1121,7 +1379,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       const prompt = $('iprompt').value.trim();
       if (!prompt || !model) { $('imsg').className = 'msg err'; $('imsg').textContent = 'Describe the image first.'; return; }
       $('igo').disabled = true; $('imsg').className = 'msg'; $('imsg').textContent = 'Creating… the first image after starting takes longer while the model loads.';
-      const t0 = performance.now(), seed = $('iseed').value.trim();
+      const t0 = performance.now(), started = Date.now(), seed = $('iseed').value.trim();
       try {
         const r = await fetch(base() + '/v1/images/generations', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth()),
           // stable-diffusion.cpp's OpenAI endpoint: engine options ride inside the prompt as <sd_cpp_extra_args>{...}</sd_cpp_extra_args>
@@ -1132,7 +1390,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         const imgs = (j.data || []).map((d) => ({ src: d.b64_json ? 'data:image/png;base64,' + d.b64_json : d.url, file: d.sushila_file })).filter((x) => x.src);
         if (!imgs.length) throw new Error('The server returned no image.');
         for (const { src, file } of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
-          el('a', { href: src, download: file ? file.split(/[\\/]/).pop() : 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'), file ? ' ' : null, file ? savedAt(file) : null)));
+          el('a', { href: src, download: file ? file.split(/[\\/]/).pop() : 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('image', started, file), file ? ' ' : null, file ? savedAt(file) : null)));
         $('imsg').textContent = `${imgs.length} image${imgs.length > 1 ? 's' : ''} in ${secs} s`;
       } catch (e) { await showProblem($('imsg'), e, 'making your picture'); }
       finally { $('igo').disabled = false; }

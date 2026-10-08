@@ -653,7 +653,8 @@ of file. We use this to count downloads, plan capacity and prevent abuse, and de
 file are kept.</li>
 <li><b>Shared files:</b> a picture, song or video you choose to share from Sushila (Share link) is stored with its title, model and
 time under your account and is public to anyone with its link until you delete it at sushila.ai/mycontent. For each link we keep one
-number, how many times its page was opened. Uploads for free accounts may be deleted at any time; inappropriate uploads are deleted and
+number, how many visitors opened its page (one per visitor per 24 hours); each opening is logged with the link, your IP address,
+country, browser user agent and time, kept for at most a few weeks to count views and prevent abuse. Uploads for free accounts may be deleted at any time; inappropriate uploads are deleted and
 reported.</li>
 <li><b>Abuse reports:</b> what you enter at sushila.ai/reportabuse (the link, the reason, the details and, if you give it, your
 e-mail), with the time, your IP address, country and browser user agent, so we can act on the report and prevent misuse.</li>
@@ -1413,16 +1414,18 @@ ${CLIENT}
   // users
   let page = 1, timer = null;
   async function loadUsers(){
-    const qs = new URLSearchParams({q: $('q').value.trim(), page, size: $('size').value, admins: $('onlyadmin').checked ? '1' : ''});
+    const qs = new URLSearchParams({q: $('q').value.trim(), size: $('size').value, admins: $('onlyadmin').checked ? '1' : '', cursor: cursors[page - 1] || ''});
     const r = await fetch('/api/admin/users?' + qs); const d = await r.json();
     if (!r.ok) { $('ub').innerHTML = '<tr><td colspan="6">' + E(d.error) + '</td></tr>'; return; }
     $('ub').innerHTML = d.users.length ? d.users.map(u => '<tr><td><b>' + E((u.firstName + ' ' + (u.lastName === '-' ? '' : u.lastName)).trim()) + '</b>' + (u.isAdmin ? ' <span class="tag">admin</span>' : '') +
       '<div class="sub">' + E(u.userId) + '</div></td><td class="wrap">' + u.emails.map(e => E(e) + (e === u.primaryEmail ? ' <span class="tag">primary</span>' : '')).join('<br>') +
       '</td><td>' + E(u.organization === '-' ? '' : u.organization) + '</td><td>' + E((u.createdAt||'').slice(0,10)) + '</td><td>' + E((u.lastLoginAt||'').slice(0,16).replace('T',' ')) +
       '</td><td class="num">' + (u.downloads || 0) + '</td></tr>').join('') : '<tr><td colspan="6" class="sub">No users match.</td></tr>';
-    $('pinfo').textContent = d.total + ' user' + (d.total === 1 ? '' : 's') + ' · page ' + d.page + ' of ' + d.pages;
-    $('prev').disabled = d.page <= 1; $('next').disabled = d.page >= d.pages; page = d.page;
+    cursors[page] = d.next || '';
+    $('pinfo').textContent = d.users.length + ' user' + (d.users.length === 1 ? '' : 's') + ' · page ' + page + (d.next ? '' : ' (last)');
+    $('prev').disabled = page <= 1; $('next').disabled = !d.next;
   }
+  const cursors = [''];  // cursors[n] = where page n+1 starts
   $('q').oninput = () => { clearTimeout(timer); timer = setTimeout(() => { page = 1; loadUsers(); }, 250); };
   $('onlyadmin').onchange = $('size').onchange = () => { page = 1; loadUsers(); };
   $('prev').onclick = () => { page--; loadUsers(); }; $('next').onclick = () => { page++; loadUsers(); };
@@ -1521,7 +1524,7 @@ function json(obj, status = 200, extra = {}) {
 
 // ============================================================
 // Storage and services (credentials come from the worker's environment):
-//   DynamoDB  AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION; every table is named sushilaai-*
+//   DynamoDB  AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION; every table is named sushilaai-*; nothing is scanned (indexes)
 //   B2        B2_KEY_ID, B2_APP_KEY, B2_BUCKET_NAME (downloads and media; keys listed in B2_KEYS below)
 //   Resend    RESEND_API_KEY, RESEND_FROM (sign-in codes)
 //   Sessions  SESSION_SECRET (signs session cookies and hashes sign-in codes)
@@ -1536,9 +1539,9 @@ const TABLES = {
   waitlist: 'sushilaai-waitlist',   // PK email: serverless-API early access
   download: 'sushilaai-download',   // PK file, SK at: one row per download (time, IP, country, system, kind; TTL 12 months) + '#count'
   compare: 'sushilaai-compare',     // PK runId: admin "Compare Speeds" pods (pod id, model, results); pods are deleted, rows kept
-  audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes
+  audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes; views of shared links (at "view#<id>#<visitor>")
   reportabuse: 'sushilaai-reportabuse', // PK reportId: every report sent from sushila.ai/reportabuse (link, reason, details, e-mail, time, IP)
-  fileViews: 'sushilaai-file-views',    // PK url (a shared link, "/c/<12 hex>") -> userId (its owner) and views (number); nothing else
+  fileViews: 'sushilaai-file-views',    // PK url (a shared link, "/c/<12 hex>") -> userId (its owner) and views (one per visitor per 24 h; log in audit)
 };
 const OTP_TTL_MS = 5 * 60 * 1000;      // a code is valid for 5 minutes
 const OTP_RESEND_MS = 10 * 1000;       // at most one code every 10 seconds per e-mail
@@ -1610,10 +1613,12 @@ class DynamoDB {
       ...(values ? { ExpressionAttributeValues: values } : {}), ...(names ? { ExpressionAttributeNames: names } : {}), ReturnValues: 'ALL_NEW' })
       .then((r) => r.Attributes || null);
   }
-  async scanAll(table, opts = {}, cap = 20000) {  // every item (small tables: users, models)
+  // No table is ever scanned: lists come from an index whose partition key is a constant ("listKey", "adminKey"), see
+  // setup/dynamodb_tables.py. queryAll reads every page of one such Query.
+  async queryAll(table, index, keyExpr, values, opts = {}, cap = 20000) {
     const items = []; let start;
     do {
-      const r = await this.request('Scan', { TableName: table, ...opts, ...(start ? { ExclusiveStartKey: start } : {}) });
+      const r = await this.request('Query', { TableName: table, IndexName: index, KeyConditionExpression: keyExpr, ExpressionAttributeValues: values, ...opts, ...(start ? { ExclusiveStartKey: start } : {}) });
       items.push(...(r.Items || [])); start = r.LastEvaluatedKey;
     } while (start && items.length < cap);
     return items;
@@ -1729,8 +1734,12 @@ const SHARE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'we
   'audio/flac': 'flac', 'audio/ogg': 'ogg', 'video/webm': 'webm', 'video/mp4': 'mp4' };
 const shareKey = (uid) => `public/usercontent/${uid}/`;
 const SHARE_NOTICE = 'Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported. Manage your uploads at sushila.ai/mycontent.';
-const DISCLAIMER = (local) => `Generated by a user with sushila.cpp${local ? ' on their own computer' : ''}. To report abuse: sushila.ai/reportabuse`;
+const DISCLAIMER = (local) => `${local ? 'Generated by a user with sushila.cpp on their own computer' : 'Generated on a remote Sushila server (sushila.cpp), at the request of a user on another device'}. To report abuse: sushila.ai/reportabuse`;
+const MAKE_YOUR_OWN = 'You too can create unlimited free pictures, music and videos on your PC or laptop with sushila.cpp, downloadable at sushila.ai/install.';
 const viewKey = (id) => `/c/${id}`;
+// My content's trash: "Delete" sets trashedAt (and trashKey, for the sparse trash-index) on the link's row; the link stops
+// working at once; Restore clears it; the daily cron deletes files trashed more than TRASH_DAYS ago (file, .json, row)
+const TRASH_DAYS = 30;
 const SHARE_ID = /^[0-9a-f]{12}$/;
 async function newShareId(db, uid) {  // a fresh 12-hex id, reserved in sushilaai-file-views (the condition makes it unique)
   for (let i = 0; i < 5; i++) {
@@ -1747,14 +1756,32 @@ async function shareDelete(b2, db, uid, id) {  // the file, its .json and its vi
   if (mine.length && db.configured) { try { await db.del(TABLES.fileViews, { url: S(viewKey(id)) }); } catch (e) { console.error('views', e.message); } }
   return mine.length > 0;
 }
-async function viewsOf(db, items) {  // {link path: views} for a list of shared files (GetItem each; the worker's IAM policy has no BatchGetItem)
+async function rowsOf(db, items) {  // {link path: its row (views, trashedAt)} for a list of shared files
   const out = {};
   if (!db.configured) return out;
   await Promise.all(items.slice(0, 500).map(async (m) => {
     const k = viewKey(m.id);
-    try { out[k] = num(await db.get(TABLES.fileViews, { url: S(k) }), 'views'); } catch (e) { console.error('views', e.message); }
+    try { const r = await db.get(TABLES.fileViews, { url: S(k) }); if (r) out[k] = { views: num(r, 'views'), trashedAt: str(r, 'trashedAt') }; } catch (e) { console.error('views', e.message); }
   }));
   return out;
+}
+const withRows = async (db, items) => { const rows = await rowsOf(db, items); for (const m of items) { const r = rows[viewKey(m.id)] || {}; m.views = r.views || 0; m.trashedAt = r.trashedAt || ''; } return items; };
+async function setTrash(db, uid, id, on) {  // true when the row is this account's
+  try {
+    await db.request('UpdateItem', { TableName: TABLES.fileViews, Key: { url: S(viewKey(id)) }, ConditionExpression: 'userId = :u',
+      UpdateExpression: on ? 'SET trashedAt = :t, trashKey = :k' : 'REMOVE trashedAt, trashKey', ExpressionAttributeValues: on ? { ':u': S(uid), ':t': S(new Date().toISOString()), ':k': S('trash') } : { ':u': S(uid) } });
+    return true;
+  } catch (e) { if (/ConditionalCheckFailed/.test(e.message)) return false; throw e; }
+}
+async function purgeTrash(env) {  // the cron: files in the trash for more than TRASH_DAYS
+  const db = new DynamoDB(env), b2 = new B2(env);
+  if (!db.configured || !b2.configured) return;
+  const before = new Date(Date.now() - TRASH_DAYS * 86400e3).toISOString();
+  const rows = await db.queryAll(TABLES.fileViews, 'trash-index', 'trashKey = :k AND trashedAt < :t', { ':k': S('trash'), ':t': S(before) }, {}, 500);
+  for (const r of rows) {
+    const id = str(r, 'url').replace('/c/', ''), uid = str(r, 'userId');
+    if (SHARE_ID.test(id) && uid) { try { await shareDelete(b2, db, uid, id); } catch (e) { console.error('purge', id, e.message); } }
+  }
 }
 async function shareList(b2, uid) {
   const files = await b2.list(shareKey(uid));
@@ -1771,9 +1798,8 @@ async function shareApi(request, env, db, b2, p, url) {
   const uid = app.userId;
   if (p === '/api/app/uploads' && request.method === 'GET') {
     const { files, items } = await shareList(b2, uid);
-    const views = await viewsOf(db, items);
-    for (const m of items) m.views = views[viewKey(m.id)] || 0;
-    return json({ items, notice: SHARE_NOTICE, manage: `${url.origin}/mycontent`, used: files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0), quota: SHARE_QUOTA });
+    await withRows(db, items);
+    return json({ items: items.filter((m) => !m.trashedAt), trashed: items.filter((m) => m.trashedAt).length, notice: SHARE_NOTICE, manage: `${url.origin}/mycontent`, used: files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0), quota: SHARE_QUOTA });
   }
   if (p === '/api/app/upload' && request.method === 'POST') {
     if (limited(request, 'share-upload', 30)) return json({ error: 'Too many uploads. Please wait a minute.' }, 429);
@@ -1804,38 +1830,155 @@ async function shareApi(request, env, db, b2, p, url) {
     let d; try { d = await request.json(); } catch { return json({ error: 'Bad request.' }, 400); }
     const id = String(d.id || '');
     if (!SHARE_ID.test(id)) return json({ error: 'Bad request.' }, 400);
-    if (!(await shareDelete(b2, db, uid, id))) return json({ error: 'No such link.' }, 404);
-    return json({ ok: true });
+    if (!(await setTrash(db, uid, id, true))) return json({ error: 'No such link.' }, 404);
+    return json({ ok: true, trash: true, note: `The link stopped working. The file is in the trash on sushila.ai/mycontent for ${TRASH_DAYS} days (Restore brings it back), then deleted.` });
   }
   if (p === '/api/app/me') return json({ userId: uid, notice: SHARE_NOTICE, manage: `${url.origin}/mycontent` });
   return json({ error: 'Not found.' }, 404);
 }
-async function sharePage(env, db, id, origin) {
+async function shareFile(request, db, id, download) {  // /c/<id>/file (shown in the page) and /c/<id>/download
+  if (!SHARE_ID.test(id) || !db.configured) return null;
+  const row = await db.get(TABLES.fileViews, { url: S(viewKey(id)) });
+  if (!row || str(row, 'trashedAt')) return null;
+  const uid = str(row, 'userId');
+  if (!/^[A-Za-z0-9_-]{4,64}$/.test(uid)) return null;
+  const mr = await fetch(`${FILES_BASE}usercontent/${uid}/${id}.json`, { cf: { cacheTtl: 60 } });
+  if (!mr.ok) return null;
+  const m = await mr.json();
+  if (!String(m.key || '').startsWith(`${shareKey(uid)}${id}-`)) return null;
+  const h = {}; if (request.headers.get('range')) h.range = request.headers.get('range');
+  const r = await fetch(FILES_BASE + m.key.slice('public/'.length), { headers: h, cf: { cacheEverything: true, cacheTtl: 3600 } });
+  if (!(r.status === 200 || r.status === 206)) return null;
+  const name = m.key.slice(`${shareKey(uid)}${id}-`.length).replace(/"/g, '') || `${id}`;
+  const out = new Headers({ 'content-type': m.type || 'application/octet-stream', 'accept-ranges': 'bytes', 'cache-control': 'public, max-age=3600',
+    'content-disposition': `${download ? 'attachment' : 'inline'}; filename="sushila-${id}-${name}"`, 'x-content-type-options': 'nosniff' });
+  for (const k of ['content-length', 'content-range']) if (r.headers.get(k)) out.set(k, r.headers.get(k));
+  return new Response(r.body, { status: r.status, headers: out });
+}
+// One view per visitor (IP address) per link per 24 hours, with no table of its own: every view is logged in
+// sushilaai-audit (cleared weekly) as one row per visitor, link and day: day = <date>, at = "view#<link id>#<visitor>",
+// where <visitor> is a 12-character keyed hash of the IP; the row holds the link (url), the IP address, the number of
+// views that day, the first and last time, the country and the browser. "counted" holds the time this visitor's view was added to the link's views;
+// a view counts only when the visitor has no counted view in the last 24 hours (today's row, or yesterday's after
+// the same time of day). The conditional write makes it exact even when the page is opened twice at once.
+const VIEW_WINDOW_MS = 24 * 3600 * 1000;
+async function countView(env, db, request, id) {  // -> the link's row (userId, views) or null when the link does not exist
+  const key = { url: S(viewKey(id)) }, now = Date.now(), today = new Date(now).toISOString().slice(0, 10);
+  const yesterday = new Date(now - 86400000).toISOString().slice(0, 10);
+  const who = (await hmacHex(env.SESSION_SECRET || 'sushila-views', `view|${request.headers.get('cf-connecting-ip') || '-'}`)).slice(0, 12);
+  const at = `view#${id}#${who}`;
+  const link = await db.get(TABLES.fileViews, key);
+  if (!link || str(link, 'trashedAt')) return null;  // no such link, or in its owner's trash
+  let count = true;
+  try {
+    const log = (await db.request('UpdateItem', { TableName: TABLES.audit, Key: { day: S(today), at: S(at) },
+      UpdateExpression: 'ADD hits :one SET event = :e, #u = :u, ip = :ip, lastAt = :t, country = :c, userAgent = :a, firstAt = if_not_exists(firstAt, :t)',
+      ExpressionAttributeNames: { '#u': 'url' }, ExpressionAttributeValues: { ':one': N(1), ':e': S('view'), ':u': S(`${new URL(request.url).origin}${viewKey(id)}`), ':ip': S(request.headers.get('cf-connecting-ip') || '-'), ':t': S(new Date(now).toISOString()),
+        ':c': S((request.cf && request.cf.country) || '-'), ':a': S(clean(request.headers.get('user-agent'), 200) || '-') }, ReturnValues: 'ALL_NEW' })).Attributes;
+    if (log.counted) count = false;  // already counted today: within 24 hours
+    else {
+      const prev = await db.get(TABLES.audit, { day: S(yesterday), at: S(at) });
+      if (prev && prev.counted && Number(prev.counted.N) > now - VIEW_WINDOW_MS) count = false;
+      else {
+        try { await db.request('UpdateItem', { TableName: TABLES.audit, Key: { day: S(today), at: S(at) }, UpdateExpression: 'SET counted = :n',
+          ConditionExpression: 'attribute_not_exists(counted)', ExpressionAttributeValues: { ':n': N(now) } }); }
+        catch (e) { if (/ConditionalCheckFailed/.test(e.message)) count = false; else throw e; }
+      }
+    }
+  } catch (e) { console.error('views log', e.message); }  // without the log (e.g. the table is being cleared) the view still counts
+  if (!count) return link;
+  try { return (await db.update(TABLES.fileViews, key, 'ADD #v :one', { ':one': N(1) }, { '#v': 'views' })) || link; }
+  catch (e) { console.error('views', e.message); return link; }
+}
+async function sharePage(env, db, id, origin, request) {
   if (!SHARE_ID.test(id) || !db.configured) return null;
   // one more view each time the page is opened; the row also names the owner (only links that exist are counted)
   let row;
-  try { row = (await db.request('UpdateItem', { TableName: TABLES.fileViews, Key: { url: S(viewKey(id)) }, UpdateExpression: 'ADD #v :one',
-    ConditionExpression: 'attribute_exists(#u)', ExpressionAttributeNames: { '#v': 'views', '#u': 'url' }, ExpressionAttributeValues: { ':one': N(1) }, ReturnValues: 'ALL_NEW' })).Attributes; }
-  catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) console.error('views', e.message); return null; }
+  try { row = await countView(env, db, request, id); } catch (e) { console.error('views', e.message); return null; }
+  if (!row) return null;
   const uid = str(row, 'userId'), views = num(row, 'views');
   if (!/^[A-Za-z0-9_-]{4,64}$/.test(uid)) return null;
   const r = await fetch(`${FILES_BASE}usercontent/${uid}/${id}.json`, { cf: { cacheTtl: 60 } });
   if (!r.ok) return null;
   const m = await r.json();
   const report = `/reportabuse?url=${encodeURIComponent(`${origin}${viewKey(id)}`)}`;
-  const src = esc(m.file), t = esc(m.title || 'Made with Sushila');
-  const media = m.kind === 'image' ? `<img src="${src}" alt="${t}" style="max-width:100%;border-radius:14px">`
-    : m.kind === 'video' ? `<video src="${src}" controls playsinline style="max-width:100%;border-radius:14px"></video>`
-    : `<audio src="${src}" controls style="width:100%"></audio>`;
+  // the file is served through sushila.ai/c/<id>/file (and /download): visitors never see where it is stored
+  const src = esc(`${viewKey(id)}/file`), t = esc(m.title || 'Made with Sushila');
+  const vtext = `${views.toLocaleString('en-US')} view${views === 1 ? '' : 's'}`;
+  // the picture or video fills the window; ⓘ opens everything about it (title, label, model, date, Download, Report abuse,
+  // the disclaimer, how to make your own); ⛶ is the browser's full screen; the views stay in the corner
+  const media = m.kind === 'image' ? `<img class="media" src="${src}" alt="${t}">`
+    : m.kind === 'video' ? `<video class="media" src="${src}" controls playsinline autoplay muted loop></video>`
+    : `<div class="song"><div class="note">🎵</div><div class="stitle">${t}</div><audio src="${src}" controls></audio></div>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t} · Sushila</title>
 ${ICON_LINKS.replace('<meta property="og:image" content="https://sushila.ai/logo.png">', '')}<meta property="og:title" content="${t}"><meta property="og:description" content="AI-generated with Sushila${m.model ? ' (' + esc(m.model) + ')' : ''}">
-${m.kind === 'image' ? `<meta property="og:image" content="${src}">` : ''}<style>${STYLE}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
-.w{max-width:900px;margin:0 auto;padding:22px}.ai{display:inline-block;margin:10px 0;padding:3px 10px;border-radius:99px;background:var(--accbg);color:var(--acc);font-weight:700;font-size:13px}
-.sub{color:var(--mut);font-size:14px}a{color:var(--acc)}.views{position:fixed;right:14px;bottom:10px;padding:4px 10px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--mut);font-size:13px}</style></head><body><div class="w"><p><a href="/" style="text-decoration:none;font-weight:800">Sushila</a></p>
-${media}<h1 style="font-size:20px;margin:12px 0 4px">${t}</h1><span class="ai">AI-generated</span> <span class="sub">with Sushila${m.model ? ' · ' + esc(m.model) : ''} · shared ${esc((m.created || '').slice(0, 10))}</span>
-<p class="sub"><a href="${src}" download>Download</a> · <a href="${esc(report)}">Report abuse</a></p>
-<p class="sub">${esc(DISCLAIMER(m.local !== false))}.</p></div><div class="views" title="Times this page was opened">${views.toLocaleString('en-US')} view${views === 1 ? '' : 's'}</div></body></html>`;
+${m.kind === 'image' ? `<meta property="og:image" content="${esc(origin)}${src}">` : ''}<style>${STYLE}html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.5 system-ui,sans-serif;overflow:hidden}
+.stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}.media{max-width:100vw;max-height:100vh;width:100%;height:100%;object-fit:contain}
+.song{text-align:center;padding:24px;max-width:640px;width:100%}.song .note{font-size:72px}.song .stitle{font-size:22px;font-weight:700;margin:10px 0 18px}.song audio{width:100%}
+.ctl{position:fixed;top:12px;right:12px;display:flex;gap:8px;z-index:5}.ctl button,.ctl a{border:0;border-radius:99px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);color:#fff;font-size:20px;cursor:pointer;text-decoration:none;backdrop-filter:blur(4px)}
+.ctl button:hover,.ctl a:hover{background:rgba(0,0,0,.8)}.brand{position:fixed;top:14px;left:14px;z-index:5;color:#fff;text-decoration:none;font-weight:800;background:rgba(0,0,0,.45);padding:6px 12px;border-radius:99px}
+.views{position:fixed;right:14px;bottom:14px;z-index:5;padding:6px 12px;border-radius:99px;background:rgba(0,0,0,.6);color:#fff;font-size:14px}
+.info{position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);background:var(--bg);color:var(--fg);z-index:10;padding:22px;overflow:auto;box-shadow:-12px 0 30px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .2s}
+.info.open{transform:none}.info h1{font-size:20px;margin:6px 0}.info .ai{display:inline-block;margin:6px 0;padding:3px 10px;border-radius:99px;background:var(--accbg);color:var(--acc);font-weight:700;font-size:13px}
+.info .sub{color:var(--mut);font-size:14px}.info a{color:var(--acc)}.info .x{float:right;border:0;background:transparent;color:var(--mut);font-size:26px;cursor:pointer}.info dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}.info dt{color:var(--mut)}
+.info .btn{display:inline-block;margin:8px 8px 0 0;padding:8px 14px;border-radius:10px;background:var(--acc);color:#fff;text-decoration:none;font-weight:700}</style></head><body>
+<div class="stage">${media}</div>
+<a class="brand" href="/">Sushila</a>
+<div class="ctl"><button id="ib" title="Information" aria-label="Information" aria-expanded="false">ⓘ</button><button id="fb" title="Full screen (Esc to return)" aria-label="Full screen">⛶</button></div>
+<div class="views" title="Visitors who opened this page (one per visitor per 24 hours)">👁 ${vtext}</div>
+<aside class="info" id="info" aria-label="Information"><button class="x" id="ix" aria-label="Close">×</button>
+<div class="sub"><a href="/" style="font-weight:800;text-decoration:none">Sushila</a></div>
+<h1>${t}</h1><span class="ai">AI-generated</span>
+<dl><dt>Made with</dt><dd>Sushila${m.model ? ' · ' + esc(m.model) : ''}</dd><dt>Kind</dt><dd>${m.kind === 'image' ? 'Picture' : m.kind === 'video' ? 'Video' : 'Song'}</dd><dt>Generated on</dt><dd>${m.local === false ? 'a remote Sushila server' : 'the user\'s own computer'}</dd>
+<dt>Shared</dt><dd>${esc((m.created || '').slice(0, 10))}</dd><dt>Views</dt><dd>${vtext}</dd>${m.bytes ? `<dt>Size</dt><dd>${(m.bytes / 1e6).toFixed(1)} MB</dd>` : ''}<dt>Link</dt><dd><a href="${esc(viewKey(id))}">${esc(origin.replace(/^https?:\/\//, ''))}${esc(viewKey(id))}</a></dd></dl>
+<p><a class="btn" href="${esc(viewKey(id))}/download">Download</a><a class="btn" style="background:transparent;color:var(--err);border:1px solid var(--err)" href="${esc(report)}">Report abuse</a></p>
+<p class="sub">${esc(DISCLAIMER(m.local !== false))}. ${esc(MAKE_YOUR_OWN).replace('sushila.ai/install', '<a href="/install">sushila.ai/install</a>')}</p></aside>
+<script>(function(){var info=document.getElementById('info'),ib=document.getElementById('ib');
+function show(on){info.classList.toggle('open',on);ib.setAttribute('aria-expanded',String(on));}
+ib.onclick=function(){show(!info.classList.contains('open'));};document.getElementById('ix').onclick=function(){show(false);};
+document.addEventListener('keydown',function(e){if(e.key==='Escape')show(false);if(e.key==='i')show(!info.classList.contains('open'));});
+document.getElementById('fb').onclick=function(){var d=document.documentElement;if(document.fullscreenElement)document.exitFullscreen();else if(d.requestFullscreen)d.requestFullscreen().catch(function(){});else if(d.webkitRequestFullscreen)d.webkitRequestFullscreen();};
+${m.kind === 'music' ? 'show(false);' : ''}})();</script></body></html>`;
 }
+
+// --- Install (sushila.ai/install): every file that installing Sushila downloads, with its size, checksum and link ---
+const ENGINE_LABEL = { 'windows-x86_64': 'Windows x64, CPU', 'windows-x86_64-vulkan': 'Windows x64, any GPU (Vulkan)', 'windows-x86_64-cuda': 'Windows x64, NVIDIA GPU (CUDA)',
+  'linux-x86_64': 'Linux x64, CPU', 'linux-x86_64-vulkan': 'Linux x64, any GPU (Vulkan)', 'linux-x86_64-cuda': 'Linux x64, NVIDIA GPU (CUDA)',
+  'macos-aarch64': 'macOS, Apple silicon (Metal)', 'macos-x86_64': 'macOS, Intel' };
+const INSTALL = (cat) => () => {
+  const size = (b) => !b ? '' : b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(0) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
+  const row = (name, what, f) => `<tr><td><code>${esc(name)}</code><div class="sub">${esc(what)}</div></td><td class="num">${size(f.bytes)}</td>
+<td class="sha"><code title="SHA-256">${esc((f.sha256 || '').slice(0, 16))}${f.sha256 ? '…' : ''}</code></td><td>${f.url ? `<a href="${esc(f.url)}">Download</a>` : ''}</td></tr>`;
+  const table = (rows) => `<div class="tablewrap"><table class="files"><thead><tr><th>File</th><th class="num">Size</th><th>SHA-256</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const eng = (cat.engine && cat.engine.builds) || {};
+  const engineRows = Object.keys(ENGINE_LABEL).filter((k) => eng[k]).map((k) => row(eng[k].file, ENGINE_LABEL[k], eng[k])).join('');
+  const rt = Object.entries(cat.runtimes || {}).map(([n, r]) => Object.entries(r.builds || {}).map(([k, b]) => {
+    const fs = [b.python && { ...b.python, what: 'Python ' + (b.python.release || '') }, b.server && { ...b.server, what: 'Sushila image server' }, ...(b.wheels || []).map((w) => ({ ...w, what: 'Python package' }))].filter(Boolean);
+    return `<details><summary><b>${esc(n)}</b> for ${esc(ENGINE_LABEL[k] || k)}: ${fs.length} files, ${size(b.bytes)}</summary>${table(fs.map((f) => row(f.path.split('/').pop(), f.what, f)).join(''))}</details>`;
+  }).join('')).join('');
+  const packs = (cat.packs || []).map((p) => `<details><summary><b>${esc(p.name)}</b> <span class="sub">(${esc(p.id)}; ${(p.files || []).length} file${(p.files || []).length === 1 ? '' : 's'}, ${size((p.files || []).reduce((n, f) => n + (f.bytes || 0), 0))}${p.license ? ', ' + esc(p.license) : ''})</span></summary>
+<p class="sub">${esc(p.description || '')}</p>${table((p.files || []).map((f) => row(f.path, f.role || '', f)).join(''))}
+${p.packUrl ? `<p class="sub">Or the whole pack as one file: <a href="${esc(p.packUrl)}">${esc(p.id)}.sushilapack</a> (${size(p.packBytes)}), then <code>sushila install &lt;file&gt;</code>.</p>` : ''}</details>`).join('');
+  return `<style>.files{width:100%;border-collapse:collapse;font-size:14px}.files td,.files th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.files .num{text-align:right;white-space:nowrap}.files code{font-size:13px;overflow-wrap:anywhere}.sha code{color:var(--mut)}details{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+summary{cursor:pointer}.sub{color:var(--mut);font-size:14px}.steps li{margin:6px 0}</style>
+<h1>Install Sushila</h1>
+<p class="meta">Free pictures, music, songs, videos, chat and code on your own computer: private, offline once installed, on your GPU (NVIDIA, AMD, Intel, Apple) or the CPU.
+This page lists every file that installing Sushila downloads, with its size and SHA-256 checksum. Sushila checks each file's checksum before using it.</p>
+<h2>1. The Sushila program</h2>
+<ol class="steps"><li><b>Download</b> <code>sushila.exe</code> (Windows x64), or <code>sushila</code> for macOS or Linux: one file, about 9 MB.
+<span class="sub">The downloads open when the Sushila paper is published: <a href="/#get">e-mail me when they are ready</a>.</span></li>
+<li><b>Run it</b> (double-click, or <code>sushila serve</code> in a terminal). Your browser opens <code>http://localhost:7874</code>.</li>
+<li>The first time, it downloads <b>one</b> engine build below, the one for your system and GPU, by itself.</li>
+<li><b>Choose a model pack</b> on its Inference or Admin page (or <code>sushila install &lt;pack&gt;</code>). It downloads only that pack's files below.</li></ol>
+<h2>2. Engine (sushila.cpp), one of these, chosen automatically</h2>
+${engineRows ? table(engineRows) : '<p class="note">The file list is unavailable right now. Please try again shortly.</p>'}
+${rt ? `<h2>3. Image runtime for NVIDIA GPUs</h2><p class="sub">Only for the Z-Image-Turbo packs for NVIDIA GPUs (Accelerated pictures); downloaded once, with the first of those packs.</p>${rt}` : ''}
+<h2>${rt ? '4' : '3'}. Model packs: only the ones you choose</h2>
+<p class="sub">Each pack is a model and Sushila's precomputed files for it. Open a pack to see its files.</p>
+${packs || '<p class="note">The pack list is unavailable right now. Please try again shortly.</p>'}
+<p class="sub">Version ${esc(cat.version || '')} · the same list as <a href="/hoststation/catalog.json">catalog.json</a>, which Sushila reads · <a href="/docs">documentation</a>.</p>`;
+};
 
 // --- Report abuse (sushila.ai/reportabuse): anyone, no sign-in; one row per report in sushilaai-reportabuse ---
 const ABUSE_REASONS = ['Sexual content involving minors', 'Non-consensual or intimate imagery', 'Violence or threats', 'Hate or harassment',
@@ -1868,31 +2011,84 @@ async function reportAbuse(request, env, db) {
   await db.put(TABLES.reportabuse, { reportId: S(reportId), at: S(now), url: S(link || '-'), reason: S(reason), details: S(details || '-'), email: S(email || '-'),
     status: S('new'), ip: S(request.headers.get('cf-connecting-ip') || '-'), country: S((request.cf && request.cf.country) || '-'),
     userAgent: S(clean(request.headers.get('user-agent'), 300) || '-') });
+  // every admin (accounts with admin rights: makeUserAdmin.py) gets the report by e-mail
+  await notifyAdmins(env, db, `Abuse report ${reportId}: ${reason}`, `A report was sent from sushila.ai/reportabuse.\n\nReport: ${reportId}\nTime: ${now}\nLink: ${link || '-'}\n` +
+    `Reason: ${reason}\nReporter e-mail: ${email || '(not given)'}\nCountry: ${(request.cf && request.cf.country) || '-'}\n\nDetails:\n${details || '-'}\n\nRows: DynamoDB sushilaai-reportabuse, reportId ${reportId}.`);
   return json({ ok: true, reportId });
 }
 
 // --- My content (sushila.ai/mycontent): the signed-in account's shared files, with views; delete any of them ---
-const MYCONTENT = (items, used) => () => `${FORM_CSS}<style>.mc{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:16px}
-.mc .c{border:1px solid var(--line);border-radius:14px;padding:10px;overflow:hidden}.mc img,.mc video{width:100%;border-radius:10px;display:block;max-height:220px;object-fit:cover}
-.mc audio{width:100%}.mc .t{font-weight:600;font-size:14px;margin:8px 0 2px;overflow-wrap:anywhere}.mc .s{color:var(--mut);font-size:13px}.note{padding:10px 14px;border-radius:12px;background:var(--accbg);font-size:14px}</style>
+const MYCONTENT = (items, used) => () => {
+  // the list is rendered in the browser from this JSON (search, filters, sort, layout without a reload)
+  const data = items.map((m) => ({ id: m.id, kind: m.kind, title: m.title || '', model: m.model || '', created: m.created || '', bytes: m.bytes || 0, views: m.views || 0, trashedAt: m.trashedAt || '', link: m.link }));
+  return `${FORM_CSS}<style>.mc{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:14px}
+.mc .c{border:1px solid var(--line);border-radius:14px;padding:10px;overflow:hidden}.mbox{position:relative;background:var(--line);border-radius:10px;overflow:hidden;min-height:120px;display:flex;align-items:center;justify-content:center}
+.mbox img,.mbox video{width:100%;display:block;max-height:220px;object-fit:cover}.mbox audio{width:94%;margin:40px 0}.mbox:fullscreen{background:#000}.mbox:fullscreen img,.mbox:fullscreen video{max-height:none;height:100%;object-fit:contain}
+.mfull{position:absolute;top:6px;right:6px;border:0;border-radius:8px;padding:3px 8px;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer}
+.mviews{position:absolute;bottom:6px;right:6px;border-radius:99px;padding:2px 9px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;pointer-events:none}
+.c .t{font-weight:600;font-size:14px;margin:8px 0 2px;overflow-wrap:anywhere}.c .s,.s{color:var(--mut);font-size:13px}.note{padding:10px 14px;border-radius:12px;background:var(--accbg);font-size:14px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}.bar input{flex:1;min-width:200px}.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{background:transparent;color:var(--fg);border:0;padding:6px 12px;font-weight:600;cursor:pointer}.seg button+button{border-left:1px solid var(--line)}.seg button.on{background:var(--acc);color:#fff}
+.lt{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px}.lt td,.lt th{padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}.lt img{width:64px;height:48px;object-fit:cover;border-radius:6px}
+.acts button,.acts a{margin-right:8px}.danger{color:#b42318}
+.toast{position:fixed;right:18px;bottom:18px;z-index:50;width:min(440px,calc(100vw - 36px));background:var(--bg);color:var(--fg);border:1px solid var(--line);border-left:6px solid var(--acc);border-radius:12px;padding:14px 16px;box-shadow:0 12px 32px rgba(16,24,40,.25);font-size:15px}
+.toast.err{border-left-color:#b42318}.toast b{display:block;margin-bottom:2px}.toast .tb{display:flex;gap:8px;margin-top:12px}.toast .tb button{padding:7px 14px;border-radius:9px;border:1px solid var(--acc);background:var(--acc);color:#fff;font-weight:700;cursor:pointer}
+.toast .tb button.g{background:transparent;color:var(--acc)}.toast .tb button.d{background:#b42318;border-color:#b42318}</style>
 <h1>My content</h1>
 <p class="note">${esc(SHARE_NOTICE)}</p>
-<p class="meta">${items.length} file${items.length === 1 ? '' : 's'} · ${(used / 1e6).toFixed(1)} MB of ${SHARE_QUOTA / 1e9} GB. Shared from the Library of Sushila on your computer (Share link).</p>
-${items.length ? `<div class="mc">${items.map((m) => `<div class="c" id="c-${esc(m.id)}">${m.kind === 'image' ? `<img src="${esc(m.file)}" alt="" loading="lazy">`
-    : m.kind === 'video' ? `<video src="${esc(m.file)}" controls preload="metadata"></video>` : `<audio src="${esc(m.file)}" controls preload="none"></audio>`}
-<div class="t">${esc(m.title || m.id)}</div><div class="s">${esc((m.created || '').slice(0, 10))} · ${(m.views || 0).toLocaleString('en-US')} view${m.views === 1 ? '' : 's'} · ${((m.bytes || 0) / 1e6).toFixed(1)} MB</div>
-<div class="s"><a href="${esc(m.link)}">Open link</a> · <button class="linkbtn" onclick="del('${esc(m.id)}')">Delete</button></div></div>`).join('')}</div>`
-  : '<p>Nothing shared yet. In Sushila, open the Library tab and press Share link on a picture, song or video.</p>'}
-<div id="m" class="msg"></div>${CLIENT}<script>
-async function del(id){if(!confirm('Delete this upload? Its link stops working for everyone.'))return;
-  try{await api('/api/mycontent/delete',{id});document.getElementById('c-'+id).remove();say('m','Deleted.',true);}catch(e){say('m',e.message);}}
+<p class="meta"><span id="sum"></span> · ${(used / 1e6).toFixed(1)} MB of ${SHARE_QUOTA / 1e9} GB. Shared from the Library of Sushila on your computer (Upload and copy link).</p>
+<div class="bar"><div class="seg" id="tabs"></div><input id="q" type="search" placeholder="Search titles, models, dates…"><select id="kind"><option value="">All kinds</option><option value="image">Pictures</option><option value="music">Songs</option><option value="video">Videos</option></select>
+<select id="sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="views">Most viewed</option><option value="big">Largest first</option><option value="az">Title A–Z</option></select>
+<div class="seg" id="lay"><button data-l="grid">▦ Large</button><button data-l="list">☰ Details</button></div></div>
+<p class="s" id="trashnote" hidden>Files in the trash are not shown to anyone. They are deleted automatically ${TRASH_DAYS} days after you moved them there; Restore brings one back with the same link.</p>
+<div id="list"></div><div id="m" class="msg"></div>${CLIENT}<script>
+var D=${JSON.stringify(data).replace(/</g, '\\u003c')},TD=${TRASH_DAYS},inTrash=false,lay='grid';try{lay=localStorage.getItem('mc-lay')||'grid'}catch(e){}
+function toast(title,text,o){o=o||{};var old=document.querySelector('.toast');if(old)old.remove();var t=document.createElement('div');t.className='toast'+(o.err?' err':'');t.setAttribute('role',o.ask?'alertdialog':'status');
+ t.innerHTML='<b>'+E(title)+'</b><div>'+E(text||'')+'</div>'+(o.ask?'<div class="tb"><button class="'+(o.danger?'d':'')+'">'+E(o.ask)+'</button><button class="g">Cancel</button></div>':'');document.body.appendChild(t);
+ return new Promise(function(res){if(!o.ask){setTimeout(function(){t.remove()},o.err?12000:6000);res(true);return}var b=t.querySelectorAll('button');b[0].focus();b[0].onclick=function(){t.remove();res(true)};b[1].onclick=function(){t.remove();res(false)}});}
+function E(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function src(m){return '/c/'+m.id+'/file'}function mb(b){return (b/1e6).toFixed(1)+' MB'}function v(n){return n.toLocaleString('en-US')+' view'+(n===1?'':'s')}
+function left(m){var d=TD-Math.floor((Date.now()-Date.parse(m.trashedAt))/864e5);return d>1?d+' days left':d===1?'1 day left':'deleted soon'}
+function media(m,small){return m.kind==='image'?'<img src="'+src(m)+'" alt="" loading="lazy">':m.kind==='video'?'<video src="'+src(m)+'" '+(small?'muted':'controls')+' preload="metadata"></video>':small?'<span style="font-size:26px">🎵</span>':'<audio src="'+src(m)+'" controls preload="none"></audio>'}
+function acts(m){return inTrash?'<button class="linkbtn" onclick="act(\\'restore\\',\\''+m.id+'\\')">↩ Restore</button><button class="linkbtn danger" onclick="act(\\'delete\\',\\''+m.id+'\\')">Delete now</button>'
+ :'<a href="/c/'+m.id+'" target="_blank">Open</a><button class="linkbtn" onclick="copy(\\''+m.id+'\\')">Copy link</button><button class="linkbtn danger" onclick="act(\\'trash\\',\\''+m.id+'\\')">🗑 Delete</button>'}
+function render(){var q=document.getElementById('q').value.trim().toLowerCase(),k=document.getElementById('kind').value,so=document.getElementById('sort').value;
+ var all=D.filter(function(m){return !!m.trashedAt===inTrash}),L=all.filter(function(m){return(!k||m.kind===k)&&(!q||(m.title+' '+m.model+' '+m.created.slice(0,10)+' '+m.id).toLowerCase().indexOf(q)>=0)});
+ L.sort(function(a,b){return so==='old'?a.created.localeCompare(b.created):so==='views'?b.views-a.views:so==='big'?b.bytes-a.bytes:so==='az'?a.title.localeCompare(b.title):b.created.localeCompare(a.created)});
+ var nf=D.filter(function(m){return!m.trashedAt}).length,nt=D.length-nf;
+ document.getElementById('tabs').innerHTML='<button class="'+(inTrash?'':'on')+'" onclick="tab(false)">My files ('+nf+')</button><button class="'+(inTrash?'on':'')+'" onclick="tab(true)">🗑 Trash ('+nt+')</button>';
+ document.getElementById('sum').textContent=nf+' file'+(nf===1?'':'s')+(nt?' · '+nt+' in the trash':'');document.getElementById('trashnote').hidden=!inTrash;
+ [].forEach.call(document.querySelectorAll('#lay button'),function(b){b.className=b.dataset.l===lay?'on':''});
+ var el=document.getElementById('list');
+ if(!L.length){el.innerHTML='<p class="s" style="margin:24px 0">'+(all.length?'Nothing matches.':inTrash?'The trash is empty.':'Nothing shared yet. In Sushila, open the Library tab and press Upload and copy link on a picture, song or video.')+'</p>';return}
+ el.innerHTML=lay==='list'?'<div style="overflow-x:auto"><table class="lt"><thead><tr><th></th><th>Title</th><th>Kind</th><th>Model</th><th>Views</th><th>Size</th><th>'+(inTrash?'Deleted':'Shared')+'</th><th></th></tr></thead><tbody>'+L.map(function(m){
+   return '<tr id="c-'+m.id+'"><td>'+media(m,true)+'</td><td><b>'+E(m.title||m.id)+'</b></td><td>'+({image:'Picture',music:'Song',video:'Video'}[m.kind]||m.kind)+'</td><td class="s">'+E(m.model)+'</td><td>'+m.views+'</td><td>'+mb(m.bytes)+'</td><td class="s">'+(inTrash?E(m.trashedAt.slice(0,10))+'<br>'+left(m):E(m.created.slice(0,10)))+'</td><td class="acts">'+acts(m)+'</td></tr>'}).join('')+'</tbody></table></div>'
+  :'<div class="mc">'+L.map(function(m){return '<div class="c" id="c-'+m.id+'"><div class="mbox">'+media(m)+'<button class="mfull" title="Full screen (Esc to return)" onclick="full(this)">⛶</button><span class="mviews">👁 '+m.views.toLocaleString('en-US')+'</span></div><div class="t">'+E(m.title||m.id)+'</div><div class="s">'+E(m.created.slice(0,10))+' · '+v(m.views)+' · '+mb(m.bytes)+(inTrash?' · '+left(m):'')+'</div><div class="s acts">'+acts(m)+'</div></div>'}).join('')+'</div>';}
+function tab(t){inTrash=t;render()}
+function full(b){var box=b.parentNode,m=box.querySelector('img,video')||box;if(document.fullscreenElement)document.exitFullscreen();else if(m.requestFullscreen)m.requestFullscreen().catch(function(){});}
+function copy(id){var u=location.origin+'/c/'+id;try{navigator.clipboard.writeText(u);toast('Link copied',u)}catch(e){toast('The link',u)}}
+async function act(a,id){var m=D.find(function(x){return x.id===id});
+ if(a==='delete'&&!await toast('Delete "'+(m.title||id)+'" now?','This cannot be undone.',{ask:'Delete now',danger:true}))return;
+ try{await api('/api/mycontent/'+a,{id:id});if(a==='trash'){m.trashedAt=new Date().toISOString();toast('Moved to the trash','The link stopped working. It is deleted automatically in '+TD+' days; Restore brings it back.')}
+  else if(a==='restore'){m.trashedAt='';toast('Restored','The link works again.')}else{D=D.filter(function(x){return x.id!==id});toast('Deleted','The file is gone from sushila.ai.')}render();}catch(e){toast('Could not do that',e.message,{err:true})}}
+document.getElementById('q').oninput=render;document.getElementById('kind').onchange=render;document.getElementById('sort').onchange=render;
+[].forEach.call(document.querySelectorAll('#lay button'),function(b){b.onclick=function(){lay=b.dataset.l;try{localStorage.setItem('mc-lay',lay)}catch(e){}render()}});
+render();
 </script>`;
-async function myContentDelete(request, env, db, b2, session) {
+};
+async function myContentDelete(request, env, db, b2, session, act = 'delete') {
   if (!session) return json({ error: 'Please sign in.' }, 401);
   if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
   let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
   const id = String(d.id || '');
   if (!SHARE_ID.test(id)) return json({ error: 'Bad request.' }, 400);
+  if (act === 'trash' || act === 'restore') {
+    if (!(await setTrash(db, session.userId, id, act === 'trash'))) return json({ error: 'No such upload.' }, 404);
+    return json({ ok: true });
+  }
+  const row = await db.get(TABLES.fileViews, { url: S(viewKey(id)) });  // delete now: only from the trash, only your own
+  if (!row || str(row, 'userId') !== session.userId) return json({ error: 'No such upload.' }, 404);
+  if (!str(row, 'trashedAt')) return json({ error: 'Move it to the trash first.' }, 400);
   if (!(await shareDelete(b2, db, session.userId, id))) return json({ error: 'No such upload.' }, 404);
   return json({ ok: true });
 }
@@ -2038,7 +2234,7 @@ async function verifyCode(request, env, db, session, app = false) {
     try { await db.put(TABLES.emails, { email: S(email), userId: S(userId), linkedAt: S(now) }, 'attribute_not_exists(email)'); }
     catch (e) { if (e.type.includes('ConditionalCheckFailed')) return json({ error: 'An account already uses this e-mail. Please sign in.' }, 400); throw e; }
     await db.put(TABLES.users, { userId: S(userId), primaryEmail: S(email), emails: { SS: [email] }, firstName: S(firstName), lastName: S(lastName || '-'),
-      organization: S(organization || '-'), isAdmin: { BOOL: false }, createdAt: S(now), lastLoginAt: S(now) }, 'attribute_not_exists(userId)');
+      organization: S(organization || '-'), isAdmin: { BOOL: false }, listKey: S('user'), createdAt: S(now), lastLoginAt: S(now) }, 'attribute_not_exists(userId)');
     await audit(db, 'sign-up', userId, request, { email });
   } else if (purpose === 'SIGN_IN') {
     const link = await db.get(TABLES.emails, { email: S(email) });
@@ -2104,10 +2300,15 @@ function bugFrom(it) {
     status: str(it, 'status'), where: str(it, 'where') === '-' ? '' : str(it, 'where'), reporterUserId: str(it, 'reporterUserId'), reporterEmail: str(it, 'reporterEmail'),
     createdAt: str(it, 'createdAt'), updatedAt: str(it, 'updatedAt'), comments: num(it, 'comments') };
 }
+// every admin account (sparse index admin-index: only admins carry adminKey = "admin"; makeUserAdmin.py sets it)
+const adminUsers = async (db) => (await db.queryAll(TABLES.users, 'admin-index', 'adminKey = :a', { ':a': S('admin') })).map(userFrom);
+// the most recent comparison runs (list-index: listKey = "run", sorted by createdAt), newest first
+const recentRuns = async (db, sinceIso, cap = 500) => (await db.queryAll(TABLES.compare, 'list-index', 'listKey = :k AND createdAt >= :t',
+  { ':k': S('run'), ':t': S(sinceIso) }, { ScanIndexForward: false }, cap)).map(runFrom);
 async function notifyAdmins(env, db, subject, text) {  // best effort: e-mail every admin's primary address
   try {
     if (!env.RESEND_API_KEY) return;
-    const admins = (await db.scanAll(TABLES.users, { FilterExpression: 'isAdmin = :t', ExpressionAttributeValues: { ':t': { BOOL: true } } })).map(userFrom);
+    const admins = (await adminUsers(db)).filter((u) => u.isAdmin && u.primaryEmail);
     await Promise.all(admins.map((a) => sendEmail(env, a.primaryEmail, subject, text).catch(() => {})));
   } catch (e) { console.error('notifyAdmins', e.message); }
 }
@@ -2197,14 +2398,14 @@ const builtin = () => HOSTED.map((h, i) => ({ ...h, modelId: h.id, artifacts: h.
 function modelItem(m) {
   return { modelId: S(m.modelId), name: S(m.name), quant: S(m.quant), file: S(m.file), bytes: N(m.bytes), sha256: S(m.sha256), license: S(m.license),
     licenseUrl: S(m.licenseUrl), hf: S(m.hf || '-'), artifacts: S(m.artifacts || '-'), note: S(m.note || '-'), order: N(m.order || 0),
-    visible: { BOOL: !!m.visible }, updatedAt: S(new Date().toISOString()) };
+    visible: { BOOL: !!m.visible }, listKey: S('model'), updatedAt: S(new Date().toISOString()) };
 }
 async function catalog(db, fresh = false) {
   if (!db.configured) return builtin();
   if (!fresh && catalogCache && catalogCache.until > Date.now()) return catalogCache.items;
   let items;
   try {
-    const rows = await db.scanAll(TABLES.models);
+    const rows = await db.queryAll(TABLES.models, 'list-index', 'listKey = :k', { ':k': S('model') });
     items = rows.length ? rows.map(modelFrom).map((m) => ({ ...m, hf: m.hf === '-' ? '' : m.hf, artifacts: m.artifacts === '-' ? '' : m.artifacts, note: m.note === '-' ? '' : m.note, tuned: !!(m.artifacts && m.artifacts !== '-') })) : builtin();
   } catch (e) { console.error('catalog', e.message); items = builtin(); }
   items.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
@@ -2286,7 +2487,7 @@ async function compareApi(request, env, db, b2, user, path) {
     return json({ models: await compareModels(b2), runpod: !!env.RUNPOD_API_KEY });
   }
   if (path === '/api/admin/compare/runs' && request.method === 'GET') {
-    const runs = (await db.scanAll(TABLES.compare, {}, 500)).map(runFrom).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 25);
+    const runs = (await db.queryAll(TABLES.compare, 'list-index', 'listKey = :k', { ':k': S('run') }, { ScanIndexForward: false, Limit: 25 }, 25)).map(runFrom);
     return json({ runs: runs.map(publicRun) });
   }
   if (path === '/api/admin/compare/status' && request.method === 'GET') {
@@ -2309,7 +2510,8 @@ async function compareApi(request, env, db, b2, user, path) {
     const model = clean(d.model, 80);
     const m = (await compareModels(b2)).find((x) => x.model === model);
     if (!m) return json({ error: 'That model has no precomputed draft head in B2.' }, 400);
-    const active = (await db.scanAll(TABLES.compare, {}, 500)).map(runFrom).filter((r) => r.status !== 'deleted');
+    // a run older than 7 days is long gone (pods are deleted after COMPARE.maxHours)
+    const active = (await recentRuns(db, new Date(Date.now() - 7 * 86400e3).toISOString())).filter((r) => r.status !== 'deleted');
     if (active.length >= COMPARE.maxActive) return json({ error: `Already ${active.length} comparison pods running; delete one first (spend guard).` }, 409);
     const a = await b2.auth();
     const grant = async (prefix) => {
@@ -2332,7 +2534,7 @@ async function compareApi(request, env, db, b2, user, path) {
     });
     const run = { runId: S(runId), podId: S(pod.id), model: S(model), ngpu: N(m.ngpu), gpu: S(pod.machine?.gpuTypeId || (pod.gpu && pod.gpu.id) || ''),
       costPerHr: N(pod.costPerHr || pod.adjustedCostPerHr || 0), createdAt: S(new Date().toISOString()), createdBy: S(user.userId),
-      keep: { BOOL: !!d.keep }, status: S('starting'), token: S(token), results: S('[]') };
+      keep: { BOOL: !!d.keep }, status: S('starting'), token: S(token), results: S('[]'), listKey: S('run') };
     await db.put(TABLES.compare, run);
     await audit(db, 'compare-start', user.userId, request, { model, podId: pod.id });
     return json({ run: publicRun(runFrom(run)) });
@@ -2372,7 +2574,7 @@ async function reapComparePods(env) {
   if (!env.RUNPOD_API_KEY) return;
   const db = new DynamoDB(env);
   const pods = (await runpod(env, 'GET', '/pods')) || [];
-  const runs = new Map((await db.scanAll(TABLES.compare, {}, 1000)).map(runFrom).map((r) => [r.podId, r]));
+  const runs = new Map((await recentRuns(db, new Date(Date.now() - 30 * 86400e3).toISOString(), 1000)).map((r) => [r.podId, r]));
   for (const p of (Array.isArray(pods) ? pods : pods.pods || [])) {
     if (!String(p.name || '').startsWith(COMPARE.podPrefix)) continue;  // only comparison pods, never anything else
     const run = runs.get(p.id);
@@ -2484,9 +2686,9 @@ const HOST_PACKS = [
         '--cfg-scale', '1.0', '--steps', '8', '--diffusion-fa', '--offload-to-cpu'],
       // Accelerated: Sushila's precomputed cache plan for Z-Image (EasyCache 0.2: 1.10x on held-out prompts, SSIM 0.98)
       turboRequest: { cache_mode: 'easycache', cache_option: 'threshold=0.2' } } },
-  { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs (Accelerated: 0.9 s on a desktop RTX 4090; slower on 8-16 GB GPUs)', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
+  { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs (4-bit NVIDIA kernels)', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
     variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 7.5, maxCompute: 11.9 },
-    description: 'Z-Image-Turbo with Nunchaku 4-bit kernels for NVIDIA RTX 20/30/40-series: a 768x768 image in about 0.9 s on a desktop RTX 4090 (Accelerated: 6 steps; slower on 8-16 GB GPUs), or the published 1024x1024 / 8 steps (Standard). Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
+    description: 'Z-Image-Turbo with Nunchaku 4-bit kernels for NVIDIA RTX 20/30/40-series: a 768x768 image in 6 steps (Accelerated) or the published 1024x1024 / 8 steps (Standard). Speed depends on the GPU: about a second on a large server or desktop GPU, much longer on PC and laptop GPUs with 8-16 GB. Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant int4 transformer'],
     files: [['weights/model_index.json', 'model_index.json', 'config'],
       ['weights/scheduler/scheduler_config.json', 'scheduler/scheduler_config.json', 'config'],
@@ -2505,7 +2707,7 @@ const HOST_PACKS = [
       ['weights/vae/diffusion_pytorch_model.safetensors', 'vae/diffusion_pytorch_model.safetensors', 'weights'],
       ['weights/transformer/svdq-int4_r128-z-image-turbo.safetensors', 'transformer/svdq-int4_r128-z-image-turbo.safetensors', 'weights']],
     serve: { engine: 'image-nunchaku', model: 'model_index.json', args: ['--model-dir', '{pack}/model_index.json', '--transformer', '{pack}/transformer/svdq-int4_r128-z-image-turbo.safetensors'] } },
-  { id: 'z-image-turbo-nvidia-fp4', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA RTX 50-series (Accelerated: 0.7 s on an RTX 5090; slower on 8-16 GB GPUs)', model: 'precomputed/z-image-turbo-nvidia-fp4', minRamGB: 16,
+  { id: 'z-image-turbo-nvidia-fp4', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA RTX 50-series (FP4 NVIDIA kernels)', model: 'precomputed/z-image-turbo-nvidia-fp4', minRamGB: 16,
     variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 12.0 },
     description: 'Z-Image-Turbo with Nunchaku FP4 kernels for NVIDIA RTX 50-series (Blackwell). Accelerated: 768x768 in 6 steps; Standard: the published 1024x1024 / 8 steps. Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant fp4 transformer'],
@@ -2706,7 +2908,7 @@ ${rows ? `<div class="tablewrap"><table><thead><tr><th>System</th><th class="num
 
 ${product('chatgen', 'sushilaChatGen.cpp', 'Sushila ChatGen', 'A private assistant: after you install it, it installs Sushila.cpp and a chat model that fits your computer (Qwen3 30B-A3B with 24 GB+ of memory, Qwen3 4B otherwise), starts it, and opens a chat. Nothing you type leaves your computer. <b>Maximize</b> shows only the conversation.')}
 ${product('codegen', 'sushilaCodeGen.cpp', 'Sushila CodeGen', 'Write programs in many languages, locally: Qwen3-Coder 30B-A3B with 24 GB+ of memory (Qwen2.5-Coder 7B otherwise). Answers show code blocks with a Copy button.')}
-${product('imagegen', 'sushilaImageGen.cpp', 'Sushila ImageGen', 'Pictures from a sentence: it installs Sushila.cpp and Z-Image-Turbo (the fast Accelerated pack on NVIDIA RTX cards: a 768x768 image in under a second on an RTX 4090), starts it, and makes a first image ("Two bears dancing in a forest near a river") with a Download button.')}
+${product('imagegen', 'sushilaImageGen.cpp', 'Sushila ImageGen', 'Pictures from a sentence: it installs Sushila.cpp and Z-Image-Turbo (with a fast Accelerated pack for NVIDIA RTX cards; how fast depends on your GPU), starts it, and makes a first image ("Two bears dancing in a forest near a river") with a Download button.')}
 ${product('musicgen', 'sushilaMusicGen.cpp', 'Sushila MusicGen', 'Songs from lyrics and a style: it installs Sushila.cpp and ACE-Step 1.5, starts it, and makes a first song. Then type <b>1. Lyrics</b> and <b>2. Style</b> and press <b>Generate</b>: a full song with vocals, with a Download button.')}
 ${product('videogen', 'sushilaVideoGen.cpp', 'Sushila VideoGen', 'Short videos from a sentence or a start picture: it installs Sushila.cpp and Wan 2.2 TI2V-5B (Apache-2.0), starts it, and makes a first clip. A 5-second 1280x704 video with the settings Wan recommends (50 steps) takes about 15 minutes on an RTX 4090 in Standard, and Accelerated (our precomputed cache plan) is about 1.6x faster (889 s against 549 s, median of 5 prompts); 24 GB+ of memory recommended. Every finished clip has a Download button, and long jobs can run in the background queue.')}
 
@@ -3012,23 +3214,41 @@ async function adminApi(request, env, db, user, path) {
   const url = new URL(request.url);
   if (path.startsWith('/api/admin/compare/')) return await compareApi(request, env, db, new B2(env), user, path);
   if (path === '/api/admin/users' && request.method === 'GET') {
-    const q = clean(url.searchParams.get('q'), 100).toLowerCase(), admins = url.searchParams.get('admins') === '1';
+    // no scan: an e-mail or user id is looked up directly; otherwise one page of the newest accounts from list-index
+    // (or admin-index), continued with the "next" cursor; a name filter reads at most 10 index pages per request
+    const q = clean(url.searchParams.get('q'), 100), admins = url.searchParams.get('admins') === '1';
     const size = Math.min(Math.max(Number(url.searchParams.get('size')) || 25, 5), 100);
-    let users = (await db.scanAll(TABLES.users)).map(userFrom);
-    if (admins) users = users.filter((u) => u.isAdmin);
-    if (q) users = users.filter((u) => [u.userId, u.firstName, u.lastName, u.organization, ...u.emails].join(' ').toLowerCase().includes(q));
-    users.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-    const total = users.length, pages = Math.max(1, Math.ceil(total / size));
-    const page = Math.min(Math.max(Number(url.searchParams.get('page')) || 1, 1), pages);
-    const slice = users.slice((page - 1) * size, page * size);
-    await Promise.all(slice.map(async (u) => {
+    let users = [], next = null;
+    if (q.includes('@')) {
+      const link = await db.get(TABLES.emails, { email: S(q.toLowerCase()) });
+      const u = link && await db.get(TABLES.users, { userId: S(str(link, 'userId')) });
+      if (u) users = [userFrom(u)];
+    } else if (/^u_[0-9a-f]{8,}$/.test(q)) {
+      const u = await db.get(TABLES.users, { userId: S(q) });
+      if (u) users = [userFrom(u)];
+    } else {
+      let start; try { const c = url.searchParams.get('cursor'); if (c) start = JSON.parse(atob(c)); } catch { start = undefined; }
+      const variants = q ? [...new Set([q, q.toLowerCase(), q.charAt(0).toUpperCase() + q.slice(1).toLowerCase()])] : [];
+      const filter = variants.length ? { FilterExpression: variants.map((_, k) => ['firstName', 'lastName', 'organization', 'primaryEmail'].map((f) => `contains(${f}, :q${k})`).join(' OR ')).join(' OR '),
+        ExpressionAttributeValues: Object.fromEntries(variants.map((v, k) => [`:q${k}`, S(v)])) } : {};
+      for (let i = 0; i < 10 && users.length < size; i++) {
+        const r = await db.request('Query', { TableName: TABLES.users, IndexName: admins ? 'admin-index' : 'list-index',
+          KeyConditionExpression: admins ? 'adminKey = :a' : 'listKey = :a', ...filter,
+          ExpressionAttributeValues: { ':a': S(admins ? 'admin' : 'user'), ...(filter.ExpressionAttributeValues || {}) },
+          ScanIndexForward: false, Limit: size - users.length, ...(start ? { ExclusiveStartKey: start } : {}) });
+        users.push(...(r.Items || []).map(userFrom)); start = r.LastEvaluatedKey;
+        if (!start) break;
+      }
+      next = start ? btoa(JSON.stringify(start)) : null;
+    }
+    await Promise.all(users.map(async (u) => {
       u.downloads = (await db.request('Query', { TableName: TABLES.downloads, KeyConditionExpression: 'userId = :u',
         ExpressionAttributeValues: { ':u': S(u.userId) }, Select: 'COUNT' })).Count || 0;
     }));
-    return json({ total, page, pages, users: slice });
+    return json({ users, next });
   }
   if (path === '/api/admin/models' && request.method === 'GET') {
-    if (!(await db.scanAll(TABLES.models, { Limit: 1 }, 1)).length) {  // first visit: copy the built-in list into the table
+    if (!(await db.queryAll(TABLES.models, 'list-index', 'listKey = :k', { ':k': S('model') }, { Limit: 1 }, 1)).length) {  // first visit: copy the built-in list into the table
       for (const m of builtin()) await db.put(TABLES.models, modelItem(m), 'attribute_not_exists(modelId)').catch(() => {});
     }
     const models = await catalog(db, true);
@@ -3144,7 +3364,10 @@ async function health(env, db, b2) {
 }
 
 export default {
-  async scheduled(event, env, ctx) { ctx.waitUntil(reapComparePods(env).catch((e) => console.error('compare reaper', e.message))); },
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(reapComparePods(env).catch((e) => console.error('compare reaper', e.message)));
+    ctx.waitUntil(purgeTrash(env).catch((e) => console.error('trash purge', e.message)));  // My content: trash older than TRASH_DAYS
+  },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const p = url.pathname, method = request.method;
@@ -3160,7 +3383,7 @@ export default {
         if (p === '/api/app/verify-code') return await verifyCode(request, env, db, null, true);
         if (p === '/api/app/upload' || p === '/api/app/delete') return await shareApi(request, env, db, b2, p, url);
         if (p === '/api/reportabuse') return await reportAbuse(request, env, db);
-        if (p === '/api/mycontent/delete') return await myContentDelete(request, env, db, b2, session);
+        if (/^\/api\/mycontent\/(trash|restore|delete)$/.test(p)) return await myContentDelete(request, env, db, b2, session, p.split('/').pop());
         if (p === '/api/auth/verify-code') return await verifyCode(request, env, db, session);
         if (p === '/api/auth/sign-out') return new Response(null, { status: 303, headers: { location: '/', 'set-cookie': clearCookie() } });
         if (p === '/api/account') return await account(request, env, db, session);
@@ -3264,13 +3487,16 @@ export default {
         return json(await hostCatalog(env, b2, url.origin), 200, { 'access-control-allow-origin': '*' });
       }
       if (p === '/api/app/uploads' || p === '/api/app/me') return await shareApi(request, env, db, b2, p, url);
+      if (p === '/install' || p === '/install/') {
+        let cat = {}; try { if (b2.configured) cat = await hostCatalog(env, b2, url.origin); } catch (e) { console.error('install', e.message); }
+        return html(docPage(env, 'Install Sushila', 'Every file that installing Sushila downloads: the program, the engine for your system and the model packs you choose.', INSTALL(cat), user));
+      }
       if (p === '/reportabuse' || p === '/reportabuse/') return html(docPage(env, 'Report abuse', 'Report a file shared on sushila.ai or other misuse of Sushila.', REPORTABUSE(url), user));
       if (p === '/mycontent' || p === '/mycontent/') {
         if (!user) return Response.redirect(`${url.origin}/signin?next=/mycontent`, 302);
         if (!b2.configured) return html(docPage(env, 'My content', 'Your shared files.', () => '<h1>My content</h1><p>Not available right now.</p>', user));
         const { files, items } = await shareList(b2, user.userId);
-        const views = await viewsOf(db, items);
-        for (const m of items) m.views = views[viewKey(m.id)] || 0;
+        await withRows(db, items);
         const used = files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0);
         return html(docPage(env, 'My content', 'Your files shared from Sushila: views, links, delete.', MYCONTENT(items, used), user));
       }
@@ -3286,8 +3512,13 @@ function down(){document.getElementById('t').textContent='Sushila is not running
 document.getElementById('b').innerHTML='<a class="btn" href="sushila://start">▶ Start Sushila</a><a class="btn" href="'+home+'">Open '+home+'</a><p class="sub">The Start button works on Windows once Sushila has run there; otherwise double-click sushila.exe, or run <code>sushila serve</code>. This page opens Sushila by itself as soon as it runs.</p>';
 if(++tries<200)setTimeout(up,3000);}
 up();})();</script></body></html>`);
+      if (/^\/c\/[0-9a-f]{12}\/(file|download)$/.test(p)) {  // the shared file itself, streamed through sushila.ai
+        const [, , id, what] = p.split('/');
+        const r = await shareFile(request, db, id, what === 'download');
+        return r || new Response('This link was deleted or never existed.', { status: 404, headers: SEC });
+      }
       if (p.startsWith('/c/')) {  // a shared file: /c/<12 hex>
-        const page = await sharePage(env, db, p.slice(3).replace(/\/$/, ''), url.origin);
+        const page = await sharePage(env, db, p.slice(3).replace(/\/$/, ''), url.origin, request);
         return page ? html(page) : new Response('This link was deleted or never existed.', { status: 404, headers: SEC });
       }
       if (p === '/models.json') {

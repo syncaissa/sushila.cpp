@@ -1,0 +1,59 @@
+ok   local page: Inference, Library and Admin, Sushila named once
+ok   Admin: one page of sections (now, health, packs, queue, actions, log, engine, settings)
+ok   Admin: system health (GPU, memory, disk) with a one-line verdict
+ok   Admin: the server status bar on top, with the keep-popular switch
+ok   Admin: asks once whether to download the popular packs (a toast)
+ok   Admin: yes switches keepPopular on (settings)
+ok   Make space: packs with Remove, files with where they are, Upload and copy link recommended, Delete permanently
+ok   Make space: deleting asks (upload first recommended), then deletes for good
+ok   Admin: what is happening now lists the running model
+ok   Admin: Show all opens every section
+ok   Admin: Hide all closes them
+ok   Packs: installed and available packs listed
+ok   Packs: a pack for other hardware is marked
+ok   a running install shows progress (started from the CLI)
+ok   Install sends /api/control with the token
+ok   Stop sends a stop request
+ok   Engine tab shows the GPU
+ok   Queue tab lists jobs with Open
+ok   Recent actions tab lists the actions (and only there in full)
+ok   Logs tab shows the shared log
+ok   Settings tab shows the settings
+ok   Library: every file, and where they are
+ok   Library: newest first, with a player or a preview
+ok   Library: search looks in the lyrics too
+ok   Library: filter by kind
+ok   Library: Details shows one file per line with its details
+ok   Library: Delete moves the file to the trash
+ok   Library: the trash, with Restore and Delete permanently
+ok   Share link: not signed in asks for the e-mail (code, no password)
+ok   Share link: the free-account notice and sushila.ai/mycontent are shown
+ok   Share link: the code is sent, then asked for
+ok   Share link: after signing in, the file is uploaded and its link shown
+ok   Use tab shows the inference page
+ok   picker: one button shows the model in use and its mode (no chips)
+ok   picker panel: filter by what it makes, each pack with its mode, status and Start/Use/Stop
+ok   picker: each pack per mode, with what it does and whether it runs
+ok   picker: no Standard/Accelerated switch; a Stop button
+ok   picker: no hourglass while nothing changes
+ok   picker: a stopped entry asks (a toast, not a dialog) before it starts
+ok   picker: start goes to /api/use with the mode
+ok   picker: a large hourglass while it starts, picker locked
+ok   remote visitor: only Use, no management
+ok   /install/<pack> link: asks, then installs
+ok   first start: Admin asks to create the password, nothing else shown
+ok   after setting it: the Admin tabs open
+ok   password set: login form
+ok   wrong password: refused, nothing shown
+ok   not allowed from this address: explained
+ok   change: a wrong current password is refused
+ok   change: with the current password it works
+ok   the ☰ menu: Inference, Admin, Documentation, API + the addresses
+ok   remote visitor: ☰ menu without Admin or the home folder
+ok   Ask Sushila: #assistant opens the panel
+ok   Ask Sushila: sends the question with the token
+ok   Ask Sushila: shows the answer and its sources
+ok   Ask Sushila: follow-up questions carry the conversation
+ok   Ask Sushila: quote mode shows the sections as quotes, their commands and the hint
+ok   remote visitor: Ask Sushila is available too
+all passed

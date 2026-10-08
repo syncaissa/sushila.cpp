@@ -489,7 +489,7 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         parts.uri.query().and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("id=")).map(String::from)) }
         else { path.strip_prefix("/v1/video/jobs/").filter(|x| !x.contains('/')).map(String::from) };
     let asked = { let first = if req_json.is_array() { req_json[0].clone() } else { req_json.clone() };
-        json!({ "pack": model, "prompt": first.get("caption").or(first.get("prompt")).cloned(), "lyrics": first.get("lyrics").cloned(),
+        json!({ "pack": model, "remote": !local, "prompt": first.get("caption").or(first.get("prompt")).cloned(), "lyrics": first.get("lyrics").cloned(),
                 "duration": first.get("duration").cloned(), "seed": first.get("seed").cloned(), "frames": first.get("video_frames").cloned(),
                 "size": first.get("width").and_then(|w| w.as_u64()).map(|w| format!("{w}x{}", first["height"].as_u64().unwrap_or(0))) }) };
     let mut resp = match r.send().await {
@@ -597,8 +597,8 @@ fn save_images(dir: &Path, prompt: &str, v: &mut Value, local: bool, pack: &str,
         let Ok(png) = base64::engine::general_purpose::STANDARD.decode(b) else { continue };
         let mut f = day.join(format!("{stamp}-{}-{}.png", if slug.is_empty() { "image" } else { &slug }, i + 1));
         let mut k = 2; while f.exists() { f = day.join(format!("{stamp}-{slug}-{}-{k}.png", i + 1)); k += 1; }
-        if std::fs::write(&f, crate::library::mark_ai(&png, "png", pack, clean)).is_ok() {
-            crate::library::record(dir, &f, "image", json!({ "pack": pack, "prompt": clean, "size": size, "seed": it.get("seed").cloned() }));
+        if std::fs::write(&f, crate::library::mark_ai(&png, "png", pack, clean, !local)).is_ok() {
+            crate::library::record(dir, &f, "image", json!({ "pack": pack, "prompt": clean, "size": size, "seed": it.get("seed").cloned(), "remote": !local }));
             if local { it["sushila_file"] = json!(f.to_string_lossy()); }
         }
     }

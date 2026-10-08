@@ -845,6 +845,34 @@ async fn make_room(ctx: &mut Ctx, o: &mut Owner, pack: &str) {
     }
 }
 
+/// settings.keepPopular: the popular model packs (catalog "popular", one per kind) are installed in the background, one
+/// at a time, and kept installed: each that fits this computer, with 10 GB to spare on the disk. A pack that failed is
+/// tried again after 6 hours. Checked every minute while the server runs; switching it off stops new downloads.
+async fn keep_popular(ctx: &mut Ctx, o: &mut Owner, failed: &mut std::collections::HashMap<String, std::time::Instant>) {
+    if ctx.setting("keepPopular") != true { return; }
+    if o.tasks.iter().any(|t| t["status"] == "running" && (t["action"] == "install" || t["action"] == "engine-install")) { return; }
+    if ctx.load_catalog().await.is_err() { return; }
+    for id in core::popular_packs(ctx.catalog.as_ref().unwrap()) {
+        let best = ctx.best_variant(&id).await;
+        if ctx.packs().contains_key(&best) || ctx.packs().contains_key(&id) { continue; }
+        if failed.get(&best).map(|t| t.elapsed() < Duration::from_secs(6 * 3600)).unwrap_or(false) { continue; }
+        let Some(p) = ctx.catalog.as_ref().unwrap()["packs"].as_array().and_then(|a| a.iter().find(|p| p["id"] == best.as_str())).cloned() else { continue };
+        if !ctx.pack_fits(&p).await { continue; }
+        let need: u64 = p["files"].as_array().map(|a| a.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum()).unwrap_or(0);
+        let free = core::free_disk(&ctx.packs_dir);
+        if free.map(|f| f < need + 10_000_000_000).unwrap_or(false) {
+            failed.insert(best.clone(), std::time::Instant::now());
+            ctx.log(&format!("keep popular packs ready: {best} needs {:.1} GB; only {:.1} GB free on the disk (skipped)", need as f64 / 1e9, free.unwrap_or(0) as f64 / 1e9));
+            continue;
+        }
+        ctx.log(&format!("keep popular packs ready: installing {best} in the background"));
+        let tid = format!("popular-{best}-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0));
+        failed.insert(best.clone(), std::time::Instant::now());  // until it succeeds (installed packs are skipped above)
+        control(ctx, o, json!({ "id": tid, "action": "install", "pack": id, "source": "keep popular packs ready" })).await;
+        return;
+    }
+}
+
 async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
     let (id, action) = (r["id"].as_str().unwrap_or("task").to_string(), r["action"].as_str().unwrap_or("").to_string());
     let pack = r["pack"].as_str().unwrap_or("").to_string();
@@ -902,7 +930,7 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
             }
             "stop" => { ctx.stop_model(&pack).await; o.starting.remove(&pack); Ok(true) }
             "settings" => {
-                for k in ["threads", "contextSize", "gpuLayers", "parallel", "keepCopy", "enginePort", "port", "idleMinutes"] {
+                for k in ["threads", "contextSize", "gpuLayers", "parallel", "keepCopy", "enginePort", "port", "idleMinutes", "keepPopular"] {
                     if let Some(v) = r["values"].get(k) { if v.is_number() || v.is_boolean() { ctx.state["settings"][k] = v.clone(); } }
                 }
                 if let Some(t) = r["values"]["ticker"].as_str() { if t != "on" && t != "off" { return Err("ticker is on or off".into()); } ctx.state["settings"]["ticker"] = json!(t); }
@@ -1022,6 +1050,8 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     }
     let mut last_pub = std::time::Instant::now();
     let mut last_idle = std::time::Instant::now();
+    let mut last_popular = std::time::Instant::now() - Duration::from_secs(50);  // first check ~10 s after the start
+    let mut popular_failed: std::collections::HashMap<String, std::time::Instant> = Default::default();
     let mut crash_counts: std::collections::HashMap<String, Vec<std::time::Instant>> = Default::default();
     loop {
         let mut changed = false;
@@ -1080,9 +1110,10 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                             if let Some(jb) = q["jobs"].as_array_mut().unwrap().iter_mut().find(|x| x["id"] == jid.as_str()) {
                                 // the result is marked as AI-made (library::mark_ai) with the job's model and prompt
                                 let mark_pack = jb["model"].as_str().unwrap_or("").to_string();
+                                let mark_remote = jb["owner"].as_str().map(|w| w != "local").unwrap_or(false);  // queued from another device
                                 let mark_prompt = jb["params"]["prompt"].as_str().or(jb["params"]["style"].as_str()).or(jb["title"].as_str()).unwrap_or("").to_string();
                                 match res.and_then(|o2| { let file = format!("{jid}.{}", o2.ext); std::fs::create_dir_all(ctx.data.join("outputs")).map_err(err)?;
-                                                          std::fs::write(ctx.data.join("outputs").join(&file), library::mark_ai(&o2.bytes, &o2.ext, &mark_pack, &mark_prompt)).map_err(err)?; Ok(json!({ "file": file, "mime": o2.mime, "bytes": o2.bytes.len() })) }) {
+                                                          std::fs::write(ctx.data.join("outputs").join(&file), library::mark_ai(&o2.bytes, &o2.ext, &mark_pack, &mark_prompt, mark_remote)).map_err(err)?; Ok(json!({ "file": file, "mime": o2.mime, "bytes": o2.bytes.len() })) }) {
                                     Ok(outv) => { jb["output"] = outv; jb["status"] = json!("ready"); jb["progress"] = json!(format!("ready in {} s", t0.elapsed().as_secs()));
                                                   ctx.log(&format!("queue: {} is ready", jb["title"].as_str().filter(|t| !t.is_empty()).unwrap_or(jb["kind"].as_str().unwrap_or("job")))); }
                                     Err(e) => { jb["status"] = json!("failed"); jb["error"] = json!(e.chars().take(300).collect::<String>()); jb["progress"] = json!(""); ctx.log(&format!("queue: job failed: {e}")); }
@@ -1142,6 +1173,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                 }
             }
         }
+        if last_popular.elapsed() > Duration::from_secs(60) { last_popular = std::time::Instant::now(); keep_popular(ctx, &mut o, &mut popular_failed).await; }
         // idle models are unloaded (settings.idleMinutes); a request for one loads it again (webserver::reload_idle)
         let idle = ctx.setting("idleMinutes").as_u64().unwrap_or(0);
         if idle > 0 && last_idle.elapsed() > Duration::from_secs(5) {

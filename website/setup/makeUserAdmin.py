@@ -53,11 +53,11 @@ def main():
     a = ap.parse_args()
     ddb = FreshClient(a.profile, a.region)
 
-    if a.list:
+    if a.list:  # the admin-index holds only admins (adminKey = "admin"), so no table scan
         items, start = [], None
         while True:
-            r = ddb.scan(TableName='sushilaai-users', FilterExpression='isAdmin = :t', ExpressionAttributeValues={':t': {'BOOL': True}},
-                         **({'ExclusiveStartKey': start} if start else {}))
+            r = ddb.query(TableName='sushilaai-users', IndexName='admin-index', KeyConditionExpression='adminKey = :a',
+                          ExpressionAttributeValues={':a': {'S': 'admin'}}, **({'ExclusiveStartKey': start} if start else {}))
             items += r['Items']; start = r.get('LastEvaluatedKey')
             if not start:
                 break
@@ -77,11 +77,14 @@ def main():
     if not user:
         sys.exit(f'{email} points to user {uid}, which does not exist (inconsistent tables).')
     want = not a.revoke
-    if user.get('isAdmin', {}).get('BOOL') is want:
+    if user.get('isAdmin', {}).get('BOOL') is want and ('adminKey' in user) is want:
         print(f"{user['primaryEmail']['S']} ({uid}) is {'already' if want else 'not'} an admin; nothing to do.")
         return
-    ddb.update_item(TableName='sushilaai-users', Key={'userId': {'S': uid}}, UpdateExpression='SET isAdmin = :v',
-                    ConditionExpression='attribute_exists(userId)', ExpressionAttributeValues={':v': {'BOOL': want}})
+    # adminKey puts the account in the admin-index (who gets admin e-mails such as abuse reports); removed on revoke
+    ddb.update_item(TableName='sushilaai-users', Key={'userId': {'S': uid}},
+                    UpdateExpression='SET isAdmin = :v, adminKey = :a' if want else 'SET isAdmin = :v REMOVE adminKey',
+                    ConditionExpression='attribute_exists(userId)',
+                    ExpressionAttributeValues={':v': {'BOOL': want}, ':a': {'S': 'admin'}} if want else {':v': {'BOOL': want}})
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
     ddb.put_item(TableName='sushilaai-audit', Item={'day': {'S': now[:10]}, 'at': {'S': f'{now}#{secrets.token_hex(8)}'},
                  'event': {'S': 'admin-grant' if want else 'admin-revoke'}, 'userId': {'S': uid}, 'email': {'S': email}, 'by': {'S': 'makeUserAdmin.py'}})

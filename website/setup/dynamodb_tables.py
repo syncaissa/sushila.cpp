@@ -12,7 +12,10 @@ For each table in SCHEMA below, the script checks what exists and makes it match
   --migrate-users                       -> one-time move of sushilaai-users from the old key (email) to userId: backs every
                                           row up to backups/<table>-<time>.json, recreates the table, gives each account a
                                           new userId, and repoints its rows in sushilaai-emails (and sushilaai-downloads).
-Nothing is deleted without one of those flags. Run with --dry-run to see the plan without changing anything.
+  --backfill                            -> one-time: give existing rows the index keys the worker now lists by (listKey on
+                                          users, models and comparison runs; adminKey on admins). Adds attributes only.
+The worker never scans a table: every list is a Query on an index above (listKey / adminKey are constant partition keys),
+and every other read is by key. Nothing is deleted without one of those flags. Run with --dry-run to see the plan without changing anything.
 
 Usage:  python3 dynamodb_tables.py --region us-east-1 [--dry-run] [--prune] [--recreate-empty] [--profile NAME]
 Needs botocore (installed with the AWS CLI; or: pip install botocore) and credentials allowed to manage these tables.
@@ -30,6 +33,8 @@ import botocore.session
 SCHEMA = {
     'sushilaai-users': {                 # one row per account; key = permanent random userId (e-mails can change)
         'hash': 'userId',
+        'indexes': {'list-index': {'hash': 'listKey', 'range': 'createdAt', 'projection': 'ALL'},     # every account, newest first (listKey "user")
+                    'admin-index': {'hash': 'adminKey', 'range': 'createdAt', 'projection': 'ALL'}},  # sparse: only admins have adminKey "admin"
         'pitr': True, 'protect': True,
     },
     'sushilaai-emails': {                # every verified e-mail -> userId of its account
@@ -53,6 +58,7 @@ SCHEMA = {
     },
     'sushilaai-models': {                # hosted models, their precomputed artifacts, visible flag (admin page)
         'hash': 'modelId',
+        'indexes': {'list-index': {'hash': 'listKey', 'range': 'modelId', 'projection': 'ALL'}},    # every model (listKey "model")
         'pitr': True, 'protect': True,
     },
     'sushilaai-bugs': {                  # bug reports: item "bug" = the report, "c#<time>#<id>" = its comments
@@ -67,10 +73,11 @@ SCHEMA = {
     },
     'sushilaai-compare': {               # admin "Compare Speeds": one row per comparison pod (pod id, model, prompts, results)
         'hash': 'runId',
+        'indexes': {'list-index': {'hash': 'listKey', 'range': 'createdAt', 'projection': 'ALL'}},  # runs by time (listKey "run")
         'pitr': True,
     },
-    'sushilaai-audit': {                 # sign-ups, sign-ins, e-mail changes, downloads, admin changes
-        'hash': 'day', 'range': 'at',
+    'sushilaai-audit': {                 # sign-ups, sign-ins, e-mail changes, downloads, admin changes; views of shared links
+        'hash': 'day', 'range': 'at',    # (at "view#<link id>#<visitor>": url, ip, hits, counted; one per visitor, link and day)
     },
     'sushilaai-reportabuse': {           # every report from sushila.ai/reportabuse (link, reason, details, e-mail, time, IP)
         'hash': 'reportId',
@@ -78,6 +85,7 @@ SCHEMA = {
     },
     'sushilaai-file-views': {            # one row per shared link sushila.ai/c/<12 hex>: url "/c/<id>", userId (owner), views
         'hash': 'url',                   # (the row is the link: it is made first, so ids are unique, and names the owner's folder)
+        'indexes': {'trash-index': {'hash': 'trashKey', 'range': 'trashedAt', 'projection': 'ALL'}},  # sparse: My content's trash (cron purge)
         'pitr': True, 'protect': True,
     },
 }
@@ -301,6 +309,34 @@ def migrate_users(ddb, dry):
     print(f'migrated {len(new)} accounts')
 
 
+def backfill(ddb, dry):
+    """One-time: rows written before the list indexes existed get their index keys (adds attributes, changes nothing else).
+    It reads each of the three small tables once (the only scan, run by hand, never by the worker)."""
+    for table, key, value in [('sushilaai-users', 'userId', 'user'), ('sushilaai-models', 'modelId', 'model'), ('sushilaai-compare', 'runId', 'run')]:
+        start, n, admins = None, 0, 0
+        while True:
+            r = ddb.scan(TableName=table, **({'ExclusiveStartKey': start} if start else {}))
+            for it in r['Items']:
+                sets, vals = [], {}
+                if 'listKey' not in it:
+                    sets.append('listKey = :l'); vals[':l'] = {'S': value}
+                if table == 'sushilaai-users' and 'createdAt' not in it:
+                    sets.append('createdAt = :c'); vals[':c'] = {'S': it.get('lastLoginAt', {}).get('S', '2026-01-01T00:00:00.000Z')}
+                if table == 'sushilaai-compare' and 'createdAt' not in it:
+                    sets.append('createdAt = :c'); vals[':c'] = {'S': '2026-01-01T00:00:00.000Z'}
+                if table == 'sushilaai-users' and it.get('isAdmin', {}).get('BOOL') and 'adminKey' not in it:
+                    sets.append('adminKey = :a'); vals[':a'] = {'S': 'admin'}; admins += 1
+                if sets:
+                    n += 1
+                    if not dry:
+                        ddb.update_item(TableName=table, Key={key: it[key]}, UpdateExpression='SET ' + ', '.join(sets),
+                                        ConditionExpression=f'attribute_exists({key})', ExpressionAttributeValues=vals)
+            start = r.get('LastEvaluatedKey')
+            if not start:
+                break
+        print(f'{table}: {n} row{"s" if n != 1 else ""} {"would get" if dry else "got"} index keys' + (f' ({admins} admin{"s" if admins != 1 else ""})' if table == 'sushilaai-users' else ''))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--region', required=True)
@@ -309,6 +345,7 @@ def main():
     ap.add_argument('--prune', action='store_true', help='remove or replace indexes that differ from SCHEMA')
     ap.add_argument('--recreate-empty', action='store_true', help='recreate EMPTY tables whose primary key differs')
     ap.add_argument('--migrate-users', action='store_true', help='move sushilaai-users from the old email key to userId (backs up first)')
+    ap.add_argument('--backfill', action='store_true', help='one-time: add listKey/adminKey to rows written before the list indexes')
     a = ap.parse_args()
     sess = botocore.session.Session(profile=a.profile)
     ddb = FreshClient(a.profile, a.region)
@@ -319,6 +356,9 @@ def main():
     r = Reconciler(ddb, a.dry_run, a.prune, a.recreate_empty)
     for name, spec in SCHEMA.items():
         r.reconcile(name, spec)
+    if a.backfill:
+        print()
+        backfill(ddb, a.dry_run)
     extra = [t for t in ddb.list_tables()['TableNames'] if t.startswith('sushilaai-') and t not in SCHEMA]
     if extra:
         print(f'\nnote: sushilaai-* tables not in SCHEMA (left alone): {extra}')

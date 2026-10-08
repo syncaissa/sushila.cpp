@@ -135,15 +135,17 @@ pub fn apply_share(state: &mut Value, v: &Value) -> Result<(), String> {
 }
 
 /// The settings `config` and `limit` change: (key, what it is, minimum, maximum). Numbers are whole numbers.
-pub const SETTINGS: [(&str, &str, i64, i64); 8] = [
+pub const SETTINGS: [(&str, &str, i64, i64); 9] = [
     ("port", "the server's port (next start)", 1, 65535), ("enginePort", "the first internal port for model engines", 1024, 65535),
     ("threads", "CPU threads per model (0 = automatic)", 0, 1024), ("contextSize", "context tokens per parallel slot (next model start)", 256, 1 << 20),
     ("gpuLayers", "layers on the GPU (-1 = all that fit)", -1, 999), ("parallel", "parallel requests per text model (0 = automatic)", 0, 64),
-    ("idleMinutes", "unload models idle this long (0 = never)", 0, 10080), ("keepCopy", "keep a copy of installed pack files (true/false)", 0, 1)];
+    ("idleMinutes", "unload models idle this long (0 = never)", 0, 10080), ("keepCopy", "keep a copy of installed pack files (true/false)", 0, 1),
+    ("keepPopular", "download the popular model packs in the background and keep them installed (true/false)", 0, 1)];
 pub fn parse_setting(key: &str, val: &str) -> Result<Value, String> {
     if key == "catalogUrl" { let u = crate::net::check_url(val, false)?; return Ok(json!(u.to_string())); }
     if key == "ticker" { return match val { "on" | "true" | "1" => Ok(json!("on")), "off" | "false" | "0" => Ok(json!("off")), _ => Err("ticker is on or off".into()) }; }
     let (_, _, lo, hi) = SETTINGS.iter().find(|s| s.0 == key).ok_or(format!("unknown setting {key}; `sushila config list` shows them"))?;
+    if key == "keepPopular" { return match val { "true" | "1" | "yes" | "on" => Ok(json!(true)), "false" | "0" | "no" | "off" => Ok(json!(false)), _ => Err("keepPopular is true or false".into()) }; }
     if key == "keepCopy" { return match val { "true" | "1" | "yes" => Ok(json!(true)), "false" | "0" | "no" => Ok(json!(false)), _ => Err("keepCopy is true or false".into()) }; }
     let n: i64 = val.parse().map_err(|_| format!("{key} must be a whole number"))?;
     if n < *lo || n > *hi { return Err(format!("{key} must be between {lo} and {hi}")); }
