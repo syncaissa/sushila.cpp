@@ -13,7 +13,7 @@ async function home(running) {
   const calls = [];
   const vc = new VirtualConsole(); vc.on('jsdomError', (e) => { if (!/navigation|Not implemented/.test(e.message)) { console.log('JSERR', e.message); fails++; } });
   const w = new JSDOM(__home(packs, { version: '0.1.1', files: [] }), { runScripts: 'dangerously', url: 'https://sushila.ai/', virtualConsole: vc, beforeParse(win) {
-    win.fetch = async (u) => { calls.push(String(u)); if (String(u).startsWith('http://localhost')) { if (!running) throw new TypeError('Failed to fetch'); return { ok: true, json: async () => ({ ok: true, app: 'sushila', version: '0.1.1', port: 8765 }) }; } return { ok: true, json: async () => ({}) }; };
+    win.fetch = async (u) => { calls.push(String(u)); if (String(u).startsWith('http://localhost')) { if (!running) throw new TypeError('Failed to fetch'); return { ok: true, json: async () => ({ ok: true, app: 'sushila', version: '0.1.1', port: 7874 }) }; } return { ok: true, json: async () => ({}) }; };
     win.HTMLElement.prototype.scrollIntoView = function () { win.__scrolled = this.id; };
   } }).window;
   await sleep(300);
@@ -25,7 +25,7 @@ ok(hero && hero.getAttribute('href') === '#get' && /own computer, free/.test(her
 const get = d.getElementById('get');
 ok(get && get.querySelectorAll('.steps li').length === 3 && /sushila serve/.test(get.textContent) && /double-click/.test(get.textContent), 'Get Sushila: three steps, double-click or sushila serve');
 ok(!/Host Station/.test(d.getElementById('packs').textContent), 'no Host Station in the pack section');
-ok(calls.some((u) => u === 'http://localhost:8765/health'), 'the page asks http://localhost:8765/health');
+ok(calls.some((u) => u === 'http://localhost:7874/health'), 'the page asks http://localhost:7874/health');
 const box = d.getElementById('sstatus');
 ok(/not running on this computer/.test(box.textContent) && /Get Sushila/.test(box.textContent) && /sushila serve/.test(box.textContent), 'not running: the box says how to get it and start it');
 const inst = d.querySelector('#packs .sinstall');
@@ -36,5 +36,5 @@ ok(!d.querySelector('a[href^="sushila://"]'), 'no sushila:// (Host Station) link
 ({ w, d, calls } = await home(true));
 ok(/Sushila 0.1.1 is running on this computer/.test(d.getElementById('sstatus').textContent), 'running: the box turns green with its version');
 const inst2 = d.querySelector('#packs .sinstall'); const ev2 = new w.MouseEvent('click', { bubbles: true, cancelable: true }); inst2.dispatchEvent(ev2);
-ok(!ev2.defaultPrevented && inst2.getAttribute('href') === 'http://localhost:8765/install/qwen2.5-0.5b-q4km', 'running: Install opens localhost:8765/install/<pack>');
+ok(!ev2.defaultPrevented && inst2.getAttribute('href') === 'http://localhost:7874/install/qwen2.5-0.5b-q4km', 'running: Install opens localhost:7874/install/<pack>');
 console.log(fails ? `${fails} FAILED` : 'all passed'); process.exit(fails ? 1 : 0);

@@ -1,0 +1,14 @@
+# sushila.ai share links, views, My content, Report abuse: live test of worker.js against real DynamoDB + B2 (2026-10-08)
+ok   upload: link is sushila.ai/c/<12 hex>
+ok   upload: answer carries the free-account notice
+ok   link page: 1 view, disclaimer, Report abuse
+ok   link page: views count up (2 views)
+ok   unknown id: 404, and no row is made
+ok   app list: the upload with its views
+ok   My content: signed out goes to sign-in
+ok   Report abuse page: link filled in
+ok   report saved: r_20261008_dc0d03f2
+REPORT_ID r_20261008_dc0d03f2
+ok   My content delete (session of the same account) removes the upload
+ok   deleted link: 404
+ok   app list: empty after delete

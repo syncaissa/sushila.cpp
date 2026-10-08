@@ -125,7 +125,7 @@ td code{white-space:nowrap}.os{display:grid;grid-template-columns:repeat(auto-fi
 </style>
 </head>
 <body>
-<div class="top"><details class="menu"><summary aria-label="Menu">☰</summary><div><a href="/">Inference</a><a href="/admin" id="madmin">Admin</a><a href="/docs">Documentation</a><a href="#api">API</a><div class="where" id="mwhere"></div></div></details><b>Sushila</b><span class="sp"></span><span style="color:var(--mut)">Documentation</span></div>
+<div class="top"><details class="menu"><summary aria-label="Menu">☰</summary><div><a href="/">Inference</a><a href="/admin" id="madmin">Admin</a><a href="/docs">Documentation</a><a href="/#assistant">Ask Sushila</a><a href="#api">API</a><div class="where" id="mwhere"></div></div></details><b>Sushila</b><span class="sp"></span><span style="color:var(--mut)">Documentation</span></div>
 <div class="wrap">
 <nav class="toc">
   <a href="#start">Getting started</a><a href="#commands">All commands</a><a href="#os">Windows, macOS, Linux</a><a href="#serve">Serving and the web page</a>
@@ -142,11 +142,13 @@ Windows, macOS and Linux.</p>
 <ol>
   <li>Download <code>sushila.exe</code> (Windows) or <code>sushila</code> (macOS, Linux) for your system.</li>
   <li>Run it: double-click it, or in a terminal type <code>sushila serve</code>. The first time it installs the engine for your
-      GPU (NVIDIA: CUDA; AMD and Intel: Vulkan; Apple: Metal; otherwise the CPU) and a small model, and asks you to choose an
-      admin password.</li>
-  <li>Open <a href="http://localhost:8765/">http://localhost:8765/</a> in a browser (double-clicking opens it for you).</li>
+      GPU (NVIDIA: CUDA; AMD and Intel: Vulkan; Apple: Metal; otherwise the CPU) and a first model, and asks you to choose an
+      admin password. The first model depends on the computer: Qwen3 4B (about 2.5 GB) with a GPU of 8 GB or more, a Mac with
+      Apple silicon and 16 GB or more, or 16 GB of memory without a GPU (if the disk has room); otherwise Qwen2.5 0.5B (about 535 MB).
+      The log says which one and why.</li>
+  <li>Open <a href="http://localhost:7874/">http://localhost:7874/</a> in a browser (double-clicking opens it for you).</li>
 </ol>
-<p>To check that everything works: <code>sushila selftest</code>. It installs what is needed, asks the smallest model one question and
+<p>To check that everything works: <code>sushila selftest</code>. It installs what is needed, asks the small model (or the 4B model, if installed) one question and
 ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 
 <h2 id="commands">All commands</h2>
@@ -155,12 +157,17 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <table>
 <tr><th>Command</th><th>What it does</th></tr>
 <tr><td><code>sushila</code> (no command, or double-click)</td><td>Starts the server and opens the web page in the browser.</td></tr>
-<tr><td><code>sushila selftest</code></td><td>End-to-end check: engine, the smallest model, one answer. Exit code 0 = everything works.</td></tr>
+<tr><td><code>sushila selftest</code></td><td>End-to-end check: engine, the small default model (or the 4B one if installed; <code>--pack</code> picks another), one answer. Exit code 0 = everything works.</td></tr>
+<tr><td><code>sushila doctor</code></td><td>Checks this computer: GPU, driver, engine build, free disk, the port, the home folder, every pack file's SHA-256, the admin password. Each line says OK, WARN or FAIL, with the command that fixes it.</td></tr>
+<tr><td><code>sushila assistant ["&lt;question&gt;"]</code></td><td>Ask Sushila how Sushila works: answers from this documentation and live facts about this computer, by the largest installed text model (no question: keeps asking; <code>/exit</code> ends). Also in the ☰ menu (Ask Sushila) and in the server window. With a model under 3B parameters it quotes the matching sections and their commands instead of writing an answer (small models invent steps); install a 3B+ chat model, e.g. <code>sushila install qwen3-4b-instruct-2507</code>, for answers in its own words.</td></tr>
 <tr><th colspan="2">Engine and model packs</th></tr>
 <tr><td><code>sushila engine install</code></td><td>Installs Sushila.cpp for this computer's GPU (CPU only when there is no usable GPU).</td></tr>
 <tr><td><code>sushila engine install --build cpu</code></td><td>Forces a build: <code>cpu</code>, <code>vulkan</code> or <code>cuda</code>.</td></tr>
 <tr><td><code>sushila engine info</code></td><td>Engine version, GPU, data folder.</td></tr>
 <tr><td><code>sushila packs</code></td><td>The model packs you can install (<code>--all</code> also lists packs for other hardware).</td></tr>
+<tr><td><code>sushila search &lt;words&gt; [--kind chat|code|image|music|video] [--fits]</code></td><td>Finds packs in the catalog by words and kind; <code>--fits</code>: only packs this computer can run.</td></tr>
+<tr><td><code>sushila show &lt;pack&gt;</code></td><td>Name, kind, license, size, every file with its SHA-256, what Accelerated adds (precomputed files, engine options, cache plan), installed or not.</td></tr>
+<tr><td><code>sushila license &lt;pack&gt;</code></td><td>The pack's license, its link, and the license files in the pack.</td></tr>
 <tr><td><code>sushila install &lt;pack&gt;</code></td><td>Downloads a pack and checks the Sushila signature and every file's SHA-256. Several packs at once are fine.</td></tr>
 <tr><td><code>sushila install &lt;file&gt;.sushilapack</code></td><td>Installs a pack file (from a USB drive or another computer), with the same checks.</td></tr>
 <tr><td><code>sushila install my-model.gguf</code></td><td>Your own GGUF model: becomes our pack if we precomputed it, else "your own model" (Standard mode).</td></tr>
@@ -168,9 +175,16 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila list</code></td><td>Installed packs.</td></tr>
 <tr><td><code>sushila verify [&lt;pack&gt;]</code></td><td>Checks every file of installed packs against its SHA-256.</td></tr>
 <tr><td><code>sushila remove &lt;pack&gt;</code></td><td>Removes a pack and its files.</td></tr>
+<tr><td><code>sushila update [--check]</code></td><td>A newer signed engine and packs whose files changed in the catalog: <code>--check</code> lists them, without it they are installed (only changed files are downloaded).</td></tr>
+<tr><td><code>sushila clean [--dry-run]</code></td><td>Removes leftovers: unfinished downloads (only while no server runs), old engine versions, outputs of removed queue jobs, stale checksum cache entries; prints the space freed.</td></tr>
+<tr><td><code>sushila du</code></td><td>Disk use per pack, engine, logs, outputs and in total.</td></tr>
+<tr><td><code>sushila export &lt;pack&gt; &lt;file.zip|.tar|.sushilapack&gt;</code></td><td>The pack as one file for another computer (with <code>sushila-pack.json</code>).</td></tr>
+<tr><td><code>sushila import &lt;file&gt;</code></td><td>Installs such a file; every file's SHA-256 is checked before anything is adopted (signed packs also against Sushila's signature).</td></tr>
+<tr><td><code>sushila convert &lt;hf-repo|folder&gt; [--out file.gguf] [--outtype q8_0]</code></td><td>Converts a Hugging Face model to GGUF with llama.cpp's converter (fetched at the version Sushila.cpp builds on) and adds it as your own model. Needs Python and the converter's packages; if they are missing it prints the exact steps.</td></tr>
+<tr><td><code>sushila precompute &lt;pack&gt;</code></td><td>Experimental: runs the repository's day-0 landscape pipeline (<code>scripts/day0_landscape.sh</code>) for a text pack; without the repository it prints what is needed.</td></tr>
 <tr><th colspan="2">Serving</th></tr>
 <tr><td><code>sushila serve [&lt;pack&gt;...]</code></td><td>Starts the server: web page, API and queue, and the named packs (default: the first installed one).</td></tr>
-<tr><td><code>sushila serve --port 8844</code></td><td>Another port (default 8765).</td></tr>
+<tr><td><code>sushila serve --port 8844</code></td><td>Another port (default 7874).</td></tr>
 <tr><td><code>sushila serve --public</code></td><td>Reachable from other machines (listens on all addresses); they need an access key.</td></tr>
 <tr><td><code>sushila serve --public --open</code></td><td>No key needed for chat and generation (trusted networks only).</td></tr>
 <tr><td><code>sushila serve --standard</code></td><td>Plain models instead of Accelerated (Sushila's precomputed files off).</td></tr>
@@ -178,11 +192,30 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila stop &lt;pack&gt;</code></td><td>Stops a model.</td></tr>
 <tr><td><code>sushila stop</code></td><td>Stops the whole server.</td></tr>
 <tr><td><code>sushila status</code></td><td>What is installed, whether the server runs, which models run (Accelerated or Standard).</td></tr>
+<tr><td><code>sushila ps</code></td><td>Running models: mode, port, parallel slots, uptime, memory and GPU memory.</td></tr>
+<tr><td><code>sushila top [--interval 2]</code></td><td>The same, refreshed every 2 s, with GPU use and the last tokens/s (Ctrl+C ends).</td></tr>
+<tr><td><code>sushila mode &lt;pack&gt; standard|accelerated</code></td><td>Switches a running model at once; otherwise remembered for its next start.</td></tr>
+<tr><td><code>sushila idle &lt;minutes&gt;|off</code></td><td>Unloads models nobody used for that long; the next request loads them again (it waits while the model loads).</td></tr>
+<tr><td><code>sushila limit [--threads N] [--parallel N] [--context N] [--gpu-layers N]</code></td><td>Engine limits used when a model starts next (no flags: shows them).</td></tr>
+<tr><td><code>sushila config list | get &lt;key&gt; | set &lt;key&gt; &lt;value&gt;</code></td><td>The settings (port, enginePort, threads, contextSize, gpuLayers, parallel, idleMinutes, keepCopy, catalogUrl, ticker), checked before they are saved.</td></tr>
+<tr><td><code>sushila queue [list] | pause [&lt;id&gt;] | resume [&lt;id&gt;] | cancel &lt;id&gt;</code></td><td>The running server's background queue (without an id: the whole queue).</td></tr>
+<tr><td><code>sushila history [show &lt;id&gt;]</code></td><td>Past queue jobs with prompt, settings, seed, times and the output file.</td></tr>
+<tr><td><code>sushila open [admin|docs|assistant]</code></td><td>Opens the page in the browser.</td></tr>
+<tr><td><code>sushila example &lt;pack&gt; [curl|python|js]</code></td><td>A working API request for this computer (with its local token) and for other machines (with an access key).</td></tr>
+<tr><td><code>sushila share on [--open] | off | qr</code></td><td>Other machines: <code>on</code> makes the next <code>sushila serve</code> listen on the network (keys needed unless <code>--open</code>), <code>off</code> stops sharing at once, <code>qr</code> prints a QR code of the network address for a phone.</td></tr>
+<tr><td><code>sushila https &lt;domain&gt;</code></td><td>HTTPS for a domain: writes a Caddyfile (Caddy forwards to this server), allows that host name, prints the steps; offers to start Caddy if it is installed. Installs nothing itself.</td></tr>
 <tr><td><code>sushila home</code></td><td>Sushila's <b>home folder</b>: where <code>model-packs</code>, settings, logs and the engine live. Sushila remembers it in one small text file in your own settings folder, which every user can write without admin rights: Windows <code>%APPDATA%\\sushila\\home</code> (<code>C:\\Users\\&lt;you&gt;\\AppData\\Roaming\\sushila\\home</code>), macOS <code>~/Library/Application Support/sushila/home</code>, Linux <code>~/.config/sushila/home</code>. It holds one line, the folder's path, which you can also edit by hand; <code>sushila home</code> prints where it is. Sushila reads it at every start and goes straight there. It is the only file Sushila keeps outside its home folder. If it is deleted, Sushila searches again (and writes it again); if it finds no home, it asks for the folder of your existing home, or starts a new one when you press Enter. The first time, it searches the usual places (the system's app-data folder, next to the program, the current folder, <code>~/sushila</code>, Documents, Downloads); if it finds several homes it <b>asks</b> which one to use. <code>sushila home &lt;folder&gt;</code> makes another folder the home (replacing the remembered one); <code>sushila home --reset</code> forgets it so the next start searches again; <code>--data-dir &lt;folder&gt;</code> uses a folder for one command only. The home is also printed every time the server starts. (<code>sushila location</code> is the same command.)</td></tr>
-<tr><td><code>sushila url</code></td><td>The addresses: <b>Inference URL</b> (the page for using models, e.g. <code>http://localhost:8765/</code>), <b>Admin URL</b> (<code>http://localhost:8765/admin</code>, this computer only, password protected), the OpenAI-compatible API, and the address for other machines when serving on the network. The same block is printed every time the server starts, in the terminal or in the window that opens when you double-click <code>sushila</code>.</td></tr>
+<tr><td><code>sushila url</code></td><td>The addresses: <b>Inference URL</b> (the page for using models, e.g. <code>http://localhost:7874/</code>), <b>Admin URL</b> (<code>http://localhost:7874/admin</code>, this computer only, password protected), the OpenAI-compatible API, and the address for other machines when serving on the network. The same block is printed every time the server starts, in the terminal or in the window that opens when you double-click <code>sushila</code>.</td></tr>
 <tr><th colspan="2">Generating from the terminal</th></tr>
 <tr><td><code>sushila run &lt;pack&gt; "&lt;prompt&gt;"</code></td><td>One answer (printed), or one picture, video or song (saved). Uses the running model if there is one.</td></tr>
 <tr><td><code>... --out file.png</code></td><td>Where to save; images also take <code>--size 1024x1024 --seed 42</code>, video <code>--size 1280x704 --frames 121</code>, music <code>--lyrics "..." --duration 60</code> (the prompt is the style).</td></tr>
+<tr><td><code>sushila chat [&lt;pack&gt;] [--standard]</code></td><td>Chat in the terminal, streamed; keeps the conversation. <code>/clear</code> forgets it, <code>/save &lt;file&gt;</code> saves it, <code>/exit</code> ends.</td></tr>
+<tr><td><code>sushila ask &lt;file&gt; "&lt;question&gt;" [--pack p]</code></td><td>Answers a question about a text, markdown or code file (long files are read in parts). PDF: convert it to text first.</td></tr>
+<tr><td><code>sushila batch &lt;pack&gt; &lt;prompts.txt&gt; [--out &lt;folder&gt;]</code></td><td>One prompt per line (<code>#</code> starts a comment): one output each, plus <code>index.json</code> with prompt, seed, settings and seconds.</td></tr>
+<tr><td><code>sushila watch &lt;folder&gt; [--pack p] [--once]</code></td><td>Each new <code>.txt</code> file in the folder is a prompt: the output is written next to it, the prompt renamed to <code>.txt.done</code>.</td></tr>
+<tr><td><code>sushila embed &lt;pack&gt; &lt;text|file&gt;</code></td><td>An embedding vector (<code>/v1/embeddings</code>). A chat engine does not compute embeddings, so a separate engine with <code>--embeddings</code> is started for it.</td></tr>
+<tr><td><code>sushila bench &lt;pack&gt; [--prompt ..] [--runs 3]</code></td><td>Speed on this computer in Standard and Accelerated (tokens/s for text, seconds for images, music and video), the speedup, saved in <code>bench/</code> in the home folder.</td></tr>
+<tr><td><code>sushila eval &lt;pack&gt; [--n 20]</code></td><td>Accuracy on 20 built-in grade-school math questions, in Standard and Accelerated.</td></tr>
 <tr><th colspan="2">Security and logs</th></tr>
 <tr><td><code>sushila password</code></td><td>Sets the admin password, or changes it (asks the current one first).</td></tr>
 <tr><td><code>sushila password --reset</code></td><td>Lost the password: sets a new one without the old one. Only on this computer.</td></tr>
@@ -191,6 +224,12 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila logs [-f] [-n 40]</code></td><td>The log of every action, from the web page, the commands and the queue (<code>-f</code> follows it).</td></tr>
 <tr><td><code>sushila service install [--packs a,b] [--public] [--port N]</code></td><td>Starts the server automatically (at boot or login).</td></tr>
 <tr><td><code>sushila service remove</code></td><td>Stops starting it automatically.</td></tr>
+<tr><td><code>sushila backup &lt;file.zip&gt; / sushila restore &lt;file.zip&gt;</code></td><td>Settings, access keys (their hashes), queue history and the admin password hash; never the model packs. Restore with the server stopped.</td></tr>
+<tr><td><code>sushila report [&lt;file&gt;]</code></td><td>A zip for bug reports: versions, GPU, settings, the last 300 log lines, crashes. Access keys, tokens and the password hash are removed.</td></tr>
+<tr><td><code>sushila version [--verify]</code></td><td>Versions of sushila and the engine; <code>--verify</code> prints this program's SHA-256 and checks it against Sushila's signed list of builds when one is published.</td></tr>
+<tr><td><code>sushila completion bash|zsh|fish|powershell</code></td><td>Tab completion for your shell.</td></tr>
+<tr><td><code>sushila reproduce [&lt;name&gt;]</code></td><td>The commands that reproduce the paper's results (e.g. <code>yue</code>, <code>zimage</code>, <code>wan</code>, <code>llama3.3-70b</code>) and the link to the full guide.</td></tr>
+<tr><td><code>sushila uninstall [--all] [--yes]</code></td><td>Removes the start-at-login service and the home pointer; <code>--all</code> also deletes the home folder after listing it and asking.</td></tr>
 </table>
 <div class="note">While a server runs, <code>install</code>, <code>remove</code>, <code>engine install</code>, <code>start</code> and <code>stop</code> are sent
 to it and you see its progress: the server is the one place that changes anything, so the web page and the commands always agree.</div>
@@ -216,15 +255,34 @@ NVIDIA: a recent driver is enough (the CUDA runtime comes with the engine).</div
 </div>
 
 <h2 id="serve">Serving and the web page</h2>
-<p><code>sushila serve</code> runs one web server on one port (default 8765). The page has two tabs:</p>
+<p><code>sushila serve</code> runs one web server on one port (default 7874). The page has two tabs:</p>
 <ul>
   <li><b>Use</b>: chat, code, images, music and video with the running models; a background queue for long jobs.</li>
   <li><b>Admin</b> (this computer only, with the admin password): Packs (install, start, stop, verify, remove), Engine, Queue, Logs, Settings.</li>
 </ul>
 <p>Every page has the ☰ menu with Inference, Admin (this computer only), this documentation and the API, followed by the four addresses and, on this computer, the home folder: the same lines the server prints when it starts. Each running model's engine listens on an internal port
-(8766, 8767, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
+(7875, 7876, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
 <p><b>Accelerated or Standard</b>: Accelerated uses Sushila's precomputed files for the model (faster); Standard is the plain model,
 as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with <code>--standard</code>.</p>
+<h3 id="window">The server window</h3>
+<p>The window where <code>sushila serve</code> runs (it opens when you double-click <code>sushila</code>) takes typed lines:</p>
+<ul>
+  <li><b>A command</b>, with or without the word <code>sushila</code> (<code>ps</code>, <code>status</code>, <code>install qwen3-4b-instruct-2507</code>), runs right there. Commands that
+      delete or change things (remove, uninstall, clean, update, restore, import, share on, keys remove, password --reset, home &lt;folder&gt;) ask
+      <code>Run this? [y/N]</code> first. Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal: Ctrl+C here stops the server.</li>
+  <li><b>A question</b> (<code>how do I add a coding model?</code>) is answered by the Sushila assistant, with the sections it used.</li>
+  <li><b>A mistyped command</b> (<code>instal qwen</code>) gets a suggestion (with a small model, found by spelling and by matching words to commands and pack ids) (<code>Did you mean \`sushila install qwen\`? Run it? [y/N]</code>); nothing runs without a yes.</li>
+  <li><code>?</code> lists the important commands, <code>urls</code> the addresses, <code>stop</code> stops the server.</li>
+</ul>
+<p><b>The ticker.</b> The bottom line of the window scrolls, like an LED message board, one short sentence for every command
+("To add a new model pack: sushila install &lt;pack&gt; …", with this server's real addresses), with live news in between (models
+running and their mode, the queue's job and progress, GPU memory, requests served). Everything else scrolls above it. It starts
+with its keys: <b>Enter</b> pauses or resumes (paused, the whole message is shown), <b>b</b> goes back one message (and pauses; b again goes further
+back), <b>n</b> forward, <b>all</b> prints every message, grouped like the command list, with the live news and their times, so you can scroll up and read them.
+<code>ticker off</code> / <code>ticker on</code> hide or show it; <code>sushila config set ticker off</code> keeps it off. It is off by itself when the output
+is not a terminal, with <code>--json</code> or <code>--quiet</code>, with <code>TERM=dumb</code> or <code>SUSHILA_TICKER=0</code>, and in windows narrower than 40 columns.
+Windows: escape sequences and UTF-8 are turned on for the console at start (Windows Terminal and the classic console); where symbols cannot be shown it uses ASCII keys.
+On exit (stop, Ctrl+C, a crash) the window is left as it was.</p>
 
 <h2 id="network">Other machines and the internet</h2>
 <pre>sushila serve --public --port 8844      # listens on all addresses
@@ -249,7 +307,7 @@ Caddy or nginx (any reverse proxy that forwards to the port works).</div>
 </ul>
 
 <h2 id="api">API (OpenAI-compatible)</h2>
-<pre>curl http://localhost:8765/v1/chat/completions \\
+<pre>curl http://localhost:7874/v1/chat/completions \\
   -H "Authorization: Bearer &lt;key&gt;" -H "content-type: application/json" \\
   -d '{"model":"qwen3-4b-instruct-2507","messages":[{"role":"user","content":"Hello"}]}'</pre>
 <table>
@@ -464,12 +522,12 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--mut);fon
 .doc .meta{color:var(--mut);margin:0 0 24px}
 `;
 
-const accountLink = (user) => user ? `${user.isAdmin ? '<a href="/admin">Admin</a>' : ''}<a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
+const accountLink = (user) => user ? `${user.isAdmin ? '<a href="/admin">Admin</a>' : ''}<a href="/mycontent">My content</a><a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
 const brand = () => `<a class="brand" href="/"><img src="/logo.png" width="32" height="32" alt=""> Sushila.cpp</a>`;
 
 const footer = (contact) => `<footer><div class="wrap row" style="justify-content:space-between">
   <span>© ${new Date().getUTCFullYear()} Sushila, an open-source research project</span>
-  <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="/bugs/new">Report a bug</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
+  <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="/bugs/new">Report a bug</a> · <a href="/reportabuse">Report abuse</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
 </div></footer>`;
 
 function docPage(env, title, desc, body, user) {
@@ -593,6 +651,12 @@ account and last signed in, and records of sign-ins and e-mail changes. Sign-in 
 from Host Station), the file, the time, your IP address and country, your browser or app user agent and operating system, and the kind
 of file. We use this to count downloads, plan capacity and prevent abuse, and delete each record after 12 months; only the totals per
 file are kept.</li>
+<li><b>Shared files:</b> a picture, song or video you choose to share from Sushila (Share link) is stored with its title, model and
+time under your account and is public to anyone with its link until you delete it at sushila.ai/mycontent. For each link we keep one
+number, how many times its page was opened. Uploads for free accounts may be deleted at any time; inappropriate uploads are deleted and
+reported.</li>
+<li><b>Abuse reports:</b> what you enter at sushila.ai/reportabuse (the link, the reason, the details and, if you give it, your
+e-mail), with the time, your IP address, country and browser user agent, so we can act on the report and prevent misuse.</li>
 <li><b>Early-access sign-up:</b> the e-mail address and the optional list of models you enter, the time of sign-up and the country
 of your connection (derived by our hosting provider from your IP address). If you choose to e-mail us instead, we receive what you
 send.</li>
@@ -675,14 +739,14 @@ function page(env, user, models, packs = [], app = null, mode = 'home') {
     </tr>`).join('');
 
   // model packs: installed by sushila (the Sushila.cpp server) running on the visitor's computer. "Install" opens its
-  // page (http://localhost:8765/install/<pack>), which asks before installing; or the command; or the pack file
+  // page (http://localhost:7874/install/<pack>), which asks before installing; or the command; or the pack file
   const packRows = packs.map((p) => `
     <tr>
       <td><b>${esc(p.name)}</b>${(p.artifacts || []).length ? ' <span class="tag">precomputed</span>' : ''}<div class="sub">${esc(p.description || '')}</div></td>
       <td>${esc(p.category || '')}</td>
       <td class="num">${gb(p.files.reduce((a, f) => a + (f.bytes || 0), 0))}</td>
       <td>${p.licenseUrl ? `<a href="${esc(p.licenseUrl)}">${esc(p.license)}</a>` : esc(p.license)}</td>
-      <td class="act"><a class="btn small sinstall" data-pack="${esc(p.id)}" href="http://localhost:8765/install/${esc(p.id)}" target="_blank" rel="noopener" title="Opens Sushila on this computer (it must be running: sushila serve, or double-click sushila); it asks before installing">Install</a>
+      <td class="act"><a class="btn small sinstall" data-pack="${esc(p.id)}" href="http://localhost:7874/install/${esc(p.id)}" target="_blank" rel="noopener" title="Opens Sushila on this computer (it must be running: sushila serve, or double-click sushila); it asks before installing">Install</a>
         <button class="btn small ghost copycmd" data-cmd="sushila install ${esc(p.id)}" title="sushila install ${esc(p.id)}">Copy command</button>
         <a class="btn small ghost" href="/hoststation/pack/${esc(p.id)}.sushilapack" title="One file with the whole pack: sushila install ${esc(p.id)}.sushilapack, or unpack it into the model-packs folder">Download pack</a></td>
     </tr>`).join('');
@@ -875,7 +939,7 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
     <li><b>Download</b> Sushila for your system (one file). <span class="sub">The downloads open when the Sushila paper is published:
       <a href="#" id="getnotify">email me when they are ready</a>.</span></li>
     <li><b>Run it</b>: double-click it; the first time it sets itself up for your GPU and asks you to choose an admin password.
-      Or in a terminal: <code>sushila serve</code>. Your browser opens <code>http://localhost:8765</code>.</li>
+      Or in a terminal: <code>sushila serve</code>. Your browser opens <code>http://localhost:7874</code>.</li>
     <li><b>Choose a model pack</b> below (<b>Install</b>), or on its Admin tab. Everything runs on your computer: free, private, offline once installed.</li>
   </ol>
   <div id="sstatus2" class="note" role="status" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0">Checking whether Sushila runs on this computer…</div>
@@ -889,7 +953,7 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
   one program (<code>sushila</code>, <code>sushila.exe</code> on Windows) that runs the models and serves a web page for chat, code,
   images, music and video. Every pack is signed by Sushila and contains only data files; Sushila checks each file before using it.</p>
   <p class="sub">Three ways to add a pack, all the same result (a folder in <code>model-packs</code>):
-  <b>Install</b> opens Sushila on this computer (<code>http://localhost:8765</code>; start it first) and asks before installing ·
+  <b>Install</b> opens Sushila on this computer (<code>http://localhost:7874</code>; start it first) and asks before installing ·
   <b>Copy command</b> for a terminal (<code>sushila install &lt;pack&gt;</code>) · <b>Download pack</b>: one file, then
   <code>sushila install &lt;file&gt;</code>, or unpack it into the <code>model-packs</code> folder (found within seconds, no restart).</p>
   ${packs.length ? `<div class="tablewrap"><table>
@@ -903,7 +967,7 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
 (function () {
   const boxes = ['sstatus', 'sstatus2'].map((i) => document.getElementById(i)).filter(Boolean);
   if (!boxes.length) return;
-  let port = 8765; try { const p = +localStorage.getItem('sushila-port'); if (p > 0 && p < 65536) port = p; } catch (_) {}
+  let port = 7874; try { const p = +localStorage.getItem('sushila-port'); if (p > 0 && p < 65536) port = p; } catch (_) {}
   let up = null, reason = '';
   const paint = () => {
     const html = up
@@ -1473,6 +1537,8 @@ const TABLES = {
   download: 'sushilaai-download',   // PK file, SK at: one row per download (time, IP, country, system, kind; TTL 12 months) + '#count'
   compare: 'sushilaai-compare',     // PK runId: admin "Compare Speeds" pods (pod id, model, results); pods are deleted, rows kept
   audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes
+  reportabuse: 'sushilaai-reportabuse', // PK reportId: every report sent from sushila.ai/reportabuse (link, reason, details, e-mail, time, IP)
+  fileViews: 'sushilaai-file-views',    // PK url (a shared link, "/c/<12 hex>") -> userId (its owner) and views (number); nothing else
 };
 const OTP_TTL_MS = 5 * 60 * 1000;      // a code is valid for 5 minutes
 const OTP_RESEND_MS = 10 * 1000;       // at most one code every 10 seconds per e-mail
@@ -1517,6 +1583,7 @@ class DynamoDB {
     const amzDate = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
     const date = amzDate.slice(0, 8);
     const headers = { 'content-type': 'application/x-amz-json-1.0', host: this.host, 'x-amz-date': amzDate, 'x-amz-target': `DynamoDB_20120810.${action}` };
+    if (this.env.AWS_SESSION_TOKEN) headers['x-amz-security-token'] = this.env.AWS_SESSION_TOKEN;  // temporary credentials (optional)
     const names = Object.keys(headers).sort();
     const canonical = ['POST', '/', '', names.map((n) => `${n}:${headers[n]}`).join('\n') + '\n', names.join(';'), await sha256Hex(body)].join('\n');
     const scope = `${date}/${this.region}/dynamodb/aws4_request`;
@@ -1536,7 +1603,7 @@ class DynamoDB {
     return out;
   }
   get(table, key) { return this.request('GetItem', { TableName: table, Key: key, ConsistentRead: true }).then((r) => r.Item || null); }
-  put(table, item, condition) { return this.request('PutItem', { TableName: table, Item: item, ...(condition ? { ConditionExpression: condition } : {}) }); }
+  put(table, item, condition, names) { return this.request('PutItem', { TableName: table, Item: item, ...(condition ? { ConditionExpression: condition } : {}), ...(names ? { ExpressionAttributeNames: names } : {}) }); }
   del(table, key) { return this.request('DeleteItem', { TableName: table, Key: key }); }
   update(table, key, expr, values, names) {
     return this.request('UpdateItem', { TableName: table, Key: key, UpdateExpression: expr,
@@ -1571,12 +1638,26 @@ async function audit(db, event, who, request, extra = {}) {
 
 // --- Backblaze B2 (native API) ---
 let b2Cache = null;  // per isolate: { auth, bucketId, until }
+// B2 answers 500/503 now and then (its documented "retry" case): every call is tried up to 4 times (0.3, 0.9, 2 s).
+async function b2fetch(url, init) {
+  let last;
+  for (const wait of [0, 300, 900, 2000]) {
+    if (wait) await new Promise((r) => setTimeout(r, wait));
+    try {
+      const r = await fetch(url, init);
+      if (r.status < 500 && r.status !== 429) return r;
+      last = r;
+    } catch (e) { last = e; }
+  }
+  if (last instanceof Response) return last;
+  throw new Error('B2 fetch: ' + (last && last.message));
+}
 class B2 {
   constructor(env) { this.env = env; }
   get configured() { return !!(this.env.B2_KEY_ID && this.env.B2_APP_KEY && this.env.B2_BUCKET_NAME); }
   async auth() {
     if (b2Cache && b2Cache.until > Date.now()) return b2Cache;
-    const r = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
+    const r = await b2fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
       headers: { authorization: 'Basic ' + btoa(`${this.env.B2_KEY_ID}:${this.env.B2_APP_KEY}`) } });
     if (!r.ok) throw new Error('B2 authorize: ' + r.status);
     const a = await r.json();
@@ -1584,7 +1665,7 @@ class B2 {
     let bucketId = (api.allowed && api.allowed.buckets && (api.allowed.buckets.find((b) => b.name === this.env.B2_BUCKET_NAME) || {}).id)
       || (api.allowed && api.allowed.bucketName === this.env.B2_BUCKET_NAME && api.allowed.bucketId) || null;
     if (!bucketId) {
-      const lb = await fetch(`${api.apiUrl}/b2api/v3/b2_list_buckets`, { method: 'POST', headers: { authorization: a.authorizationToken, 'content-type': 'application/json' },
+      const lb = await b2fetch(`${api.apiUrl}/b2api/v3/b2_list_buckets`, { method: 'POST', headers: { authorization: a.authorizationToken, 'content-type': 'application/json' },
         body: JSON.stringify({ accountId: a.accountId, bucketName: this.env.B2_BUCKET_NAME }) });
       if (!lb.ok) throw new Error('B2 list buckets: ' + lb.status);
       bucketId = ((await lb.json()).buckets || [])[0]?.bucketId;
@@ -1596,7 +1677,7 @@ class B2 {
   fileUrl(base, key) { return `${base}/file/${encodeURIComponent(this.env.B2_BUCKET_NAME)}/${key.split('/').map(encodeURIComponent).join('/')}`; }
   async signedUrl(key, seconds, filename) {  // a time-limited link straight to B2 (large files never pass through the worker)
     const a = await this.auth();
-    const r = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST',
+    const r = await b2fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST',
       headers: { authorization: a.token, 'content-type': 'application/json' },
       body: JSON.stringify({ bucketId: a.bucketId, fileNamePrefix: key, validDurationInSeconds: seconds,
         b2ContentDisposition: `attachment; filename="${filename}"` }) });
@@ -1604,13 +1685,216 @@ class B2 {
     const d = await r.json();
     return `${this.fileUrl(a.downloadUrl, key)}?Authorization=${encodeURIComponent(d.authorizationToken)}&b2ContentDisposition=${encodeURIComponent(`attachment; filename="${filename}"`)}`;
   }
+  async upload(key, bytes, contentType) {
+    const a = await this.auth();
+    const u = await b2fetch(`${a.apiUrl}/b2api/v3/b2_get_upload_url`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' }, body: JSON.stringify({ bucketId: a.bucketId }) });
+    if (!u.ok) throw new Error('B2 upload url: ' + u.status);
+    const { uploadUrl, authorizationToken } = await u.json();
+    const sha1 = [...new Uint8Array(await crypto.subtle.digest('SHA-1', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const r = await fetch(uploadUrl, { method: 'POST', headers: { authorization: authorizationToken, 'X-Bz-File-Name': key.split('/').map(encodeURIComponent).join('/'),
+      'content-type': contentType, 'X-Bz-Content-Sha1': sha1 }, body: bytes });
+    if (!r.ok) throw new Error('B2 upload: ' + r.status + ' ' + (await r.text()).slice(0, 200));
+    return r.json();
+  }
+  async list(prefix) {  // every file under a prefix: [{fileName, fileId, contentLength}]
+    const a = await this.auth(); const out = []; let start = null;
+    do {
+      const r = await b2fetch(`${a.apiUrl}/b2api/v3/b2_list_file_names`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
+        body: JSON.stringify({ bucketId: a.bucketId, prefix, maxFileCount: 1000, ...(start ? { startFileName: start } : {}) }) });
+      if (!r.ok) throw new Error('B2 list: ' + r.status);
+      const j = await r.json(); out.push(...(j.files || [])); start = j.nextFileName;
+    } while (start);
+    return out;
+  }
+  async remove(fileName, fileId) {
+    const a = await this.auth();
+    const r = await b2fetch(`${a.apiUrl}/b2api/v3/b2_delete_file_version`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' }, body: JSON.stringify({ fileName, fileId }) });
+    if (!r.ok) throw new Error('B2 delete: ' + r.status);
+  }
   async fetchFile(key, request) {  // stream a (small) file through the worker, passing Range on for video players
     const a = await this.auth();
     const h = { authorization: a.token };
     const range = request.headers.get('range');
     if (range) h.range = range;
-    return fetch(this.fileUrl(a.downloadUrl, key), { headers: h, cf: { cacheEverything: true, cacheTtl: 86400 } });
+    return b2fetch(this.fileUrl(a.downloadUrl, key), { headers: h, cf: { cacheEverything: true, cacheTtl: 86400 } });
   }
+}
+
+// --- Shared files (Share link in Sushila's Library): an account (e-mail code, no password) uploads one file at a time
+// to B2 public/usercontent/<userId>/<id>-<name> with <id>.json (what it is); https://sushila.ai/c/<id> (id = 12 lower-case
+// hex characters, unique: its row in sushilaai-file-views is created first, with the owner's userId) shows
+// it with an "AI-generated" label and a Report link. 50 MB per file, 2 GB per account; the owner deletes a link at once.
+const SHARE_MAX = 50e6, SHARE_QUOTA = 2e9;
+const SHARE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'audio/mpeg': 'mp3', 'audio/wav': 'wav',
+  'audio/flac': 'flac', 'audio/ogg': 'ogg', 'video/webm': 'webm', 'video/mp4': 'mp4' };
+const shareKey = (uid) => `public/usercontent/${uid}/`;
+const SHARE_NOTICE = 'Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported. Manage your uploads at sushila.ai/mycontent.';
+const DISCLAIMER = (local) => `Generated by a user with sushila.cpp${local ? ' on their own computer' : ''}. To report abuse: sushila.ai/reportabuse`;
+const viewKey = (id) => `/c/${id}`;
+const SHARE_ID = /^[0-9a-f]{12}$/;
+async function newShareId(db, uid) {  // a fresh 12-hex id, reserved in sushilaai-file-views (the condition makes it unique)
+  for (let i = 0; i < 5; i++) {
+    const id = hex(crypto.getRandomValues(new Uint8Array(6)));
+    try { await db.put(TABLES.fileViews, { url: S(viewKey(id)), userId: S(uid), views: N(0) }, 'attribute_not_exists(#u)', { '#u': 'url' }); return id; }
+    catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) throw e; }
+  }
+  throw new Error('could not make a unique link');
+}
+async function shareDelete(b2, db, uid, id) {  // the file, its .json and its view count; true when something was there
+  const { files } = await shareList(b2, uid);
+  const mine = files.filter((f) => f.fileName.startsWith(`${shareKey(uid)}${id}-`) || f.fileName === `${shareKey(uid)}${id}.json`);
+  for (const f of mine) await b2.remove(f.fileName, f.fileId);
+  if (mine.length && db.configured) { try { await db.del(TABLES.fileViews, { url: S(viewKey(id)) }); } catch (e) { console.error('views', e.message); } }
+  return mine.length > 0;
+}
+async function viewsOf(db, items) {  // {link path: views} for a list of shared files (GetItem each; the worker's IAM policy has no BatchGetItem)
+  const out = {};
+  if (!db.configured) return out;
+  await Promise.all(items.slice(0, 500).map(async (m) => {
+    const k = viewKey(m.id);
+    try { out[k] = num(await db.get(TABLES.fileViews, { url: S(k) }), 'views'); } catch (e) { console.error('views', e.message); }
+  }));
+  return out;
+}
+async function shareList(b2, uid) {
+  const files = await b2.list(shareKey(uid));
+  const metas = files.filter((f) => f.fileName.endsWith('.json'));
+  const items = await Promise.all(metas.map(async (m) => {
+    try { const r = await fetch(FILES_BASE + m.fileName.slice('public/'.length)); return r.ok ? await r.json() : null; } catch { return null; }
+  }));
+  return { files, items: items.filter(Boolean).sort((a, b) => (b.created || '').localeCompare(a.created || '')) };
+}
+async function shareApi(request, env, db, b2, p, url) {
+  const app = await readAppToken(request, env);
+  if (!app) return json({ error: 'Please sign in (Share link asks for your e-mail).' }, 401);
+  if (!b2.configured || !db.configured) return json({ error: 'Sharing is not available yet.' }, 503);
+  const uid = app.userId;
+  if (p === '/api/app/uploads' && request.method === 'GET') {
+    const { files, items } = await shareList(b2, uid);
+    const views = await viewsOf(db, items);
+    for (const m of items) m.views = views[viewKey(m.id)] || 0;
+    return json({ items, notice: SHARE_NOTICE, manage: `${url.origin}/mycontent`, used: files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0), quota: SHARE_QUOTA });
+  }
+  if (p === '/api/app/upload' && request.method === 'POST') {
+    if (limited(request, 'share-upload', 30)) return json({ error: 'Too many uploads. Please wait a minute.' }, 429);
+    const ct = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    const ext = SHARE_TYPES[ct];
+    if (!ext) return json({ error: 'Only pictures, songs and videos can be shared.' }, 400);
+    const len = Number(request.headers.get('content-length') || 0);
+    if (len > SHARE_MAX) return json({ error: 'The file is larger than 50 MB.' }, 413);
+    const bytes = await request.arrayBuffer();
+    if (bytes.byteLength > SHARE_MAX) return json({ error: 'The file is larger than 50 MB.' }, 413);
+    const { files } = await shareList(b2, uid);
+    const used = files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0);
+    if (used + bytes.byteLength > SHARE_QUOTA) return json({ error: 'Your shared files would pass 2 GB: delete some links first.' }, 413);
+    const id = await newShareId(db, uid);
+    const name = (url.searchParams.get('name') || 'file').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+/, '').slice(0, 80) || 'file';
+    const fileKey = `${shareKey(uid)}${id}-${name.replace(/\.[A-Za-z0-9]+$/, '')}.${ext}`;
+    let meta;
+    try {  // if the upload fails, the reserved link is given back (no row without its file)
+    await b2.upload(fileKey, bytes, ct);
+    meta = { id, userId: uid, file: FILES_BASE + fileKey.slice('public/'.length), key: fileKey, type: ct, kind: ct.split('/')[0] === 'audio' ? 'music' : ct.split('/')[0],
+      title: (url.searchParams.get('title') || '').slice(0, 300), model: (url.searchParams.get('model') || '').slice(0, 80), bytes: bytes.byteLength,
+      created: new Date().toISOString(), link: `${url.origin}${viewKey(id)}`, local: url.searchParams.get('local') !== '0' };
+    await b2.upload(`${shareKey(uid)}${id}.json`, new TextEncoder().encode(JSON.stringify(meta)), 'application/json');
+    } catch (e) { await shareDelete(b2, db, uid, id).catch(() => {}); try { await db.del(TABLES.fileViews, { url: S(viewKey(id)) }); } catch {} throw e; }
+    return json({ ...meta, notice: SHARE_NOTICE, manage: `${url.origin}/mycontent` });
+  }
+  if (p === '/api/app/delete' && request.method === 'POST') {
+    let d; try { d = await request.json(); } catch { return json({ error: 'Bad request.' }, 400); }
+    const id = String(d.id || '');
+    if (!SHARE_ID.test(id)) return json({ error: 'Bad request.' }, 400);
+    if (!(await shareDelete(b2, db, uid, id))) return json({ error: 'No such link.' }, 404);
+    return json({ ok: true });
+  }
+  if (p === '/api/app/me') return json({ userId: uid, notice: SHARE_NOTICE, manage: `${url.origin}/mycontent` });
+  return json({ error: 'Not found.' }, 404);
+}
+async function sharePage(env, db, id, origin) {
+  if (!SHARE_ID.test(id) || !db.configured) return null;
+  // one more view each time the page is opened; the row also names the owner (only links that exist are counted)
+  let row;
+  try { row = (await db.request('UpdateItem', { TableName: TABLES.fileViews, Key: { url: S(viewKey(id)) }, UpdateExpression: 'ADD #v :one',
+    ConditionExpression: 'attribute_exists(#u)', ExpressionAttributeNames: { '#v': 'views', '#u': 'url' }, ExpressionAttributeValues: { ':one': N(1) }, ReturnValues: 'ALL_NEW' })).Attributes; }
+  catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) console.error('views', e.message); return null; }
+  const uid = str(row, 'userId'), views = num(row, 'views');
+  if (!/^[A-Za-z0-9_-]{4,64}$/.test(uid)) return null;
+  const r = await fetch(`${FILES_BASE}usercontent/${uid}/${id}.json`, { cf: { cacheTtl: 60 } });
+  if (!r.ok) return null;
+  const m = await r.json();
+  const report = `/reportabuse?url=${encodeURIComponent(`${origin}${viewKey(id)}`)}`;
+  const src = esc(m.file), t = esc(m.title || 'Made with Sushila');
+  const media = m.kind === 'image' ? `<img src="${src}" alt="${t}" style="max-width:100%;border-radius:14px">`
+    : m.kind === 'video' ? `<video src="${src}" controls playsinline style="max-width:100%;border-radius:14px"></video>`
+    : `<audio src="${src}" controls style="width:100%"></audio>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t} · Sushila</title>
+${ICON_LINKS.replace('<meta property="og:image" content="https://sushila.ai/logo.png">', '')}<meta property="og:title" content="${t}"><meta property="og:description" content="AI-generated with Sushila${m.model ? ' (' + esc(m.model) + ')' : ''}">
+${m.kind === 'image' ? `<meta property="og:image" content="${src}">` : ''}<style>${STYLE}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+.w{max-width:900px;margin:0 auto;padding:22px}.ai{display:inline-block;margin:10px 0;padding:3px 10px;border-radius:99px;background:var(--accbg);color:var(--acc);font-weight:700;font-size:13px}
+.sub{color:var(--mut);font-size:14px}a{color:var(--acc)}.views{position:fixed;right:14px;bottom:10px;padding:4px 10px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--mut);font-size:13px}</style></head><body><div class="w"><p><a href="/" style="text-decoration:none;font-weight:800">Sushila</a></p>
+${media}<h1 style="font-size:20px;margin:12px 0 4px">${t}</h1><span class="ai">AI-generated</span> <span class="sub">with Sushila${m.model ? ' · ' + esc(m.model) : ''} · shared ${esc((m.created || '').slice(0, 10))}</span>
+<p class="sub"><a href="${src}" download>Download</a> · <a href="${esc(report)}">Report abuse</a></p>
+<p class="sub">${esc(DISCLAIMER(m.local !== false))}.</p></div><div class="views" title="Times this page was opened">${views.toLocaleString('en-US')} view${views === 1 ? '' : 's'}</div></body></html>`;
+}
+
+// --- Report abuse (sushila.ai/reportabuse): anyone, no sign-in; one row per report in sushilaai-reportabuse ---
+const ABUSE_REASONS = ['Sexual content involving minors', 'Non-consensual or intimate imagery', 'Violence or threats', 'Hate or harassment',
+  'Impersonation or deceptive deepfake', 'Copyright or trademark', 'Personal information', 'Spam or malware', 'Other'];
+const REPORTABUSE = (url) => () => `${FORM_CSS}
+<h1>Report abuse</h1>
+<p class="meta">Tell us about a file shared on sushila.ai (a link like sushila.ai/c/…) or anything else made with Sushila that breaks the law or our
+<a href="/terms">Terms</a>. We review every report; inappropriate uploads are deleted and, where the law requires, reported to the authorities.</p>
+<div class="auth" style="max-width:560px">
+  <label for="u">Link</label><input id="u" placeholder="https://sushila.ai/c/…" value="${esc(clean(url.searchParams.get('url'), 300))}">
+  <label for="r">What is wrong</label><select id="r" style="width:100%">${ABUSE_REASONS.map((r) => `<option>${esc(r)}</option>`).join('')}</select>
+  <label for="d">Details</label><textarea id="d" rows="5" style="width:100%" maxlength="4000" placeholder="What you saw, and anything that helps us act."></textarea>
+  <label for="e">Your e-mail (optional, if you want an answer)</label><input id="e" type="email" autocomplete="email">
+  <button class="btn" id="go">Send report</button><div id="m" class="msg"></div>
+</div>${CLIENT}<script>
+document.getElementById('go').onclick=async()=>{const v=(i)=>document.getElementById(i).value;
+  try{const j=await api('/api/reportabuse',{url:v('u'),reason:v('r'),details:v('d'),email:v('e')});say('m','Thank you. Your report number is '+j.reportId+'.',true);document.getElementById('go').disabled=true;}
+  catch(e){say('m',e.message);}};
+</script>`;
+async function reportAbuse(request, env, db) {
+  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+  if (limited(request, 'reportabuse', 10)) return json({ error: 'Too many reports. Please wait a minute.' }, 429);
+  if (!db.configured) return json({ error: 'Reports are not available right now; please e-mail us.' }, 503);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  const link = clean(d.url, 300), details = String(d.details || '').replace(/[\u0000-\u0008\u000b-\u001f]/g, '').trim().slice(0, 4000);
+  const reason = ABUSE_REASONS.includes(d.reason) ? d.reason : 'Other', email = clean(d.email, 200).toLowerCase();
+  if (!link && !details) return json({ error: 'Please give the link or describe what is wrong.' }, 400);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: 'That e-mail address does not look right.' }, 400);
+  const now = new Date().toISOString(), reportId = `r_${now.slice(0, 10).replace(/-/g, '')}_${hex(crypto.getRandomValues(new Uint8Array(4)))}`;
+  await db.put(TABLES.reportabuse, { reportId: S(reportId), at: S(now), url: S(link || '-'), reason: S(reason), details: S(details || '-'), email: S(email || '-'),
+    status: S('new'), ip: S(request.headers.get('cf-connecting-ip') || '-'), country: S((request.cf && request.cf.country) || '-'),
+    userAgent: S(clean(request.headers.get('user-agent'), 300) || '-') });
+  return json({ ok: true, reportId });
+}
+
+// --- My content (sushila.ai/mycontent): the signed-in account's shared files, with views; delete any of them ---
+const MYCONTENT = (items, used) => () => `${FORM_CSS}<style>.mc{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:16px}
+.mc .c{border:1px solid var(--line);border-radius:14px;padding:10px;overflow:hidden}.mc img,.mc video{width:100%;border-radius:10px;display:block;max-height:220px;object-fit:cover}
+.mc audio{width:100%}.mc .t{font-weight:600;font-size:14px;margin:8px 0 2px;overflow-wrap:anywhere}.mc .s{color:var(--mut);font-size:13px}.note{padding:10px 14px;border-radius:12px;background:var(--accbg);font-size:14px}</style>
+<h1>My content</h1>
+<p class="note">${esc(SHARE_NOTICE)}</p>
+<p class="meta">${items.length} file${items.length === 1 ? '' : 's'} · ${(used / 1e6).toFixed(1)} MB of ${SHARE_QUOTA / 1e9} GB. Shared from the Library of Sushila on your computer (Share link).</p>
+${items.length ? `<div class="mc">${items.map((m) => `<div class="c" id="c-${esc(m.id)}">${m.kind === 'image' ? `<img src="${esc(m.file)}" alt="" loading="lazy">`
+    : m.kind === 'video' ? `<video src="${esc(m.file)}" controls preload="metadata"></video>` : `<audio src="${esc(m.file)}" controls preload="none"></audio>`}
+<div class="t">${esc(m.title || m.id)}</div><div class="s">${esc((m.created || '').slice(0, 10))} · ${(m.views || 0).toLocaleString('en-US')} view${m.views === 1 ? '' : 's'} · ${((m.bytes || 0) / 1e6).toFixed(1)} MB</div>
+<div class="s"><a href="${esc(m.link)}">Open link</a> · <button class="linkbtn" onclick="del('${esc(m.id)}')">Delete</button></div></div>`).join('')}</div>`
+  : '<p>Nothing shared yet. In Sushila, open the Library tab and press Share link on a picture, song or video.</p>'}
+<div id="m" class="msg"></div>${CLIENT}<script>
+async function del(id){if(!confirm('Delete this upload? Its link stops working for everyone.'))return;
+  try{await api('/api/mycontent/delete',{id});document.getElementById('c-'+id).remove();say('m','Deleted.',true);}catch(e){say('m',e.message);}}
+</script>`;
+async function myContentDelete(request, env, db, b2, session) {
+  if (!session) return json({ error: 'Please sign in.' }, 401);
+  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  const id = String(d.id || '');
+  if (!SHARE_ID.test(id)) return json({ error: 'Bad request.' }, 400);
+  if (!(await shareDelete(b2, db, session.userId, id))) return json({ error: 'No such upload.' }, 404);
+  return json({ ok: true });
 }
 
 // --- Resend (e-mail) ---
@@ -1627,6 +1911,24 @@ async function createSession(userId, secret) {
   const exp = Date.now() + SESSION_DAYS * 86400 * 1000;
   return btoa(`${userId}|${exp}|${await hmacHex(secret, `session|${userId}|${exp}`)}`);
 }
+// --- App tokens: the Sushila program signs in with the same e-mailed code and keeps this token (1 year); signing out
+// there deletes it. Same form as the session cookie, signed for "app" so a cookie cannot be used as one or the reverse.
+const APP_TOKEN_DAYS = 365;
+async function createAppToken(userId, secret) {
+  const exp = Date.now() + APP_TOKEN_DAYS * 86400 * 1000;
+  return btoa(`${userId}|${exp}|${await hmacHex(secret, `app|${userId}|${exp}`)}`);
+}
+async function readAppToken(request, env) {
+  if (!env.SESSION_SECRET) return null;
+  const t = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!t) return null;
+  try {
+    const [userId, exp, sig] = atob(t).split('|');
+    if (!userId || !exp || Date.now() > Number(exp)) return null;
+    return safeEqual(sig, await hmacHex(env.SESSION_SECRET, `app|${userId}|${exp}`)) ? { userId } : null;
+  } catch { return null; }
+}
+
 async function readSession(request, env) {
   if (!env.SESSION_SECRET) return null;
   const m = (request.headers.get('cookie') || '').match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
@@ -1678,8 +1980,8 @@ async function loadUser(db, session) {
 
 // --- Sign-in codes (no passwords): SIGN_UP creates an account, SIGN_IN uses any e-mail linked to one,
 //     ADD_EMAIL links another e-mail to the signed-in account. ---
-async function sendCode(request, env, db, session) {
-  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+async function sendCode(request, env, db, session, app = false) {
+  if (!app && !sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
   if (limited(request, 'send-code', 10)) return json({ error: 'Too many requests. Please wait a minute.' }, 429);
   if (!db.configured || !env.RESEND_API_KEY || !env.SESSION_SECRET) return json({ error: 'Sign-in is not available yet.' }, 503);
   let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
@@ -1710,8 +2012,8 @@ async function sendCode(request, env, db, session) {
   return json({ ok: true });
 }
 
-async function verifyCode(request, env, db, session) {
-  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+async function verifyCode(request, env, db, session, app = false) {
+  if (!app && !sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
   if (limited(request, 'verify-code', 20)) return json({ error: 'Too many requests. Please wait a minute.' }, 429);
   if (!db.configured || !env.SESSION_SECRET) return json({ error: 'Sign-in is not available yet.' }, 503);
   let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
@@ -1752,6 +2054,8 @@ async function verifyCode(request, env, db, session) {
     await audit(db, 'add-email', session.userId, request, { email });
     return json({ ok: true });
   } else return json({ error: 'Bad request.' }, 400);
+  // the Sushila program gets a token it keeps (Authorization: Bearer), a browser the session cookie
+  if (app) return json({ ok: true, userId, email, token: await createAppToken(userId, env.SESSION_SECRET) });
   return json({ ok: true }, 200, { 'set-cookie': sessionCookie(await createSession(userId, env.SESSION_SECRET)) });
 }
 
@@ -2180,9 +2484,9 @@ const HOST_PACKS = [
         '--cfg-scale', '1.0', '--steps', '8', '--diffusion-fa', '--offload-to-cpu'],
       // Accelerated: Sushila's precomputed cache plan for Z-Image (EasyCache 0.2: 1.10x on held-out prompts, SSIM 0.98)
       turboRequest: { cache_mode: 'easycache', cache_option: 'threshold=0.2' } } },
-  { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs (Accelerated: under 1 second)', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
+  { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs (Accelerated: 0.9 s on a desktop RTX 4090; slower on 8-16 GB GPUs)', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
     variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 7.5, maxCompute: 11.9 },
-    description: 'Z-Image-Turbo with Nunchaku 4-bit kernels for NVIDIA RTX 20/30/40-series: a 768x768 image in about 0.8 s on an RTX 4090 (Accelerated: 6 steps), or the published 1024x1024 / 8 steps (Standard). Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
+    description: 'Z-Image-Turbo with Nunchaku 4-bit kernels for NVIDIA RTX 20/30/40-series: a 768x768 image in about 0.9 s on a desktop RTX 4090 (Accelerated: 6 steps; slower on 8-16 GB GPUs), or the published 1024x1024 / 8 steps (Standard). Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant int4 transformer'],
     files: [['weights/model_index.json', 'model_index.json', 'config'],
       ['weights/scheduler/scheduler_config.json', 'scheduler/scheduler_config.json', 'config'],
@@ -2201,7 +2505,7 @@ const HOST_PACKS = [
       ['weights/vae/diffusion_pytorch_model.safetensors', 'vae/diffusion_pytorch_model.safetensors', 'weights'],
       ['weights/transformer/svdq-int4_r128-z-image-turbo.safetensors', 'transformer/svdq-int4_r128-z-image-turbo.safetensors', 'weights']],
     serve: { engine: 'image-nunchaku', model: 'model_index.json', args: ['--model-dir', '{pack}/model_index.json', '--transformer', '{pack}/transformer/svdq-int4_r128-z-image-turbo.safetensors'] } },
-  { id: 'z-image-turbo-nvidia-fp4', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA RTX 50-series (Accelerated: under 1 second)', model: 'precomputed/z-image-turbo-nvidia-fp4', minRamGB: 16,
+  { id: 'z-image-turbo-nvidia-fp4', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA RTX 50-series (Accelerated: 0.7 s on an RTX 5090; slower on 8-16 GB GPUs)', model: 'precomputed/z-image-turbo-nvidia-fp4', minRamGB: 16,
     variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 12.0 },
     description: 'Z-Image-Turbo with Nunchaku FP4 kernels for NVIDIA RTX 50-series (Blackwell). Accelerated: 768x768 in 6 steps; Standard: the published 1024x1024 / 8 steps. Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant fp4 transformer'],
@@ -2250,17 +2554,31 @@ let hostCatalogCache = null;  // per isolate, 10 minutes (links stay valid for 2
 // scripts/b2_publish_public.py; links never show the storage provider and need no tokens.
 const FILES_BASE = 'https://files.sushila.ai/public/';
 const publicUrl = (key) => FILES_BASE + key.split('/').map(encodeURIComponent).join('/');
+// When B2 fails even after the retries, the last good catalog of this isolate is served (its links stay valid 24 h).
 async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
   if (hostCatalogCache && hostCatalogCache.until > Date.now() && hostCatalogCache.origin === origin) return hostCatalogCache.body;
+  try { return await buildHostCatalog(env, b2, origin); }
+  catch (e) {
+    if (hostCatalogCache && hostCatalogCache.origin === origin && hostCatalogCache.until > Date.now() - 20 * 3600 * 1000) { console.error('catalog: serving the last good one', e.message); return hostCatalogCache.body; }
+    throw e;
+  }
+}
+async function buildHostCatalog(env, b2, origin) {
   const direct = {};  // "<pack id>/<file index>" or "engine/<system>" -> B2 link (24 h)
   const a = await b2.auth();
   const grant = async (prefix) => {
-    const r = await fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
+    const r = await b2fetch(`${a.apiUrl}/b2api/v3/b2_get_download_authorization`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
       body: JSON.stringify({ bucketId: a.bucketId, fileNamePrefix: prefix, validDurationInSeconds: 24 * 3600 }) });
     if (!r.ok) throw new Error('B2 download authorization: ' + r.status);
     return (await r.json()).authorizationToken;
   };
-  const getText = async (key) => { const r = await fetch(b2.fileUrl(a.downloadUrl, key), { headers: { authorization: a.token } }); return r.ok ? r.text() : null; };
+  // missing (404): null; any other failure after the retries throws, so a pack is never left out by a B2 hiccup
+  const getText = async (key) => {
+    const r = await b2fetch(b2.fileUrl(a.downloadUrl, key), { headers: { authorization: a.token } });
+    if (r.ok) return r.text();
+    if (r.status === 404) return null;
+    throw new Error(`B2 read ${key}: ${r.status}`);
+  };
   const getJson = async (key) => { const t = await getText(key); return t ? JSON.parse(t) : null; };
   const packs = [];
   for (const p of HOST_PACKS) {
@@ -2287,7 +2605,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
       const { model, files: _f, ollamaGguf, hidden, ...pub } = p;
       const packBytes = 512 + 0 + files.reduce((a, f) => a + 512 + f.bytes + pad512(f.bytes), 0) + 1024;  // approximate (+ metadata)
       packs.push({ ...pub, files, index: { text, signature: signature.trim() }, packUrl: `${origin}/hoststation/pack/${p.id}.sushilapack`, packBytes });
-    } catch (e) { console.error('hoststation pack', p.id, e.message); }
+    } catch (e) { if (/^B2/.test(e.message)) throw e; console.error('hoststation pack', p.id, e.message); }
   }
   let engine = null;
   try {
@@ -2299,7 +2617,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
         return [k, { ...b, url: `${origin}/hoststation/get/engine/${k}` }];
       })) };
     }
-  } catch (e) { console.error('hoststation engine', e.message); }
+  } catch (e) { if (/^B2/.test(e.message)) throw e; console.error('hoststation engine', e.message); }
   // runtimes the app installs on demand (e.g. image-nunchaku: Python + PyTorch + Nunchaku for the NVIDIA image packs)
   const runtimes = {};
   for (const name of HOST_RUNTIMES) {
@@ -2317,7 +2635,7 @@ async function hostCatalog(env, b2, origin = 'https://sushila.ai') {
         const linked = files.map((f, i) => link(key, i, f));
         return [key, { bytes: b.bytes, python: { ...linked[0], exe: b.python.exe }, server: { ...linked[1], script: b.server.script }, wheels: linked.slice(2) }];
       })) };
-    } catch (e) { console.error('hoststation runtime', name, e.message); }
+    } catch (e) { if (/^B2/.test(e.message)) throw e; console.error('hoststation runtime', name, e.message); }
   }
   const body = { version: 1, generated: new Date().toISOString(), filesBase: FILES_BASE, engine, runtimes, packs };
   hostCatalogCache = { body, direct, origin, until: Date.now() + 10 * 60 * 1000 };
@@ -2397,7 +2715,7 @@ ${product('videogen', 'sushilaVideoGen.cpp', 'Sushila VideoGen', 'Short videos f
   <li><b>Install the app.</b> On Windows, run the installer and choose <i>Only for me</i> or <i>All users</i>. On macOS, drag it to Applications. On Linux, open the .deb, .rpm or AppImage.</li>
   <li><b>Install Sushila.cpp</b> on the Home screen. If it is already on your computer, choose <i>Find an existing installation</i>.</li>
   <li><b>Add a model pack</b>: in the app, or with <a href="/#packs">Install in Host Station</a> on this website. The app shows the pack, its size and license, and asks before installing.</li>
-  <li><b>Start</b> the model, then <b>Launch Inference Page</b>: a chat page opens at <code>http://127.0.0.1:8765/</code>, running entirely on your computer.</li>
+  <li><b>Start</b> the model, then <b>Launch Inference Page</b>: a chat page opens at <code>http://127.0.0.1:7874/</code>, running entirely on your computer.</li>
 </ol>
 
 <h2>Safe by design</h2>
@@ -2837,6 +3155,12 @@ export default {
       if (method === 'POST') {
         if (p === '/api/waitlist') return await waitlist(request, env, db);
         if (p === '/api/auth/send-code') return await sendCode(request, env, db, session);
+        // the Sushila program: the same e-mail code sign-in, answered with a token; then share uploads
+        if (p === '/api/app/send-code') return await sendCode(request, env, db, null, true);
+        if (p === '/api/app/verify-code') return await verifyCode(request, env, db, null, true);
+        if (p === '/api/app/upload' || p === '/api/app/delete') return await shareApi(request, env, db, b2, p, url);
+        if (p === '/api/reportabuse') return await reportAbuse(request, env, db);
+        if (p === '/api/mycontent/delete') return await myContentDelete(request, env, db, b2, session);
         if (p === '/api/auth/verify-code') return await verifyCode(request, env, db, session);
         if (p === '/api/auth/sign-out') return new Response(null, { status: 303, headers: { location: '/', 'set-cookie': clearCookie() } });
         if (p === '/api/account') return await account(request, env, db, session);
@@ -2914,7 +3238,7 @@ export default {
         return new Response(r.body, { status: r.status, headers: out });
       }
       if (p === '/manual' || p === '/manual/') return html(page(env, user, await visibleModels(db), [], null, 'manual'));
-      if (p === '/docs' || p === '/docs/') return new Response(SUSHILA_DOCS_HTML.replaceAll('href="/"', 'href="http://localhost:8765/"').replaceAll('href="/#admin"', 'href="http://localhost:8765/#admin"'), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } });  // the same page sushila serves at /docs; Use/Admin point to the visitor's own Sushila
+      if (p === '/docs' || p === '/docs/') return new Response(SUSHILA_DOCS_HTML.replaceAll('href="/"', 'href="http://localhost:7874/"').replaceAll('href="/#admin"', 'href="http://localhost:7874/#admin"'), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } });  // the same page sushila serves at /docs; Use/Admin point to the visitor's own Sushila
       if (p === '/hoststation' || p === '/hoststation/') {
         let app = null;
         try { if (b2.configured) app = await hostApp(env, b2); } catch (e) { console.error('hostApp', e.message); }
@@ -2938,6 +3262,33 @@ export default {
       if (p === '/hoststation/catalog.json') {
         if (!b2.configured) return json({ version: 1, engine: null, packs: [], error: 'catalog unavailable' }, 503);
         return json(await hostCatalog(env, b2, url.origin), 200, { 'access-control-allow-origin': '*' });
+      }
+      if (p === '/api/app/uploads' || p === '/api/app/me') return await shareApi(request, env, db, b2, p, url);
+      if (p === '/reportabuse' || p === '/reportabuse/') return html(docPage(env, 'Report abuse', 'Report a file shared on sushila.ai or other misuse of Sushila.', REPORTABUSE(url), user));
+      if (p === '/mycontent' || p === '/mycontent/') {
+        if (!user) return Response.redirect(`${url.origin}/signin?next=/mycontent`, 302);
+        if (!b2.configured) return html(docPage(env, 'My content', 'Your shared files.', () => '<h1>My content</h1><p>Not available right now.</p>', user));
+        const { files, items } = await shareList(b2, user.userId);
+        const views = await viewsOf(db, items);
+        for (const m of items) m.views = views[viewKey(m.id)] || 0;
+        const used = files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0);
+        return html(docPage(env, 'My content', 'Your files shared from Sushila: views, links, delete.', MYCONTENT(items, used), user));
+      }
+      // a bookmark for Sushila on this computer: opens http://localhost:7874/ when it runs, else offers to start it
+      if (p === '/start') return html(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Start Sushila</title>${ICON_LINKS}
+<style>${STYLE}body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,sans-serif}.w{max-width:640px;margin:12vh auto;padding:22px;text-align:center}
+.btn{display:inline-block;margin:14px 6px;padding:12px 22px;border-radius:12px;background:var(--acc);color:#fff;font-weight:700;text-decoration:none}.sub{color:var(--mut);font-size:15px}</style></head>
+<body><div class="w"><img src="/logo.png" alt="" width="96" height="96"><h1 id="t">Looking for Sushila on this computer…</h1><div id="b"></div></div>
+<script>(function(){var port=7874;try{var q=+new URLSearchParams(location.search).get('port')||+localStorage.getItem('sushila-port');if(q>0&&q<65536)port=q;}catch(e){}
+var home='http://localhost:'+port+'/',tries=0;
+function up(){fetch('http://localhost:'+port+'/health',{cache:'no-store'}).then(function(r){if(r.ok)location.replace(home);else down();}).catch(down);}
+function down(){document.getElementById('t').textContent='Sushila is not running on this computer';
+document.getElementById('b').innerHTML='<a class="btn" href="sushila://start">▶ Start Sushila</a><a class="btn" href="'+home+'">Open '+home+'</a><p class="sub">The Start button works on Windows once Sushila has run there; otherwise double-click sushila.exe, or run <code>sushila serve</code>. This page opens Sushila by itself as soon as it runs.</p>';
+if(++tries<200)setTimeout(up,3000);}
+up();})();</script></body></html>`);
+      if (p.startsWith('/c/')) {  // a shared file: /c/<12 hex>
+        const page = await sharePage(env, db, p.slice(3).replace(/\/$/, ''), url.origin);
+        return page ? html(page) : new Response('This link was deleted or never existed.', { status: 404, headers: SEC });
       }
       if (p === '/models.json') {
         return json({

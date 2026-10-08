@@ -24,6 +24,7 @@ mod ticker;
 mod tui;
 mod diag;
 mod library;
+mod share;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -228,7 +229,10 @@ enum ServiceCmd { Install { #[arg(long)] packs: Option<String>, #[arg(long)] hos
 #[tokio::main]
 async fn main() -> ExitCode {
     let _ = net::AGENT.set(format!("sushila/{}", env!("CARGO_PKG_VERSION")));
-    let mut cli = Cli::parse();
+    // sushila://start (the page's Start button, a bookmark): opened like a double-click
+    let mut argv: Vec<String> = std::env::args().collect();
+    if argv.get(1).map(|a| a.to_ascii_lowercase().starts_with("sushila://")).unwrap_or(false) { argv.truncate(1); }
+    let mut cli = Cli::parse_from(argv);
     // started without a command (e.g. double-clicked in Explorer or Finder): serve, and open the page in the browser
     let double_click = cli.cmd.is_none();
     // no command (double-click): serve. Both the supervisor and its worker child (SUSHILA_WORKER=1, started with the same
@@ -329,6 +333,20 @@ async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
         core::log(quiet, &format!("{msg}; restarting in {wait} s (details: Admin tab -> Logs -> Crashes)"));
         restarts += 1;
         for _ in 0..wait * 10 { if stopping.load(std::sync::atomic::Ordering::SeqCst) { return ExitCode::SUCCESS; } tokio::time::sleep(Duration::from_millis(100)).await; }
+    }
+}
+
+/// Windows: sushila:// links start this program (the page's "Start Sushila" button when the server is down). Written
+/// for this user only (HKEY_CURRENT_USER, no administrator rights), pointing at this exe; nothing on other systems.
+fn register_link() {
+    #[cfg(windows)]
+    {
+        let Ok(exe) = std::env::current_exe() else { return };
+        let exe = exe.to_string_lossy().to_string();
+        let run = |args: &[&str]| { let _ = std::process::Command::new("reg").args(args).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status(); };
+        run(&["add", r"HKCU\Software\Classes\sushila", "/ve", "/d", "URL:Sushila", "/f"]);
+        run(&["add", r"HKCU\Software\Classes\sushila", "/v", "URL Protocol", "/d", "", "/f"]);
+        run(&["add", r"HKCU\Software\Classes\sushila\shell\open\command", "/ve", "/d", &format!("\"{exe}\" \"%1\""), "/f"]);
     }
 }
 
@@ -931,6 +949,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         if ctx.state["share"]["hosts"].as_array().map(|a| a.is_empty()).unwrap_or(true) { ctx.state["share"]["hosts"] = json!(["*"]); }
         if !open && ctx.state["share"]["keys"].as_array().map(|a| a.is_empty()).unwrap_or(true) { eprintln!("Other machines need an access key: `sushila keys add <name>` (or serve with --open on a trusted network)."); }
     }
+    register_link();
     // engines from an earlier session (closed window, crash, older version) still hold GPU memory: stopped first
     let strays = core::kill_strays(&ctx.data);
     if !strays.is_empty() { ctx.log(&format!("stopped engines left running from an earlier session (they held GPU memory): {}", strays.join(", "))); }

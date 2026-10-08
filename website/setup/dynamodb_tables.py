@@ -72,6 +72,14 @@ SCHEMA = {
     'sushilaai-audit': {                 # sign-ups, sign-ins, e-mail changes, downloads, admin changes
         'hash': 'day', 'range': 'at',
     },
+    'sushilaai-reportabuse': {           # every report from sushila.ai/reportabuse (link, reason, details, e-mail, time, IP)
+        'hash': 'reportId',
+        'pitr': True, 'protect': True,
+    },
+    'sushilaai-file-views': {            # one row per shared link sushila.ai/c/<12 hex>: url "/c/<id>", userId (owner), views
+        'hash': 'url',                   # (the row is the link: it is made first, so ids are unique, and names the owner's folder)
+        'pitr': True, 'protect': True,
+    },
 }
 TAGS = [{'Key': 'project', 'Value': 'sushila.ai'}]
 

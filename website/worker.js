@@ -522,12 +522,12 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--mut);fon
 .doc .meta{color:var(--mut);margin:0 0 24px}
 `;
 
-const accountLink = (user) => user ? `${user.isAdmin ? '<a href="/admin">Admin</a>' : ''}<a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
+const accountLink = (user) => user ? `${user.isAdmin ? '<a href="/admin">Admin</a>' : ''}<a href="/mycontent">My content</a><a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
 const brand = () => `<a class="brand" href="/"><img src="/logo.png" width="32" height="32" alt=""> Sushila.cpp</a>`;
 
 const footer = (contact) => `<footer><div class="wrap row" style="justify-content:space-between">
   <span>© ${new Date().getUTCFullYear()} Sushila, an open-source research project</span>
-  <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="/bugs/new">Report a bug</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
+  <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="/bugs/new">Report a bug</a> · <a href="/reportabuse">Report abuse</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
 </div></footer>`;
 
 function docPage(env, title, desc, body, user) {
@@ -651,6 +651,12 @@ account and last signed in, and records of sign-ins and e-mail changes. Sign-in 
 from Host Station), the file, the time, your IP address and country, your browser or app user agent and operating system, and the kind
 of file. We use this to count downloads, plan capacity and prevent abuse, and delete each record after 12 months; only the totals per
 file are kept.</li>
+<li><b>Shared files:</b> a picture, song or video you choose to share from Sushila (Share link) is stored with its title, model and
+time under your account and is public to anyone with its link until you delete it at sushila.ai/mycontent. For each link we keep one
+number, how many times its page was opened. Uploads for free accounts may be deleted at any time; inappropriate uploads are deleted and
+reported.</li>
+<li><b>Abuse reports:</b> what you enter at sushila.ai/reportabuse (the link, the reason, the details and, if you give it, your
+e-mail), with the time, your IP address, country and browser user agent, so we can act on the report and prevent misuse.</li>
 <li><b>Early-access sign-up:</b> the e-mail address and the optional list of models you enter, the time of sign-up and the country
 of your connection (derived by our hosting provider from your IP address). If you choose to e-mail us instead, we receive what you
 send.</li>
@@ -1531,6 +1537,8 @@ const TABLES = {
   download: 'sushilaai-download',   // PK file, SK at: one row per download (time, IP, country, system, kind; TTL 12 months) + '#count'
   compare: 'sushilaai-compare',     // PK runId: admin "Compare Speeds" pods (pod id, model, results); pods are deleted, rows kept
   audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes
+  reportabuse: 'sushilaai-reportabuse', // PK reportId: every report sent from sushila.ai/reportabuse (link, reason, details, e-mail, time, IP)
+  fileViews: 'sushilaai-file-views',    // PK url (a shared link, "/c/<12 hex>") -> userId (its owner) and views (number); nothing else
 };
 const OTP_TTL_MS = 5 * 60 * 1000;      // a code is valid for 5 minutes
 const OTP_RESEND_MS = 10 * 1000;       // at most one code every 10 seconds per e-mail
@@ -1575,6 +1583,7 @@ class DynamoDB {
     const amzDate = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
     const date = amzDate.slice(0, 8);
     const headers = { 'content-type': 'application/x-amz-json-1.0', host: this.host, 'x-amz-date': amzDate, 'x-amz-target': `DynamoDB_20120810.${action}` };
+    if (this.env.AWS_SESSION_TOKEN) headers['x-amz-security-token'] = this.env.AWS_SESSION_TOKEN;  // temporary credentials (optional)
     const names = Object.keys(headers).sort();
     const canonical = ['POST', '/', '', names.map((n) => `${n}:${headers[n]}`).join('\n') + '\n', names.join(';'), await sha256Hex(body)].join('\n');
     const scope = `${date}/${this.region}/dynamodb/aws4_request`;
@@ -1594,7 +1603,7 @@ class DynamoDB {
     return out;
   }
   get(table, key) { return this.request('GetItem', { TableName: table, Key: key, ConsistentRead: true }).then((r) => r.Item || null); }
-  put(table, item, condition) { return this.request('PutItem', { TableName: table, Item: item, ...(condition ? { ConditionExpression: condition } : {}) }); }
+  put(table, item, condition, names) { return this.request('PutItem', { TableName: table, Item: item, ...(condition ? { ConditionExpression: condition } : {}), ...(names ? { ExpressionAttributeNames: names } : {}) }); }
   del(table, key) { return this.request('DeleteItem', { TableName: table, Key: key }); }
   update(table, key, expr, values, names) {
     return this.request('UpdateItem', { TableName: table, Key: key, UpdateExpression: expr,
@@ -1676,6 +1685,32 @@ class B2 {
     const d = await r.json();
     return `${this.fileUrl(a.downloadUrl, key)}?Authorization=${encodeURIComponent(d.authorizationToken)}&b2ContentDisposition=${encodeURIComponent(`attachment; filename="${filename}"`)}`;
   }
+  async upload(key, bytes, contentType) {
+    const a = await this.auth();
+    const u = await b2fetch(`${a.apiUrl}/b2api/v3/b2_get_upload_url`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' }, body: JSON.stringify({ bucketId: a.bucketId }) });
+    if (!u.ok) throw new Error('B2 upload url: ' + u.status);
+    const { uploadUrl, authorizationToken } = await u.json();
+    const sha1 = [...new Uint8Array(await crypto.subtle.digest('SHA-1', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const r = await fetch(uploadUrl, { method: 'POST', headers: { authorization: authorizationToken, 'X-Bz-File-Name': key.split('/').map(encodeURIComponent).join('/'),
+      'content-type': contentType, 'X-Bz-Content-Sha1': sha1 }, body: bytes });
+    if (!r.ok) throw new Error('B2 upload: ' + r.status + ' ' + (await r.text()).slice(0, 200));
+    return r.json();
+  }
+  async list(prefix) {  // every file under a prefix: [{fileName, fileId, contentLength}]
+    const a = await this.auth(); const out = []; let start = null;
+    do {
+      const r = await b2fetch(`${a.apiUrl}/b2api/v3/b2_list_file_names`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' },
+        body: JSON.stringify({ bucketId: a.bucketId, prefix, maxFileCount: 1000, ...(start ? { startFileName: start } : {}) }) });
+      if (!r.ok) throw new Error('B2 list: ' + r.status);
+      const j = await r.json(); out.push(...(j.files || [])); start = j.nextFileName;
+    } while (start);
+    return out;
+  }
+  async remove(fileName, fileId) {
+    const a = await this.auth();
+    const r = await b2fetch(`${a.apiUrl}/b2api/v3/b2_delete_file_version`, { method: 'POST', headers: { authorization: a.token, 'content-type': 'application/json' }, body: JSON.stringify({ fileName, fileId }) });
+    if (!r.ok) throw new Error('B2 delete: ' + r.status);
+  }
   async fetchFile(key, request) {  // stream a (small) file through the worker, passing Range on for video players
     const a = await this.auth();
     const h = { authorization: a.token };
@@ -1683,6 +1718,183 @@ class B2 {
     if (range) h.range = range;
     return b2fetch(this.fileUrl(a.downloadUrl, key), { headers: h, cf: { cacheEverything: true, cacheTtl: 86400 } });
   }
+}
+
+// --- Shared files (Share link in Sushila's Library): an account (e-mail code, no password) uploads one file at a time
+// to B2 public/usercontent/<userId>/<id>-<name> with <id>.json (what it is); https://sushila.ai/c/<id> (id = 12 lower-case
+// hex characters, unique: its row in sushilaai-file-views is created first, with the owner's userId) shows
+// it with an "AI-generated" label and a Report link. 50 MB per file, 2 GB per account; the owner deletes a link at once.
+const SHARE_MAX = 50e6, SHARE_QUOTA = 2e9;
+const SHARE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'audio/mpeg': 'mp3', 'audio/wav': 'wav',
+  'audio/flac': 'flac', 'audio/ogg': 'ogg', 'video/webm': 'webm', 'video/mp4': 'mp4' };
+const shareKey = (uid) => `public/usercontent/${uid}/`;
+const SHARE_NOTICE = 'Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported. Manage your uploads at sushila.ai/mycontent.';
+const DISCLAIMER = (local) => `Generated by a user with sushila.cpp${local ? ' on their own computer' : ''}. To report abuse: sushila.ai/reportabuse`;
+const viewKey = (id) => `/c/${id}`;
+const SHARE_ID = /^[0-9a-f]{12}$/;
+async function newShareId(db, uid) {  // a fresh 12-hex id, reserved in sushilaai-file-views (the condition makes it unique)
+  for (let i = 0; i < 5; i++) {
+    const id = hex(crypto.getRandomValues(new Uint8Array(6)));
+    try { await db.put(TABLES.fileViews, { url: S(viewKey(id)), userId: S(uid), views: N(0) }, 'attribute_not_exists(#u)', { '#u': 'url' }); return id; }
+    catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) throw e; }
+  }
+  throw new Error('could not make a unique link');
+}
+async function shareDelete(b2, db, uid, id) {  // the file, its .json and its view count; true when something was there
+  const { files } = await shareList(b2, uid);
+  const mine = files.filter((f) => f.fileName.startsWith(`${shareKey(uid)}${id}-`) || f.fileName === `${shareKey(uid)}${id}.json`);
+  for (const f of mine) await b2.remove(f.fileName, f.fileId);
+  if (mine.length && db.configured) { try { await db.del(TABLES.fileViews, { url: S(viewKey(id)) }); } catch (e) { console.error('views', e.message); } }
+  return mine.length > 0;
+}
+async function viewsOf(db, items) {  // {link path: views} for a list of shared files (GetItem each; the worker's IAM policy has no BatchGetItem)
+  const out = {};
+  if (!db.configured) return out;
+  await Promise.all(items.slice(0, 500).map(async (m) => {
+    const k = viewKey(m.id);
+    try { out[k] = num(await db.get(TABLES.fileViews, { url: S(k) }), 'views'); } catch (e) { console.error('views', e.message); }
+  }));
+  return out;
+}
+async function shareList(b2, uid) {
+  const files = await b2.list(shareKey(uid));
+  const metas = files.filter((f) => f.fileName.endsWith('.json'));
+  const items = await Promise.all(metas.map(async (m) => {
+    try { const r = await fetch(FILES_BASE + m.fileName.slice('public/'.length)); return r.ok ? await r.json() : null; } catch { return null; }
+  }));
+  return { files, items: items.filter(Boolean).sort((a, b) => (b.created || '').localeCompare(a.created || '')) };
+}
+async function shareApi(request, env, db, b2, p, url) {
+  const app = await readAppToken(request, env);
+  if (!app) return json({ error: 'Please sign in (Share link asks for your e-mail).' }, 401);
+  if (!b2.configured || !db.configured) return json({ error: 'Sharing is not available yet.' }, 503);
+  const uid = app.userId;
+  if (p === '/api/app/uploads' && request.method === 'GET') {
+    const { files, items } = await shareList(b2, uid);
+    const views = await viewsOf(db, items);
+    for (const m of items) m.views = views[viewKey(m.id)] || 0;
+    return json({ items, notice: SHARE_NOTICE, manage: `${url.origin}/mycontent`, used: files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0), quota: SHARE_QUOTA });
+  }
+  if (p === '/api/app/upload' && request.method === 'POST') {
+    if (limited(request, 'share-upload', 30)) return json({ error: 'Too many uploads. Please wait a minute.' }, 429);
+    const ct = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    const ext = SHARE_TYPES[ct];
+    if (!ext) return json({ error: 'Only pictures, songs and videos can be shared.' }, 400);
+    const len = Number(request.headers.get('content-length') || 0);
+    if (len > SHARE_MAX) return json({ error: 'The file is larger than 50 MB.' }, 413);
+    const bytes = await request.arrayBuffer();
+    if (bytes.byteLength > SHARE_MAX) return json({ error: 'The file is larger than 50 MB.' }, 413);
+    const { files } = await shareList(b2, uid);
+    const used = files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0);
+    if (used + bytes.byteLength > SHARE_QUOTA) return json({ error: 'Your shared files would pass 2 GB: delete some links first.' }, 413);
+    const id = await newShareId(db, uid);
+    const name = (url.searchParams.get('name') || 'file').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+/, '').slice(0, 80) || 'file';
+    const fileKey = `${shareKey(uid)}${id}-${name.replace(/\.[A-Za-z0-9]+$/, '')}.${ext}`;
+    let meta;
+    try {  // if the upload fails, the reserved link is given back (no row without its file)
+    await b2.upload(fileKey, bytes, ct);
+    meta = { id, userId: uid, file: FILES_BASE + fileKey.slice('public/'.length), key: fileKey, type: ct, kind: ct.split('/')[0] === 'audio' ? 'music' : ct.split('/')[0],
+      title: (url.searchParams.get('title') || '').slice(0, 300), model: (url.searchParams.get('model') || '').slice(0, 80), bytes: bytes.byteLength,
+      created: new Date().toISOString(), link: `${url.origin}${viewKey(id)}`, local: url.searchParams.get('local') !== '0' };
+    await b2.upload(`${shareKey(uid)}${id}.json`, new TextEncoder().encode(JSON.stringify(meta)), 'application/json');
+    } catch (e) { await shareDelete(b2, db, uid, id).catch(() => {}); try { await db.del(TABLES.fileViews, { url: S(viewKey(id)) }); } catch {} throw e; }
+    return json({ ...meta, notice: SHARE_NOTICE, manage: `${url.origin}/mycontent` });
+  }
+  if (p === '/api/app/delete' && request.method === 'POST') {
+    let d; try { d = await request.json(); } catch { return json({ error: 'Bad request.' }, 400); }
+    const id = String(d.id || '');
+    if (!SHARE_ID.test(id)) return json({ error: 'Bad request.' }, 400);
+    if (!(await shareDelete(b2, db, uid, id))) return json({ error: 'No such link.' }, 404);
+    return json({ ok: true });
+  }
+  if (p === '/api/app/me') return json({ userId: uid, notice: SHARE_NOTICE, manage: `${url.origin}/mycontent` });
+  return json({ error: 'Not found.' }, 404);
+}
+async function sharePage(env, db, id, origin) {
+  if (!SHARE_ID.test(id) || !db.configured) return null;
+  // one more view each time the page is opened; the row also names the owner (only links that exist are counted)
+  let row;
+  try { row = (await db.request('UpdateItem', { TableName: TABLES.fileViews, Key: { url: S(viewKey(id)) }, UpdateExpression: 'ADD #v :one',
+    ConditionExpression: 'attribute_exists(#u)', ExpressionAttributeNames: { '#v': 'views', '#u': 'url' }, ExpressionAttributeValues: { ':one': N(1) }, ReturnValues: 'ALL_NEW' })).Attributes; }
+  catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) console.error('views', e.message); return null; }
+  const uid = str(row, 'userId'), views = num(row, 'views');
+  if (!/^[A-Za-z0-9_-]{4,64}$/.test(uid)) return null;
+  const r = await fetch(`${FILES_BASE}usercontent/${uid}/${id}.json`, { cf: { cacheTtl: 60 } });
+  if (!r.ok) return null;
+  const m = await r.json();
+  const report = `/reportabuse?url=${encodeURIComponent(`${origin}${viewKey(id)}`)}`;
+  const src = esc(m.file), t = esc(m.title || 'Made with Sushila');
+  const media = m.kind === 'image' ? `<img src="${src}" alt="${t}" style="max-width:100%;border-radius:14px">`
+    : m.kind === 'video' ? `<video src="${src}" controls playsinline style="max-width:100%;border-radius:14px"></video>`
+    : `<audio src="${src}" controls style="width:100%"></audio>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t} · Sushila</title>
+${ICON_LINKS.replace('<meta property="og:image" content="https://sushila.ai/logo.png">', '')}<meta property="og:title" content="${t}"><meta property="og:description" content="AI-generated with Sushila${m.model ? ' (' + esc(m.model) + ')' : ''}">
+${m.kind === 'image' ? `<meta property="og:image" content="${src}">` : ''}<style>${STYLE}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+.w{max-width:900px;margin:0 auto;padding:22px}.ai{display:inline-block;margin:10px 0;padding:3px 10px;border-radius:99px;background:var(--accbg);color:var(--acc);font-weight:700;font-size:13px}
+.sub{color:var(--mut);font-size:14px}a{color:var(--acc)}.views{position:fixed;right:14px;bottom:10px;padding:4px 10px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--mut);font-size:13px}</style></head><body><div class="w"><p><a href="/" style="text-decoration:none;font-weight:800">Sushila</a></p>
+${media}<h1 style="font-size:20px;margin:12px 0 4px">${t}</h1><span class="ai">AI-generated</span> <span class="sub">with Sushila${m.model ? ' · ' + esc(m.model) : ''} · shared ${esc((m.created || '').slice(0, 10))}</span>
+<p class="sub"><a href="${src}" download>Download</a> · <a href="${esc(report)}">Report abuse</a></p>
+<p class="sub">${esc(DISCLAIMER(m.local !== false))}.</p></div><div class="views" title="Times this page was opened">${views.toLocaleString('en-US')} view${views === 1 ? '' : 's'}</div></body></html>`;
+}
+
+// --- Report abuse (sushila.ai/reportabuse): anyone, no sign-in; one row per report in sushilaai-reportabuse ---
+const ABUSE_REASONS = ['Sexual content involving minors', 'Non-consensual or intimate imagery', 'Violence or threats', 'Hate or harassment',
+  'Impersonation or deceptive deepfake', 'Copyright or trademark', 'Personal information', 'Spam or malware', 'Other'];
+const REPORTABUSE = (url) => () => `${FORM_CSS}
+<h1>Report abuse</h1>
+<p class="meta">Tell us about a file shared on sushila.ai (a link like sushila.ai/c/…) or anything else made with Sushila that breaks the law or our
+<a href="/terms">Terms</a>. We review every report; inappropriate uploads are deleted and, where the law requires, reported to the authorities.</p>
+<div class="auth" style="max-width:560px">
+  <label for="u">Link</label><input id="u" placeholder="https://sushila.ai/c/…" value="${esc(clean(url.searchParams.get('url'), 300))}">
+  <label for="r">What is wrong</label><select id="r" style="width:100%">${ABUSE_REASONS.map((r) => `<option>${esc(r)}</option>`).join('')}</select>
+  <label for="d">Details</label><textarea id="d" rows="5" style="width:100%" maxlength="4000" placeholder="What you saw, and anything that helps us act."></textarea>
+  <label for="e">Your e-mail (optional, if you want an answer)</label><input id="e" type="email" autocomplete="email">
+  <button class="btn" id="go">Send report</button><div id="m" class="msg"></div>
+</div>${CLIENT}<script>
+document.getElementById('go').onclick=async()=>{const v=(i)=>document.getElementById(i).value;
+  try{const j=await api('/api/reportabuse',{url:v('u'),reason:v('r'),details:v('d'),email:v('e')});say('m','Thank you. Your report number is '+j.reportId+'.',true);document.getElementById('go').disabled=true;}
+  catch(e){say('m',e.message);}};
+</script>`;
+async function reportAbuse(request, env, db) {
+  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+  if (limited(request, 'reportabuse', 10)) return json({ error: 'Too many reports. Please wait a minute.' }, 429);
+  if (!db.configured) return json({ error: 'Reports are not available right now; please e-mail us.' }, 503);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  const link = clean(d.url, 300), details = String(d.details || '').replace(/[\u0000-\u0008\u000b-\u001f]/g, '').trim().slice(0, 4000);
+  const reason = ABUSE_REASONS.includes(d.reason) ? d.reason : 'Other', email = clean(d.email, 200).toLowerCase();
+  if (!link && !details) return json({ error: 'Please give the link or describe what is wrong.' }, 400);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: 'That e-mail address does not look right.' }, 400);
+  const now = new Date().toISOString(), reportId = `r_${now.slice(0, 10).replace(/-/g, '')}_${hex(crypto.getRandomValues(new Uint8Array(4)))}`;
+  await db.put(TABLES.reportabuse, { reportId: S(reportId), at: S(now), url: S(link || '-'), reason: S(reason), details: S(details || '-'), email: S(email || '-'),
+    status: S('new'), ip: S(request.headers.get('cf-connecting-ip') || '-'), country: S((request.cf && request.cf.country) || '-'),
+    userAgent: S(clean(request.headers.get('user-agent'), 300) || '-') });
+  return json({ ok: true, reportId });
+}
+
+// --- My content (sushila.ai/mycontent): the signed-in account's shared files, with views; delete any of them ---
+const MYCONTENT = (items, used) => () => `${FORM_CSS}<style>.mc{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:16px}
+.mc .c{border:1px solid var(--line);border-radius:14px;padding:10px;overflow:hidden}.mc img,.mc video{width:100%;border-radius:10px;display:block;max-height:220px;object-fit:cover}
+.mc audio{width:100%}.mc .t{font-weight:600;font-size:14px;margin:8px 0 2px;overflow-wrap:anywhere}.mc .s{color:var(--mut);font-size:13px}.note{padding:10px 14px;border-radius:12px;background:var(--accbg);font-size:14px}</style>
+<h1>My content</h1>
+<p class="note">${esc(SHARE_NOTICE)}</p>
+<p class="meta">${items.length} file${items.length === 1 ? '' : 's'} · ${(used / 1e6).toFixed(1)} MB of ${SHARE_QUOTA / 1e9} GB. Shared from the Library of Sushila on your computer (Share link).</p>
+${items.length ? `<div class="mc">${items.map((m) => `<div class="c" id="c-${esc(m.id)}">${m.kind === 'image' ? `<img src="${esc(m.file)}" alt="" loading="lazy">`
+    : m.kind === 'video' ? `<video src="${esc(m.file)}" controls preload="metadata"></video>` : `<audio src="${esc(m.file)}" controls preload="none"></audio>`}
+<div class="t">${esc(m.title || m.id)}</div><div class="s">${esc((m.created || '').slice(0, 10))} · ${(m.views || 0).toLocaleString('en-US')} view${m.views === 1 ? '' : 's'} · ${((m.bytes || 0) / 1e6).toFixed(1)} MB</div>
+<div class="s"><a href="${esc(m.link)}">Open link</a> · <button class="linkbtn" onclick="del('${esc(m.id)}')">Delete</button></div></div>`).join('')}</div>`
+  : '<p>Nothing shared yet. In Sushila, open the Library tab and press Share link on a picture, song or video.</p>'}
+<div id="m" class="msg"></div>${CLIENT}<script>
+async function del(id){if(!confirm('Delete this upload? Its link stops working for everyone.'))return;
+  try{await api('/api/mycontent/delete',{id});document.getElementById('c-'+id).remove();say('m','Deleted.',true);}catch(e){say('m',e.message);}}
+</script>`;
+async function myContentDelete(request, env, db, b2, session) {
+  if (!session) return json({ error: 'Please sign in.' }, 401);
+  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  const id = String(d.id || '');
+  if (!SHARE_ID.test(id)) return json({ error: 'Bad request.' }, 400);
+  if (!(await shareDelete(b2, db, session.userId, id))) return json({ error: 'No such upload.' }, 404);
+  return json({ ok: true });
 }
 
 // --- Resend (e-mail) ---
@@ -1699,6 +1911,24 @@ async function createSession(userId, secret) {
   const exp = Date.now() + SESSION_DAYS * 86400 * 1000;
   return btoa(`${userId}|${exp}|${await hmacHex(secret, `session|${userId}|${exp}`)}`);
 }
+// --- App tokens: the Sushila program signs in with the same e-mailed code and keeps this token (1 year); signing out
+// there deletes it. Same form as the session cookie, signed for "app" so a cookie cannot be used as one or the reverse.
+const APP_TOKEN_DAYS = 365;
+async function createAppToken(userId, secret) {
+  const exp = Date.now() + APP_TOKEN_DAYS * 86400 * 1000;
+  return btoa(`${userId}|${exp}|${await hmacHex(secret, `app|${userId}|${exp}`)}`);
+}
+async function readAppToken(request, env) {
+  if (!env.SESSION_SECRET) return null;
+  const t = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!t) return null;
+  try {
+    const [userId, exp, sig] = atob(t).split('|');
+    if (!userId || !exp || Date.now() > Number(exp)) return null;
+    return safeEqual(sig, await hmacHex(env.SESSION_SECRET, `app|${userId}|${exp}`)) ? { userId } : null;
+  } catch { return null; }
+}
+
 async function readSession(request, env) {
   if (!env.SESSION_SECRET) return null;
   const m = (request.headers.get('cookie') || '').match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
@@ -1750,8 +1980,8 @@ async function loadUser(db, session) {
 
 // --- Sign-in codes (no passwords): SIGN_UP creates an account, SIGN_IN uses any e-mail linked to one,
 //     ADD_EMAIL links another e-mail to the signed-in account. ---
-async function sendCode(request, env, db, session) {
-  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+async function sendCode(request, env, db, session, app = false) {
+  if (!app && !sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
   if (limited(request, 'send-code', 10)) return json({ error: 'Too many requests. Please wait a minute.' }, 429);
   if (!db.configured || !env.RESEND_API_KEY || !env.SESSION_SECRET) return json({ error: 'Sign-in is not available yet.' }, 503);
   let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
@@ -1782,8 +2012,8 @@ async function sendCode(request, env, db, session) {
   return json({ ok: true });
 }
 
-async function verifyCode(request, env, db, session) {
-  if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+async function verifyCode(request, env, db, session, app = false) {
+  if (!app && !sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
   if (limited(request, 'verify-code', 20)) return json({ error: 'Too many requests. Please wait a minute.' }, 429);
   if (!db.configured || !env.SESSION_SECRET) return json({ error: 'Sign-in is not available yet.' }, 503);
   let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
@@ -1824,6 +2054,8 @@ async function verifyCode(request, env, db, session) {
     await audit(db, 'add-email', session.userId, request, { email });
     return json({ ok: true });
   } else return json({ error: 'Bad request.' }, 400);
+  // the Sushila program gets a token it keeps (Authorization: Bearer), a browser the session cookie
+  if (app) return json({ ok: true, userId, email, token: await createAppToken(userId, env.SESSION_SECRET) });
   return json({ ok: true }, 200, { 'set-cookie': sessionCookie(await createSession(userId, env.SESSION_SECRET)) });
 }
 
@@ -2923,6 +3155,12 @@ export default {
       if (method === 'POST') {
         if (p === '/api/waitlist') return await waitlist(request, env, db);
         if (p === '/api/auth/send-code') return await sendCode(request, env, db, session);
+        // the Sushila program: the same e-mail code sign-in, answered with a token; then share uploads
+        if (p === '/api/app/send-code') return await sendCode(request, env, db, null, true);
+        if (p === '/api/app/verify-code') return await verifyCode(request, env, db, null, true);
+        if (p === '/api/app/upload' || p === '/api/app/delete') return await shareApi(request, env, db, b2, p, url);
+        if (p === '/api/reportabuse') return await reportAbuse(request, env, db);
+        if (p === '/api/mycontent/delete') return await myContentDelete(request, env, db, b2, session);
         if (p === '/api/auth/verify-code') return await verifyCode(request, env, db, session);
         if (p === '/api/auth/sign-out') return new Response(null, { status: 303, headers: { location: '/', 'set-cookie': clearCookie() } });
         if (p === '/api/account') return await account(request, env, db, session);
@@ -3024,6 +3262,33 @@ export default {
       if (p === '/hoststation/catalog.json') {
         if (!b2.configured) return json({ version: 1, engine: null, packs: [], error: 'catalog unavailable' }, 503);
         return json(await hostCatalog(env, b2, url.origin), 200, { 'access-control-allow-origin': '*' });
+      }
+      if (p === '/api/app/uploads' || p === '/api/app/me') return await shareApi(request, env, db, b2, p, url);
+      if (p === '/reportabuse' || p === '/reportabuse/') return html(docPage(env, 'Report abuse', 'Report a file shared on sushila.ai or other misuse of Sushila.', REPORTABUSE(url), user));
+      if (p === '/mycontent' || p === '/mycontent/') {
+        if (!user) return Response.redirect(`${url.origin}/signin?next=/mycontent`, 302);
+        if (!b2.configured) return html(docPage(env, 'My content', 'Your shared files.', () => '<h1>My content</h1><p>Not available right now.</p>', user));
+        const { files, items } = await shareList(b2, user.userId);
+        const views = await viewsOf(db, items);
+        for (const m of items) m.views = views[viewKey(m.id)] || 0;
+        const used = files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0);
+        return html(docPage(env, 'My content', 'Your files shared from Sushila: views, links, delete.', MYCONTENT(items, used), user));
+      }
+      // a bookmark for Sushila on this computer: opens http://localhost:7874/ when it runs, else offers to start it
+      if (p === '/start') return html(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Start Sushila</title>${ICON_LINKS}
+<style>${STYLE}body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,sans-serif}.w{max-width:640px;margin:12vh auto;padding:22px;text-align:center}
+.btn{display:inline-block;margin:14px 6px;padding:12px 22px;border-radius:12px;background:var(--acc);color:#fff;font-weight:700;text-decoration:none}.sub{color:var(--mut);font-size:15px}</style></head>
+<body><div class="w"><img src="/logo.png" alt="" width="96" height="96"><h1 id="t">Looking for Sushila on this computer…</h1><div id="b"></div></div>
+<script>(function(){var port=7874;try{var q=+new URLSearchParams(location.search).get('port')||+localStorage.getItem('sushila-port');if(q>0&&q<65536)port=q;}catch(e){}
+var home='http://localhost:'+port+'/',tries=0;
+function up(){fetch('http://localhost:'+port+'/health',{cache:'no-store'}).then(function(r){if(r.ok)location.replace(home);else down();}).catch(down);}
+function down(){document.getElementById('t').textContent='Sushila is not running on this computer';
+document.getElementById('b').innerHTML='<a class="btn" href="sushila://start">▶ Start Sushila</a><a class="btn" href="'+home+'">Open '+home+'</a><p class="sub">The Start button works on Windows once Sushila has run there; otherwise double-click sushila.exe, or run <code>sushila serve</code>. This page opens Sushila by itself as soon as it runs.</p>';
+if(++tries<200)setTimeout(up,3000);}
+up();})();</script></body></html>`);
+      if (p.startsWith('/c/')) {  // a shared file: /c/<12 hex>
+        const page = await sharePage(env, db, p.slice(3).replace(/\/$/, ''), url.origin);
+        return page ? html(page) : new Response('This link was deleted or never existed.', { status: 404, headers: SEC });
       }
       if (p === '/models.json') {
         return json({

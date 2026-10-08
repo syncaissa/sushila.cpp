@@ -269,7 +269,12 @@ async fn srv_library(axum::extract::State(s): axum::extract::State<Arc<Srv>>, ax
     use axum::response::IntoResponse;
     if !lib_local(&s, &headers, &q) { return (axum::http::StatusCode::FORBIDDEN, "the Library is for this computer only").into_response(); }
     let dir = s.data_dir.clone();
-    let v = tokio::task::spawn_blocking(move || json!({ "folder": dir.join("outputs").to_string_lossy(), "items": crate::library::list(&dir), "trash": crate::library::list_trash(&dir) })).await.unwrap_or(Value::Null);
+    let v = tokio::task::spawn_blocking(move || {
+        // each file with its share link, if it has one
+        let links = crate::share::links(&dir);
+        let items: Vec<Value> = crate::library::list(&dir).into_iter().map(|mut x| { if let Some(l) = x["rel"].as_str().and_then(|r| links.get(r)) { x["link"] = l["link"].clone(); x["shareId"] = l["id"].clone(); } x }).collect();
+        json!({ "folder": dir.join("outputs").to_string_lossy(), "items": items, "trash": crate::library::list_trash(&dir) })
+    }).await.unwrap_or(Value::Null);
     axum::Json(v).into_response()
 }
 async fn srv_library_file(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>, headers: axum::http::HeaderMap) -> axum::response::Response {
@@ -298,6 +303,28 @@ async fn srv_library_act(axum::extract::State(s): axum::extract::State<Arc<Srv>>
     };
     crate::core::log(true, &format!("library: {act} {rel}: {}", r.as_ref().map(|_| "done".to_string()).unwrap_or_else(|e| e.clone())));
     match r { Ok(v) => axum::Json(v).into_response(), Err(e) => (axum::http::StatusCode::BAD_REQUEST, e).into_response() }
+}
+
+/// Share link (this computer only): GET /api/share/me | list; POST /api/share/code {email, purpose} | verify {email, code,
+/// firstName} | signout | upload {rel} | delete {id}. This server keeps the sushila.ai token; the page never sees it.
+async fn srv_share(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(act): axum::extract::Path<String>, method: axum::http::Method,
+                   headers: axum::http::HeaderMap, body: axum::body::Bytes) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !lib_local(&s, &headers, &HashMap::new()) { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    let d: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    let g = |k: &str| d[k].as_str().unwrap_or("").to_string();
+    let dir = s.data_dir.clone();
+    let r = match (method.as_str(), act.as_str()) {
+        ("GET", "me") => Ok(crate::share::me(&dir)),
+        ("GET", "list") => crate::share::list(&dir).await,
+        ("POST", "code") => crate::share::send_code(&dir, &g("email"), &g("purpose")).await,
+        ("POST", "verify") => crate::share::verify(&dir, &g("email"), &g("code"), &g("firstName")).await,
+        ("POST", "signout") => Ok(crate::share::sign_out(&dir)),
+        ("POST", "upload") => crate::share::upload(&dir, &g("rel")).await,
+        ("POST", "delete") => crate::share::delete(&dir, &g("id")).await,
+        _ => Err("unknown".into()),
+    };
+    match r { Ok(v) => axum::Json(v).into_response(), Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(json!({ "error": e }))).into_response() }
 }
 
 /// GET /api/diagnose?pack=<id>: why that pack failed (GPU and RAM free, programs on the GPU, disk, its log, crashes),
@@ -974,6 +1001,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/library", axum::routing::get(srv_library))
         .route("/api/library/file", axum::routing::get(srv_library_file))
         .route("/api/library/:act", axum::routing::post(srv_library_act))
+        .route("/api/share/:act", axum::routing::get(srv_share).post(srv_share))
         .route("/api/shutdown", axum::routing::post(srv_shutdown))
         .route("/api/control", axum::routing::post(srv_control).options(srv_control))
         .route("/api/logs", axum::routing::get(srv_logs))

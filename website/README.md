@@ -45,6 +45,8 @@ it to match (`--dry-run` shows the plan). The worker's key needs only `setup/iam
 | `sushilaai-bugs` | `bugId` + `item`; indexes `list-index`, `reporter-index` | bug reports (`item` = `bug`) and their comments (`item` = `c#<time>#<id>`) |
 | `sushilaai-waitlist` | `email` | serverless-API early access |
 | `sushilaai-audit` | `day` + `at` | sign-ups, sign-ins, e-mail changes, downloads |
+| `sushilaai-reportabuse` | `reportId` | reports from sushila.ai/reportabuse: link, reason, details, optional e-mail, time, IP, country |
+| `sushilaai-file-views` | `url` | one row per shared link `/c/<12 hex>`: owner `userId` and `views` (the row is made first, so link ids are unique) |
 
 **Backblaze B2 layout** (bucket `sushila-ai`; upload with `setup/b2_upload.sh`):
 

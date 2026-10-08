@@ -93,7 +93,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     let admin = { passwordSet: true, loggedIn: false, allowed: false }, sub = 'packs';
     document.head.append(el('style', {}, `
 .snav{display:flex;gap:2px;align-items:center;padding:6px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
-.libwhere{margin:-6px 0 10px}.libbar{position:sticky;top:0;z-index:2;background:var(--bg);padding:8px 0;display:flex;flex-direction:column;gap:8px}
+.libwhere{margin:-6px 0 10px}.signin{margin:10px 0;border-color:var(--acc)}.signin input{min-width:220px}.libbar{position:sticky;top:0;z-index:2;background:var(--bg);padding:8px 0;display:flex;flex-direction:column;gap:8px}
 .libbar input[type=search]{width:100%;font-size:15px;padding:10px 14px;border-radius:12px}.libbar select{padding:6px 10px;border-radius:10px}
 .chip{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:6px 14px;font-weight:600}.chip.on{background:var(--acc);color:#fff;border-color:transparent}
 .libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:6px}
@@ -107,6 +107,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .sec>summary::-webkit-details-marker{display:none}.sec>summary::before{content:'▸';color:var(--mut);transition:transform .15s}.sec[open]>summary::before{transform:rotate(90deg)}
 .secbadge{font-size:12px;font-weight:600;color:var(--mut);background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:1px 9px}
 .secbody{padding:0 16px 14px;border-top:1px solid var(--line)}.secbody>h2:first-child{display:none}.pill.warn{color:var(--warn);border-color:var(--warn)}.pill.mut{color:var(--mut)}
+.downbar{position:sticky;top:0;z-index:50;background:#fff4e5;color:#7a4b00;border-bottom:2px solid #f5b301;padding:10px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.downbar .dlbtn{margin:0}
 .snav b{margin-right:12px}.snav .brand{display:inline-flex;align-items:center;gap:8px;font-size:16px;letter-spacing:.2px}
 .snav .mark{width:30px;height:30px;border-radius:8px;background:#fff;box-shadow:0 0 0 1px var(--line);object-fit:contain}
 .snav{padding:8px 18px;gap:4px;box-shadow:0 1px 0 var(--line)}.smenu{position:relative;margin-right:8px}.smenu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 4px}.smenu summary::-webkit-details-marker{display:none}
@@ -138,6 +140,20 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       el('span', { style: 'flex:1' }), local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
     const box = el('div', { id: 'manage', class: 'manage hidden' });
     document.body.prepend(nav); document.body.append(box);
+    // when Sushila stops while this page is open: a banner says so, with a Start button (sushila:// starts the program on
+    // Windows, where Sushila registers that link for this user), and the page comes back by itself when it runs again
+    const down = el('div', { class: 'downbar hidden', role: 'alert' }, el('b', {}, 'Sushila is not running on this computer. '),
+      el('a', { class: 'dlbtn', href: 'sushila://start' }, '▶ Start Sushila'),
+      el('span', { class: 'sub' }, ' or double-click sushila.exe (Windows), or run sushila serve in a terminal. This page reconnects by itself.'));
+    document.body.prepend(down);
+    let wasDown = false;
+    setInterval(async () => {
+      if (document.hidden) return;
+      let ok = false; try { ok = (await fetch('/health', { cache: 'no-store' })).ok; } catch (_) {}
+      down.classList.toggle('hidden', ok);
+      if (ok && wasDown) location.reload();
+      wasDown = !ok;
+    }, 3000);
     let st = {}, catalog = null, logNext = 0, logText = '', view = '', note = '';
     const human = (b) => (b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(0) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB');
     const say = (t) => { note = t; render(); };
@@ -170,9 +186,63 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     }
     // ---------- the Library: every picture, song and video made here (outputs/ in the home folder), searchable by any
     // field, sortable, with Show in folder, Download, Copy path and Delete (to the Library's trash: Restore or Delete permanently)
-    const lib = { items: null, trash: [], folder: '', q: '', kind: '', pack: '', sort: 'new', inTrash: false, msg: '' };
+    const lib = { items: null, trash: [], folder: '', q: '', kind: '', pack: '', sort: 'new', inTrash: false, msg: '',
+      acct: { signedIn: false }, signin: null, shared: null, showShared: false };  // share links: the sushila.ai account (e-mail code, no password)
     const fileUrl = (x, dl) => '/api/library/file?rel=' + encodeURIComponent(x.rel) + (x.trash ? '&trash=1' : '') + (dl ? '&download=1' : '') + '&t=' + encodeURIComponent(token);
-    async function libLoad() { try { const j = await (await api('/api/library')).json(); lib.items = j.items || []; lib.trash = j.trash || []; lib.folder = j.folder || ''; } catch (e) { lib.items = []; lib.msg = 'Could not read the Library: ' + e.message; } }
+    async function libLoad() {
+      try { const j = await (await api('/api/library')).json(); lib.items = j.items || []; lib.trash = j.trash || []; lib.folder = j.folder || ''; } catch (e) { lib.items = []; lib.msg = 'Could not read the Library: ' + e.message; }
+      try { lib.acct = await (await api('/api/share/me')).json(); } catch (_) {}
+    }
+    const SHARE_NOTICE = 'Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported. Manage your uploads at sushila.ai/mycontent.';
+    const shareCall = async (act, body) => { const r = await api('/api/share/' + act, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; };
+    // Share link: asks once per file, signs in by e-mail code when needed, uploads, copies the link
+    async function libShare(x) {
+      if (!lib.acct.signedIn) { lib.signin = { step: 'email', email: '', pending: x, purpose: 'SIGN_IN' }; libRender(); return; }
+      if (!window.confirm('Upload "' + x.name + '" to sushila.ai and make a link?\n\nAnyone with the link can open it. It is labelled AI-generated. You can delete the link at any time (Shared links, or sushila.ai/mycontent).\n\n' + SHARE_NOTICE)) return;
+      lib.msg = 'Uploading ' + x.name + '…'; libRender();
+      try { const m = await shareCall('upload', { rel: x.rel }); try { navigator.clipboard.writeText(m.link); } catch (_) {} lib.msg = 'Link (copied): ' + m.link; }
+      catch (e) { lib.msg = 'Could not share: ' + e.message; if (/sign in/i.test(e.message)) lib.acct.signedIn = false; }
+      await libLoad(); libRender();
+    }
+    function signinPanel() {
+      const si = lib.signin; if (!si) return null;
+      const err = el('div', { class: 'msg err', id: 'simsg' });
+      const go = async () => {
+        try {
+          if (si.step === 'email') {
+            si.email = $('siemail').value.trim(); if (si.purpose === 'SIGN_UP') si.first = ($('sifirst') || {}).value || '';
+            try { await shareCall('code', { email: si.email, purpose: si.purpose }); si.step = 'code'; }
+            catch (e) { if (/No account/.test(e.message)) { si.purpose = 'SIGN_UP'; libRender(); $('simsg').textContent = 'No sushila.ai account uses this e-mail yet: add your first name to create one (no password).'; return; } throw e; }
+          } else {
+            lib.acct = await shareCall('verify', { email: si.email, code: $('sicode').value.trim(), firstName: si.first || '' });
+            const x = si.pending; lib.signin = null; libRender(); if (x) await libShare(x); return;
+          }
+          libRender();
+        } catch (e) { $('simsg').textContent = e.message; }
+      };
+      return el('div', { class: 'card signin' }, el('b', {}, 'Sign in to sushila.ai to share'),
+        el('div', { class: 'sub' }, 'No password: a 6-digit code is e-mailed to you each time you sign in. Shared files are stored on sushila.ai (public/usercontent/<your account id>/) and anyone with the link can open them; nothing else leaves your computer.'),
+        el('div', { class: 'sub', style: 'font-weight:600' }, SHARE_NOTICE),
+        si.step === 'email' ? el('div', { class: 'row' }, el('input', { id: 'siemail', type: 'email', placeholder: 'you@example.com', value: si.email, onkeydown: (e) => { if (e.key === 'Enter') go(); } }),
+            si.purpose === 'SIGN_UP' ? el('input', { id: 'sifirst', placeholder: 'First name' }) : null, el('button', { onclick: go }, si.purpose === 'SIGN_UP' ? 'Create account and send code' : 'Send code'))
+          : el('div', { class: 'row' }, el('span', { class: 'sub' }, 'Code sent to ' + si.email + ':'), el('input', { id: 'sicode', inputmode: 'numeric', maxlength: 6, placeholder: '123456', onkeydown: (e) => { if (e.key === 'Enter') go(); } }),
+            el('button', { onclick: go }, 'Sign in'), el('button', { class: 'ghost', onclick: () => { si.step = 'email'; libRender(); } }, 'Use another e-mail')),
+        el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: () => { lib.signin = null; libRender(); } }, 'Cancel')), err);
+    }
+    async function sharedView() {
+      let j = { items: [] }; try { j = await shareCall('list'); } catch (e) { return [el('div', { class: 'msg err' }, e.message)]; }
+      return [el('div', { class: 'sub' }, 'Signed in to sushila.ai as ' + (lib.acct.email || '?') + ' · ' + human(j.used || 0) + ' of ' + human(j.quota || 2e9) + ' used · ',
+          el('a', { href: '#library', onclick: async (e) => { e.preventDefault(); await shareCall('signout', {}); lib.acct = { signedIn: false }; lib.showShared = false; libRender(); } }, 'Sign out'), ' · ',
+          el('a', { href: (lib.acct.site || 'https://sushila.ai') + '/mycontent', target: '_blank', rel: 'noopener' }, 'My content on sushila.ai')),
+        el('div', { class: 'sub', style: 'font-weight:600;margin:6px 0' }, j.notice || SHARE_NOTICE),
+        (j.items || []).length ? el('div', { class: 'libgrid' }, ...j.items.map((m) => el('div', { class: 'libcard' },
+          el('div', { class: 'libprev' }, m.kind === 'image' ? el('img', { src: m.file, loading: 'lazy' }) : m.kind === 'video' ? el('video', { src: m.file, controls: true, preload: 'metadata' }) : el('audio', { src: m.file, controls: true, preload: 'none' })),
+          el('div', { class: 'libbody' }, el('b', {}, (m.title || m.id).slice(0, 120)), el('div', { class: 'sub' }, [m.model, human(m.bytes || 0), 'shared ' + when(m.created), (m.views || 0) + ' view' + (m.views === 1 ? '' : 's')].filter(Boolean).join(' · ')),
+            el('a', { href: m.link, target: '_blank', rel: 'noopener', style: 'word-break:break-all' }, m.link),
+            el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(m.link); lib.msg = 'Copied: ' + m.link; } catch (_) {} libRender(); } }, 'Copy link'),
+              el('button', { class: 'danger', onclick: async () => { if (!window.confirm('Delete this link? The file is removed from sushila.ai; your copy stays on this computer.')) return; try { await shareCall('delete', { id: m.id }); lib.msg = 'Link deleted.'; } catch (e) { lib.msg = e.message; } await libLoad(); libRender(); } }, 'Delete link'))))))
+          : el('div', { class: 'sub', style: 'margin:20px 0' }, 'No shared links yet: 🔗 Share link on any file makes one.')];
+    }
     async function libAct(act, rel, what) {
       try { const r = await api('/api/library/' + act, { method: 'POST', body: JSON.stringify({ rel }) }); if (!r.ok) throw new Error(await r.text()); lib.msg = what; }
       catch (e) { lib.msg = 'Could not ' + act + ': ' + e.message; }
@@ -204,10 +274,14 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
            el('button', { class: 'danger', onclick: () => { if (window.confirm('Delete "' + x.name + '" permanently? This cannot be undone.')) libAct('purge', x.rel, 'Deleted permanently: ' + x.name); } }, 'Delete permanently')]
         : [el('button', { class: 'ghost', onclick: () => libReveal(x.path) }, '📁 Show in folder'), el('a', { class: 'dlbtn', href: fileUrl(x, true) }, '⬇ Download'),
            el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(x.path); lib.msg = 'Copied: ' + x.path; } catch (_) { lib.msg = x.path; } libRender(); } }, 'Copy path'),
+           x.link ? null : el('button', { class: 'ghost', onclick: () => libShare(x) }, '🔗 Share link'),
            el('button', { class: 'danger', onclick: () => libAct('delete', x.rel, 'Moved to the trash: ' + x.name + ' (Trash: restore or delete permanently)') }, '🗑 Delete')];
       return el('div', { class: 'libcard' }, el('div', { class: 'libprev' }, preview), el('div', { class: 'libbody' }, el('b', {}, title(x).slice(0, 160)),
         el('div', { class: 'sub' }, facts), x.lyrics && x.lyrics !== '[Instrumental]' ? el('details', {}, el('summary', { class: 'sub' }, 'Lyrics'), el('pre', { class: 'lyr' }, x.lyrics)) : null,
-        el('div', { class: 'sub', style: 'word-break:break-all' }, x.path), el('div', { class: 'row' }, ...acts)));
+        el('div', { class: 'sub', style: 'word-break:break-all' }, x.path),
+        x.link ? el('div', { class: 'sub' }, '🔗 ', el('a', { href: x.link, target: '_blank', rel: 'noopener', style: 'word-break:break-all' }, x.link), ' ',
+          el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(x.link); lib.msg = 'Copied: ' + x.link; } catch (_) {} libRender(); } }, 'Copy link')) : null,
+        el('div', { class: 'row' }, ...acts.filter(Boolean))));
     }
     function libRender() {
       if (view !== 'library') return;
@@ -218,7 +292,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('span', { style: 'flex:1' }),
         el('button', { class: 'ghost', title: lib.folder, onclick: () => libReveal(lib.folder) }, '📁 Where are my files'),
         el('button', { class: 'ghost', onclick: async () => { await libLoad(); libRender(); } }, '↻ Refresh'),
-        el('button', { class: lib.inTrash ? '' : 'ghost', onclick: () => { lib.inTrash = !lib.inTrash; libRender(); } }, lib.inTrash ? '← Back to the Library' : '🗑 Trash (' + lib.trash.length + ')'),
+        el('button', { class: lib.showShared ? '' : 'ghost', onclick: () => { lib.showShared = !lib.showShared; lib.inTrash = false; if (lib.showShared && !lib.acct.signedIn) { lib.showShared = false; lib.signin = { step: 'email', email: '', pending: null, purpose: 'SIGN_IN' }; } libRender(); } }, lib.showShared ? '← Back to the Library' : '🔗 Shared links'),
+        el('button', { class: lib.inTrash ? '' : 'ghost', onclick: () => { lib.inTrash = !lib.inTrash; lib.showShared = false; libRender(); } }, lib.inTrash ? '← Back to the Library' : '🗑 Trash (' + lib.trash.length + ')'),
         lib.inTrash && lib.trash.length ? el('button', { class: 'danger', onclick: () => { if (window.confirm('Delete all ' + lib.trash.length + ' files in the trash permanently?')) libAct('empty', '', 'The trash is empty.'); } }, 'Empty trash') : null);
       const where = el('div', { class: 'sub libwhere' }, 'Your files are in ', el('code', { style: 'user-select:all' }, lib.folder), ' (pictures in images/, songs in music/, videos in video/, one folder per day).');
       const bar = el('div', { class: 'libbar' },
@@ -226,7 +301,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('div', { class: 'row', style: 'margin:0' }, ...KINDS.map(([k, t]) => el('button', { class: 'chip' + (lib.kind === k ? ' on' : ''), onclick: () => { lib.kind = k; libRender(); } }, t)),
           el('select', { onchange: (e) => { lib.pack = e.target.value; libRender(); } }, el('option', { value: '' }, 'All models'), ...packs.map((p) => el('option', { value: p, selected: p === lib.pack }, p))),
           el('select', { onchange: (e) => { lib.sort = e.target.value; libRender(); } }, ...SORTS.map(([k, t]) => el('option', { value: k, selected: k === lib.sort }, t)))));
-      box.replaceChildren(head, where, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', bar,
+      if (lib.showShared) { box.replaceChildren(head, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', el('div', { class: 'sub' }, 'Reading your shared links…')); sharedView().then((v) => { if (lib.showShared && view === 'library') box.replaceChildren(head, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', ...v); }); return; }
+      box.replaceChildren(head, where, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', signinPanel() || '', bar,
         shown.length ? el('div', { class: 'libgrid' }, ...shown.map(libCard))
           : el('div', { class: 'sub', style: 'margin:30px 0;text-align:center' }, lib.inTrash ? 'The trash is empty.' : (lib.items.length ? 'Nothing matches the search.' : 'Nothing made yet: pictures, songs and videos from the Inference page appear here.')));
       if (focus === 'libq') { const q = $('libq'); q.focus(); if (caret != null) q.setSelectionRange(caret, caret); }

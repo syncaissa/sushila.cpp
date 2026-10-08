@@ -22,6 +22,10 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
         trash: [{ rel: 'video/old.webm', path: '/x/.trash/video/old.webm', name: 'old.webm', kind: 'video', bytes: 9e6, deleted: '2026-10-08T09:00:00Z', trash: true }] };
       return { ok: true, status: 200, json: async () => lb, text: async () => JSON.stringify(lb) }; }
     if (u.includes('/api/library/')) return { ok: true, status: 200, json: async () => ({ ok: true }), text: async () => '{}' };
+    if (u.includes('/api/share/me')) return { ok: true, status: 200, json: async () => ({ signedIn: false, site: 'https://sushila.ai' }), text: async () => '{}' };
+    if (u.includes('/api/share/verify')) return { ok: true, status: 200, json: async () => ({ signedIn: true, email: 'me@example.com', userId: 'u1' }), text: async () => '{}' };
+    if (u.includes('/api/share/upload')) return { ok: true, status: 200, json: async () => ({ id: '0a1b2c3d4e5f', link: 'https://sushila.ai/c/0a1b2c3d4e5f' }), text: async () => '{}' };
+    if (u.includes('/api/share/')) return { ok: true, status: 200, json: async () => ({ ok: true }), text: async () => '{}' };
     if (u.includes('/api/system')) { const sy = { gpu: { name: 'NVIDIA GeForce RTX 3070 Laptop GPU', memTotalGB: 8, memUsedGB: 3.1, utilPct: 4, driver: '581.29', tempC: 51 }, cpu: { name: 'Intel Core i7', cores: 16 }, ram: { totalGB: 16, freeGB: 7.5 }, disk: { mount: 'C:\\', freeGB: 210, totalGB: 950 }, home: 'C:\\Users\\me\\AppData\\Roaming\\ai.sushila.hoststation', os: 'windows x86_64', engine: { version: '0.1.1', key: 'windows-x86_64-cuda', gpuBuild: true }, uptimeS: 3600, requests: 12, crashesToday: 0, crashesTotal: 0, app: '0.1.1' }; return { ok: true, status: 200, json: async () => sy, text: async () => JSON.stringify(sy) }; }
     const j = u.includes('/api/admin') ? A : u.includes('/api/state') ? state : u.includes('/api/catalog') ? catalog : u.includes('/api/logs') ? { next: 20, text: '2026 [server] hello log\n' } : u.includes('/api/queue') ? { paused: false, jobs: [{ id: 'job-1', kind: 'text', model: 'qwen', status: 'ready', title: 'poem' }] } : u.includes('/api/control') ? { id: 'task-x' } : {};
     return { ok: true, status: 200, json: async () => j, text: async () => JSON.stringify(j) }; };
@@ -64,6 +68,16 @@ p.w.location.hash = '#library'; await sleep(500);
   [...p.d.querySelectorAll('#manage .adminhead button')].find((b) => b.textContent.includes('Trash')).click(); await sleep(100);
   [...p.d.querySelectorAll('#manage .chip')].find((b) => b.textContent === 'All').click(); await sleep(100);
   ok(cards().length === 1 && cards()[0].textContent.includes('Restore') && cards()[0].textContent.includes('Delete permanently'), 'Library: the trash, with Restore and Delete permanently'); }
+{ [...p.d.querySelectorAll('#manage .adminhead button')].find((b) => b.textContent.includes('Back')).click(); await sleep(100);
+  const card = [...p.d.querySelectorAll('#manage .libcard')][0];
+  [...card.querySelectorAll('button')].find((b) => b.textContent.includes('Share link')).click(); await sleep(200);
+  ok(p.d.querySelector('#manage .signin') && p.d.body.textContent.includes('No password'), 'Share link: not signed in asks for the e-mail (code, no password)');
+  ok(p.d.body.textContent.includes('may be deleted at any time') && p.d.body.textContent.includes('sushila.ai/mycontent'), 'Share link: the free-account notice and sushila.ai/mycontent are shown');
+  p.d.getElementById('siemail').value = 'me@example.com'; [...p.d.querySelectorAll('#manage .signin button')].find((b) => b.textContent.includes('Send code')).click(); await sleep(300);
+  ok(p.sent.some((x) => x.u.includes('/api/share/code') && JSON.parse(x.body).email === 'me@example.com') && p.d.getElementById('sicode'), 'Share link: the code is sent, then asked for');
+  p.d.getElementById('sicode').value = '123456'; [...p.d.querySelectorAll('#manage .signin button')].find((b) => b.textContent === 'Sign in').click(); await sleep(600);
+  ok(p.sent.some((x) => x.u.includes('/api/share/verify')) && p.sent.some((x) => x.u.includes('/api/share/upload') && JSON.parse(x.body).rel.includes('summer-pop')) && p.d.body.textContent.includes('https://sushila.ai/c/0a1b2c3d4e5f'),
+    'Share link: after signing in, the file is uploaded and its link shown'); }
 p.w.location.hash = ''; await sleep(300); ok(!p.d.getElementById('app').classList.contains('hidden') && p.d.getElementById('manage').classList.contains('hidden'), 'Use tab shows the inference page');
 { const sel = p.d.getElementById('mdl'), w = p.d.getElementById('modewait');
   const texts = [...sel.options].map((o) => o.textContent);
