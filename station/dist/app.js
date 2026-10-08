@@ -8,6 +8,8 @@ document.body.classList.add(os);
 
 // ------------------------------------------------------------------ small helpers
 const $ = (id) => document.getElementById(id);
+// replaceChildren with lists flattened and empty entries left out (never the text "null" or "[object …]")
+const put = (el, ...kids) => el.replaceChildren(...kids.flat(9).filter((k) => k != null && k !== false).map((k) => (k.nodeType ? k : document.createTextNode(String(k)))));
 function h(tag, attrs = {}, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -47,8 +49,8 @@ function toast(text, kind = '', title = '', ms = 6000) {
 }
 function sheet(content, wide) {
   const box = h('div', { class: 'dlg' + (wide ? ' wide' : '') }, content);
-  const s = $('sheet'); s.replaceChildren(box); s.classList.remove('hidden');
-  const close = () => { s.classList.add('hidden'); s.replaceChildren(); document.removeEventListener('keydown', esc); };
+  const s = $('sheet'); put(s, box); s.classList.remove('hidden');
+  const close = () => { s.classList.add('hidden'); put(s); document.removeEventListener('keydown', esc); };
   const esc = (e) => { if (e.key === 'Escape') close(); }; document.addEventListener('keydown', esc);
   s.onclick = (e) => { if (e.target === s) close(); };
   return close;
@@ -85,19 +87,19 @@ function modeName(m) { return m === 'turbo' ? 'Accelerated' : 'Standard'; }
 
 function renderNav() {
   const qn = S.queue ? S.queue.jobs.filter((j) => j.status === 'running' || j.status === 'queued').length : 0;
-  $('nav').replaceChildren(...NAV.map(([g, items]) => [h('div', { class: 'navgroup' }, g), ...items.map(([k, t]) =>
+  put($('nav'), ...NAV.map(([g, items]) => [h('div', { class: 'navgroup' }, g), ...items.map(([k, t]) =>
     h('div', { class: 'navitem' + (S.view === k ? ' on' : ''), onclick: () => go(k), role: 'button', tabindex: 0 }, h('span', { class: 'ico' }, icon(k)), t,
       k === 'queue' && qn ? h('span', { class: 'badge' }, qn) : null))]));
 }
 function renderEngineBox() {
   const e = S.eng, r = (S.st && S.st.running) || [];
   const dot = e.running ? (r.some((x) => !x.ready) ? 'busy' : 'on') : 'off';
-  $('engbox').replaceChildren(h('div', { class: 'engline' }, h('span', { class: 'dot ' + dot }), h('div', { class: 'grow' },
+  put($('engbox'), h('div', { class: 'engline' }, h('span', { class: 'dot ' + dot }), h('div', { class: 'grow' },
     h('b', {}, e.running ? 'Sushila is running' : 'Sushila is stopped'),
     h('div', { class: 'mut small' }, e.running ? (r.length ? r.map((x) => x.name + (x.ready ? '' : ' (loading)')).join(', ') : 'no model running') : 'Start it on the Engine page'))));
   $('sver').textContent = 'version ' + (e.station || '') + (e.version ? ' · engine ' + e.version : '');
   const st = S.st || {}, gpu = st.gpu || '';
-  $('status').replaceChildren(h('span', {}, h('span', { class: 'dot ' + dot, style: 'display:inline-block;margin-right:6px' }), e.running ? 'Running on port ' + (e.port || 7874) : 'Stopped'),
+  put($('status'), h('span', {}, h('span', { class: 'dot ' + dot, style: 'display:inline-block;margin-right:6px' }), e.running ? 'Running on port ' + (e.port || 7874) : 'Stopped'),
     r.length ? h('span', {}, 'Model: ' + r.map((x) => x.name + ' (' + modeName(x.mode) + ')').join(', ')) : null, gpu ? h('span', {}, gpu) : null, h('span', { class: 'sp' }),
     S.queue ? h('span', {}, S.queue.jobs.filter((j) => j.status === 'running').length + ' running · ' + S.queue.jobs.filter((j) => j.status === 'queued').length + ' waiting in the queue') : null);
 }
@@ -136,10 +138,10 @@ function render() {
   const [t, sub] = TITLES[S.view] || ['', '']; $('title').textContent = t; $('subtitle').textContent = sub;
   renderNav(); renderEngineBox();
   const view = $('view'); view.className = S.view === 'chat' || S.view === 'code' ? 'flush' : '';
-  $('baracts').replaceChildren(...(S.eng.running ? modelBar(S.view) : []), ...(VIEWS[S.view].bar ? VIEWS[S.view].bar() : []));
-  if (!S.eng.running && !['engine', 'settings', 'help'].includes(S.view)) { view.className = ''; view.replaceChildren(stoppedPanel()); return; }
+  put($('baracts'), ...(S.eng.running ? modelBar(S.view) : []), ...(VIEWS[S.view].bar ? VIEWS[S.view].bar() : []));
+  if (!S.eng.running && !['engine', 'settings', 'help'].includes(S.view)) { view.className = ''; put(view, stoppedPanel()); return; }
   const keep = view.querySelector('.msgs'); const scroll = keep ? keep.scrollTop : 0;
-  view.replaceChildren(VIEWS[S.view].render());
+  put(view, VIEWS[S.view].render());
   const k2 = view.querySelector('.msgs'); if (k2 && keep) k2.scrollTop = scroll;
 }
 function stoppedPanel() {
@@ -325,7 +327,7 @@ async function libAct(act, x) {
 
 // myContent: every file, searchable, with the trash
 VIEWS.mycontent = {
-  bar: () => [h('input', { class: 'field', placeholder: 'Search prompts, models, names…', value: S.libq || '', style: 'width:260px', oninput: (e) => { S.libq = e.target.value; const v = $('libgrid'); if (v) v.replaceChildren(...libItems().map(libTile)); } })],
+  bar: () => [h('input', { class: 'field', placeholder: 'Search prompts, models, names…', value: S.libq || '', style: 'width:260px', oninput: (e) => { S.libq = e.target.value; const v = $('libgrid'); if (v) put(v, ...libItems().map(libTile)); } })],
   render() {
     if (!S.lib) { loadLib(); return h('div', { class: 'empty' }, 'Loading…'); }
     const kinds = [['', 'All'], ['image', 'Pictures'], ['music', 'Music'], ['video', 'Videos'], ['text', 'Text']];
@@ -348,7 +350,7 @@ async function signIn() {
   if (me.signedIn) return true;
   return new Promise((res) => {
     let close; let step = 'email'; const box = h('div');
-    const draw = () => box.replaceChildren(h('h3', {}, 'Sign in to sushila.ai'), h('p', {}, step === 'email' ? 'No password: we e-mail you a one-time code.' : 'Enter the code we sent to ' + S.email + '.'),
+    const draw = () => put(box, h('h3', {}, 'Sign in to sushila.ai'), h('p', {}, step === 'email' ? 'No password: we e-mail you a one-time code.' : 'Enter the code we sent to ' + S.email + '.'),
       step === 'email' ? h('input', { class: 'field', id: 'sem', style: 'width:100%', type: 'email', value: S.email || me.lastEmail || '', placeholder: 'you@example.com' }) : h('input', { class: 'field', id: 'scode', style: 'width:100%', inputmode: 'numeric', placeholder: '6-digit code' }),
       h('div', { class: 'small', id: 'smsg', style: 'color:var(--err);margin-top:6px' }),
       h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => { close(); res(false); } }, 'Cancel'), h('button', { class: 'btn primary', onclick: next }, step === 'email' ? 'Send code' : 'Sign in')));
@@ -417,7 +419,7 @@ VIEWS.packs = {
       tasks.filter((t) => !now.length).map((t) => h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, t.action + ' ' + (t.target || '')), h('span', {}, t.label || 'working…'))))) : null;
     const cat = S.catalog ? (S.catalog.packs || []).filter((p) => !p.hidden && !ids.has(p.id)) : null;
     const avail = h('div', { class: 'group' }, h('h3', {}, 'Available'), !cat ? h('div', { class: 'item' }, h('span', { class: 'mut' }, 'Loading the catalog…')) : cat.map((p) => {
-      const bytes = (p.files || []).reduce((n, f) => n + (f.bytes || 0), 0);
+      const bytes = p.bytes || (p.files || []).reduce((n, f) => n + (f.bytes || 0), 0);
       return h('div', { class: 'item' }, h('div', { class: 'kicon' }, icon(p.kind === 'image' ? 'pictures' : p.kind === 'text' ? (packKind(p) === 'code' ? 'code' : 'chat') : p.kind || 'chat')),
         h('div', { class: 'txt' }, h('b', {}, p.name), h('span', {}, [KIND[packKind(p)] || p.kind, human(bytes), p.license].filter(Boolean).join(' · '))),
         p.fits === false ? h('span', { class: 'tag' }, 'needs other hardware') : null,
@@ -446,7 +448,7 @@ VIEWS.engine = { render() {
       h('div', { class: 'item' }, h('span', { class: 'dot ' + (e.running ? 'on' : 'off') }), h('div', { class: 'txt' }, h('b', {}, e.running ? 'Running' : 'Stopped'), h('span', {}, e.running ? 'http://localhost:' + (e.port || 7874) + ' · up ' + Math.round((e.uptimeSeconds || 0) / 60) + ' min · engine ' + (e.version || '') : 'Sushila runs the models and the queue.')),
         e.running ? [h('button', { class: 'btn small', onclick: async () => { await invoke('engine_restart').catch((x) => toast(String(x), 'err')); refresh(); } }, 'Restart'), h('button', { class: 'btn small', onclick: async () => { await invoke('engine_stop').catch((x) => toast(String(x), 'err')); refresh(); } }, 'Stop')]
           : h('button', { class: 'btn small primary', onclick: startEngine }, 'Start')),
-      h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Engine build'), h('span', {}, st.engine ? 'Sushila.cpp ' + (st.engine.version || '') + ' · ' + (st.engine.key || '') : 'not installed yet')),
+      h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Engine build'), h('span', {}, st.engine ? 'Sushila.cpp ' + (st.engine.version || '') + ' · ' + (st.engineKey || st.engine.key || '') : 'not installed yet')),
         h('select', { class: 'field', id: 'ebuild' }, ...[['', 'Best for this computer'], ['cuda', 'NVIDIA (CUDA)'], ['vulkan', 'Any GPU (Vulkan)'], ['cpu', 'CPU only']].map(([v, t]) => h('option', { value: v }, t))),
         h('button', { class: 'btn small', onclick: () => post('/api/control', { action: 'engine-install', build: $('ebuild').value || undefined }).then(() => toast('Installing the engine in the background.', 'ok')).catch((x) => toast(x.message, 'err')) }, 'Install / update')),
       sys.home ? h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Home folder'), h('span', { class: 'selectable' }, sys.home + ' (model packs, settings, logs, your files)')), h('button', { class: 'btn small', onclick: () => reveal(sys.home) }, os === 'mac' ? 'Show in Finder' : 'Open')) : null),
