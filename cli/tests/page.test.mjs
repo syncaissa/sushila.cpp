@@ -22,7 +22,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
   return { w, d: w.document, sent };
 }
 let p = await page('tok123', '#admin/packs');
-ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].map((a) => a.textContent).join(',') === 'Use,Admin', 'local page: Use and Admin');
+ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].map((a) => a.textContent).join(',') === 'Inference,Admin' && p.d.querySelectorAll('nav.snav .brand').length === 1 && !p.d.querySelector('#app .top h1'), 'local page: Inference and Admin, Sushila named once');
 ok([...p.d.querySelectorAll('#manage .snav a')].map((a) => a.textContent).join(',') === 'Packs,Engine,Queue,Recent actions,Logs,Settings', 'Admin: Packs, Engine, Queue, Recent actions, Logs, Settings');
 ok(p.d.body.textContent.includes('Installed') && p.d.body.textContent.includes('Qwen3 4B'), 'Packs: installed and available packs listed');
 ok(p.d.body.textContent.includes('needs other hardware'), 'Packs: a pack for other hardware is marked');
@@ -37,10 +37,16 @@ p.w.location.hash = '#admin/actions'; await sleep(300); ok(p.d.body.textContent.
 p.w.location.hash = '#admin/logs'; await sleep(300); ok(p.d.body.textContent.includes('hello log'), 'Logs tab shows the shared log');
 p.w.location.hash = '#admin/settings'; await sleep(300); ok(p.d.querySelector('#set-gpuLayers').value === '-1', 'Settings tab shows the settings');
 p.w.location.hash = ''; await sleep(300); ok(!p.d.getElementById('app').classList.contains('hidden') && p.d.getElementById('manage').classList.contains('hidden'), 'Use tab shows the inference page');
-{ const sw = p.d.getElementById('modesw'), w = p.d.getElementById('modewait');
-  ok(w && w.classList.contains('hidden'), 'mode switch: no hourglass while nothing changes');
-  const std = sw && sw.querySelector('button[data-mode="regular"]'); if (std) std.click(); await sleep(300);
-  ok(w && !w.classList.contains('hidden') && w.textContent.includes('⏳') && w.textContent.includes('Switching to Standard') && std.disabled, 'mode switch: a large hourglass next to the switch while the model restarts, buttons locked'); }
+{ const sel = p.d.getElementById('mdl'), w = p.d.getElementById('modewait');
+  const texts = [...sel.options].map((o) => o.textContent);
+  ok(texts.some((t) => t.includes('💬 Chat') && t.includes('(Accelerated)') && t.includes('running')) && texts.some((t) => t.includes('(Standard)') && !t.includes('running')), 'picker: each pack per mode, with what it does and whether it runs');
+  ok(!p.d.getElementById('modesw') && p.d.getElementById('stopbtn'), 'picker: no Standard/Accelerated switch; a Stop button');
+  ok(w && w.classList.contains('hidden'), 'picker: no hourglass while nothing changes');
+  let asked = ''; p.w.confirm = (m) => { asked = m; return true; };
+  sel.value = 'qwen2.5-0.5b-q4km|regular'; sel.dispatchEvent(new p.w.Event('change')); await sleep(300);
+  ok(asked.startsWith('Start Qwen 0.5B (Standard)?'), 'picker: a stopped entry asks before it starts');
+  ok(p.sent.some((x) => x.u.includes('/api/use') && JSON.parse(x.body).action === 'start' && JSON.parse(x.body).mode === 'regular'), 'picker: start goes to /api/use with the mode');
+  ok(!w.classList.contains('hidden') && w.textContent.includes('⏳') && w.textContent.includes('Starting Qwen 0.5B (Standard)') && sel.disabled, 'picker: a large hourglass while it starts, picker locked'); }
 p = await page('', '#admin/packs');
 ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].length === 1 && p.d.getElementById('manage').classList.contains('hidden'), 'remote visitor: only Use, no management');
 p = await page('tok123', '#admin/packs', '?install=qwen3-4b'); await sleep(300);

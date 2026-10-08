@@ -42,6 +42,8 @@ pub struct Ctx {
     other_vram: Option<Option<f64>>,
     pub quiet: bool,
     pub procs: Arc<Mutex<HashMap<String, tokio::process::Child>>>,
+    /// Packs that run on the CPU for now: the assistant's chat model while an image, music or video pack uses the GPU.
+    pub cpu_only: std::collections::HashSet<String>,
 }
 
 /// Every action, from any client, goes to one file: <data>/logs/sushila.log ("<time> [source] message").
@@ -93,9 +95,25 @@ impl Ctx {
             let _ = std::fs::remove_dir(&old);
             let _ = std::fs::write(data.join("state.json"), serde_json::to_string_pretty(&s).unwrap_or_default());  // the new folders, at once
         }
-        Ok(Ctx { data, packs_dir, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, other_vram: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())) })
+        Ok(Ctx { data, packs_dir, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, other_vram: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())), cpu_only: Default::default() })
     }
     pub fn log(&self, line: &str) { log(self.quiet, line) }
+    /// The chat model that stays running for the terminal and Ask Sushila: settings.assistantPack, else Qwen3 4B, else
+    /// the small default, whichever is installed.
+    pub fn assistant_pack(&self) -> Option<String> {
+        let installed = |id: &str| self.state["packs"].get(id).is_some();
+        self.setting("assistantPack").as_str().filter(|id| installed(id)).map(String::from)
+            .or_else(|| ["qwen3-4b-instruct-2507", DEFAULT_MODEL].iter().find(|id| installed(id)).map(|s| s.to_string()))
+    }
+    /// What a pack does, for the pages: chat, code, image, music or video.
+    pub fn category(p: &Value) -> &'static str {
+        match p["kind"].as_str().unwrap_or("text") {
+            "image" => "image", "music" => "music", "video" => "video",
+            _ => if p["category"].as_str().map(|c| c.eq_ignore_ascii_case("code")).unwrap_or(false) || p["id"].as_str().map(|i| i.contains("coder")).unwrap_or(false) { "code" } else { "chat" },
+        }
+    }
+    /// Whether the GPU holds this many bytes of models at once (with room to work).
+    pub async fn gpu_holds(&mut self, bytes: f64) -> bool { self.gpu_room_for(&json!({ "bytes": bytes })).await }
     pub fn setting(&self, k: &str) -> Value { self.state["settings"][k].clone() }
     pub fn packs(&self) -> &serde_json::Map<String, Value> { self.state["packs"].as_object().unwrap() }
 
@@ -103,11 +121,14 @@ impl Ctx {
     pub fn save(&mut self) -> Result<(), String> {
         let running: Vec<Value> = self.state["running"].as_object().map(|m| m.iter().map(|(id, r)| {
             let p = &self.state["packs"][id];
-            json!({ "packId": id, "name": r["name"], "kind": r.get("kind").cloned().unwrap_or(json!("text")), "startedAt": r["startedAt"],
+            json!({ "packId": id, "name": r["name"], "kind": r.get("kind").cloned().unwrap_or(json!("text")), "engine": p["engine"], "category": Ctx::category(p), "cpu": r["cpu"] == true, "startedAt": r["startedAt"],
                     "mode": r.get("mode").cloned().unwrap_or(json!("regular")), "turbo": can_turbo(p), "ready": r["ready"].as_bool().unwrap_or(false),
                     "request": if r["mode"] == "turbo" { turbo_request(p).unwrap_or(Value::Null) } else { Value::Null } })
         }).collect()).unwrap_or_default();
-        let packs: Vec<Value> = self.packs().values().map(|p| json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "turbo": can_turbo(p), "custom": p["custom"] == true, "source": p["source"] })).collect();
+        let assistant = self.assistant_pack();
+        let packs: Vec<Value> = self.packs().values().map(|p| json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "category": Ctx::category(p), "turbo": can_turbo(p),
+            "mode": p["preferredMode"].as_str().filter(|m| *m == "regular" || (*m == "turbo" && can_turbo(p))).unwrap_or(if can_turbo(p) { "turbo" } else { "regular" }),
+            "assistant": assistant.as_deref() == p["id"].as_str(), "bytes": p["bytes"], "custom": p["custom"] == true, "source": p["source"] })).collect();
         let engine = self.state.get("engine").filter(|e| e.is_object()).map(|e| json!({ "version": e["version"], "source": e["source"] })).unwrap_or(Value::Null);
         let tasks = self.state.get("tasks").cloned().unwrap_or(json!([]));
         let owner = self.state.get("owner").cloned().unwrap_or(Value::Null);
@@ -366,7 +387,7 @@ impl Ctx {
         let files: Vec<Value> = pack["files"].as_array().map(|a| a.iter().map(|f| json!({ "path": f["path"], "sha256": f["sha256"], "bytes": f["bytes"], "role": f["role"] })).collect()).unwrap_or_default();
         let bytes: u64 = pack["files"].as_array().map(|a| a.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum()).unwrap_or(0);
         let mut r = json!({ "id": pack["id"], "name": pack["name"], "kind": pack.get("kind").cloned().unwrap_or(json!("text")), "engine": pack["serve"].get("engine").cloned().unwrap_or(json!("text")),
-            "bytes": bytes, "dir": dir.to_string_lossy(), "model": pack["serve"]["model"], "args": pack["serve"].get("args").cloned().unwrap_or(json!([])),
+            "category": pack.get("category").cloned().unwrap_or(Value::Null), "bytes": bytes, "dir": dir.to_string_lossy(), "model": pack["serve"]["model"], "args": pack["serve"].get("args").cloned().unwrap_or(json!([])),
             "turboArgs": pack["serve"].get("turboArgs").cloned().unwrap_or(json!([])), "turboRequest": pack["serve"].get("turboRequest").cloned().unwrap_or(Value::Null),
             "files": files, "license": pack["license"], "scope": "user", "installedAt": now_iso(), "artifacts": pack.get("artifacts").cloned().unwrap_or(json!([])) });
         if let Some(s) = source { r["source"] = json!(s); }
@@ -631,7 +652,9 @@ impl Ctx {
         }
         let rt = self.state["runtimes"]["image-nunchaku"].clone();
         let servers = self.state["engine"]["servers"].clone();
-        let slots = if engine == "text" { self.auto_slots(&p).await } else { 1 };
+        // the assistant on the CPU (while another pack uses the GPU): 2 slots; on the GPU at most 4, leaving room for others
+        let cpu = self.cpu_only.contains(id);
+        let slots = if engine != "text" { 1 } else if cpu { 2 } else if self.assistant_pack().as_deref() == Some(id) { self.auto_slots(&p).await.min(4) } else { self.auto_slots(&p).await };
         let (program, args): (String, Vec<String>) = match engine.as_str() {
             "image-nunchaku" => {
                 if !rt.is_object() { return Err(format!("{id} needs the NVIDIA image runtime: install the pack again to set it up")); }
@@ -643,7 +666,7 @@ impl Ctx {
                         [vec!["--listen-ip".into(), "127.0.0.1".into(), "--listen-port".into(), port.to_string(), "-t".into(), threads.to_string()], pack_args].concat()),
             _ => {
                 let ctx = self.setting("contextSize").as_u64().unwrap_or(4096); let par = slots;
-                let ngl = self.setting("gpuLayers").as_i64().unwrap_or(-1);
+                let ngl = if cpu { 0 } else { self.setting("gpuLayers").as_i64().unwrap_or(-1) };
                 (self.state["engine"]["server"].as_str().unwrap_or("").into(),
                  [vec!["-m".into(), join_rel(&dir, p["model"].as_str().unwrap_or("")).to_string_lossy().into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string(),
                        "-t".into(), threads.to_string(), "-c".into(), (ctx * par).to_string(), "-np".into(), par.to_string(), "-ngl".into(), if ngl < 0 { "auto".into() } else { ngl.to_string() }],
@@ -674,7 +697,7 @@ impl Ctx {
         let engine_pid = child.id().unwrap_or(0);
         self.procs.lock().await.insert(id.to_string(), child);
         self.state["running"][id] = json!({ "port": port, "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "startedAt": now_iso(), "ready": false, "mode": mode,
-                                            "pid": std::process::id(), "enginePid": engine_pid, "slots": slots });
+                                            "pid": std::process::id(), "enginePid": engine_pid, "slots": slots, "cpu": self.cpu_only.contains(id) });
         self.save()?;
         let health = format!("http://127.0.0.1:{port}{}", if engine == "image" { "/" } else { "/health" });
         Ok(Spawned { id: id.to_string(), port, health, log: logs.join(format!("{id}.log")), already: false })

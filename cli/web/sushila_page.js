@@ -1,6 +1,6 @@
 /*
  * Sushila: the page served by `sushila serve` (http://localhost:<port>/). It is the whole user interface:
- *   Use       chat, code, images, music, video with the models that run (any browser; other machines need an access key)
+ *   Inference chat, code, images, music, video with the models that run (any browser; other machines need an access key)
  *   Packs, Engine, Queue, Logs, Settings   managing this computer's Sushila (shown only on this computer)
  * The page never changes anything itself: it asks the server (POST /api/control) and shows what the server reports
  * (/api/state, /api/logs). The server alone installs, starts and stops things, and writes every step to one log.
@@ -83,12 +83,14 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const local = !!token;  // the page carries this computer's token only when opened here (http://localhost:<port>/)
     let session = ''; try { session = sessionStorage.getItem('sushila-admin') || ''; } catch (_) {}
     const api = (path, opts = {}) => fetch(path, Object.assign({}, opts, { headers: Object.assign({ 'x-sushila-token': token, 'x-sushila-admin': session, 'content-type': 'application/json' }, opts.headers || {}) }));
-    const TABS = [['', 'Use'], ['admin', 'Admin']];
+    const TABS = [['', 'Inference'], ['admin', 'Admin']];
     const SUB = [['packs', 'Packs'], ['engine', 'Engine'], ['queue', 'Queue'], ['actions', 'Recent actions'], ['logs', 'Logs'], ['settings', 'Settings']];
     let admin = { passwordSet: true, loggedIn: false, allowed: false }, sub = 'packs';
     document.head.append(el('style', {}, `
 .snav{display:flex;gap:2px;align-items:center;padding:6px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
-.snav b{margin-right:12px}.smenu{position:relative;margin-right:8px}.smenu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 4px}.smenu summary::-webkit-details-marker{display:none}
+.snav b{margin-right:12px}.snav .brand{display:inline-flex;align-items:center;gap:8px;font-size:16px;letter-spacing:.2px}
+.snav .mark{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc),#6366f1);color:#fff;font-size:14px;font-weight:800}
+.snav{padding:8px 18px;gap:4px;box-shadow:0 1px 0 var(--line)}.smenu{position:relative;margin-right:8px}.smenu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 4px}.smenu summary::-webkit-details-marker{display:none}
 .smenu>div{position:absolute;top:30px;left:0;z-index:20;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
 .smenu>div a{display:block;color:var(--ink)}.snav a{padding:6px 12px;border-radius:8px;color:var(--mut);text-decoration:none;font-weight:600;font-size:14px}
 .snav a.on{background:var(--accbg);color:var(--acc)}.manage{max-width:1100px;margin:0 auto;padding:16px 22px 40px}
@@ -109,7 +111,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         local ? el('a', { href: '#admin', onclick: close }, 'Admin') : null,
         el('a', { href: '/docs' }, 'Documentation'), el('a', { href: '#assistant', onclick: close }, 'Ask Sushila'), el('a', { href: '/docs#api' }, 'API'), where));
     if (local) api('/api/admin').then((r) => r.json()).then((a) => { const h = document.getElementById('shome'); if (h && a.home) h.textContent = 'Home folder: ' + a.home; }).catch(() => {});
-    const nav = el('nav', { class: 'snav' }, menu, el('b', {}, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
+    const nav = el('nav', { class: 'snav' }, menu, el('b', { class: 'brand' }, el('span', { class: 'mark' }, 'S'), 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
       el('span', { style: 'flex:1' }), local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
     const box = el('div', { id: 'manage', class: 'manage hidden' });
     document.body.prepend(nav); document.body.append(box);
@@ -170,6 +172,13 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       return el('div', {}, el('div', { class: 'sub' }, 'Running now · ', el('a', { href: '#admin/actions' }, 'all recent actions')), ...list.map(taskRow));
     }
     const running = (id) => (st.running || []).find((r) => r.packId === id);
+    // the same rule as the inference page: one model pack at a time (the assistant's chat model stays), asked first
+    function startAsk(p, mode) {
+      const a = (st.packs || []).find((x) => x.assistant);
+      const others = (st.running || []).filter((r) => r.packId !== p.id && !(a && r.packId === a.id));
+      if (others.length && !window.confirm('Start ' + p.name + (p.turbo ? (mode === 'turbo' ? ' (Accelerated)' : ' (Standard)') : '') + '?\n\nThis stops ' + others.map((r) => r.name).join(', ') + ': one model pack runs at a time.' + (a && a.id !== p.id ? '\n' + a.name + ' (the assistant) keeps running.' : ''))) return;
+      control({ action: 'start', pack: p.id, mode });
+    }
     function packsView() {
       const want = new URLSearchParams(location.search).get('install');
       const installed = st.packs || [], ids = new Set(installed.map((p) => p.id));
@@ -180,8 +189,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
           el('td', {}, r ? el('span', { class: 'pill on' }, (r.ready ? 'running' : 'loading') + ' · ' + (r.mode === 'turbo' ? 'Accelerated' : 'Standard')) : el('span', { class: 'pill' }, 'stopped')),
           el('td', { class: 'acts' },
             r ? el('button', { class: 'ghost', onclick: () => control({ action: 'stop', pack: p.id }) }, 'Stop')
-              : [p.turbo ? el('button', { onclick: () => control({ action: 'start', pack: p.id, mode: 'turbo' }) }, 'Start Accelerated') : null,
-                 el('button', { class: p.turbo ? 'ghost' : '', onclick: () => control({ action: 'start', pack: p.id, mode: 'regular' }) }, p.turbo ? 'Standard' : 'Start')],
+              : [p.turbo ? el('button', { onclick: () => startAsk(p, 'turbo') }, 'Start Accelerated') : null,
+                 el('button', { class: p.turbo ? 'ghost' : '', onclick: () => startAsk(p, 'regular') }, p.turbo ? 'Standard' : 'Start')],
             el('button', { class: 'ghost', onclick: () => control({ action: 'verify', pack: p.id }) }, 'Verify'),
             el('button', { class: 'danger', onclick: () => { if (confirm('Remove ' + p.name + '? Its files are deleted.')) control({ action: 'remove', pack: p.id }); } }, 'Remove')));
       });
@@ -340,11 +349,32 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .music{max-width:760px;margin:0 auto;padding:16px}.music label{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}
 .music textarea,.music input,.music select{width:100%}.bar2 label select,.bar2 label input{width:auto}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px}.gallery figure{margin:0}.gallery img{width:100%;border-radius:10px;border:1px solid var(--line)}
-.modesw{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:99px;margin-left:6px;background:var(--bg);padding:2px}
-.modesw::before{content:'';position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:99px;background:var(--acc);transition:transform .2s ease}
-.modesw.turbo::before{transform:translateX(100%)}.modesw.none::before{opacity:0}
-.modesw button{position:relative;z-index:1;border:0;border-radius:99px;background:transparent;color:var(--mut);padding:5px 14px;font-size:13px;font-weight:600}
-.modesw button.on{color:#fff;background:transparent}.modesw button:disabled{opacity:.4}
+/* the inference page: a calm card for the controls, chips by kind, the work area centered */
+body{background:radial-gradient(1200px 600px at 10% -10%,var(--accbg),transparent 60%),var(--bg)}
+.top{position:sticky;top:0;z-index:3;max-width:1100px;margin:14px auto 0;border:1px solid var(--line);border-radius:16px;background:var(--card);
+  box-shadow:0 6px 24px rgba(16,24,40,.06);padding:12px 16px;gap:12px;flex-wrap:wrap}
+.top .lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-right:2px}
+.top{flex-wrap:nowrap}.pickbar{flex:1 1 auto;min-width:0;flex-wrap:nowrap}.srvbar{flex:0 1 auto}
+#mdl{flex:1 1 auto;min-width:0;width:100%;font-size:15px;padding:9px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+button.icon{font-size:17px;padding:6px 11px;line-height:1.2}
+.hero{text-align:center;padding:36px 10px 26px}.hero h2{margin:8px 0 4px;font-size:22px;font-weight:700}.heroicon{font-size:38px}
+#chatlog:has(.bubble) .hero{display:none}
+#srv{font-size:13px;padding:6px 10px;border-radius:10px;background:var(--bg);max-width:220px}
+#stopbtn{border-radius:10px}
+.kinds{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:1100px;margin:14px auto 0;padding:0 16px}
+.chip{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:7px 16px;font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.chip:hover{border-color:var(--acc)}.chip.on{background:linear-gradient(135deg,var(--acc),#6366f1);color:#fff;border-color:transparent}
+#main{max-width:1100px;margin:0 auto}
+.chat,.music{background:var(--card);border:1px solid var(--line);border-radius:16px;margin:14px auto;box-shadow:0 6px 24px rgba(16,24,40,.05)}
+.chat{padding:18px 20px}.music{padding:18px 22px}
+.composer{background:var(--card);border-top:1px solid var(--line);margin:0 -20px -18px;padding:12px 20px;border-radius:0 0 16px 16px}
+.composer textarea,.music textarea{border-radius:12px}
+button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient(135deg,var(--acc),#4f46e5);border-color:transparent}
+.big{border-radius:12px;padding:12px 26px}
+.bubble{border-radius:14px}.bubble.user{background:var(--accbg)}
+.gallery img{border-radius:12px;box-shadow:0 4px 14px rgba(16,24,40,.08)}
+.qpanel{border-radius:16px;max-width:1100px}
+@media (max-width:760px){.top{margin:8px;border-radius:12px;flex-wrap:wrap}.pickbar{flex-basis:100%}.modewait{margin-left:0}}
 .modewait{display:inline-flex;align-items:center;gap:8px;margin-left:10px;padding:4px 14px 4px 8px;border-radius:99px;background:#f5b301;color:#1a1a1a;font-weight:700;font-size:14px;box-shadow:0 0 0 3px rgba(245,179,1,.35);animation:mwpulse 1.2s ease-in-out infinite}
 .modewait .hg{display:inline-block;font-size:28px;line-height:1;animation:mwflip 1.6s ease-in-out infinite}
 .modewait.hidden{display:none}
@@ -370,7 +400,11 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     let keys = store.get('sushila-keys', {});       // their access keys, kept in this browser only
     let server = embedded ? '' : store.get('sushila-server', '');   // '' = this computer
     if (server && !hosts.includes(server)) server = '';
-    let models = [], model = null, ctrl = null;
+    let models = [], model = null, ctrl = null, packs = [], lastValue = '', busyPack = false;
+    // what each pack does, shown in the picker; each pack is listed once per mode (Standard, and Accelerated where it has one)
+    const KIND = { chat: '💬 Chat', code: '💻 Code', image: '🖼 Image', music: '🎵 Music', video: '🎬 Video' };
+    const kindOf = (p) => p.category || (['image', 'music', 'video'].includes(p.kind) ? p.kind : 'chat');
+    const modeName = (m) => (m === 'turbo' ? 'Accelerated' : 'Standard');
     const msgs = [];
     const base = () => server || opts.base || '';  // '' = same origin (the page served by Host Station)
     // one user = one identity: this computer (token), an access key, or in open mode this browser (a random id kept in
@@ -386,20 +420,24 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const remoteBox = el('div', { class: 'bar2 hidden', id: 'remote' },
       el('input', { id: 'rurl', placeholder: 'https://ai.example.com', type: 'url' }), el('input', { id: 'rkey', placeholder: 'access key', type: 'password' }),
       el('button', { onclick: addRemote }, 'Connect'), el('button', { class: 'ghost', onclick: () => { $('remote').classList.add('hidden'); fillServers(); } }, 'Cancel'));
-    const head = el('div', { class: 'top' }, embedded && opts.onBack ? el('button', { class: 'ghost', onclick: opts.onBack }, '◀ Host Station') : null, opts.title === '' ? null : el('h1', {}, opts.title || 'Sushila'),
-      el('div', { class: 'bar2' }, el('span', { class: 'sub' }, 'Server'), serverSel, el('span', { class: 'sub' }, 'Model'), modelSel,
-        el('div', { class: 'modesw', id: 'modesw', role: 'group', 'aria-label': 'Speed mode' },
-          el('button', { 'data-mode': 'regular', onclick: () => switchMode('regular') }, 'Standard'), el('button', { 'data-mode': 'turbo', onclick: () => switchMode('turbo') }, 'Accelerated')),
-        // while the model restarts in the other mode: a large turning hourglass right next to the switch
+    const head = el('div', { class: 'top' }, embedded && opts.onBack ? el('button', { class: 'ghost', onclick: opts.onBack }, '◀ Host Station') : null, embedded && opts.title !== '' ? el('h1', {}, opts.title || 'Sushila') : null,
+      el('div', { class: 'bar2 pickbar' }, el('label', { class: 'lbl', for: 'mdl' }, 'Model'), modelSel,
+        el('button', { class: 'ghost', id: 'stopbtn', title: 'Stop this model pack', onclick: () => stopPack() }, '■ Stop'),
+        // while a pack starts, stops or changes mode: a large turning hourglass right next to the picker
         el('span', { class: 'modewait hidden', id: 'modewait', role: 'status', 'aria-live': 'polite' }, el('span', { class: 'hg' }, '⏳'), el('span', { id: 'modewaittext' }, ''))),
-      el('span', { class: 'sp' }), el('span', { class: 'pill', id: 'status' }, '…'),
-      el('button', { class: 'ghost', id: 'maxbtn', title: 'Only the conversation, as large as the window', onclick: () => setMax(true) }, '⛶ Maximize'),
+      // another server: the menu shows only once one was added; until then a small button opens the form
+      el('div', { class: 'bar2 srvbar', id: 'srvbar' }, el('label', { class: 'lbl', for: 'srv' }, 'Server'), serverSel),
+      el('span', { class: 'pill', id: 'status' }, '…'),
+      el('button', { class: 'ghost icon', id: 'srvbtn', title: 'Use a Sushila server on another computer', onclick: () => { $('remote').classList.remove('hidden'); $('rurl').focus(); } }, '⇄'),
+      el('button', { class: 'ghost icon', id: 'maxbtn', title: 'Maximize: only the conversation, as large as the window', onclick: () => setMax(true) }, '⛶'),
       embedded && opts.onBrowser ? el('button', { class: 'ghost', onclick: () => opts.onBrowser(model && model.packId) }, 'Open in browser') : null);
     const main = el('div', { id: 'main' });
     const restore = el('button', { class: 'restorebtn', onclick: () => setMax(false) }, '⤡ Restore');
     const qpanel = el('details', { id: 'qpanel', class: 'qpanel' }, el('summary', {}, el('b', { id: 'qsum' }, 'Queue')), el('div', { id: 'qlist', class: 'sub' }, 'Loading…'));
     if (qs.get('queue') === '1') qpanel.open = true;
-    app.replaceChildren(head, el('div', { style: 'padding:0 22px' }, remoteBox), main, qpanel, restore);
+    // quick access by what a pack does: one chip per kind of installed pack (the picker below lists every pack and mode)
+    const kinds = el('div', { class: 'kinds', id: 'kinds', role: 'toolbar', 'aria-label': 'What to make' });
+    app.replaceChildren(head, kinds, el('div', { style: 'padding:0 22px' }, remoteBox), main, qpanel, restore);
     function setMax(on) { app.classList.toggle('maxed', on); if (on && $('q')) $('q').focus(); }
     // replies with ``` code blocks: shown as code, each with a Copy button (text only: nothing in a reply is run)
     function rich(text) {
@@ -418,6 +456,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       serverSel.replaceChildren(el('option', { value: '' }, 'This computer'), ...hosts.map((h) => el('option', { value: h }, h.replace(/^https?:\/\//, ''))),
         el('option', { value: '__add' }, 'Add a remote server…'), ...(server ? [el('option', { value: '__del' }, 'Remove ' + server.replace(/^https?:\/\//, ''))] : []));
       serverSel.value = server;
+      const one = !hosts.length && !server;
+      if ($('srvbar')) $('srvbar').classList.toggle('hidden', one);
+      if ($('srvbtn')) $('srvbtn').classList.toggle('hidden', !one);
     }
     serverSel.addEventListener('change', () => {
       const v = serverSel.value;
@@ -445,9 +486,24 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const s = await r.json();
         models = s.running || [];
-        modelSel.replaceChildren(...(models.length ? models.map((m) => el('option', { value: m.packId }, m.name + (m.kind === 'music' ? ' (music)' : m.kind === 'video' ? ' (video)' : m.kind === 'image' ? ' (images)' : ''))) : [el('option', { value: '' }, 'No model running')]));
-        if (want && models.find((m) => m.packId === want)) modelSel.value = want;
+        packs = server ? [] : (s.packs || []);
+        // this computer: every installed pack, per mode, with what it does and whether it runs; another server: what runs there
+        const items = packs.length ? packs.flatMap((p) => (p.turbo ? ['turbo', 'regular'] : ['regular']).map((md) => {
+            const r = models.find((x) => x.packId === p.id && (x.mode || 'regular') === md);
+            const st = r ? (r.ready ? (r.cpu ? '  ● running on the CPU' : '  ● running') : '  ◌ loading…') : '';
+            return { value: p.id + '|' + md, run: !!r, text: (KIND[kindOf(p)] || '💬 Chat') + ' · ' + p.name + ' (' + modeName(md) + ')' + st + (p.assistant ? '  · assistant' : '') };
+          }))
+          : models.map((m) => ({ value: m.packId + '|' + (m.mode || 'regular'), run: true, text: (KIND[kindOf(m)] || '💬 Chat') + ' · ' + m.name + ' (' + modeName(m.mode) + ')' }));
+        items.sort((a, b) => b.run - a.run);
+        modelSel.replaceChildren(...(items.length ? items.map((x) => el('option', { value: x.value }, x.text)) : [el('option', { value: '' }, packs.length ? 'No model running' : 'No model installed')]));
+        // keep the choice: the one asked for, else the one shown, else a running pack that is not the assistant, else any running one
+        const runVals = items.filter((x) => x.run).map((x) => x.value);
+        const assistantId = (packs.find((p) => p.assistant) || {}).id;
+        const pickVal = (want && runVals.find((v) => v.startsWith(want + '|'))) || (model && runVals.find((v) => v === model.packId + '|' + (model.mode || 'regular')))
+          || runVals.find((v) => !v.startsWith(assistantId + '|')) || runVals[0] || '';
+        if (pickVal) modelSel.value = pickVal;
         want = '';
+        fillKinds(items);
         setStatus(server ? 'Remote: ' + server.replace(/^https?:\/\//, '') : 'This computer', models.length ? 'on' : 'off');
         // opened from another machine (http://<server>:<port>/): the server may need an access key; ask once, keep it in this browser
         if (!server && !token && !embedded && models.length) {
@@ -464,46 +520,77 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       }
       pickModel();
     }
-    modelSel.addEventListener('change', pickModel);
-    function showMode() {
-      const sw = $('modesw'); if (!sw) return;
-      const m = model, can = !!(m && m.turbo), local = !server;
-      sw.querySelectorAll('button').forEach((b) => {
-        b.classList.toggle('on', !!m && b.dataset.mode === (m.mode || 'regular'));
-        sw.classList.toggle('turbo', !!m && m.mode === 'turbo'); sw.classList.toggle('none', !m);
-        b.disabled = !m || !local || (b.dataset.mode === 'turbo' && !can);
-      });
-      sw.title = !m ? '' : !local ? 'Only the computer running the model can switch modes.' : can && m.kind === 'image' ? 'Accelerated: 768x768 in 6 steps on Nunchaku 4-bit kernels (0.9 s on a desktop RTX 4090; GPUs with less than 18 GB, such as laptop GPUs, are much slower, because parts of the model are moved between system and GPU memory for each image). Standard: the published 1024x1024, 8 steps.' : can ? 'Accelerated uses this model\'s precomputed Sushila files (landscape, draft model); Standard runs the plain model, as Ollama does.'
-        : 'This model has no precomputed Sushila files yet, so it runs Standard (the plain model, as Ollama runs it).';
-    }
-    async function switchMode(mode) {
-      if (!model || server || (model.mode || 'regular') === mode) return;
-      setStatus(mode === 'turbo' ? 'switching to Accelerated…' : 'switching to Standard…');
-      const wait = $('modewait'), wtext = $('modewaittext'), t0 = Date.now(), label = mode === 'turbo' ? 'Switching to Accelerated' : 'Switching to Standard';
-      const tick = () => { if (wtext) wtext.textContent = label + '… ' + Math.round((Date.now() - t0) / 1000) + ' s (the model restarts)'; };
+    modelSel.addEventListener('change', () => pickModel(true));
+    // start, stop: the same requests as the Admin page (one source of truth: the server's state, read by both pages)
+    async function usePack(action, id, md) {
+      const p = packs.find((x) => x.id === id) || {};
+      const wait = $('modewait'), wtext = $('modewaittext'), t0 = Date.now();
+      const label = action === 'stop' ? 'Stopping ' + (p.name || id) : 'Starting ' + (p.name || id) + ' (' + modeName(md) + ')';
+      const tick = () => { if (wtext) wtext.textContent = label + '… ' + Math.round((Date.now() - t0) / 1000) + ' s' + (action === 'start' ? ' (the model loads)' : ''); };
+      busyPack = true; modelSel.disabled = true; if ($('stopbtn')) $('stopbtn').disabled = true;
       if (wait) { tick(); wait.classList.remove('hidden'); }
       const timer = setInterval(tick, 1000);
-      $('modesw') && $('modesw').querySelectorAll('button').forEach((b) => { b.disabled = true; });
       try {
-        if (opts.setMode) await opts.setMode(model.packId, mode);
-        else {
-          const r = await fetch(base() + '/api/mode', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, auth()), body: JSON.stringify({ model: model.packId, mode }) });
-          if (!r.ok) throw new Error(await r.text());
-          for (let i = 0; i < 180; i++) {  // the model restarts in the chosen mode
-            await new Promise((res) => setTimeout(res, 1000));
-            const st = await (await fetch(base() + '/api/state')).json();
-            const m = (st.running || []).find((x) => x.packId === model.packId);
-            if (m && m.mode === mode && m.ready) break;
-          }
+        const r = await fetch(base() + '/api/use', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, auth()), body: JSON.stringify({ action, pack: id, mode: md }) });
+        if (!r.ok) throw new Error(await r.text());
+        const { id: task } = await r.json().catch(() => ({}));
+        for (let i = 0; i < 600; i++) {
+          await new Promise((res) => setTimeout(res, 1000));
+          const st = await (await fetch(base() + '/api/state')).json();
+          const m = (st.running || []).find((x) => x.packId === id);
+          if (action === 'stop' ? !m : m && m.ready && (!md || m.mode === md)) break;
+          const t = task && (st.tasks || []).find((x) => x.id === task);
+          if (t && t.status === 'failed') throw new Error(t.error || 'it did not start');
         }
-        want = model.packId; await loadModels();
-      } catch (e) { setStatus('Could not switch: ' + (e.message || e), 'off'); }
-      finally { clearInterval(timer); if (wait) wait.classList.add('hidden'); showMode(); }
+        if (action === 'start') want = id;
+        setStatus(action === 'stop' ? (p.name || id) + ' stopped' : (p.name || id) + ' is ready', 'on');
+      } catch (e) { setStatus('Could not ' + action + ' ' + (p.name || id) + ': ' + (e.message || e), 'off'); }
+      finally { clearInterval(timer); if (wait) wait.classList.add('hidden'); busyPack = false; modelSel.disabled = false; await loadModels(); }
+    }
+    function fillKinds(items) {
+      const box = $('kinds'); if (!box) return;
+      const list = packs.length ? packs : models.map((m) => Object.assign({ id: m.packId }, m));
+      const present = Object.keys(KIND).filter((k) => list.some((p) => kindOf(p) === k));
+      const cur = model ? kindOf(model) : '';
+      box.replaceChildren(...present.map((k) => el('button', { class: 'chip' + (k === cur ? ' on' : ''), onclick: () => {
+        // the running pack of that kind, else its first pack in the mode it was last used in
+        const ofKind = list.filter((p) => kindOf(p) === k).map((p) => p.id);
+        const v = items.find((x) => x.run && ofKind.includes(x.value.split('|')[0]))
+          || items.find((x) => { const [id, md] = x.value.split('|'); const p = list.find((q) => q.id === id); return ofKind.includes(id) && (!p || !p.mode || p.mode === md); });
+        if (!v || modelSel.disabled) return;
+        if (modelSel.value !== v.value) { modelSel.value = v.value; pickModel(true); }
+      } }, KIND[k])));
+      box.classList.toggle('hidden', present.length < 2);
+    }
+    function stopPack() {
+      if (!model || server || busyPack) return;
+      if (!window.confirm('Stop ' + model.name + ' (' + modeName(model.mode) + ')?')) return;
+      usePack('stop', model.packId);
+    }
+    // the Stop button follows the pack shown; its tooltip says what Accelerated does for it
+    function showMode() {
+      const b = $('stopbtn'); if (!b) return;
+      const m = model;
+      b.disabled = !m || !!server || busyPack;
+      b.title = !m ? '' : server ? 'Only the computer running the model can stop it.' : 'Stop ' + m.name + '. ' + (m.turbo && m.kind === 'image' ? 'Accelerated: 768x768 in 6 steps on Nunchaku 4-bit kernels (0.9 s on a desktop RTX 4090; GPUs with less than 18 GB, such as laptop GPUs, are much slower, because parts of the model are moved between system and GPU memory for each image). Standard: the published 1024x1024, 8 steps.' : m.turbo ? 'Accelerated uses this model\'s precomputed Sushila files (landscape, draft model); Standard runs the plain model, as Ollama does.' : '');
     }
     const kept = {};  // pack id -> {nodes, msgs}: switching models (or tabs in the app) keeps each one's conversation and results
-    function pickModel() {
-      const next = models.find((m) => m.packId === modelSel.value) || null, prev = model;
-      if (prev && next && prev.packId === next.packId && main.childNodes.length) { model = next; showMode(); return; }  // same model (e.g. after a refresh)
+    function pickModel(asked) {
+      const [pid, pmode] = (modelSel.value || '').split('|');
+      // a pack that is not running in the mode picked: ask, then start it (the others stop; the assistant stays)
+      if (asked === true && pid && !server && !models.find((m) => m.packId === pid && (m.mode || 'regular') === pmode)) {
+        const p = packs.find((x) => x.id === pid) || { name: pid }, a = packs.find((x) => x.assistant);
+        const others = models.filter((m) => m.packId !== pid && !(a && m.packId === a.id));
+        const msg = 'Start ' + p.name + ' (' + modeName(pmode) + ')?' + (others.length ? '\n\nThis stops ' + others.map((m) => m.name).join(', ') + ': one model pack runs at a time.' : '')
+          + (a && a.id !== pid ? '\n' + a.name + ' (the assistant) keeps running' + (p.kind && p.kind !== 'text' ? ', on the CPU while this pack uses the GPU.' : '.') : '');
+        if (!window.confirm(msg)) { modelSel.value = lastValue; return; }
+        usePack('start', pid, pmode);
+        return;
+      }
+      lastValue = modelSel.value;
+      setTimeout(() => { const c = $('kinds'); if (c) c.querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', !!model && b.textContent === KIND[kindOf(model)])); }, 0);
+      const next = models.find((m) => m.packId === pid && (m.mode || 'regular') === (pmode || m.mode || 'regular')) || null, prev = model;
+      if (prev && next && prev.packId === next.packId && prev.mode === next.mode && main.childNodes.length) { model = next; showMode(); return; }  // same model (e.g. after a refresh)
       if (prev && main.childNodes.length) kept[prev.packId] = { nodes: [...main.childNodes], msgs: msgs.slice() };
       model = next;
       showMode();
@@ -544,6 +631,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
             ['paused', 'failed', 'cancelled'].includes(j.status) ? el('button', { onclick: qAct(j.id, 'resume') }, 'Continue') : null,
             ['queued', 'running', 'paused'].includes(j.status) ? el('button', { class: 'ghost', onclick: qAct(j.id, 'cancel') }, 'Cancel') : null,
             j.status === 'ready' ? el('a', { href: outUrl(j.id, true), class: 'dlbtn' }, '⬇ Download') : null,
+            // finished jobs are kept in the home folder (outputs/): this computer can open that folder
+            j.status === 'ready' && !server && j.output && j.output.file ? el('button', { class: 'ghost', onclick: async (e) => {
+              const r = await fetch(base() + '/api/reveal', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, auth()), body: JSON.stringify({ path: j.output.file }) });
+              e.target.textContent = r.ok ? '📁 Opened' : '📁 ' + (await r.text()); } }, '📁 Show in folder') : null,
             j.status !== 'running' ? el('button', { class: 'ghost', onclick: qAct(j.id, 'remove') }, 'Remove') : null));
       }));
     }
@@ -552,7 +643,9 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 
     // ---------- chat (text models)
     function chatScreen() {
-      main.replaceChildren(el('div', { class: 'chat' }, el('div', { id: 'chatlog' }),
+      main.replaceChildren(el('div', { class: 'chat' }, el('div', { id: 'chatlog' }, el('div', { class: 'hero' }, el('div', { class: 'heroicon' }, kindOf(model) === 'code' ? '💻' : '💬'),
+          el('h2', {}, kindOf(model) === 'code' ? 'What shall we build?' : 'What can I help with?'),
+          el('div', { class: 'sub' }, (server ? 'Runs on ' + server.replace(/^https?:\/\//, '') : 'Runs entirely on this computer: your words never leave it') + ' · ' + model.name))),
         el('div', { class: 'composer' }, el('textarea', { id: 'q', placeholder: 'Ask anything. ' + (server ? 'Runs on ' + server.replace(/^https?:\/\//, '') + '.' : 'Runs entirely on this computer.') }),
           el('div', {}, el('button', { id: 'send', onclick: send }, 'Submit'), el('button', { id: 'stop', class: 'ghost hidden', onclick: () => ctrl && ctrl.abort() }, 'Stop'),
             el('button', { class: 'ghost', title: 'Run it in the background and keep the answer in the Queue', onclick: () => { const q = $('q').value.trim(); if (q) { addToQueue('text', q, { prompt: q, max_tokens: +$('maxt').value, temperature: +$('temp').value }, $('qmsg')); $('q').value = ''; } } }, 'Add to queue'))),
@@ -739,7 +832,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create images'),
         el('label', { for: 'iprompt' }, 'Describe the image'), el('textarea', { id: 'iprompt', rows: 4, placeholder: 'e.g. a red fox in fresh snow at sunrise, soft light, photograph' }),
         el('div', { class: 'bar2' },
-          el('label', {}, 'Size ', el('select', { id: 'isize' }, [['1024x1024', 'Square 1024'], ['768x768', 'Square 768 (fastest)'], ['768x1024', 'Portrait'], ['1024x768', 'Landscape']].map(([v, t]) => el('option', { value: v, selected: v === (model && model.mode === 'turbo' ? '768x768' : '1024x1024') }, t)))),
+          el('label', {}, 'Size ', el('select', { id: 'isize' }, imageSizes(model).map(([v, t]) => el('option', { value: v, selected: v === (model && model.mode === 'turbo' ? '768x768' : '1024x1024') }, t)))),
           el('label', {}, 'Images ', el('select', { id: 'in' }, [1, 2, 4].map((n) => el('option', { value: n }, String(n))))),
           el('label', {}, 'Seed ', el('input', { id: 'iseed', type: 'number', placeholder: 'random', style: 'width:110px' }))),
         el('div', { class: 'row' }, el('button', { id: 'igo', class: 'big', onclick: makeImage }, 'Submit'),
@@ -748,6 +841,23 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('div', { class: 'msg', id: 'imsg' }), keyHint(), el('div', { id: 'gallery', class: 'gallery' })));
       $('iprompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) makeImage(); });
       if (autoPrompt) { $('iprompt').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeImage(); } }
+    }
+    // the sizes an image model's engine makes: up to 2048 everywhere; 4K (3840x2160) only on the standard engine
+    // (stable-diffusion.cpp), experimental: beyond the size the model was trained at, much memory, not measured
+    function imageSizes(m) {
+      const sizes = [['768x768', 'Square 768 (fastest)'], ['1024x1024', 'Square 1024'], ['768x1024', 'Portrait 768x1024'], ['1024x768', 'Landscape 1024x768'],
+        ['1536x1536', 'Square 1536'], ['2048x2048', 'Square 2048 (2K; GPU with 24 GB+)'], ['2048x1152', 'Wide 2048x1152 (2K)'], ['1152x2048', 'Tall 1152x2048 (2K)']];
+      if (!(m && m.engine === 'image-nunchaku')) sizes.push(['3840x2160', '4K 3840x2160 (experimental, slow, much memory)'], ['2160x3840', '4K tall 2160x3840 (experimental)']);
+      return sizes;
+    }
+    // where the server saved a picture (this computer only): the path, Show in folder (file manager), Copy path
+    function savedAt(file) {
+      const msg = el('span', { class: 'sub' });
+      return el('span', { class: 'saved' }, el('button', { class: 'ghost', title: file, onclick: async () => {
+          try { const r = await fetch(base() + '/api/reveal', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, auth()), body: JSON.stringify({ path: file }) });
+            msg.textContent = r.ok ? ' opened' : ' ' + (await r.text()); } catch (e) { msg.textContent = ' ' + (e.message || e); } } }, '📁 Show in folder'), ' ',
+        el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(file); msg.textContent = ' copied'; } catch (_) { msg.textContent = ' ' + file; } } }, 'Copy path'),
+        el('div', { class: 'sub path', style: 'word-break:break-all;user-select:all' }, 'Saved: ' + file), msg);
     }
     // stable-diffusion.cpp's OpenAI endpoint takes engine options inside the prompt: <sd_cpp_extra_args>{...}</sd_cpp_extra_args>
     const extraArgs = (o) => (Object.keys(o).length ? ` <sd_cpp_extra_args>${JSON.stringify(o)}</sd_cpp_extra_args>` : '');
@@ -763,10 +873,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
             size: $('isize').value, n: +$('in').value, output_format: 'png' }) });
         if (!r.ok) throw new Error(explain(r, await r.text()));
         const j = await r.json(), secs = ((performance.now() - t0) / 1000).toFixed(1);
-        const imgs = (j.data || []).map((d) => d.b64_json ? 'data:image/png;base64,' + d.b64_json : d.url).filter(Boolean);
+        const imgs = (j.data || []).map((d) => ({ src: d.b64_json ? 'data:image/png;base64,' + d.b64_json : d.url, file: d.sushila_file })).filter((x) => x.src);
         if (!imgs.length) throw new Error('The server returned no image.');
-        for (const src of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
-          el('a', { href: src, download: 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'))));
+        for (const { src, file } of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
+          el('a', { href: src, download: file ? file.split(/[\\/]/).pop() : 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'), file ? ' ' : null, file ? savedAt(file) : null)));
         $('imsg').textContent = `${imgs.length} image${imgs.length > 1 ? 's' : ''} in ${secs} s`;
       } catch (e) { $('imsg').className = 'msg err'; $('imsg').textContent = String(e.message || e); }
       finally { $('igo').disabled = false; }

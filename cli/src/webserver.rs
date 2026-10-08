@@ -263,11 +263,13 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     if parts.method == axum::http::Method::OPTIONS { return with_cors(axum::http::StatusCode::NO_CONTENT.into_response(), &st); }
     let deny = |code: axum::http::StatusCode, msg: &'static str| with_cors((code, msg).into_response(), &st);
     let mut who_s = String::new();
+    let mut local = false;
     if path.starts_with("/v1/") {
         let Some(who) = caller(&parts.headers, &st) else {
             return deny(axum::http::StatusCode::UNAUTHORIZED, "an access key is required (Authorization: Bearer <key>), or open this page from Sushila Host Station");
         };
         who_s = who_name(&who, &st);
+        local = who == "local";
         if who != "local" {
             let per_min = share(&st).and_then(|sh| sh.get("perMinute")).and_then(|v| v.as_u64()).unwrap_or(30).max(1) as u32;
             let mut hits = s.hits.lock().unwrap();
@@ -299,7 +301,11 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         _ => None,
     };
     let Some(up) = pick.and_then(|r| r.get("port")).and_then(|p| p.as_u64()) else {
-        return deny(axum::http::StatusCode::SERVICE_UNAVAILABLE, if running.is_empty() { "no model is running: start one (sushila start <pack>, or the Admin tab)" } else { "name a running model (\"model\" field); GET /v1/models lists them" });
+        // a named pack that is installed but not running: say which, and how to start it
+        if let Some(m) = wanted.as_deref().filter(|m| !running.contains_key(*m)) {
+            return with_cors((axum::http::StatusCode::SERVICE_UNAVAILABLE, not_running_msg(&st, m, None)).into_response(), &st);
+        }
+        return deny(axum::http::StatusCode::SERVICE_UNAVAILABLE, if running.is_empty() { "no model is running: start one on the Admin page (Packs, Start), or type start <pack> in the Sushila window" } else { "name a running model (\"model\" field); GET /v1/models lists them" });
     };
     let model = running.iter().find(|(_, r)| r.get("port").and_then(|p| p.as_u64()) == Some(up)).map(|(k, _)| k.clone()).unwrap_or_default();
     // admission control: each model serves `slots` requests at once (continuous batching) and lets up to 3x that wait
@@ -332,7 +338,20 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     for h in ["content-type", "accept"] {
         if let Some(v) = parts.headers.get(h).and_then(|v| v.to_str().ok()) { r = r.header(h, v); }
     }
+    let prompt = serde_json::from_slice::<Value>(&bytes).ok().and_then(|v| v.get("prompt").and_then(|p| p.as_str()).map(String::from)).unwrap_or_default();
     let mut resp = match r.send().await {
+        // a picture is also saved in the home folder (outputs/images/<date>/), so it can be found without downloading;
+        // this computer gets the path of each file in the answer (sushila_file), other machines do not
+        Ok(resp) if path == "/v1/images/generations" && resp.status().is_success() => {
+            guard.status = 200;
+            let body = resp.bytes().await.unwrap_or_default();
+            drop(guard);
+            let out = match serde_json::from_slice::<Value>(&body) {
+                Ok(mut v) => { save_images(&s.data_dir, &prompt, &mut v, local); serde_json::to_vec(&v).unwrap_or(body.to_vec()) }
+                Err(_) => body.to_vec(),
+            };
+            (axum::http::StatusCode::OK, [("content-type", "application/json".to_string()), ("cache-control", "no-store".to_string())], out).into_response()
+        }
         Ok(resp) => {
             let status = axum::http::StatusCode::from_u16(resp.status().as_u16()).unwrap_or(axum::http::StatusCode::BAD_GATEWAY);
             guard.status = status.as_u16();
@@ -341,10 +360,95 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
             let stream = futures_util::StreamExt::map(resp.bytes_stream(), move |c| { let _ = &guard; c });
             (status, [("content-type", ctype), ("cache-control", "no-store".to_string())], axum::body::Body::from_stream(stream)).into_response()
         }
-        Err(e) => { guard.status = 502; drop(guard); (axum::http::StatusCode::BAD_GATEWAY, format!("the model server did not answer: {e}")).into_response() }
+        Err(e) => {
+            guard.status = 503; drop(guard);
+            crate::core::log(true, &format!("api {rid} {model}: its engine did not answer: {e}"));
+            // still loading, or its engine stopped: in plain words, with the engine's last log line
+            let loading = pick.and_then(|r| r.get("ready")).and_then(|x| x.as_bool()) == Some(false);
+            (axum::http::StatusCode::SERVICE_UNAVAILABLE, not_running_msg(&st, &model, Some((loading, &s.data_dir)))).into_response()
+        }
     };
     resp.headers_mut().insert("x-request-id", axum::http::HeaderValue::from_str(&rid).unwrap_or(axum::http::HeaderValue::from_static("r")));
     with_cors(resp, &st)
+}
+
+/// What a person needs to hear when a pack does not answer: its name, that it is not running (or still loading), how to
+/// start it, and the last line its engine wrote.
+fn not_running_msg(st: &Value, id: &str, engine: Option<(bool, &Path)>) -> String {
+    let name = st.get("packs").and_then(|p| p.get(id)).and_then(|p| p.get("name")).and_then(|n| n.as_str()).unwrap_or(id);
+    let last = engine.and_then(|(_, dir)| std::fs::read_to_string(dir.join("logs").join(format!("{id}.log"))).ok())
+        .and_then(|t| t.lines().rev().find(|l| !l.trim().is_empty()).map(|l| l.chars().take(200).collect::<String>()));
+    let tail = last.map(|l| format!(" (its last log line: {l})")).unwrap_or_default();
+    match engine {
+        Some((true, _)) => format!("{name} is still loading. Wait until it shows as ready (Admin page, Packs; or the Sushila window), then try again{tail}."),
+        Some((false, _)) => format!("{name} is not running: its engine stopped{tail}. Start it again on the Admin page (Packs, Start), or type start {id} in the Sushila window; if it stops again, Admin page, Logs, Crashes says why (often: not enough GPU memory, so stop another model first)."),
+        None => format!("{name} is installed but not running, in Standard or Accelerated mode. Start it on the Admin page (Packs, Start), or type start {id} in the Sushila window, then choose it at the top of this page."),
+    }
+}
+
+/// Writes each image of an images answer to outputs/images/<YYYY-MM-DD>/<HHMMSS>-<first words of the prompt>-<n>.png
+/// and, for this computer, adds its path to the answer (data[i].sushila_file).
+fn save_images(dir: &Path, prompt: &str, v: &mut Value, local: bool) {
+    use base64::Engine;
+    let now = crate::util::now_iso();
+    let day = dir.join("outputs").join("images").join(&now[..10]);
+    if std::fs::create_dir_all(&day).is_err() { return; }
+    let clean = prompt.split("<sd_cpp_extra_args>").next().unwrap_or("");
+    let slug: String = clean.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).take(6).collect::<Vec<_>>().join("-").to_lowercase().chars().take(48).collect();
+    let stamp: String = now[11..19].chars().filter(|c| c.is_ascii_digit()).collect();
+    let Some(items) = v.get_mut("data").and_then(|d| d.as_array_mut()) else { return };
+    for (i, it) in items.iter_mut().enumerate() {
+        let Some(b) = it.get("b64_json").and_then(|b| b.as_str()) else { continue };
+        let Ok(png) = base64::engine::general_purpose::STANDARD.decode(b) else { continue };
+        let mut f = day.join(format!("{stamp}-{}-{}.png", if slug.is_empty() { "image" } else { &slug }, i + 1));
+        let mut k = 2; while f.exists() { f = day.join(format!("{stamp}-{slug}-{}-{k}.png", i + 1)); k += 1; }
+        if std::fs::write(&f, png).is_ok() && local { it["sushila_file"] = json!(f.to_string_lossy()); }
+    }
+}
+
+/// POST /api/use {"action": "start"|"stop", "pack": id, "mode": "turbo"|"regular"}: the inference page starts or stops a
+/// pack (one at a time; the assistant's model stays). This computer only; the same request the Admin page sends, so both
+/// pages, the terminal and `sushila status` always show the same state.
+async fn srv_use(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let (parts, body) = req.into_parts();
+    let st = read_state(&s.data_dir);
+    if !host_ok(&parts.headers, s.port, &st) || caller(&parts.headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "only this computer can start and stop models").into_response(); }
+    let Ok(bytes) = axum::body::to_bytes(body, 4096).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let Ok(v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let (action, pack) = (v["action"].as_str().unwrap_or(""), v["pack"].as_str().unwrap_or(""));
+    if !(action == "start" || action == "stop") || pack.is_empty() || pack.len() > 80 || !pack.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_') {
+        return (axum::http::StatusCode::BAD_REQUEST, "action start or stop and a pack id").into_response();
+    }
+    let mode = v["mode"].as_str().filter(|m| *m == "turbo" || *m == "regular");
+    let id = new_id().replacen("job-", "task-", 1);
+    let dir = s.data_dir.join("control-in");
+    let req = json!({ "id": id, "action": action, "pack": pack, "mode": mode, "source": "inference page" });
+    if std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(dir.join(format!("{id}.json")), req.to_string())).is_err() { return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not queue the request").into_response(); }
+    (axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "id": id }))).into_response()
+}
+
+/// POST /api/reveal {"path": ...}: opens the system's file manager at a file in the home folder's outputs (Explorer with
+/// the file selected, Finder likewise, the folder elsewhere). Only for this computer, and only inside outputs/.
+async fn srv_reveal(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let (parts, body) = req.into_parts();
+    let st = read_state(&s.data_dir);
+    if !host_ok(&parts.headers, s.port, &st) || caller(&parts.headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "only this computer can open its folders").into_response(); }
+    let Ok(bytes) = axum::body::to_bytes(body, 8192).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let p = serde_json::from_slice::<Value>(&bytes).ok().and_then(|v| v.get("path").and_then(|p| p.as_str()).map(PathBuf::from));
+    let outputs = s.data_dir.join("outputs");
+    // a bare file name means a queue output (outputs/<job>.<ext>)
+    let p = p.map(|p| if p.is_absolute() { p } else { outputs.join(p) });
+    let (Some(f), Ok(root)) = (p.and_then(|p| std::fs::canonicalize(p).ok()), std::fs::canonicalize(&outputs)) else { return (axum::http::StatusCode::NOT_FOUND, "that file is not there any more").into_response() };
+    if !f.starts_with(&root) { return (axum::http::StatusCode::FORBIDDEN, "only files in the outputs folder").into_response(); }
+    let r = if cfg!(windows) {
+        // explorer wants /select,"<path>" as one argument, with the Windows path (no \\?\ prefix)
+        let w = f.to_string_lossy().trim_start_matches(r"\\?\").to_string();
+        std::process::Command::new("explorer").arg(format!("/select,{w}")).spawn()
+    } else if cfg!(target_os = "macos") { std::process::Command::new("open").arg("-R").arg(&f).spawn() }
+    else { std::process::Command::new("xdg-open").arg(f.parent().unwrap_or(&root)).spawn() };
+    match r { Ok(_) => axum::Json(json!({ "ok": true, "path": f.to_string_lossy() })).into_response(), Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, format!("could not open the folder: {e}")).into_response() }
 }
 
 /// GET /health: the server is alive (200, for process monitors). GET /ready: 200 when at least one model is loaded and
@@ -686,6 +790,8 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/sushila.js", axum::routing::get(srv_js))
         .route("/api/state", axum::routing::get(srv_state))
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
+        .route("/api/reveal", axum::routing::post(srv_reveal))
+        .route("/api/use", axum::routing::post(srv_use))
         .route("/api/shutdown", axum::routing::post(srv_shutdown))
         .route("/api/control", axum::routing::post(srv_control).options(srv_control))
         .route("/api/logs", axum::routing::get(srv_logs))
