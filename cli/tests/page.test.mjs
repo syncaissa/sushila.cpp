@@ -16,6 +16,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
     if (u.includes('/api/admin/setup') || u.includes('/api/admin/login')) { const pw = JSON.parse(o.body).password; if (pw !== 'correct horse') return { ok: false, status: 401, json: async () => ({}), text: async () => 'wrong password' }; A.passwordSet = true; A.loggedIn = true; return { ok: true, status: 200, json: async () => ({ session: 's'.repeat(48) }), text: async () => '' }; }
     if (u.includes('/api/assistant') && JSON.parse(o.body).question === 'quote me') return { ok: true, status: 200, json: async () => ({ mode: 'quote', model: 'qwen2.5-0.5b-q4km', answer: '…', quotes: [{ title: 'The Admin tab and security', source: 'notes', text: 'lost it? run sushila password --reset' }], commands: ['sushila password --reset'], hint: 'For fuller answers install a bigger chat model, e.g. `sushila install qwen3-4b-instruct-2507` (needs about 3 GB).', sources: [] }), text: async () => '' };
     if (u.includes('/api/assistant')) { const b = JSON.parse(o.body); return { ok: true, status: 200, json: async () => ({ answer: 'Run sushila install qwen2.5-coder-7b (' + b.history.length + ')', model: 'qwen2.5-0.5b-q4km', sources: [{ title: 'Installing a model', source: 'notes' }] }), text: async () => '' }; }
+    if (u.includes('/api/system')) { const sy = { gpu: { name: 'NVIDIA GeForce RTX 3070 Laptop GPU', memTotalGB: 8, memUsedGB: 3.1, utilPct: 4, driver: '581.29', tempC: 51 }, cpu: { name: 'Intel Core i7', cores: 16 }, ram: { totalGB: 16, freeGB: 7.5 }, disk: { mount: 'C:\\', freeGB: 210, totalGB: 950 }, home: 'C:\\Users\\me\\AppData\\Roaming\\ai.sushila.hoststation', os: 'windows x86_64', engine: { version: '0.1.1', key: 'windows-x86_64-cuda', gpuBuild: true }, uptimeS: 3600, requests: 12, crashesToday: 0, crashesTotal: 0, app: '0.1.1' }; return { ok: true, status: 200, json: async () => sy, text: async () => JSON.stringify(sy) }; }
     const j = u.includes('/api/admin') ? A : u.includes('/api/state') ? state : u.includes('/api/catalog') ? catalog : u.includes('/api/logs') ? { next: 20, text: '2026 [server] hello log\n' } : u.includes('/api/queue') ? { paused: false, jobs: [{ id: 'job-1', kind: 'text', model: 'qwen', status: 'ready', title: 'poem' }] } : u.includes('/api/control') ? { id: 'task-x' } : {};
     return { ok: true, status: 200, json: async () => j, text: async () => JSON.stringify(j) }; };
   w.eval(JS); await sleep(400);
@@ -23,7 +24,14 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
 }
 let p = await page('tok123', '#admin/packs');
 ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].map((a) => a.textContent).join(',') === 'Inference,Admin' && p.d.querySelectorAll('nav.snav .brand').length === 1 && !p.d.querySelector('#app .top h1'), 'local page: Inference and Admin, Sushila named once');
-ok([...p.d.querySelectorAll('#manage .snav a')].map((a) => a.textContent).join(',') === 'Packs,Engine,Queue,Recent actions,Logs,Settings', 'Admin: Packs, Engine, Queue, Recent actions, Logs, Settings');
+ok([...p.d.querySelectorAll('#manage details.sec > summary .sectitle')].map((x) => x.textContent).join(',') === 'What is happening now,System health,Model packs,Queue,Recent actions,Full log,Engine,Settings', 'Admin: one page of sections (now, health, packs, queue, actions, log, engine, settings)');
+ok(p.d.body.textContent.includes('All good') && p.d.body.textContent.includes('RTX 3070 Laptop GPU') && p.d.body.textContent.includes('GB free'), 'Admin: system health (GPU, memory, disk) with a one-line verdict');
+ok(p.d.body.textContent.includes('Qwen 0.5B') && p.d.body.textContent.includes('Accelerated'), 'Admin: what is happening now lists the running model');
+{ const btn = [...p.d.querySelectorAll('#manage .adminhead button')]; btn.find((b) => b.textContent === 'Show all').click(); await sleep(600);
+  ok([...p.d.querySelectorAll('#manage details.sec')].every((d) => d.open), 'Admin: Show all opens every section');
+  btn.find((b) => b.textContent === 'Hide all').click(); await sleep(400);
+  ok([...p.d.querySelectorAll('#manage details.sec')].every((d) => !d.open), 'Admin: Hide all closes them');
+  [...p.d.querySelectorAll('#manage .adminhead button')].find((b) => b.textContent === 'Show all').click(); await sleep(600); }
 ok(p.d.body.textContent.includes('Installed') && p.d.body.textContent.includes('Qwen3 4B'), 'Packs: installed and available packs listed');
 ok(p.d.body.textContent.includes('needs other hardware'), 'Packs: a pack for other hardware is marked');
 ok(p.d.body.textContent.includes('file 1 of 1') && p.d.querySelector('.bar i'), 'a running install shows progress (started from the CLI)');

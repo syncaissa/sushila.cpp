@@ -233,7 +233,46 @@ async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     // only the "public" part of the Host Station state (models and what runs): never the session token or keys
     let origin = headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
-    with_cors_for(axum::Json(st.get("public").cloned().unwrap_or(json!({}))).into_response(), &st, origin.as_deref())
+    let mut v = st.get("public").cloned().unwrap_or(json!({}));
+    v["now"] = crate::util::progress_now();  // downloads in progress (for the Admin page)
+    with_cors_for(axum::Json(v).into_response(), &st, origin.as_deref())
+}
+
+/// GET /api/system (Admin): the health of this computer and of Sushila: GPU, CPU, memory, disk, engine, uptime, crashes.
+async fn srv_system(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) || !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required").into_response(); }
+    // nvidia-smi takes a moment: asked at most every 5 s
+    static GPU: std::sync::LazyLock<std::sync::Mutex<(Option<std::time::Instant>, Value)>> = std::sync::LazyLock::new(|| std::sync::Mutex::new((None, Value::Null)));
+    let stale = GPU.lock().unwrap().0.map(|t| t.elapsed() > Duration::from_secs(5)).unwrap_or(true);
+    if stale {
+        let out = tokio::process::Command::new("nvidia-smi").args(["--query-gpu=name,memory.total,memory.used,utilization.gpu,driver_version,temperature.gpu", "--format=csv,noheader,nounits"])
+            .stdin(std::process::Stdio::null()).stderr(std::process::Stdio::null()).output().await.ok();
+        let g = out.filter(|o| o.status.success()).and_then(|o| String::from_utf8_lossy(&o.stdout).lines().next().map(|l| {
+            let f: Vec<&str> = l.split(',').map(str::trim).collect();
+            let n = |i: usize| f.get(i).and_then(|x| x.parse::<f64>().ok());
+            json!({ "name": f.first(), "memTotalGB": n(1).map(|m| (m / 1024.0 * 10.0).round() / 10.0), "memUsedGB": n(2).map(|m| (m / 1024.0 * 10.0).round() / 10.0), "utilPct": n(3), "driver": f.get(4), "tempC": n(5) }) }))
+            .unwrap_or(Value::Null);
+        *GPU.lock().unwrap() = (Some(std::time::Instant::now()), g);
+    }
+    let gpu = GPU.lock().unwrap().1.clone();
+    let mut sys = sysinfo::System::new(); sys.refresh_memory(); sys.refresh_cpu_usage();
+    let cpu = sys.cpus().first().map(|c| c.brand().trim().to_string()).unwrap_or_default();
+    let disks = sysinfo::Disks::new_with_refreshed_list();
+    let home = std::fs::canonicalize(&s.data_dir).unwrap_or(s.data_dir.clone());
+    let disk = disks.list().iter().filter(|d| home.starts_with(d.mount_point())).max_by_key(|d| d.mount_point().as_os_str().len())
+        .map(|d| json!({ "mount": d.mount_point().to_string_lossy(), "freeGB": (d.available_space() as f64 / 1e9 * 10.0).round() / 10.0, "totalGB": (d.total_space() as f64 / 1e9).round() }));
+    let crashes: Vec<Value> = std::fs::read_to_string(s.data_dir.join("crashes.json")).ok().and_then(|t| serde_json::from_str::<Vec<Value>>(&t).ok()).unwrap_or_default();
+    let day_ago = { let n = crate::util::now_iso(); n[..10].to_string() };
+    let recent = crashes.iter().filter(|c| c["time"].as_str().map(|t| t.starts_with(&day_ago)).unwrap_or(false)).count();
+    let eng = st.get("engine").cloned().unwrap_or(Value::Null);
+    axum::Json(json!({ "gpu": gpu, "cpu": { "name": cpu, "cores": sys.cpus().len() },
+        "ram": { "totalGB": (sys.total_memory() as f64 / 1e9 * 10.0).round() / 10.0, "freeGB": (sys.available_memory() as f64 / 1e9 * 10.0).round() / 10.0 },
+        "disk": disk, "home": s.data_dir.to_string_lossy(), "os": format!("{} {}", std::env::consts::OS, std::env::consts::ARCH),
+        "engine": { "version": eng["version"], "key": eng["key"], "gpuBuild": eng["key"].as_str().map(|k| k.ends_with("-cuda") || k.ends_with("-vulkan") || k.starts_with("macos-aarch64")).unwrap_or(false) },
+        "uptimeS": s.started.elapsed().as_secs(), "requests": requests_served(), "crashesToday": recent, "crashesTotal": crashes.len(),
+        "app": env!("CARGO_PKG_VERSION") })).into_response()
 }
 
 async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
@@ -792,6 +831,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
         .route("/api/reveal", axum::routing::post(srv_reveal))
         .route("/api/use", axum::routing::post(srv_use))
+        .route("/api/system", axum::routing::get(srv_system))
         .route("/api/shutdown", axum::routing::post(srv_shutdown))
         .route("/api/control", axum::routing::post(srv_control).options(srv_control))
         .route("/api/logs", axum::routing::get(srv_logs))

@@ -112,6 +112,8 @@ impl Ctx {
             _ => if p["category"].as_str().map(|c| c.eq_ignore_ascii_case("code")).unwrap_or(false) || p["id"].as_str().map(|i| i.contains("coder")).unwrap_or(false) { "code" } else { "chat" },
         }
     }
+    /// Free system memory (RAM) now, in GB.
+    pub fn free_ram_gb(&self) -> f64 { let mut sys = sysinfo::System::new(); sys.refresh_memory(); sys.available_memory() as f64 / 1e9 }
     /// Whether the GPU holds this many bytes of models at once (with room to work).
     pub async fn gpu_holds(&mut self, bytes: f64) -> bool { self.gpu_room_for(&json!({ "bytes": bytes })).await }
     pub fn setting(&self, k: &str) -> Value { self.state["settings"][k].clone() }
@@ -682,6 +684,8 @@ impl Ctx {
         if engine == "image-nunchaku" { c.env("PYTHONNOUSERSITE", "1").env("PYTHONUNBUFFERED", "1").env("HF_HUB_OFFLINE", "1"); }
         self.log(&format!("starting {id} ({}, {slots} parallel slot{}) on port {port}: {program} {}", if mode == "turbo" { "Accelerated" } else { "Standard" }, if slots == 1 { "" } else { "s" }, args.join(" ")));
         let logs = self.data.join("logs"); let _ = std::fs::create_dir_all(&logs);
+        // each start begins a section of the engine's log, so a failure shows only this run's lines
+        { use std::io::Write; if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(logs.join(format!("{id}.log"))) { let _ = writeln!(f, "----- start {} ({})", now_iso(), if mode == "turbo" { "Accelerated" } else { "Standard" }); } }
         let mut child = c.spawn().map_err(|e| format!("could not start {program}: {e}"))?;
         for pipe in [child.stdout.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>), child.stderr.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>)].into_iter().flatten() {
             let (path, quiet, id2) = (logs.join(format!("{id}.log")), self.quiet, id.to_string());
@@ -994,15 +998,42 @@ impl Ctx {
 pub struct EnginePlan { pub key: String, pub version: String, pub url: String, pub build: Value, pub server_rel: String, pub staging: PathBuf, pub dir: PathBuf, pub quiet: bool }
 pub struct Spawned { pub id: String, pub port: u16, pub health: String, pub log: PathBuf, pub already: bool }
 
+/// Why a process ended, in words: Windows status codes and Unix signals that mean "out of memory" or "crashed".
+pub fn exit_reason(st: std::process::ExitStatus) -> String {
+    #[cfg(unix)]
+    { use std::os::unix::process::ExitStatusExt; if let Some(sig) = st.signal() {
+        return format!(" (killed by signal {sig}{})", match sig { 9 => ": usually the system ran out of memory (RAM)", 11 => ": a crash (memory fault)", 6 => ": aborted", _ => "" }); } }
+    match st.code() {
+        Some(c) => {
+            let u = c as u32;
+            let what = match u {
+                0xC0000005 => ": a crash (access violation), often a GPU driver or out-of-memory problem",
+                0xC0000017 | 0xC000012D => ": the system ran out of memory (RAM and page file)",
+                0xC0000409 => ": a crash (fast fail), often out of memory while loading",
+                0xC00000FD => ": a crash (stack overflow)",
+                0xC0000135 | 0xC0000139 => ": a DLL is missing or does not match",
+                _ => "",
+            };
+            if u >= 0xC0000000 { format!(" (exit code 0x{u:08X}{what})") } else { format!(" (exit code {c})") }
+        }
+        None => String::new(),
+    }
+}
+
 /// Waits until a started model answers (up to 5 minutes), or reports why it stopped (the last lines of its log).
 pub async fn wait_ready(procs: Arc<Mutex<HashMap<String, tokio::process::Child>>>, s: &Spawned) -> Result<(), String> {
     for _ in 0..600 {
         if http_text(&s.health, 3).await.is_ok() { return Ok(()); }
         let exited = { let mut g = procs.lock().await; g.get_mut(&s.id).map(|c| c.try_wait().ok().flatten().is_some()).unwrap_or(true) };
         if exited {
-            let tail = std::fs::read_to_string(&s.log).unwrap_or_default();
-            let tail: Vec<&str> = tail.lines().rev().take(8).collect();
-            return Err(format!("{} stopped while loading; last lines of {}:\n  {}", s.id, s.log.display(), tail.into_iter().rev().collect::<Vec<_>>().join("\n  ")));
+            let code = { let mut g = procs.lock().await; g.get_mut(&s.id).and_then(|c| c.try_wait().ok().flatten()) };
+            // only this start's lines (the log keeps every run, each after a "----- start" line)
+            let text = std::fs::read_to_string(&s.log).unwrap_or_default();
+            let this_run = text.rsplit("----- start ").next().unwrap_or(&text);
+            let tail: Vec<&str> = this_run.lines().skip(1).filter(|l| !l.trim().is_empty()).collect::<Vec<_>>().into_iter().rev().take(8).collect();
+            let why = code.map(exit_reason).unwrap_or_default();
+            return Err(format!("{} stopped while loading{why}; its last lines ({}):\n  {}", s.id, s.log.display(),
+                if tail.is_empty() { "(nothing written)".to_string() } else { tail.into_iter().rev().collect::<Vec<_>>().join("\n  ") }));
         }
         tokio::time::sleep(Duration::from_millis(500)).await;
     }

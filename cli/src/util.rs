@@ -86,18 +86,28 @@ impl Job {
     pub fn file_done(&self, bytes: u64) { self.done.fetch_add(bytes, std::sync::atomic::Ordering::SeqCst); self.file.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
     pub fn finish(&self) {
         progress_hide(&self.id, !self.quiet && progress_tty());
+        crate::core::log(true, &format!("{}: all {} files downloaded and verified ({})", self.name, self.files, human(self.total)));
         if !self.quiet { eprintln!("  {}: {} file{}, {} downloaded and verified", self.name, self.files, if self.files == 1 { "" } else { "s" }, human(self.total)); }
     }
+}
+/// What is downloading right now, for the Admin page (the same events the terminal draws): id -> (text, fraction, time).
+pub static PROGRESS: std::sync::LazyLock<std::sync::Mutex<std::collections::BTreeMap<String, (String, Option<f64>, std::time::Instant)>>> = std::sync::LazyLock::new(Default::default);
+/// The current downloads as JSON (updated in the last minute).
+pub fn progress_now() -> Value {
+    let g = PROGRESS.lock().unwrap();
+    json!(g.iter().filter(|(_, v)| v.2.elapsed() < Duration::from_secs(60)).map(|(k, v)| json!({ "id": k, "text": v.0.trim(), "frac": v.1 })).collect::<Vec<_>>())
 }
 fn progress_tty() -> bool { std::io::IsTerminal::is_terminal(&std::io::stderr()) || crate::tui::in_screen() }
 /// One progress update: under the server window's screen an event (it draws the bar on its own row), in a terminal
 /// a line rewritten in place, otherwise a line in the log.
 fn progress_show(id: &str, line: &str, frac: Option<f64>, tty: bool) {
+    if let Ok(mut g) = PROGRESS.lock() { g.insert(id.to_string(), (line.to_string(), frac, std::time::Instant::now())); }
     if crate::tui::in_screen() { eprint!("\x1b]7770;{}\x07", json!({ "id": id, "text": line, "frac": frac })); }
     else if tty { crate::ticker::progress(&format!("{} {line}", crate::ticker::bar(frac, 20))); }
     else { eprintln!("{line}"); }
 }
 fn progress_hide(id: &str, tty: bool) {
+    if let Ok(mut g) = PROGRESS.lock() { g.remove(id); }
     if crate::tui::in_screen() { eprint!("\x1b]7770;{}\x07", json!({ "id": id, "done": true })); }
     else if tty { crate::ticker::progress_clear(); }
 }
@@ -189,6 +199,8 @@ async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opti
         }
     }
     tokio::fs::rename(&part, dest).await.map_err(|e| fatal(e.to_string()))?;
+    // every file in the log (the Admin page's full log), also those of a job that the terminal shows as one bar
+    crate::core::log(true, &format!("downloaded {label} ({}), sha256 {} verified", human(done), &got[..16.min(got.len())]));
     if !quiet && job.is_none() { eprintln!("  {label}: {} downloaded and verified", human(done)); }
     Ok(got)
 }

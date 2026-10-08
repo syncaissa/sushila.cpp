@@ -836,6 +836,18 @@ async fn make_room(ctx: &mut Ctx, o: &mut Owner, pack: &str) {
             ctx.stop_model(&a).await; o.starting.remove(&a);
         }
     }
+    // on the CPU the assistant needs system memory, which a pack that does not fit its GPU also uses (parts of it wait
+    // in RAM): with too little free RAM for both, the assistant pauses until the pack stops, instead of both crashing
+    if ctx.cpu_only.contains(&a) && !ctx.state["running"][&a].is_object() {
+        let gb = |b: &Value| b.as_f64().unwrap_or(0.0) / 1e9;
+        let pack_ram = if ctx.gpu_holds(p["bytes"].as_f64().unwrap_or(0.0)).await { 2.0 } else { gb(&p["bytes"]) + 3.0 };
+        let need = pack_ram + gb(&ctx.state["packs"][&a]["bytes"]) * 1.3 + 1.5;
+        let free = ctx.free_ram_gb();
+        if free < need {
+            ctx.log(&format!("{a} (the assistant) pauses while {pack} runs: {free:.1} GB of memory free, both need about {need:.0} GB; it starts again when {pack} stops"));
+            return;
+        }
+    }
     if !ctx.state["running"][&a].is_object() { if let Err(e) = o.start(ctx, &a, None, None).await { ctx.log(&format!("{a}: {e}")); } }
 }
 /// When no pack needs the GPU any more, the assistant goes back to it.
@@ -1043,7 +1055,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                                 ctx.log(&format!("{e}")); ctx.model_failed(&id).await;
                                 if let Some(next) = ctx.fallback_for(&id, &e).await {
                                     match ctx.install_engine(Some(next)).await { Ok(()) => { let _ = o.start(ctx, &id, None, t.clone()).await; } Err(e2) => { if let Some(t) = t { o.finish(&t, &Err(e2)); } } }
-                                } else if let Some(t) = t { o.finish(&t, &Err(e)); }
+                                } else { if let Some(t) = t { o.finish(&t, &Err(e)); } assistant_back(ctx, &mut o).await; }  // the pack failed: the assistant comes back
                             }
                         }
                     }
@@ -1158,8 +1170,9 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             }
         }
         // models that exited on their own
-        let dead: Vec<(String, Option<i32>)> = { let mut g = ctx.procs.lock().await; g.iter_mut().filter_map(|(id, c)| c.try_wait().ok().flatten().map(|s| (id.clone(), s.code()))).collect() };
-        for (id, code) in dead {
+        let dead: Vec<(String, std::process::ExitStatus)> = { let mut g = ctx.procs.lock().await; g.iter_mut().filter_map(|(id, c)| c.try_wait().ok().flatten().map(|s| (id.clone(), s))).collect() };
+        for (id, status) in dead {
+            let code = status.code();
             if o.starting.contains(&id) { continue; }
             // a model's engine crashed: record why, restart it (at most 3 times in 10 minutes)
             let mode = ctx.state["running"][&id]["mode"].as_str().map(String::from);
@@ -1168,10 +1181,13 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             let again = r.len() <= 3;
             core::record_crash(&ctx.data, json!({ "time": now_iso(), "what": "model", "pack": id, "reason": code.map(|c| format!("exit code {c}")).unwrap_or("stopped by the operating system".into()),
                 "logTail": core::tail_lines(&log, 25), "restarted": again }));
-            ctx.log(&format!("{id} stopped unexpectedly ({}); {} (see {})", code.map(|c| format!("exit code {c}")).unwrap_or("killed".into()),
-                if again { "restarting it" } else { "not restarted: 3 crashes in 10 minutes" }, log.display()));
+            // the reason in words, and the last line this run wrote (often the error itself)
+            let last = std::fs::read_to_string(&log).ok().and_then(|t| t.rsplit("----- start ").next().and_then(|r| r.lines().skip(1).collect::<Vec<_>>().into_iter().rev().find(|l| !l.trim().is_empty()).map(|l| l.chars().take(200).collect::<String>())));
+            let why = core::exit_reason(status);
+            ctx.log(&format!("{id} stopped unexpectedly{}; {}{} (see {})", if why.is_empty() { " (killed)".to_string() } else { why },
+                if again { "restarting it" } else { "not restarted: 3 crashes in 10 minutes" }, last.map(|l| format!("; its last line: {l}")).unwrap_or_default(), log.display()));
             ctx.stop_model(&id).await;
-            if again { if let Err(e) = o.start(ctx, &id, mode.as_deref(), None).await { ctx.log(&format!("{id}: {e}")); } }
+            if again { if let Err(e) = o.start(ctx, &id, mode.as_deref(), None).await { ctx.log(&format!("{id}: {e}")); } } else { assistant_back(ctx, &mut o).await; }
         }
         // queue requests from pages: add / pause / resume / cancel / remove
         let inbox = ctx.data.join("queue-in");

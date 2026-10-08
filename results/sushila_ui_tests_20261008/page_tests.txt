@@ -1,5 +1,9 @@
 ok   local page: Inference and Admin, Sushila named once
-ok   Admin: Packs, Engine, Queue, Recent actions, Logs, Settings
+ok   Admin: one page of sections (now, health, packs, queue, actions, log, engine, settings)
+ok   Admin: system health (GPU, memory, disk) with a one-line verdict
+ok   Admin: what is happening now lists the running model
+ok   Admin: Show all opens every section
+ok   Admin: Hide all closes them
 ok   Packs: installed and available packs listed
 ok   Packs: a pack for other hardware is marked
 ok   a running install shows progress (started from the CLI)

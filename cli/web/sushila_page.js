@@ -84,10 +84,21 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     let session = ''; try { session = sessionStorage.getItem('sushila-admin') || ''; } catch (_) {}
     const api = (path, opts = {}) => fetch(path, Object.assign({}, opts, { headers: Object.assign({ 'x-sushila-token': token, 'x-sushila-admin': session, 'content-type': 'application/json' }, opts.headers || {}) }));
     const TABS = [['', 'Inference'], ['admin', 'Admin']];
-    const SUB = [['packs', 'Packs'], ['engine', 'Engine'], ['queue', 'Queue'], ['actions', 'Recent actions'], ['logs', 'Logs'], ['settings', 'Settings']];
+    // the Admin page: one page of sections that open and close (remembered in this browser); #admin/<section> opens one
+    const SUB = [['now', 'What is happening now'], ['health', 'System health'], ['packs', 'Model packs'], ['queue', 'Queue'], ['actions', 'Recent actions'],
+      ['logs', 'Full log'], ['engine', 'Engine'], ['settings', 'Settings']];
+    const openSecs = new Set((() => { try { return JSON.parse(localStorage.getItem('sushila-admin-open')) || ['now', 'health', 'packs']; } catch (_) { return ['now', 'health', 'packs']; } })());
+    const saveOpen = () => { try { localStorage.setItem('sushila-admin-open', JSON.stringify([...openSecs])); } catch (_) {} };
+    let sys = null, scrollTo = '';
     let admin = { passwordSet: true, loggedIn: false, allowed: false }, sub = 'packs';
     document.head.append(el('style', {}, `
 .snav{display:flex;gap:2px;align-items:center;padding:6px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.adminhead{display:flex;align-items:center;gap:10px;margin:8px 0 14px;flex-wrap:wrap}.adminhead h1{font-size:22px;margin:0 6px 0 0}
+.sec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0;box-shadow:0 2px 10px rgba(16,24,40,.04)}
+.sec>summary{cursor:pointer;list-style:none;padding:13px 16px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
+.sec>summary::-webkit-details-marker{display:none}.sec>summary::before{content:'▸';color:var(--mut);transition:transform .15s}.sec[open]>summary::before{transform:rotate(90deg)}
+.secbadge{font-size:12px;font-weight:600;color:var(--mut);background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:1px 9px}
+.secbody{padding:0 16px 14px;border-top:1px solid var(--line)}.secbody>h2:first-child{display:none}.pill.warn{color:var(--warn);border-color:var(--warn)}.pill.mut{color:var(--mut)}
 .snav b{margin-right:12px}.snav .brand{display:inline-flex;align-items:center;gap:8px;font-size:16px;letter-spacing:.2px}
 .snav .mark{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc),#6366f1);color:#fff;font-size:14px;font-weight:800}
 .snav{padding:8px 18px;gap:4px;box-shadow:0 1px 0 var(--line)}.smenu{position:relative;margin-right:8px}.smenu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 4px}.smenu summary::-webkit-details-marker{display:none}
@@ -150,8 +161,52 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       const lo = $('logout'); if (lo) lo.classList.toggle('hidden', !(view === 'admin' && admin.loggedIn));
       if (view === 'admin' && !admin.loggedIn) { render(); return; }
       try { st = await (await fetch('/api/state')).json(); } catch (_) { st = {}; }
-      if (view === 'admin' && sub === 'packs' && !catalog) { try { catalog = await (await api('/api/catalog')).json(); } catch (_) { catalog = { packs: [] }; } }
+      if (view === 'admin' && openSecs.has('packs') && !catalog) { try { catalog = await (await api('/api/catalog')).json(); } catch (_) { catalog = { packs: [] }; } }
+      if (view === 'admin' && (openSecs.has('health') || openSecs.has('now'))) { try { sys = await (await api('/api/system')).json(); } catch (_) {} }
       render();
+    }
+    const ago = (sec) => (sec < 120 ? sec + ' s' : sec < 7200 ? Math.round(sec / 60) + ' min' : (sec / 3600).toFixed(1) + ' h');
+    // health in one line: green, amber or red, with the reasons
+    function healthLine() {
+      if (!sys || !sys.ram) return { level: 'mut', text: 'checking…' };
+      const why = [], bad = [];
+      if (!sys.engine || !sys.engine.version) bad.push('no engine installed');
+      else if (sys.gpu && !sys.engine.gpuBuild) bad.push('a GPU is present but the CPU engine is installed');
+      if (sys.disk && sys.disk.freeGB < 5) bad.push('less than 5 GB free on the disk'); else if (sys.disk && sys.disk.freeGB < 20) why.push('disk getting full');
+      if (sys.ram && sys.ram.freeGB < 1.5) bad.push('memory (RAM) almost full'); else if (sys.ram && sys.ram.freeGB < 4) why.push('little free memory');
+      if (sys.gpu && sys.gpu.memTotalGB && sys.gpu.memUsedGB / sys.gpu.memTotalGB > 0.95) why.push('GPU memory full');
+      if (sys.crashesToday) why.push(sys.crashesToday + ' crash' + (sys.crashesToday > 1 ? 'es' : '') + ' today');
+      return bad.length ? { level: 'off', text: 'Needs attention: ' + bad.concat(why).join('; ') } : why.length ? { level: 'warn', text: 'Working, with notes: ' + why.join('; ') } : { level: 'on', text: 'All good' };
+    }
+    function nowView() {
+      const dl = (st.now || []), tasks = (st.tasks || []).filter((t) => t.status === 'running' || t.status === 'queued'), run = st.running || [];
+      const rows = [];
+      for (const d of dl) rows.push(el('div', { class: 'task' }, el('b', {}, '⬇ Downloading'), el('div', { class: 'sub' }, d.text),
+        el('div', { class: 'bar' }, el('i', { style: 'width:' + (100 * (d.frac || 0)).toFixed(1) + '%' }))));
+      for (const t of tasks) if (!dl.length || !(t.action || '').startsWith('install')) rows.push(taskRow(t));
+      for (const m of run) rows.push(el('div', { class: 'task' }, el('b', {}, (m.ready ? '● ' : '◌ ') + m.name), ' ',
+        el('span', { class: 'pill ' + (m.ready ? 'on' : '') }, m.ready ? 'running' : 'loading'),
+        el('span', { class: 'sub' }, ' · ' + (m.mode === 'turbo' ? 'Accelerated' : 'Standard') + ' · on the ' + (m.cpu ? 'CPU' : (sys && sys.gpu ? 'GPU' : 'CPU')) + ' · since ' + (m.startedAt || '').replace('T', ' ').slice(11, 19) + ' UTC'
+          + ((st.packs || []).find((p) => p.id === m.packId && p.assistant) ? ' · the assistant (stays running)' : ''))));
+      if (!rows.length) rows.push(el('div', { class: 'sub' }, 'Nothing is running or downloading.'));
+      return [el('div', { class: 'sub' }, 'Live: what the server and the terminal are doing (updates every second or two).'), ...rows];
+    }
+    function healthView() {
+      if (!sys || !sys.ram) return [el('div', { class: 'sub' }, 'Reading…')];
+      const g = sys.gpu, h = healthLine(), cpu = sys.cpu || {}, eng = sys.engine || {};
+      const row = (k, v) => el('tr', {}, el('td', {}, k), el('td', {}, v));
+      const meter = (used, total) => el('div', { class: 'bar' }, el('i', { style: 'width:' + Math.min(100, 100 * used / Math.max(total, 0.001)).toFixed(0) + '%' }));
+      return [el('div', { class: 'msg ' + (h.level === 'on' ? 'ok' : h.level === 'off' ? 'err' : '') }, (h.level === 'on' ? '✅ ' : h.level === 'off' ? '⛔ ' : '⚠️ ') + h.text),
+        el('table', { class: 'kv' }, el('tbody', {},
+          row('GPU', g ? el('div', {}, g.name + (g.driver ? ' · driver ' + g.driver : '') + (g.tempC != null ? ' · ' + g.tempC + ' °C' : '') + (g.utilPct != null ? ' · ' + g.utilPct + '% busy' : ''),
+            g.memTotalGB ? el('div', { class: 'sub' }, 'memory ' + g.memUsedGB + ' of ' + g.memTotalGB + ' GB used') : null, g.memTotalGB ? meter(g.memUsedGB, g.memTotalGB) : null) : (st.gpu || 'none found (CPU only)')),
+          row('Memory (RAM)', el('div', {}, (sys.ram.totalGB - sys.ram.freeGB).toFixed(1) + ' of ' + sys.ram.totalGB + ' GB used · ' + sys.ram.freeGB + ' GB free', meter(sys.ram.totalGB - sys.ram.freeGB, sys.ram.totalGB))),
+          row('Disk (home folder)', sys.disk ? el('div', {}, sys.disk.freeGB + ' GB free of ' + sys.disk.totalGB + ' GB (' + sys.disk.mount + ')', meter(sys.disk.totalGB - sys.disk.freeGB, sys.disk.totalGB)) : '—'),
+          row('Processor', (cpu.name || '—') + ' · ' + (cpu.cores || '?') + ' threads'),
+          row('Engine', eng.version ? 'Sushila.cpp ' + eng.version + ' (' + (eng.key || '') + ')' + (eng.gpuBuild ? ' · GPU build' : ' · CPU build') : 'not installed'),
+          row('Server', 'sushila ' + sys.app + ' · up ' + ago(sys.uptimeS) + ' · ' + sys.requests + ' requests served · ' + sys.os),
+          row('Crashes', sys.crashesTotal ? sys.crashesToday + ' today, ' + sys.crashesTotal + ' kept (details in Full log)' : 'none'),
+          row('Home folder', sys.home)))];
     }
     // one action (install, start, update ...) with its progress and error
     const taskRow = (t) => el('div', { class: 'task ' + (t.status || '') },
@@ -164,12 +219,6 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     function actionsView() {
       const list = (st.tasks || []).slice().reverse();
       return [el('h2', {}, 'Recent actions'), list.length ? null : el('div', { class: 'sub' }, 'Nothing yet: installs, starts, stops and updates appear here, from this page, the terminal or the API.'), ...list.map(taskRow)];
-    }
-    // on the other tabs: only what is running now, with a link to the full list
-    function runningNow() {
-      const list = (st.tasks || []).filter((t) => t.status === 'running' || t.status === 'queued').reverse();
-      if (!list.length) return null;
-      return el('div', {}, el('div', { class: 'sub' }, 'Running now · ', el('a', { href: '#admin/actions' }, 'all recent actions')), ...list.map(taskRow));
     }
     const running = (id) => (st.running || []).find((r) => r.packId === id);
     // the same rule as the inference page: one model pack at a time (the assistant's chat model stays), asked first
@@ -240,15 +289,17 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       try { const j = await (await api('/api/logs?since=' + logNext)).json(); if (j.next < logNext) logText = ''; logText += j.text; logNext = j.next; } catch (_) {}
       const f = (($('logf') || {}).value || '').toLowerCase();
       const pre = el('div', { class: 'logbox', id: 'logbox' }, f ? logText.split('\n').filter((l) => l.toLowerCase().includes(f)).join('\n') : logText);
-      setTimeout(() => { const b = $('logbox'); if (b) b.scrollTop = b.scrollHeight; }, 0);
+      const old = $('logbox'), atEnd = !old || old.scrollTop + old.clientHeight >= old.scrollHeight - 30, keep = old ? old.scrollTop : 0;
+      setTimeout(() => { const b = $('logbox'); if (b) b.scrollTop = atEnd ? b.scrollHeight : keep; }, 0);
       let crashes = []; try { crashes = await (await api('/api/crashes')).json(); } catch (_) {}
       const crashBox = crashes.length ? [el('h2', {}, 'Crashes'), el('div', { class: 'sub' }, 'Sushila restarts itself (the server at once; a model up to 3 times in 10 minutes). Newest first:'),
         ...crashes.slice().reverse().slice(0, 10).map((c) => el('details', { class: 'task failed' },
           el('summary', {}, el('b', {}, (c.what === 'model' ? 'Model ' + c.pack : 'Server') + ': ' + c.reason), el('span', { class: 'sub' }, ' · ' + (c.time || '').replace('T', ' ').slice(0, 19) + ' UTC' + (c.what === 'model' ? (c.restarted ? ' · restarted' : ' · not restarted') : ' · restarted' + (c.uptimeSeconds != null ? ' after ' + c.uptimeSeconds + ' s up' : '')))),
           c.panic ? el('pre', {}, c.panic) : null, (c.stoppedEngines || []).length ? el('div', { class: 'sub' }, 'Engines left running by the crashed server were stopped: ' + c.stoppedEngines.join(', ')) : null,
           el('div', { class: 'sub' }, 'Last log lines:'), el('pre', {}, c.logTail || '')))] : [];
-      return [...crashBox, el('h2', {}, 'Log'), el('div', { class: 'sub' }, 'Every action of the server, from this page, the sushila commands and the queue: logs/sushila.log in the data folder (sushila logs -f). Each model also writes logs/<pack>.log.'),
-        el('div', { class: 'row' }, el('input', { id: 'logf', placeholder: 'filter', value: f, oninput: () => render() })), pre];
+      return [el('div', { class: 'sub' }, 'Everything the server did, in full (every downloaded file, every start and stop, from this page, the terminal, the sushila commands and the queue): logs/sushila.log in the home folder. Each model also writes logs/<pack>.log.'),
+        el('div', { class: 'row' }, el('input', { id: 'logf', placeholder: 'filter (e.g. downloaded, error, z-image)', value: f, oninput: () => render() }),
+          el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(logText); } catch (_) {} } }, 'Copy all')), pre, ...crashBox];
     }
     function settingsView() {
       const s = st.settings || {}, sh = st.share || {};
@@ -319,16 +370,34 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (view === 'assistant') { const p = assistantPanel(); if (box.firstChild !== p || box.childNodes.length !== 1) box.replaceChildren(p); return; }
       if (document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && sub !== 'logs' && admin.loggedIn) return;  // do not redraw while typing
       if (!admin.loggedIn) { if (!(document.activeElement && box.contains(document.activeElement))) box.replaceChildren(note ? el('div', { class: 'msg err' }, note) : '', ...[].concat(loginView()).flat().filter(Boolean)); else if (note && !box.querySelector('.msg')) box.prepend(el('div', { class: 'msg err' }, note)); return; }
-      const subnav = el('div', { class: 'snav', style: 'border:0;padding:6px 0' }, ...SUB.map(([h, t]) => el('a', { href: '#admin/' + h, class: h === sub ? 'on' : '' }, t)));
-      const body = sub === 'packs' ? packsView() : sub === 'engine' ? engineView() : sub === 'queue' ? await queueView() : sub === 'actions' ? actionsView() : sub === 'logs' ? await logsView() : settingsView();
+      const h = healthLine(), live = (st.now || []).length + (st.tasks || []).filter((t) => t.status === 'running').length;
+      const top = el('div', { class: 'adminhead' }, el('h1', {}, 'Admin'), el('span', { class: 'pill ' + h.level, title: h.text }, h.level === 'on' ? '✅ healthy' : h.level === 'off' ? '⛔ needs attention' : h.level === 'warn' ? '⚠️ notes' : '…'),
+        live ? el('span', { class: 'pill on' }, '⏳ ' + live + ' running') : null, el('span', { style: 'flex:1' }),
+        el('button', { class: 'ghost', onclick: () => { SUB.forEach(([k]) => openSecs.add(k)); saveOpen(); catalog = null; poll(); } }, 'Show all'),
+        el('button', { class: 'ghost', onclick: () => { openSecs.clear(); saveOpen(); render(); } }, 'Hide all'));
+      const badge = { now: live ? live + ' running' : '', packs: (st.packs || []).length + ' installed', queue: '', actions: (st.tasks || []).length ? (st.tasks || []).length + '' : '', logs: '', health: h.level === 'on' ? '✅' : h.level === 'off' ? '⛔' : h.level === 'warn' ? '⚠️' : '' };
+      const views = { now: nowView, health: healthView, packs: packsView, queue: queueView, actions: actionsView, logs: logsView, engine: engineView, settings: settingsView };
+      const secs = [];
+      for (const [k, t] of SUB) {
+        const isOpen = openSecs.has(k);
+        const d = el('details', { class: 'sec', id: 'sec-' + k }, el('summary', {}, el('span', { class: 'sectitle' }, t), badge[k] ? el('span', { class: 'secbadge' }, badge[k]) : null),
+          isOpen ? el('div', { class: 'secbody' }, ...[].concat(await views[k]()).flat().filter((x) => x != null).map((x) => (x.tagName === 'H2' && x.textContent === t ? null : x)).filter(Boolean)) : null);
+        d.open = isOpen;
+        d.addEventListener('toggle', () => { if (d.open === openSecs.has(k)) return; if (d.open) openSecs.add(k); else openSecs.delete(k); saveOpen(); if (k === 'packs') catalog = null; poll(); });
+        secs.push(d);
+      }
       const focus = document.activeElement && document.activeElement.id, val = focus && $(focus) ? $(focus).value : null;
-      box.replaceChildren(subnav, note ? el('div', { class: 'msg ok' }, note) : '', sub === 'actions' ? null : runningNow(), ...[].concat(body).filter((x) => x != null));
+      box.replaceChildren(top, note ? el('div', { class: 'msg ok' }, note) : '', ...secs);
       if (focus && $(focus)) { $(focus).focus(); if (val != null && $(focus).value !== val) $(focus).value = val; }
+      if (scrollTo) { const t = $('sec-' + scrollTo); if (t && t.scrollIntoView) t.scrollIntoView({ block: 'start' }); scrollTo = ''; }
     }
     function route() {
       const h = location.hash.slice(1).split('/');
-      view = h[0] === 'assistant' ? 'assistant' : local && h[0] === 'admin' ? 'admin' : ''; sub = SUB.some(([x]) => x === h[1]) ? h[1] : 'packs'; note = '';
-      if (sub === 'packs') catalog = null;
+      view = h[0] === 'assistant' ? 'assistant' : local && h[0] === 'admin' ? 'admin' : ''; note = '';
+      // #admin/<section> (also the old tab names) opens that section and scrolls to it
+      const alias = { logs: 'logs', log: 'logs' }, want = alias[h[1]] || h[1];
+      if (view === 'admin' && SUB.some(([x]) => x === want)) { openSecs.add(want); saveOpen(); scrollTo = want; sub = want; }
+      catalog = null;
       poll();
     }
     window.addEventListener('hashchange', route);
