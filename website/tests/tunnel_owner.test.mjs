@@ -12,7 +12,7 @@ const cookie = (uid) => { const exp = Date.now() + 3600e3; return `${W.__cookie}
 const SECRET = 'ab'.repeat(32), ID = '0123456789abcdef0123', ID2 = 'fedcba98765432100123';
 const S = (v) => ({ S: v });
 let rows = { [ID]: { id: S(ID), userId: S('u_owner'), status: S('online'), target: S('https://aaa-bbb-ccc.trycloudflare.com'), ownerSecret: S(SECRET), createdAt: S('2026-10-08T01') } };
-const db = { configured: true, get: async (_t, k) => rows[k.id.S] || null,
+const db = { configured: true, get: async (_t, k) => (k.userId ? { userId: k.userId, emails: { L: [{ S: 'other@example.com' }] } } : rows[k.id.S] || null),
   request: async () => ({ Items: Object.values(rows).filter((r) => r.status.S === 'online') }) };
 let seen = [];
 globalThis.fetch = async (u, o) => { seen.push({ u: String(u), h: o.headers }); if (String(u).startsWith('https://dead')) throw new Error('down');
@@ -30,6 +30,7 @@ ok(r.headers.get('cache-control') === 'no-store' && /sandbox/.test(r.headers.get
 ok(!seen.at(-1).h.get('cookie'), 'the sushila.ai cookie never reaches the computer');
 r = await go(`/localhost/${ID}/`, { ...nav, cookie: cookie('u_other') }); t = await r.text();
 ok(r.status === 200 && !/SUSHILA_OWNER/.test(t), 'another account: the page, no owner pass (the access key is needed)');
+ok(/belongs to another account/.test(t) && /signin\?switch=1&amp;next=/.test(t), 'another account: a note says so, with Switch account');
 r = await go(`/localhost/${ID}/api/state`, { 'sec-fetch-dest': 'empty' });
 ok(r.status === 200 && (await r.text()) === '{"x":1}', "the page's own requests (no cookies, sandboxed) pass through to the engine");
 r = await go(`/localhost/${ID}/api/state`, { 'sec-fetch-dest': 'empty', 'x-sushila-token': 'owner.x' });

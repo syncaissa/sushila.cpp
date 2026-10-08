@@ -2310,10 +2310,17 @@ async function tunnelProxy(request, env, db, p, url) {
   if ((r.headers.get('content-type') || '').includes('text/html')) {  // the page shell's own absolute paths (script, icons)
     let t = (await r.text()).replace(/(\s(?:src|href)=")\/(?!\/)/g, `$1${prefix}/`);
     const pass = nav && owner ? await ownerPass(served) : '';
-    if (pass) {  // the owner's pass: only in this page (never cached), only for the owner
-      const tag = `<script>window.SUSHILA_OWNER=${JSON.stringify(pass)};</script>`;
-      t = t.includes('<div id="app"></div>') ? t.replace('<div id="app"></div>', '<div id="app"></div>' + tag) : tag + t;
+    let tag = pass ? `<script>window.SUSHILA_OWNER=${JSON.stringify(pass)};</script>` : '';  // the owner's pass: only in this page (never cached)
+    if (nav && !pass) {  // why there is no pass, and what to do (instead of only the engine's "needs an access key")
+      let who = ''; try { const u = await db.get(TABLES.users, { userId: S(user.userId) }); const em = u && (u.emails && u.emails.L ? u.emails.L.map((x) => x.S) : u.emails && u.emails.SS) || []; who = em[0] || ''; } catch (_) {}
+      const msg = owner ? 'The Sushila on that computer is older: update it (sushila.ai/install) and start it again to use this link without a key.'
+        : `You are signed in to sushila.ai${who ? ' as <b>' + esc(who) + '</b>' : ''}, but this link belongs to another account. Sign in with the account that made the link to use everything here without a key; anyone else needs the access key from its owner.`;
+      tag = `<div id="linknote" role="status" style="position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2000;width:min(680px,calc(100vw - 24px));background:#080a12;color:#e8ebf4;border-left:5px solid #ff9800;border-radius:14px;padding:16px 18px;box-shadow:0 18px 40px rgba(0,0,0,.35);font:15px/1.5 system-ui,sans-serif">`
+        + `<div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:1">${msg}</div><button onclick="this.closest('#linknote').remove()" aria-label="Close" style="all:unset;cursor:pointer;font-size:22px;line-height:1;color:#9aa3b8">×</button></div>`
+        + (owner ? '' : `<div style="margin-top:12px"><a href="${url.origin}/signin?switch=1&amp;next=${encodeURIComponent(prefix + '/')}" target="_top" style="display:inline-block;background:#fff;color:#080a12;padding:9px 18px;border-radius:99px;font-weight:600;text-decoration:none">Switch account</a></div>`)
+        + `</div>`;
     }
+    if (tag) t = t.includes('<div id="app"></div>') ? t.replace('<div id="app"></div>', '<div id="app"></div>' + tag) : tag + t;
     if (nav) out.set('cache-control', 'no-store');
     return new Response(t, { status: r.status, headers: out });
   }
@@ -3889,6 +3896,9 @@ export default {
       }
       if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env), user));
       if (p === '/privacy' || p === '/privacy/') return html(docPage(env, 'Privacy Policy', 'How the Sushila project handles personal data on sushila.ai and the Sushila serverless API.', PRIVACY(env), user));
+      // ?switch=1 (from a link that belongs to another account): signed out here, then the same sign-in, back to next
+      if ((p === '/signin' || p === '/signin/') && url.searchParams.get('switch') === '1') return html(docPage(env, 'Sign in', 'Sign in to sushila.ai with a one-time code sent to your e-mail.',
+        SIGNIN(url, '<h1>Sign in with another account</h1><p class="meta">You are signed out. Sign in with the e-mail of the account that made the link.</p>'), null), { 'set-cookie': clearCookie(), 'cache-control': 'no-store' });
       if (p === '/signin' || p === '/signin/') return html(docPage(env, 'Sign in', 'Sign in to sushila.ai with a one-time code sent to your e-mail.', SIGNIN(url), user));
       if (p === '/account' || p === '/account/') {
         if (!user) return Response.redirect(`${url.origin}/signin?next=/account`, 302);
