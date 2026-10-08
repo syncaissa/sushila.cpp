@@ -30,10 +30,10 @@ pub fn slug(text: &str) -> String {
 /// One line in outputs/library.jsonl for a file just made (`meta`: prompt, lyrics, pack, mode, size, seed, ...).
 pub fn record(dir: &Path, file: &Path, kind: &str, mut meta: Value) {
     use std::io::Write;
-    let rel = file.strip_prefix(dir.join("outputs")).map(|r| r.to_string_lossy().replace('\\', "/")).unwrap_or_default();
+    let rel = file.strip_prefix(crate::locate::outputs(dir)).map(|r| r.to_string_lossy().replace('\\', "/")).unwrap_or_default();
     if rel.is_empty() { return; }
     meta["rel"] = json!(rel); meta["kind"] = json!(kind); meta["created"] = json!(crate::util::now_iso());
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(dir.join("outputs").join("library.jsonl")) { let _ = writeln!(f, "{meta}"); }
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(crate::locate::outputs(dir).join("library.jsonl")) { let _ = writeln!(f, "{meta}"); }
 }
 
 // ---------- "made by AI" in every file Sushila writes (EU AI Act art. 50(2): machine-readable marking; China's labelling
@@ -168,11 +168,17 @@ fn webm_tags(b: &[u8], tags: &[(&str, &str)]) -> Option<Vec<u8>> {
     Some(out)
 }
 
+/// The folder for a kind of file: Images, Music, Videos (the lower-case images, music, video of a files folder from
+/// before build 27 are kept where they exist, so one folder never gets two).
+pub fn kind_folder(out: &Path, kind: &str) -> &'static str {
+    let (old, new) = match kind { "image" => ("images", "Images"), "video" => ("video", "Videos"), _ => ("music", "Music") };
+    if out.join(old).is_dir() { old } else { new }
+}
 /// Writes a result to outputs/<kind folder>/<date>/<HHMMSS>-<words>.<ext>, records it, returns its path.
 pub fn save(dir: &Path, kind: &str, ext: &str, bytes: &[u8], title: &str, meta: Value) -> Option<PathBuf> {
     let now = crate::util::now_iso();
-    let folder = match kind { "image" => "images", "video" => "video", _ => "music" };
-    let day = dir.join("outputs").join(folder).join(&now[..10]);
+    let out = crate::locate::outputs(dir);
+    let day = out.join(kind_folder(&out, kind)).join(&now[..10]);
     std::fs::create_dir_all(&day).ok()?;
     let stamp: String = now[11..19].chars().filter(|c| c.is_ascii_digit()).collect();
     let base = format!("{stamp}-{}", { let s = slug(title); if s.is_empty() { kind.to_string() } else { s } });
@@ -208,7 +214,7 @@ pub fn audio_in_multipart(body: &[u8], ctype: &str) -> Option<(Vec<u8>, String)>
 
 /// Everything in outputs/, newest first: the files on disk, with what the index and the queue know about each.
 pub fn list(dir: &Path) -> Vec<Value> {
-    let out = dir.join("outputs");
+    let out = crate::locate::outputs(dir);
     let mut meta: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
     for l in std::fs::read_to_string(out.join("library.jsonl")).unwrap_or_default().lines() {
         if let Ok(v) = serde_json::from_str::<Value>(l) { if let Some(r) = v["rel"].as_str() { meta.insert(r.to_string(), v); } }
@@ -242,10 +248,94 @@ pub fn list(dir: &Path) -> Vec<Value> {
     items.sort_by(|a, b| b["created"].as_str().cmp(&a["created"].as_str()));
     items
 }
+// ---------- moving your files to another folder (the one question after build 27, and Settings -> Where my files go)
+
+/// Moves everything in one files folder into another: pictures, songs, videos, queue results, the index, the shared
+/// links and the trash. Renamed where it can be (instant on one drive), else copied and then removed. The old
+/// images/, music/, video/ become Images/, Music/, Videos/, and the index lines follow; a name already taken in the
+/// new folder gets -2, -3, ...; the index files are joined. Returns how many files moved.
+/// "images/x/y.png" -> "Images/x/y.png" (and music/ -> Music/, video/ -> Videos/); None for any other path.
+fn new_top(rel: &str) -> Option<String> {
+    let top = rel.split('/').next().unwrap_or("");
+    let nt = match top { "images" => "Images", "music" => "Music", "video" => "Videos", _ => return None };
+    Some(format!("{nt}{}", &rel[top.len()..]))
+}
+pub fn move_files(from: &Path, to: &Path) -> Result<usize, String> {
+    use std::collections::HashMap;
+    let canon = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    if !from.is_dir() { return Ok(0); }
+    std::fs::create_dir_all(to).map_err(|e| format!("cannot make {}: {e}", to.display()))?;
+    let (f, t) = (canon(from), canon(to));
+    if f == t { return Ok(0); }
+    if t.starts_with(&f) || f.starts_with(&t) { return Err("the two folders are inside each other; choose a folder outside".into()); }
+    let mut renamed: HashMap<String, String> = HashMap::new();
+    let mut n = 0usize;
+    fn count(p: &Path) -> usize { if p.is_dir() { std::fs::read_dir(p).map(|d| d.flatten().map(|e| count(&e.path())).sum()).unwrap_or(0) } else { 1 } }
+    fn go(src: &Path, dst: &Path, rel_old: &str, rel_new: &str, renamed: &mut HashMap<String, String>, n: &mut usize) -> Result<(), String> {
+        let name = |p: &Path| p.file_name().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+        if src.is_dir() {
+            if !dst.exists() {
+                let c = count(src);
+                if std::fs::rename(src, dst).is_ok() { *n += c; if rel_old != rel_new { renamed.insert(format!("{rel_old}/"), format!("{rel_new}/")); } return Ok(()); }
+            }
+            std::fs::create_dir_all(dst).map_err(|e| format!("cannot make {}: {e}", dst.display()))?;
+            for e in std::fs::read_dir(src).map_err(|e| e.to_string())?.flatten() {
+                let k = name(&e.path());
+                go(&e.path(), &dst.join(&k), &format!("{rel_old}/{k}"), &format!("{rel_new}/{k}"), renamed, n)?;
+            }
+            let _ = std::fs::remove_dir(src);
+            return Ok(());
+        }
+        let mut dst = dst.to_path_buf();
+        if dst.exists() {
+            if name(src).ends_with(".jsonl") {
+                // index files: the old lines go after the new ones
+                use std::io::Write;
+                let text = std::fs::read(src).map_err(|e| e.to_string())?;
+                let mut o = std::fs::OpenOptions::new().append(true).open(&dst).map_err(|e| e.to_string())?;
+                o.write_all(&text).map_err(|e| e.to_string())?;
+                let _ = std::fs::remove_file(src); *n += 1; return Ok(());
+            }
+            let (stem, ext) = (dst.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default(), dst.extension().map(|x| format!(".{}", x.to_string_lossy())).unwrap_or_default());
+            let mut k = 2; while dst.exists() { dst = dst.with_file_name(format!("{stem}-{k}{ext}")); k += 1; }
+            let new_rel = format!("{}/{}", rel_new.rsplit_once('/').map(|x| x.0).unwrap_or(""), name(&dst));
+            renamed.insert(rel_old.to_string(), new_rel);
+        } else if rel_old != rel_new { renamed.insert(rel_old.to_string(), rel_new.to_string()); }
+        if std::fs::rename(src, &dst).is_err() {
+            std::fs::copy(src, &dst).map_err(|e| format!("cannot write {}: {e}", dst.display()))?;
+            std::fs::remove_file(src).map_err(|e| format!("copied, but cannot remove {}: {e}", src.display()))?;
+        }
+        *n += 1;
+        Ok(())
+    }
+    for e in std::fs::read_dir(from).map_err(|e| e.to_string())?.flatten() {
+        let k = e.file_name().to_string_lossy().to_string();
+        let nk = match k.as_str() { "images" => "Images", "music" => "Music", "video" => "Videos", x => x }.to_string();
+        // on Windows and macOS "images" and "Images" are one name: the rename above already gives the new spelling
+        go(&e.path(), &to.join(&nk), &k, &nk, &mut renamed, &mut n)?;
+    }
+    let _ = std::fs::remove_dir(from);
+    // the index lines (library, shared links, trash) name files by their path in the folder: follow the moves
+    let fix = |r: &str| -> Option<String> {
+        if let Some(x) = renamed.get(r) { return Some(x.trim_start_matches('/').to_string()); }
+        new_top(r)
+    };
+    // (the trash keeps its own layout; restore() puts a file from an old images/ back into Images/)
+    for idx in [to.join("library.jsonl"), to.join("shared.jsonl")] {
+        let Ok(text) = std::fs::read_to_string(&idx) else { continue };
+        let lines: Vec<String> = text.lines().map(|l| match serde_json::from_str::<Value>(l) {
+            Ok(mut v) => { if let Some(nr) = v["rel"].as_str().and_then(&fix) { v["rel"] = json!(nr); } v.to_string() }
+            Err(_) => l.to_string(),
+        }).collect();
+        let _ = std::fs::write(&idx, lines.join("\n") + "\n");
+    }
+    Ok(n)
+}
+
 // ---------- the trash: Delete moves a file to outputs/.trash/<same place>; Restore moves it back; Delete permanently
 // removes it. outputs/.trash/trash.jsonl keeps when each was deleted (and its index line, so a restored file keeps
 // its prompt and model).
-fn trash(dir: &Path) -> PathBuf { dir.join("outputs").join(".trash") }
+fn trash(dir: &Path) -> PathBuf { crate::locate::outputs(dir).join(".trash") }
 /// A path given by the page, made safe: relative, inside outputs (or the trash), no "..".
 fn safe(base: &Path, rel: &str) -> Option<PathBuf> {
     if rel.is_empty() || rel.starts_with('/') || rel.starts_with('\\') || rel.contains(':') || rel.split(['/', '\\']).any(|c| c == ".." || c == "." || c.is_empty()) { return None; }
@@ -261,7 +351,7 @@ pub fn resolve(base: &Path, rel: &str) -> Option<PathBuf> {
 pub fn delete(dir: &Path, rel: &str) -> Result<(), String> {
     use std::io::Write;
     if rel.starts_with(".trash") { return Err("already in the trash".into()); }
-    let from = safe(&dir.join("outputs"), rel).filter(|p| p.is_file()).ok_or("no such file")?;
+    let from = safe(&crate::locate::outputs(dir), rel).filter(|p| p.is_file()).ok_or("no such file")?;
     let to = trash(dir).join(rel);
     if let Some(d) = to.parent() { std::fs::create_dir_all(d).map_err(|e| e.to_string())?; }
     std::fs::rename(&from, &to).map_err(|e| e.to_string())?;
@@ -273,7 +363,10 @@ pub fn delete(dir: &Path, rel: &str) -> Result<(), String> {
 }
 pub fn restore(dir: &Path, rel: &str) -> Result<(), String> {
     let from = safe(&trash(dir), rel).filter(|p| p.is_file()).ok_or("not in the trash")?;
-    let to = dir.join("outputs").join(rel);
+    let out = crate::locate::outputs(dir);
+    // a file deleted before its folder moved to the new names goes back under the new name (Images/, not images/)
+    let rel = new_top(rel).filter(|n| !out.join(rel.split('/').next().unwrap_or("")).is_dir() && out.join(n.split('/').next().unwrap_or("")).is_dir()).unwrap_or(rel.to_string());
+    let to = out.join(&rel);
     if to.exists() { return Err("a file with that name is back already".into()); }
     if let Some(d) = to.parent() { std::fs::create_dir_all(d).map_err(|e| e.to_string())?; }
     std::fs::rename(&from, &to).map_err(|e| e.to_string())
@@ -316,7 +409,7 @@ pub fn list_trash(dir: &Path) -> Vec<Value> {
 }
 fn list_meta(dir: &Path) -> std::collections::HashMap<String, Value> {
     let mut meta = std::collections::HashMap::new();
-    for l in std::fs::read_to_string(dir.join("outputs").join("library.jsonl")).unwrap_or_default().lines() {
+    for l in std::fs::read_to_string(crate::locate::outputs(dir).join("library.jsonl")).unwrap_or_default().lines() {
         if let Ok(v) = serde_json::from_str::<Value>(l) { if let Some(r) = v["rel"].as_str() { meta.insert(r.to_string(), v); } }
     }
     meta
@@ -340,7 +433,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir); std::fs::create_dir_all(&dir).unwrap();
         let f = save(&dir, "music", "mp3", b"ID3fake", "Upbeat pop, female vocals", json!({ "pack": "ace-step-15", "prompt": "Upbeat pop, female vocals", "lyrics": "[Verse] hello", "duration": 60 })).unwrap();
         assert!(f.to_string_lossy().contains("outputs") && f.file_name().unwrap().to_string_lossy().ends_with("-upbeat-pop-female-vocals.mp3"));
-        std::fs::write(dir.join("outputs").join("old.png"), b"png").unwrap();  // an older file without a line in the index
+        std::fs::write(crate::locate::outputs(&dir).join("old.png"), b"png").unwrap();  // an older file without a line in the index
         let l = list(&dir);
         assert_eq!(l.len(), 2);
         let song = l.iter().find(|x| x["kind"] == "music").unwrap();

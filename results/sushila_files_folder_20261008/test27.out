@@ -1,0 +1,24 @@
+PASS old home moved to ~/.local/share/sushila
+PASS new home remembered
+{"blocked":null,"chosen":null,"default":"/root/t27/Documents/Sushila","folder":"/root/t27/.local/share/sushila/outputs","home":"/root/t27/.local/share/sushila","old":"/root/t27/.local/share/sushila/outputs"}
+PASS question shown for files from before
+PASS default is ~/Documents/Sushila
+PASS library lists old file with its prompt
+{"blocked":null,"chosen":"/root/t27/Documents/Sushila","default":"/root/t27/Documents/Sushila","folder":"/root/t27/Documents/Sushila","home":"/root/t27/.local/share/sushila","moved":3,"ok":true,"old":null}
+PASS files moved into Images/ and Music/
+PASS index paths follow
+PASS question gone after moving
+PASS library reads the new folder with prompts
+PASS file served from the new folder
+PASS trash and restore in the new folder
+{"blocked":null,"chosen":"/root/other","default":"/root/t27/Documents/Sushila","folder":"/root/other","home":"/root/t27/.local/share/sushila","moved":4,"ok":true,"old":null}
+PASS choose another folder and move
+PASS relative folder refused
+PASS foreign host cannot change it
+no-token: 403
+PASS back to Documents with files
+(root ignores permissions, so the blocked-folder case is shown as unit logic only)
+serve.log:Sushila's home moved from /root/t27/.local/share/ai.sushila.hoststation to /root/t27/.local/share/sushila (model packs, engine, settings and logs).
+/root/t27/.local/share/sushila/logs/sushila.log:2026-10-08T20:59:48Z [server] files folder: /root/t27/Documents/Sushila (3 moved)
+/root/t27/.local/share/sushila/logs/sushila.log:2026-10-08T20:59:49Z [server] files folder: /root/other (4 moved)
+/root/t27/.local/share/sushila/logs/sushila.log:2026-10-08T20:59:49Z [server] files folder: /root/t27/Documents/Sushila (4 moved)

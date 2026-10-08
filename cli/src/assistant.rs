@@ -263,9 +263,10 @@ pub fn facts_answer(q: &str, state: &Value, catalog: &Value, gpu_line: &str, loc
         return Some(format!("Installed model packs ({}):\n{}\nStart one: pick it on the Inference page, or `sushila start <pack>` (one pack runs at a time).", v.len(), lines.join("\n")));
     }
     if has(&["where"]) && has(&["image", "picture", "photo", "output", "song", "video", "result"]) {
-        return Some(if local { format!("Pictures made on the Inference page are saved in {} (one folder per day); under each picture, Show in folder opens it. Queue jobs keep their results in {}.",
-            std::path::Path::new(home).join("outputs").join("images").display(), std::path::Path::new(home).join("outputs").display()) }
-            else { "On the computer that runs the server, in outputs/ inside its Sushila home folder.".into() });
+        return Some(if local { let out = crate::locate::outputs(std::path::Path::new(home));
+            format!("Your pictures, songs and videos are saved in {} (Images, Music and Videos, one folder per day); under each one, Show in folder opens it. Change the folder in Settings -> Where my files go.",
+            out.display()) }
+            else { "On the computer that runs the server, in its files folder (Documents/Sushila unless its owner chose another one in Settings).".into() });
     }
     if has(&["gpu", "graphics", "video card", "vram"]) && has(&["what", "which", "do i have", "my "]) && !has(&["fit", "run"]) { return Some(gpu_line.to_string()); }
     if has(&["version"]) && has(&["sushila", "engine", "what", "which"]) {
@@ -467,7 +468,7 @@ mod tests {
         let list = f("list all the models installed");
         assert!(list.contains("Installed model packs (2)") && list.contains("qwen3-4b-instruct-2507") && list.contains("z-image-turbo-nvidia") && list.contains("running (Accelerated)"), "{list}");
         assert!(f("what is running now?").contains("Running now:") && f("which model is running").contains("Z-Image-Turbo NVIDIA"));
-        assert!(f("where are my pictures saved?").contains("outputs") && f("what gpu do i have").contains("GPU line"));
+        assert!(f("where are my pictures saved?").contains("saved in") && f("what gpu do i have").contains("GPU line"));
         assert!(facts_answer("how do I add a coding model?", &st, &cat, "g", true, "/h").is_none(), "a how-to question goes to the notes, not the facts");
         assert!(running_chat(&st).is_none());
         let h = fuller_hint(&st, &cat).unwrap();

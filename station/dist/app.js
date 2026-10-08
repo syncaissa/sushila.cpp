@@ -430,12 +430,49 @@ async function libAct(act, x) {
 }
 
 // myContent: every file, searchable, with the trash
+// Where your files go (/api/files-folder): Documents/Sushila by default; the one question for files from before (move
+// them, or keep them), Windows' Controlled folder access, and Settings -> Where my files go (native folder picker)
+async function loadFF() { try { S.ff = await get('/api/files-folder'); } catch (_) { S.ff = S.ff || null; } if (['mycontent', 'settings'].includes(S.view)) render(); }
+async function ffDo(body, what) {
+  S.ffBusy = true; render();
+  try { const j = await post('/api/files-folder', body); S.ff = j; S.lib = null;
+    toast((j.moved ? j.moved + ' file' + (j.moved === 1 ? '' : 's') + ' moved. ' : '') + 'Your files now go to ' + j.folder, 'ok', what); }
+  catch (e) { toast(e.message, 'err', 'Could not change it'); }
+  S.ffBusy = false; render();
+}
+async function ffPick(move) {
+  const dir = T.dialog ? await T.dialog.open({ directory: true, multiple: false, title: 'Where should your pictures, songs and videos go?' }) : null;
+  if (dir) ffDo({ action: 'choose', folder: String(dir), move }, move ? 'Moved' : 'Changed');
+}
+function ffBanner() {
+  if (S.ff === undefined) { S.ff = null; loadFF(); }
+  const f = S.ff; if (!f) return null;
+  if (f.old && f.default) return h('div', { class: 'panel ffask' }, h('b', {}, 'Where should your pictures, songs and videos live?'),
+    h('p', { class: 'sub' }, 'They are in Sushila\'s app folder (' + f.old + '), which is hard to find. Sushila now keeps them in your Documents: ' + f.default + ' (Images, Music, Videos), where you look for them and your backup copies them.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', disabled: !!S.ffBusy, onclick: () => ffDo({ action: 'move' }, 'Moved to Documents') }, S.ffBusy ? 'Moving…' : 'Move them to Documents'),
+      h('button', { class: 'btn', disabled: !!S.ffBusy, onclick: () => ffDo({ action: 'keep' }, 'Kept') }, 'Keep them where they are')));
+  if (f.blocked) return h('div', { class: 'panel warn' }, h('b', {}, 'Your files cannot go to the folder you chose'), h('p', { class: 'sub' }, f.blocked),
+    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => ffDo({ action: 'retry' }, 'Checked') }, 'I allowed it: try again'), h('button', { class: 'btn', onclick: () => ffPick(true) }, 'Choose another folder…')));
+  return null;
+}
+function ffGroup() {
+  if (S.ff === undefined) { S.ff = null; loadFF(); }
+  const f = S.ff || {};
+  return h('div', { class: 'group' }, h('h3', {}, 'Where my files go'),
+    h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, f.folder || '…'), h('span', {}, 'Pictures, songs and videos (Images, Music, Videos). Model packs, the engine and logs stay in ' + (f.home || 'Sushila\'s own folder') + '.')),
+      f.folder ? h('button', { class: 'btn small', onclick: () => reveal(f.folder) }, os === 'mac' ? 'Show in Finder' : 'Open folder') : null),
+    ffBanner(),
+    h('div', { class: 'item' }, h('span', { class: 'grow' }), h('button', { class: 'btn small', disabled: !!S.ffBusy, onclick: () => ffPick(true) }, 'Choose a folder and move my files…'),
+      h('button', { class: 'btn small', disabled: !!S.ffBusy, onclick: () => ffPick(false) }, 'Choose a folder for new files…'),
+      f.default && f.folder !== f.default ? h('button', { class: 'btn small', disabled: !!S.ffBusy, onclick: () => ffDo({ action: 'default', move: true }, 'Back in Documents') }, 'Back to Documents') : null));
+}
+
 VIEWS.mycontent = {
   bar: () => [h('input', { class: 'field', placeholder: 'Search prompts, models, names…', value: S.libq || '', style: 'width:260px', oninput: (e) => { S.libq = e.target.value; const v = $('libgrid'); if (v) put(v, ...libItems().map(libTile)); } })],
   render() {
     if (!S.lib) { loadLib(); return h('div', { class: 'empty' }, 'Loading…'); }
     const kinds = [['', 'All'], ['image', 'Pictures'], ['music', 'Music'], ['video', 'Videos'], ['text', 'Text']];
-    return h('div', {}, h('div', { class: 'pagehead' }, h('div', { class: 'seg' }, kinds.map(([k, t]) => h('button', { class: (S.libk || '') === k ? 'on' : '', onclick: () => { S.libk = k; render(); } }, t))),
+    return h('div', {}, ffBanner(), h('div', { class: 'pagehead' }, h('div', { class: 'seg' }, kinds.map(([k, t]) => h('button', { class: (S.libk || '') === k ? 'on' : '', onclick: () => { S.libk = k; render(); } }, t))),
       h('div', { class: 'seg' }, h('button', { class: !S.libtrash ? 'on' : '', onclick: () => { S.libtrash = false; render(); } }, 'Files (' + S.lib.items.length + ')'), h('button', { class: S.libtrash ? 'on' : '', onclick: () => { S.libtrash = true; render(); } }, 'Trash (' + (S.lib.trash || []).length + ')')),
       h('span', { class: 'grow' }), S.lib.folder ? h('button', { class: 'btn small', onclick: () => reveal(S.lib.folder) }, os === 'mac' ? 'Show in Finder' : 'Open folder') : null,
       S.libtrash && (S.lib.trash || []).length ? h('button', { class: 'btn small danger', onclick: async () => { if (await ask('Empty the trash?', 'Everything in it is removed from this computer.', 'Empty trash', true)) { await post('/api/library/empty', {}).catch((e) => toast(e.message, 'err')); S.lib = null; loadLib(); } } }, 'Empty trash') : null),
@@ -612,7 +649,7 @@ function drawLog() { const b = $('logbox'); if (!b) return; const f = (S.logf ||
 VIEWS.settings = { render() {
   const s = (S.st && S.st.settings) || {};
   const num = (k, label, hint) => h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, label), h('span', {}, hint)), h('input', { class: 'field', id: 'set-' + k, style: 'width:110px', inputmode: 'numeric', value: s[k] == null ? '' : s[k] }));
-  return h('div', {},
+  return h('div', {}, ffGroup(),
     h('div', { class: 'group' }, h('h3', {}, 'Models (applied when a model starts)'), num('gpuLayers', 'Layers on the GPU', '-1: as many as fit (recommended)'), num('contextSize', 'Context size', 'tokens a chat remembers'),
       num('threads', 'CPU threads', '0: automatic'), num('parallel', 'Parallel requests', '0: as many as the GPU memory allows'), num('idleMinutes', 'Unload idle models after', 'minutes; 0: never'),
       h('div', { class: 'item' }, h('span', { class: 'grow' }), h('button', { class: 'btn primary small', onclick: saveSettings }, 'Save'))),

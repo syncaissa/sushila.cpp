@@ -56,7 +56,7 @@ pub async fn verify(dir: &Path, email: &str, code: &str, first_name: &str) -> Re
 /// The links already made, by Library path.
 pub fn links(dir: &Path) -> std::collections::HashMap<String, Value> {
     let mut m = std::collections::HashMap::new();
-    for l in std::fs::read_to_string(dir.join("outputs").join("shared.jsonl")).unwrap_or_default().lines() {
+    for l in std::fs::read_to_string(crate::locate::outputs(dir).join("shared.jsonl")).unwrap_or_default().lines() {
         if let Ok(v) = serde_json::from_str::<Value>(l) {
             let rel = v["rel"].as_str().unwrap_or("").to_string();
             if v["deleted"] == true { m.remove(&rel); } else { m.insert(rel, v); }
@@ -66,13 +66,13 @@ pub fn links(dir: &Path) -> std::collections::HashMap<String, Value> {
 }
 fn note(dir: &Path, v: Value) {
     use std::io::Write;
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(dir.join("outputs").join("shared.jsonl")) { let _ = writeln!(f, "{v}"); }
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(crate::locate::outputs(dir).join("shared.jsonl")) { let _ = writeln!(f, "{v}"); }
 }
 
 /// Uploads one Library file (rel: its path in outputs/) and returns the link.
 pub async fn upload(dir: &Path, rel: &str) -> Result<Value, String> {
     if rel.is_empty() || rel.starts_with('/') || rel.contains(':') || rel.split(['/', '\\']).any(|c| c == ".." || c.is_empty()) || rel.starts_with(".trash") { return Err("not a Library file".into()); }
-    let p = dir.join("outputs").join(rel);
+    let p = crate::locate::outputs(dir).join(rel);
     let bytes = tokio::fs::read(&p).await.map_err(|_| "the file is not there any more".to_string())?;
     if bytes.len() as f64 > 50e6 { return Err("the file is larger than 50 MB".into()); }
     let ct = crate::library::mime_of(&p).to_string();
@@ -111,7 +111,7 @@ mod tests {
     use super::*;
     #[test] fn remembers_links() {
         let dir = std::env::temp_dir().join(format!("sushila-share-{}", std::process::id()));
-        std::fs::create_dir_all(dir.join("outputs")).unwrap();
+        std::fs::create_dir_all(crate::locate::outputs(&dir)).unwrap();
         note(&dir, json!({ "rel": "music/a.mp3", "id": "0a1b2c3d4e5f", "link": "https://sushila.ai/c/0a1b2c3d4e5f" }));
         note(&dir, json!({ "rel": "images/b.png", "id": "9f8e7d6c5b4a", "link": "https://sushila.ai/c/9f8e7d6c5b4a" }));
         note(&dir, json!({ "rel": "music/a.mp3", "id": "0a1b2c3d4e5f", "deleted": true }));

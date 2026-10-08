@@ -406,7 +406,7 @@ async fn srv_library(axum::extract::State(s): axum::extract::State<Arc<Srv>>, ax
         // each file with its share link, if it has one
         let links = crate::share::links(&dir);
         let items: Vec<Value> = crate::library::list(&dir).into_iter().map(|mut x| { if let Some(l) = x["rel"].as_str().and_then(|r| links.get(r)) { x["link"] = l["link"].clone(); x["shareId"] = l["id"].clone(); } x }).collect();
-        json!({ "folder": dir.join("outputs").to_string_lossy(), "items": items, "trash": crate::library::list_trash(&dir) })
+        json!({ "folder": crate::locate::outputs(&dir).to_string_lossy(), "items": items, "trash": crate::library::list_trash(&dir) })
     }).await.unwrap_or(Value::Null);
     axum::Json(v).into_response()
 }
@@ -414,7 +414,7 @@ async fn srv_library_file(axum::extract::State(s): axum::extract::State<Arc<Srv>
     use axum::response::IntoResponse;
     if !lib_file_ok(&s, &headers, &q) { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
     let rel = q.get("rel").cloned().unwrap_or_default();
-    let base = if q.contains_key("trash") { s.data_dir.join("outputs").join(".trash") } else { s.data_dir.join("outputs") };
+    let base = if q.contains_key("trash") { crate::locate::outputs(&s.data_dir).join(".trash") } else { crate::locate::outputs(&s.data_dir) };
     let Some(p) = crate::library::resolve(&base, &rel) else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response() };
     let name = p.file_name().map(|n| n.to_string_lossy().replace(['"', '\r', '\n'], "")).unwrap_or_default();
     let disp = format!("{}; filename=\"{name}\"", if q.contains_key("download") { "attachment" } else { "inline" });
@@ -725,7 +725,7 @@ fn save_job_result(dir: &Path, id: &str, ctype: &str, body: &[u8]) -> bool {
 fn save_images(dir: &Path, prompt: &str, v: &mut Value, local: bool, pack: &str, size: &str) {
     use base64::Engine;
     let now = crate::util::now_iso();
-    let day = dir.join("outputs").join("images").join(&now[..10]);
+    let day = crate::locate::outputs(&dir).join(crate::library::kind_folder(&crate::locate::outputs(&dir), "image")).join(&now[..10]);
     if std::fs::create_dir_all(&day).is_err() { return; }
     let clean = prompt.split("<sd_cpp_extra_args>").next().unwrap_or("");
     let slug: String = clean.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).take(6).collect::<Vec<_>>().join("-").to_lowercase().chars().take(48).collect();
@@ -790,6 +790,64 @@ async fn srv_tunnel_act(axum::extract::State(s): axum::extract::State<Arc<Srv>>,
     }
 }
 
+/// GET /api/files-folder: where your pictures, songs and videos go ("folder"), the default (Documents/Sushila), the
+/// chosen one, files from before still in the app folder ("old": the one question is shown while it is set), and why
+/// the wanted folder cannot be written ("blocked", e.g. Windows' Controlled folder access).
+/// POST {"action": "move"} moves the old files to Documents/Sushila (or {"folder"}); {"action": "keep"} keeps them
+/// where they are; {"action": "choose", "folder", "move": true|false} chooses any folder, with or without the files;
+/// {"action": "default"} goes back to Documents/Sushila; {"action": "retry"} asks the OS again (after allowing Sushila).
+/// Changing it is for this computer only (not through the internet link).
+fn files_status(home: &Path) -> Value {
+    let (folder, blocked) = crate::locate::outputs_status(home);
+    json!({ "folder": folder.to_string_lossy(), "default": crate::locate::default_outputs().map(|d| d.to_string_lossy().to_string()),
+            "chosen": crate::locate::chosen_outputs(home).map(|d| d.to_string_lossy().to_string()),
+            "old": crate::locate::old_outputs(home).map(|d| d.to_string_lossy().to_string()), "blocked": blocked, "home": home.to_string_lossy() })
+}
+async fn srv_files_folder_get(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !local_host(&headers, s.port) { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    let home = s.data_dir.clone();
+    axum::Json(tokio::task::spawn_blocking(move || files_status(&home)).await.unwrap_or(Value::Null)).into_response()
+}
+async fn srv_files_folder(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let (parts, body) = req.into_parts();
+    let st = read_state(&s.data_dir);
+    if !this_computer(&parts.headers, s.port) || caller(&parts.headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "only this computer can change where its files go").into_response(); }
+    let Ok(bytes) = axum::body::to_bytes(body, 8192).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
+    let v: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    let home = s.data_dir.clone();
+    let r = tokio::task::spawn_blocking(move || -> Result<Value, String> {
+        let act = v["action"].as_str().unwrap_or("");
+        let current = crate::locate::outputs(&home);
+        let target = |f: Option<&str>| -> Result<PathBuf, String> {
+            let p = match f.map(str::trim).filter(|f| !f.is_empty()) {
+                Some(f) => { let p = PathBuf::from(f); if !p.is_absolute() { return Err("give the whole path of the folder".into()); } p }
+                None => crate::locate::default_outputs().ok_or("this system has no Documents folder; choose one")?,
+            };
+            crate::locate::writable_forget();
+            crate::locate::writable(&p)?;
+            Ok(p)
+        };
+        let moved = match act {
+            "keep" => { crate::locate::choose_outputs(&home, &home.join("outputs")).map_err(|e| e.to_string())?; 0 }
+            "retry" => { crate::locate::writable_forget(); 0 }
+            "move" | "default" | "choose" => {
+                let to = target(if act == "choose" { v["folder"].as_str() } else { None })?;
+                let n = if act == "move" || v["move"] == true { crate::library::move_files(&current, &to)? } else { 0 };
+                crate::locate::choose_outputs(&home, &to).map_err(|e| e.to_string())?;
+                n
+            }
+            _ => return Err("unknown action".into()),
+        };
+        let mut out = files_status(&home); out["ok"] = json!(true); out["moved"] = json!(moved);
+        Ok(out)
+    }).await.unwrap_or_else(|e| Err(e.to_string()));
+    match r {
+        Ok(v) => { crate::core::log(true, &format!("files folder: {} ({} moved)", v["folder"].as_str().unwrap_or(""), v["moved"])); axum::Json(v).into_response() }
+        Err(e) => (axum::http::StatusCode::CONFLICT, axum::Json(json!({ "ok": false, "error": e }))).into_response(),
+    }
+}
 /// POST /api/reveal {"path": ...}: opens the system's file manager at a file in the home folder's outputs (Explorer with
 /// the file selected, Finder likewise, the folder elsewhere). Only for this computer, and only inside outputs/.
 async fn srv_reveal(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
@@ -799,7 +857,7 @@ async fn srv_reveal(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req
     if !host_ok(&parts.headers, s.port, &st) || caller(&parts.headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "only this computer can open its folders").into_response(); }
     let Ok(bytes) = axum::body::to_bytes(body, 8192).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let p = serde_json::from_slice::<Value>(&bytes).ok().and_then(|v| v.get("path").and_then(|p| p.as_str()).map(PathBuf::from));
-    let outputs = s.data_dir.join("outputs");
+    let outputs = crate::locate::outputs(&s.data_dir);
     // a bare file name means a queue output (outputs/<job>.<ext>)
     let p = p.map(|p| if p.is_absolute() { p } else { outputs.join(p) });
     let (Some(f), Ok(root)) = (p.and_then(|p| std::fs::canonicalize(p).ok()), std::fs::canonicalize(&outputs)) else { return (axum::http::StatusCode::NOT_FOUND, "that file is not there any more").into_response() };
@@ -962,13 +1020,15 @@ async fn srv_queue_output(axum::extract::State(s): axum::extract::State<Arc<Srv>
     let Some(job) = queue_job(&s.data_dir, &id).filter(|j| safe_id(&id) && owns(&who, j)) else { return (axum::http::StatusCode::NOT_FOUND, "no such job").into_response() };
     let out = job.get("output").cloned().unwrap_or(Value::Null);
     let file = out.get("file").and_then(|f| f.as_str()).unwrap_or("");
-    if file.is_empty() || file.contains('/') || file.contains('\\') || file.starts_with('.') { return (axum::http::StatusCode::NOT_FOUND, "no output yet").into_response(); }
+    // a queue file (job-<id>.<ext>) or, since build 27, one of your files (Images/<date>/<name>): inside the files folder only
+    if file.is_empty() || file.starts_with('.') { return (axum::http::StatusCode::NOT_FOUND, "no output yet").into_response(); }
+    let Some(path) = crate::library::resolve(&crate::locate::outputs(&s.data_dir), file) else { return (axum::http::StatusCode::NOT_FOUND, "that file is not there any more").into_response() };
     if who != "local" && !rate_ok(&s, &who, &h, &st) { return (axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests; try again in a minute").into_response(); }
     // the type as the engine reported it, only if it is a picture, a song, a video or plain text: never a web page
     let mime = out.get("mime").and_then(|m| m.as_str()).filter(|m| ["image/png", "image/jpeg", "image/webp", "audio/mpeg", "audio/wav", "audio/flac", "audio/ogg", "video/webm", "video/mp4", "text/plain", "text/markdown"].contains(m))
         .unwrap_or("application/octet-stream").to_string();
     let disp = format!("{}; filename=\"{}\"", if q.contains_key("download") { "attachment" } else { "inline" }, file.replace(['"', '\r', '\n'], ""));
-    with_cors_for(file_response(&s.data_dir.join("outputs").join(file), &mime, disp, "no-store", headers.get("range")).await, &st, origin.as_deref())
+    with_cors_for(file_response(&path, &mime, disp, "no-store", headers.get("range")).await, &st, origin.as_deref())
 }
 
 
@@ -1104,6 +1164,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/state", axum::routing::get(srv_state))
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
         .route("/api/reveal", axum::routing::post(srv_reveal))
+        .route("/api/files-folder", axum::routing::get(srv_files_folder_get).post(srv_files_folder))
         .route("/api/use", axum::routing::post(srv_use))
         .route("/api/media-token", axum::routing::get(srv_media_token)).route("/api/tunnel", axum::routing::get(srv_tunnel)).route("/api/tunnel/:act", axum::routing::post(srv_tunnel_act))
         .route("/api/system", axum::routing::get(srv_system))

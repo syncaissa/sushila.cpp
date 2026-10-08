@@ -257,7 +257,10 @@ async fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
     }
+    let explicit_home = cli.data_dir.is_some() || std::env::var("SUSHILA_HOME").map(|h| !h.is_empty()).unwrap_or(false);
     let (data, warning) = locate::resolve(cli.data_dir.clone());
+    // the server starting from the old roaming home (before build 27) moves it to the new place, once
+    let data = if !explicit_home && matches!(cli.cmd, Some(Cmd::Serve { .. })) && std::env::var("SUSHILA_WORKER").is_err() { locate::move_legacy_home(data) } else { data };
     if let Some(w) = &warning { if !cli.quiet { eprintln!("note: {w}"); } }
     std::env::set_var("SUSHILA_HOME", &data);
     if let Some(p) = &cli.packs_dir { std::env::set_var("SUSHILA_PACKS", std::path::absolute(p).unwrap_or(p.clone())); }
@@ -905,7 +908,7 @@ fn prune_queue(q: &mut Value, data: &std::path::Path) {
     if drop.is_empty() { return; }
     jobs.retain(|j| {
         let gone = drop.contains(j["id"].as_str().unwrap_or(""));
-        if gone { if let Some(f) = j["output"]["file"].as_str().filter(|f| !f.contains(['/', '\\']) && f.starts_with("job-")) { let _ = std::fs::remove_file(data.join("outputs").join(f)); } }
+        if gone { if let Some(f) = j["output"]["file"].as_str().filter(|f| !f.contains(['/', '\\']) && f.starts_with("job-")) { let _ = std::fs::remove_file(crate::locate::outputs(data).join(f)); } }
         !gone
     });
 }
@@ -1233,8 +1236,20 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                                 let mark_pack = jb["model"].as_str().unwrap_or("").to_string();
                                 let mark_remote = jb["owner"].as_str().map(|w| w != "local").unwrap_or(false);  // queued from another device
                                 let mark_prompt = jb["params"]["prompt"].as_str().or(jb["params"]["style"].as_str()).or(jb["title"].as_str()).unwrap_or("").to_string();
-                                match res.and_then(|o2| { let file = format!("{jid}.{}", o2.ext); std::fs::create_dir_all(ctx.data.join("outputs")).map_err(err)?;
-                                                          std::fs::write(ctx.data.join("outputs").join(&file), library::mark_ai(&o2.bytes, &o2.ext, &mark_pack, &mark_prompt, mark_remote)).map_err(err)?; Ok(json!({ "file": file, "mime": o2.mime, "bytes": o2.bytes.len() })) }) {
+                                match res.and_then(|o2| {
+                                    // a picture, song or video goes to your files (Images/Music/Videos/<date>/<time>-<words>.<ext>, like
+                                    // everything else you make, and is never removed by the queue); anything else stays a queue file
+                                    let kind = match o2.ext.as_str() { "png" | "jpg" | "jpeg" | "webp" => Some("image"), "mp3" | "wav" | "flac" | "ogg" => Some("music"), "webm" | "mp4" => Some("video"), _ => None };
+                                    let out = crate::locate::outputs(&ctx.data);
+                                    let file = if let Some(k) = kind {
+                                        let meta = json!({ "pack": mark_pack, "prompt": mark_prompt, "remote": mark_remote, "source": "queue" });
+                                        let p = library::save(&ctx.data, k, &o2.ext, &o2.bytes, &mark_prompt, meta).ok_or_else(|| format!("could not save the result in {}", out.display()))?;
+                                        p.strip_prefix(&out).map(|r| r.to_string_lossy().replace('\\', "/")).map_err(err)?
+                                    } else {
+                                        let file = format!("{jid}.{}", o2.ext); std::fs::create_dir_all(&out).map_err(err)?;
+                                        std::fs::write(out.join(&file), library::mark_ai(&o2.bytes, &o2.ext, &mark_pack, &mark_prompt, mark_remote)).map_err(err)?; file
+                                    };
+                                    Ok(json!({ "file": file, "mime": o2.mime, "bytes": o2.bytes.len() })) }) {
                                     Ok(outv) => { jb["output"] = outv; jb["status"] = json!("ready"); jb["progress"] = json!(format!("ready in {} s", t0.elapsed().as_secs()));
                                                   ctx.log(&format!("queue: {} is ready", jb["title"].as_str().filter(|t| !t.is_empty()).unwrap_or(jb["kind"].as_str().unwrap_or("job")))); }
                                     Err(e) => { jb["status"] = json!("failed"); jb["error"] = json!(e.chars().take(300).collect::<String>()); jb["progress"] = json!(""); ctx.log(&format!("queue: job failed: {e}")); }
@@ -1354,7 +1369,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                     }
                 }
                 if act == "remove" && !current.as_ref().map(|c| c.0 == id).unwrap_or(false) {
-                    if let Some(f) = q["jobs"].as_array().unwrap().iter().find(|x| x["id"] == id.as_str()).and_then(|x| x["output"]["file"].as_str().map(String::from)) { let _ = std::fs::remove_file(ctx.data.join("outputs").join(f)); }
+                    if let Some(f) = q["jobs"].as_array().unwrap().iter().find(|x| x["id"] == id.as_str()).and_then(|x| x["output"]["file"].as_str().map(String::from)).filter(|f| !f.contains(['/', '\\'])) { let _ = std::fs::remove_file(crate::locate::outputs(&ctx.data).join(f)); }  // your files (Images/...) stay
                     q["jobs"].as_array_mut().unwrap().retain(|x| x["id"] != id.as_str());
                 }
             }

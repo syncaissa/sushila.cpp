@@ -6,10 +6,93 @@
 //! terminal (a service) it takes the most recently used one and says so. `sushila home` shows it; `sushila home <folder>` replaces it.
 use std::path::{Path, PathBuf};
 
-/// The OS default: %APPDATA%\ai.sushila.hoststation, ~/Library/Application Support/ai.sushila.hoststation,
-/// ~/.local/share/ai.sushila.hoststation.
+/// The OS default for model packs, the engine, settings and logs (big, machine-specific, never synced or roamed):
+/// %LOCALAPPDATA%\Sushila, ~/Library/Application Support/Sushila, ~/.local/share/sushila.
 pub fn os_default() -> PathBuf {
+    dirs::data_local_dir().unwrap_or_else(|| PathBuf::from(".")).join(if cfg!(target_os = "linux") { "sushila" } else { "Sushila" })
+}
+/// Where builds before 27 kept everything: %APPDATA%\ai.sushila.hoststation (roaming), ~/Library/Application
+/// Support/ai.sushila.hoststation, ~/.local/share/ai.sushila.hoststation.
+pub fn legacy_default() -> PathBuf {
     dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("ai.sushila.hoststation")
+}
+
+/// The server starting with the old default home and no new one yet: the folder is renamed to the new place (the same
+/// drive, so it is instant) and remembered. Not done while a Sushila server answers (its files are in use), and a
+/// failure (a file open on Windows) keeps the old place. Returns the home to use.
+pub fn move_legacy_home(home: PathBuf) -> PathBuf {
+    let (old, new) = (legacy_default(), os_default());
+    let same = |a: &Path, b: &Path| std::fs::canonicalize(a).ok().zip(std::fs::canonicalize(b).ok()).map(|(x, y)| x == y).unwrap_or(false);
+    if !same(&home, &old) || new.exists() { return home; }
+    let busy = std::net::TcpStream::connect_timeout(&([127, 0, 0, 1], 7874).into(), std::time::Duration::from_millis(300)).is_ok();
+    if busy { return home; }
+    if let Some(d) = new.parent() { let _ = std::fs::create_dir_all(d); }
+    match std::fs::rename(&old, &new) {
+        Ok(()) => { remember(&new); eprintln!("Sushila's home moved from {} to {} (model packs, engine, settings and logs).", old.display(), new.display()); new }
+        Err(e) => { eprintln!("note: Sushila's home stays in {} (moving it to {} failed: {e}).", old.display(), new.display()); home }
+    }
+}
+
+// ---------- where your pictures, songs and videos go: Documents\Sushila (Images, Music, Videos) by default, the OS's
+// real Documents folder (so it follows OneDrive's redirection), or any folder chosen in Settings (the one-line file
+// <home>/outputs-folder). An install from before keeps <home>/outputs until its owner answers the question once
+// (move them to Documents, or keep them where they are).
+
+/// The default folder for your files: Documents/Sushila.
+pub fn default_outputs() -> Option<PathBuf> { dirs::document_dir().or_else(|| dirs::home_dir().map(|h| h.join("Documents"))).map(|d| d.join("Sushila")) }
+/// The folder chosen in Settings (or by the one question), if any.
+pub fn chosen_outputs(home: &Path) -> Option<PathBuf> {
+    let text = std::fs::read_to_string(home.join("outputs-folder")).ok()?;
+    text.lines().map(str::trim).find(|l| !l.is_empty() && !l.starts_with('#')).map(PathBuf::from)
+}
+pub fn choose_outputs(home: &Path, folder: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(home)?;
+    std::fs::write(home.join("outputs-folder"), format!("{}\n", folder.to_string_lossy()))
+}
+/// Files from before (the old <home>/outputs, not chosen): the question is asked while this is true.
+pub fn old_outputs(home: &Path) -> Option<PathBuf> {
+    let old = home.join("outputs");
+    (chosen_outputs(home).is_none() && std::fs::read_dir(&old).map(|mut d| d.next().is_some()).unwrap_or(false)).then_some(old)
+}
+/// Can Sushila write there? (Windows' Controlled folder access, ransomware protection, blocks unknown programs from
+/// Documents, Pictures, Music and Videos; a read-only or missing drive fails too.) Asked once per folder per run, until
+/// writable_forget() (after the owner allowed Sushila in Windows Security, or chose a folder).
+static SEEN: std::sync::Mutex<Option<std::collections::HashMap<PathBuf, Result<(), String>>>> = std::sync::Mutex::new(None);
+pub fn writable(d: &Path) -> Result<(), String> {
+    let mut g = SEEN.lock().unwrap_or_else(|e| e.into_inner());
+    let m = g.get_or_insert_with(Default::default);
+    if let Some(r) = m.get(d) { return r.clone(); }
+    let r = (|| {
+        std::fs::create_dir_all(d)?;
+        let probe = d.join(".sushila-write-test");
+        std::fs::write(&probe, b"ok")?;
+        std::fs::remove_file(&probe)
+    })().map_err(|e| blocked_reason(d, &e));
+    m.insert(d.to_path_buf(), r.clone());
+    r
+}
+pub fn writable_forget() { *SEEN.lock().unwrap_or_else(|e| e.into_inner()) = None; }
+fn blocked_reason(d: &Path, e: &std::io::Error) -> String {
+    if cfg!(windows) && e.kind() == std::io::ErrorKind::PermissionDenied {
+        format!("Windows blocked Sushila from writing to {} (Controlled folder access). To allow it: Windows Security -> Virus & threat protection -> \
+                 Ransomware protection -> Allow an app through Controlled folder access -> add sushila.exe. Or choose another folder in Settings. \
+                 Until then your files go to Sushila's own folder.", d.display())
+    } else {
+        format!("Sushila cannot write to {} ({e}). Choose another folder in Settings; until then your files go to Sushila's own folder.", d.display())
+    }
+}
+/// The folder your pictures, songs and videos go to now: the chosen one, else the old one (until the question is
+/// answered), else Documents/Sushila; one that cannot be written falls back to <home>/outputs.
+pub fn outputs(home: &Path) -> PathBuf {
+    if cfg!(test) { return home.join("outputs"); }
+    outputs_status(home).0
+}
+/// outputs() and, when the wanted folder cannot be written, why (shown in the page and in Station).
+pub fn outputs_status(home: &Path) -> (PathBuf, Option<String>) {
+    let fallback = home.join("outputs");
+    let want = chosen_outputs(home).or_else(|| old_outputs(home)).or_else(default_outputs).unwrap_or_else(|| fallback.clone());
+    if want == fallback { return (want, None); }
+    match writable(&want) { Ok(()) => (want, None), Err(why) => (fallback, Some(why)) }
 }
 
 /// Where the chosen home is remembered: one line with the folder's path, in the per-user settings folder that every
@@ -48,7 +131,7 @@ fn last_used(p: &Path) -> std::time::SystemTime {
 
 /// Every likely place that already holds Sushila's things, most recently used first.
 pub fn candidates() -> Vec<PathBuf> {
-    let mut places = vec![os_default()];
+    let mut places = vec![os_default(), legacy_default()];
     if let Some(exe_dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.to_path_buf())) {
         places.push(exe_dir.join("sushila-data")); places.push(exe_dir);
     }

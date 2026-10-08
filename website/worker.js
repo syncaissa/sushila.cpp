@@ -370,20 +370,32 @@ sushila install C:\\Users\\me\\Downloads\\my-model.gguf                         
 </ul>
 
 <h2 id="files">Files and folders</h2>
-<p>Created the first time; nothing is searched for, and no administrator rights are needed. The program itself can live anywhere.</p>
+<p>Created the first time; no administrator rights are needed. The program itself can live anywhere. Two places:
+<b>your files</b> (pictures, songs, videos) in your Documents folder, where you look for them and your backup (OneDrive,
+iCloud, Time Machine) already copies them, and <b>Sushila's own folder</b> (model packs, the engine, settings, logs),
+which is large and belongs to this computer, so it is never synced or roamed.</p>
 <table>
-<tr><th>System</th><th>Data folder</th></tr>
-<tr><td>Windows</td><td><code>%APPDATA%\\ai.sushila.hoststation</code></td></tr>
-<tr><td>macOS</td><td><code>~/Library/Application Support/ai.sushila.hoststation</code></td></tr>
-<tr><td>Linux</td><td><code>~/.local/share/ai.sushila.hoststation</code></td></tr>
+<tr><th>System</th><th>Your files</th><th>Sushila's own folder</th></tr>
+<tr><td>Windows</td><td><code>Documents\\Sushila</code> (your real Documents, also when OneDrive moved it)</td><td><code>%LOCALAPPDATA%\\Sushila</code></td></tr>
+<tr><td>macOS</td><td><code>~/Documents/Sushila</code></td><td><code>~/Library/Application Support/Sushila</code></td></tr>
+<tr><td>Linux</td><td><code>~/Documents/Sushila</code></td><td><code>~/.local/share/sushila</code></td></tr>
 </table>
-<p>Another folder: <code>--data-dir &lt;folder&gt;</code> or the environment variable <code>SUSHILA_HOME</code>. Inside:</p>
+<p>Your files: <code>Images/</code>, <code>Music/</code> and <code>Videos/</code>, one folder per day. Choose another folder in
+Settings &rarr; Where my files go (with or without moving what is there). If Windows' Controlled folder access
+(ransomware protection) blocks Sushila from Documents, the page says so and how to allow it; until then the files go
+to <code>outputs/</code> in Sushila's own folder.</p>
+<p>Before build 27 everything was in <code>%APPDATA%\\ai.sushila.hoststation</code> (macOS
+<code>~/Library/Application Support/ai.sushila.hoststation</code>, Linux <code>~/.local/share/ai.sushila.hoststation</code>).
+The first server start of a newer build moves that folder to the new place, and the page asks once whether to move
+your pictures, songs and videos to Documents or keep them where they are.</p>
+<p>Another place for Sushila's own folder: <code>--data-dir &lt;folder&gt;</code>, the environment variable
+<code>SUSHILA_HOME</code>, or <code>sushila home &lt;folder&gt;</code>. Inside:</p>
 <table>
 <tr><td><code>engine/&lt;version&gt;/</code></td><td>Sushila.cpp (text, image/video and music engines)</td></tr>
 <tr><td><code>model-packs/&lt;pack&gt;/</code></td><td>Installed model packs (one folder each; see above)</td></tr>
 <tr><td><code>logs/sushila.log</code></td><td>Every action, with its source (page, cli, server)</td></tr>
 <tr><td><code>logs/&lt;pack&gt;.log</code></td><td>The engine output of each model</td></tr>
-<tr><td><code>outputs/</code>, <code>queue.json</code></td><td>Finished queue jobs (images, songs, videos, texts) and the queue</td></tr>
+<tr><td><code>queue.json</code>, <code>outputs-folder</code></td><td>The queue; where your files go (one line, when you chose a folder)</td></tr>
 <tr><td><code>state.json</code></td><td>Settings, installed packs, what runs (written only by the server)</td></tr>
 <tr><td><code>adminpassword</code>, <code>admin-cli.token</code></td><td>The admin password's hash; the commands' private token</td></tr>
 <tr><td><code>downloads/</code></td><td>Partial downloads (resumed automatically)</td></tr>

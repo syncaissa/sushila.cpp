@@ -579,7 +579,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
         el('button', { class: lib.showShared ? '' : 'ghost', onclick: () => { lib.showShared = !lib.showShared; lib.inTrash = false; if (lib.showShared && !lib.acct.signedIn) { lib.showShared = false; lib.signin = { step: 'email', email: lib.acct.lastEmail || '', pending: null, purpose: 'SIGN_IN' }; } libRender(); } }, lib.showShared ? '← Back to the Library' : '🔗 Shared links'),
         el('button', { class: lib.inTrash ? '' : 'ghost', onclick: () => { lib.inTrash = !lib.inTrash; lib.showShared = false; libRender(); } }, lib.inTrash ? '← Back to the Library' : '🗑 Trash (' + lib.trash.length + ')'),
         lib.inTrash && lib.trash.length ? el('button', { class: 'danger', onclick: async () => { if (await ask('This cannot be undone.', 'Empty trash', { title: 'Delete all ' + lib.trash.length + ' files in the trash permanently?', danger: true })) libAct('empty', '', 'The trash is empty.'); } }, 'Empty trash') : null);
-      const where = el('div', { class: 'sub libwhere' }, 'Your files are in ', el('code', { style: 'user-select:all' }, lib.folder), ' (pictures in images/, songs in music/, videos in video/, one folder per day).');
+      const where = el('div', { class: 'sub libwhere' }, 'Your files are in ', el('code', { style: 'user-select:all' }, lib.folder), ' (pictures in Images, songs in Music, videos in Videos, one folder per day).', !PFX ? el('a', { href: '#admin', onclick: () => { openSecs.add('settings'); saveOpen(); } }, ' Change…') : null), ffBox = filesBox(libRender);
       const bar = el('div', { class: 'libbar' },
         el('input', { id: 'libq', type: 'search', placeholder: 'Search prompts, lyrics, models, file names, dates, sizes, seeds…', value: lib.q, oninput: (e) => { lib.q = e.target.value; libRender(); } }),
         el('div', { class: 'row', style: 'margin:0' }, ...KINDS.map(([k, t]) => el('button', { class: 'chip' + (lib.kind === k ? ' on' : ''), onclick: () => { lib.kind = k; libRender(); } }, t)),
@@ -588,7 +588,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
           el('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Layout' }, ...[['grid', '▦ Large'], ['list', '☰ Details']].map(([k, t]) => el('button', { class: lib.layout === k ? 'on' : '', role: 'radio', 'aria-checked': String(lib.layout === k),
             onclick: () => { lib.layout = k; try { localStorage.setItem('sushila-lib-layout', k); } catch (_) {} libRender(); } }, t)))));
       if (lib.showShared) { box.replaceChildren(head, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', el('div', { class: 'sub' }, 'Reading your shared links…')); sharedView().then((v) => { if (lib.showShared && view === 'library') box.replaceChildren(head, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', ...v); }); return; }
-      box.replaceChildren(head, where, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', signinPanel() || '', bar,
+      box.replaceChildren(head, where, ffBox || '', lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', signinPanel() || '', bar,
         shown.length ? (lib.layout === 'list' ? libTable(shown) : el('div', { class: 'libgrid' }, ...shown.map(libCard)))
           : el('div', { class: 'sub', style: 'margin:30px 0;text-align:center' }, lib.inTrash ? 'The trash is empty.' : (lib.items.length ? 'Nothing matches the search.' : 'Nothing made yet: pictures, songs and videos from the Inference page appear here.')));
       if (focus === 'libq') { const q = $('libq'); q.focus(); if (caret != null) q.setSelectionRange(caret, caret); }
@@ -743,6 +743,52 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
         el('div', { class: 'row' }, el('input', { id: 'logf', placeholder: 'filter (e.g. downloaded, error, z-image)', value: f, oninput: () => render() }),
           el('button', { class: 'ghost', onclick: () => { try { copyText(logText); } catch (_) {} } }, 'Copy all')), pre, ...crashBox];
     }
+    // Where your pictures, songs and videos go (GET/POST /api/files-folder): the one question for files from before build 27
+    // (move them to Documents/Sushila, or keep them), a warning when the OS blocks the folder (Windows' Controlled folder
+    // access), and Settings -> Where my files go. Changing it is for this computer only, not through the internet link.
+    let FF = null, ffBusy = false, ffMsg = '';
+    const ffLoad = (then) => api('/api/files-folder').then((r) => (r.ok ? r.json() : null)).then((j) => { FF = j; if (then) then(); }).catch(() => {});
+    async function ffDo(body, then, what) {
+      ffBusy = true; ffMsg = (what || 'Working') + '…'; if (then) then();
+      try {
+        const r = await api('/api/files-folder', { method: 'POST', body: JSON.stringify(body) });
+        const j = await r.json().catch(() => ({ error: 'HTTP ' + r.status }));
+        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        FF = j; ffMsg = (j.moved ? j.moved + ' file' + (j.moved === 1 ? '' : 's') + ' moved. ' : '') + 'Your files now go to ' + j.folder + '.';
+        if (view === 'library') await libLoad();
+      } catch (e) { ffMsg = 'Could not change it: ' + e.message; }
+      ffBusy = false; if (then) then();
+    }
+    function filesBox(then) {
+      if (PFX) return null;
+      if (FF === null) { FF = false; ffLoad(then); return null; }
+      if (!FF) return null;
+      if (FF.old && FF.default) return el('div', { class: 'note ffask' },
+        el('b', {}, 'Where should your pictures, songs and videos live?'),
+        el('div', { class: 'sub' }, 'They are in Sushila\'s app folder, ', el('code', {}, FF.old), ', which is hard to find. Sushila now keeps them in your Documents: ',
+          el('code', {}, FF.default), ' (Images, Music, Videos), where you look for them and your backup copies them.'),
+        el('div', { class: 'row' }, el('button', { class: 'primary', disabled: ffBusy, onclick: () => ffDo({ action: 'move' }, then, 'Moving your files') }, 'Move them to Documents'),
+          el('button', { class: 'ghost', disabled: ffBusy, onclick: () => ffDo({ action: 'keep' }, then, 'Keeping them') }, 'Keep them where they are')),
+        ffMsg ? el('div', { class: 'sub' }, ffMsg) : null);
+      if (FF.blocked) return el('div', { class: 'note warnnote' }, el('b', {}, 'Your files cannot go to the folder you chose'), el('div', { class: 'sub' }, FF.blocked),
+        el('div', { class: 'row' }, el('button', { class: 'ghost', disabled: ffBusy, onclick: () => ffDo({ action: 'retry' }, then, 'Trying again') }, 'I allowed it: try again')));
+      return ffMsg ? el('div', { class: 'msg ok' }, ffMsg) : null;
+    }
+    function filesSettings() {
+      const rerender = () => render();
+      if (PFX) return [el('h2', {}, 'Where my files go'), el('p', { class: 'sub' }, 'Your pictures, songs and videos are saved on the computer that runs Sushila' + (FF && FF.folder ? ', in ' + FF.folder : '') + '. Change it there.')];
+      if (FF === null) { FF = false; ffLoad(rerender); }
+      const f = FF || {};
+      const inp = el('input', { id: 'ff-folder', placeholder: f.default || 'C:\\Users\\you\\Pictures\\Sushila', value: f.chosen && f.chosen !== f.default ? f.chosen : '', style: 'flex:1;min-width:240px' });
+      const pick = (move) => { const v = inp.value.trim(); if (!v) { ffMsg = 'Type the whole path of a folder first.'; render(); return; } ffDo({ action: 'choose', folder: v, move }, rerender, move ? 'Moving your files' : 'Changing the folder'); };
+      return [el('h2', {}, 'Where my files go'),
+        el('p', { class: 'sub' }, 'Pictures, songs and videos you make (Images, Music and Videos, one folder per day). Model packs, the engine, settings and logs stay in Sushila\'s own folder, ', el('code', {}, f.home || ''), '.'),
+        el('div', { class: 'row' }, el('span', {}, 'Now: '), el('code', { style: 'user-select:all' }, f.folder || '…'), f.folder ? el('button', { class: 'ghost', onclick: () => libReveal(f.folder) }, '📁 Open') : null),
+        filesBox(rerender),
+        el('div', { class: 'row' }, inp, el('button', { disabled: ffBusy, onclick: () => pick(true) }, 'Use this folder and move my files'), el('button', { class: 'ghost', disabled: ffBusy, onclick: () => pick(false) }, 'Use it for new files only')),
+        f.default && f.folder !== f.default ? el('div', { class: 'row' }, el('button', { class: 'ghost', disabled: ffBusy, onclick: () => ffDo({ action: 'default', move: true }, rerender, 'Moving your files') }, 'Back to Documents (' + f.default + '), with my files')) : null,
+        ffMsg && !(f.old || f.blocked) ? el('div', { class: 'sub' }, ffMsg) : null];
+    }
     function settingsView() {
       const s = st.settings || {}, sh = st.share || {};
       const field = (k, label, hint) => [el('label', { for: 'set-' + k }, label), el('input', { id: 'set-' + k, type: 'number', value: s[k] == null ? '' : s[k] }), hint ? el('div', { class: 'sub' }, hint) : null];
@@ -750,6 +796,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       return [el('h2', {}, 'Settings'), ...field('gpuLayers', 'Layers on the GPU', '-1 = automatic: as many as fit (recommended)'), ...field('contextSize', 'Context size (tokens)'),
         ...field('threads', 'CPU threads', '0 = automatic'), ...field('parallel', 'Parallel requests per model', '0 = automatic: as many as the GPU memory allows (1-16)'),
         el('div', { class: 'row' }, el('button', { onclick: save }, 'Save'), el('span', { class: 'sub' }, 'Applies to models started after saving.')),
+        ...filesSettings(),
         el('h2', {}, 'Access from other machines'),
         el('p', { class: 'sub' }, sh.enabled ? ('On' + (sh.open ? ', open to anyone who can reach the port (no key)' : ', ' + sh.keys + ' access key(s)')) : 'Off: only this computer can use it.'),
         el('pre', {}, 'sushila serve --public --port ' + (s.port || 7874) + '     # reachable at http://<this machine>:' + (s.port || 7874) + '/\nsushila keys add <name>                  # an access key for another machine or app')];
@@ -893,7 +940,8 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
         try { sys = await (await api('/api/system')).json(); } catch (_) {}
         const packs = [...(st.packs || [])].sort((a, b) => (b.bytes || 0) - (a.bytes || 0)), files = [...(lib.items || [])].sort((a, b) => (b.bytes || 0) - (a.bytes || 0));
         const sum = (a) => a.reduce((n, x) => n + (x.bytes || 0), 0), trashBytes = sum(lib.trash || []);
-        const kinds = [['image', '🖼 Pictures', 'images'], ['music', '🎵 Songs', 'music'], ['video', '🎬 Videos', 'video']];
+        const top = (k, d) => { const x = files.find((f) => f.kind === k && f.rel && f.rel.includes('/')); return x ? x.rel.split('/')[0] : d; };
+        const kinds = [['image', '🖼 Pictures', top('image', 'Images')], ['music', '🎵 Songs', top('music', 'Music')], ['video', '🎬 Videos', top('video', 'Videos')]];
         const sep = lib.folder.includes('\\') ? '\\' : '/';
         body.replaceChildren(
           el('div', { class: 'sub' }, sys && sys.disk ? 'Free on this disk: ' + sys.disk.freeGB + ' GB of ' + sys.disk.totalGB + ' GB. ' : '', 'Model packs use ' + human(sum(packs)) + ', your files ' + human(sum(files)) + ', the trash ' + human(trashBytes) + '.'),

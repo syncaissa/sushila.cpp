@@ -113,3 +113,6 @@ textarea.field{height:auto;min-height:120px;line-height:1.5}
 .dlg.wide{width:min(1120px,95vw)}
 .engpanel{grid-template-columns:270px 1fr}
 .engpanel .item .txt b{white-space:normal}
+.ffask,.panel.warn{margin-bottom:14px;border-left:4px solid var(--accent,#7c5cff)}
+.panel.warn{border-left-color:#e8a33d}
+.ffask .row,.panel.warn .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}

@@ -667,7 +667,7 @@ async fn clean(ctx: &mut Ctx, dry: bool, j: bool) -> Result<(), String> {
     // music/, video/, its index, shared links and the trash) is never touched here
     let q = read_json(&ctx.data.join("queue.json")).unwrap_or(json!({}));
     let used: std::collections::HashSet<String> = q["jobs"].as_array().map(|a| a.iter().filter_map(|x| x["output"]["file"].as_str().map(String::from)).collect()).unwrap_or_default();
-    for e in std::fs::read_dir(ctx.data.join("outputs")).into_iter().flatten().flatten() {
+    for e in std::fs::read_dir(crate::locate::outputs(&ctx.data)).into_iter().flatten().flatten() {
         let n = e.file_name().to_string_lossy().to_string();
         if e.file_type().map(|t| t.is_file()).unwrap_or(false) && n.starts_with("job-") && !used.contains(&n) { items.push((e.path(), 0, "output of a removed queue job".into())); }
     }
@@ -1008,7 +1008,7 @@ async fn batch(ctx: &mut Ctx, pack: &str, prompts: &Path, out_dir: Option<PathBu
 fn history(ctx: &Ctx, act: Option<&crate::HistoryCmd>, j: bool) -> Result<(), String> {
     let q = read_json(&ctx.data.join("queue.json")).unwrap_or(json!({ "jobs": [] }));
     let jobs = q["jobs"].as_array().cloned().unwrap_or_default();
-    let outp = |jb: &Value| jb["output"]["file"].as_str().map(|f| ctx.data.join("outputs").join(f).to_string_lossy().to_string());
+    let outp = |jb: &Value| jb["output"]["file"].as_str().map(|f| crate::locate::outputs(&ctx.data).join(f).to_string_lossy().to_string());
     match act {
         None => { let rows: Vec<Value> = jobs.iter().rev().map(|jb| json!({ "id": jb["id"], "kind": jb["kind"], "model": jb["model"], "status": jb["status"], "created": jb["created"], "title": jb["title"], "prompt": jb["params"]["prompt"].as_str().or(jb["params"]["style"].as_str()), "output": outp(jb) })).collect();
             out(j, json!(rows), || if rows.is_empty() { "no jobs yet".into() } else { rows.iter().map(|r| format!("{:<26} {:<20} {:<6} {:<9} {}", r["id"].as_str().unwrap_or(""), r["created"].as_str().unwrap_or(""), r["kind"].as_str().unwrap_or(""), r["status"].as_str().unwrap_or(""),

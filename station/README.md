@@ -19,6 +19,12 @@ The desktop app for Sushila.cpp: chat, code, pictures, music and video on your o
   - Station carries the `sushila` program and starts it in the background when it opens.
   - It keeps running when the window closes; Station stays in the tray and the queue goes on.
   - The tray menu has Open, Start, Stop, Quit, and Quit and stop Sushila.
+- **Where files go:**
+  - Your pictures, songs and videos: `Documents\Sushila` (Images, Music, Videos), in your real Documents folder,
+    also when OneDrive moved it.
+  - Model packs, the engine and logs: `%LOCALAPPDATA%\Sushila`.
+  - Settings → Where my files go: choose any folder with the system's folder picker, with or without moving the files.
+  - Files from before are moved, or kept where they are, after one question.
 - **The `sushila` command:** Engine → Install puts it where you can type it in a terminal.
   - Windows: `%LOCALAPPDATA%\Programs\Sushila`, added to your user PATH.
   - macOS: `~/.sushila/bin`, added to your shell profile.
