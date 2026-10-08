@@ -128,6 +128,14 @@ pub fn apply_share(state: &mut Value, v: &Value) -> Result<(), String> {
         if h.is_empty() || h.len() > 253 || !h.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') { return Err(format!("not a host name: {h}")); }
         if !state["share"]["hosts"].as_array().unwrap().iter().any(|x| x == h.as_str()) { state["share"]["hosts"].as_array_mut().unwrap().push(json!(h)); }
     }
+    // the temporary internet URL (tunnel.rs): its host name and access key come and go with the tunnel
+    if let Some(h) = v["removeHost"].as_str() { state["share"]["hosts"].as_array_mut().unwrap().retain(|x| x != h); }
+    if let Some(p) = v["removeKeyPrefix"].as_str().filter(|p| p.len() >= 8) { if let Some(a) = state["share"]["keys"].as_array_mut() { a.retain(|k| !k["name"].as_str().unwrap_or("").starts_with(p)); } }
+    if let Some(k) = v.get("addKey").filter(|k| k["name"].is_string() && k["sha256"].as_str().map(|s| s.len() == 64).unwrap_or(false)) {
+        if !state["share"]["keys"].is_array() { state["share"]["keys"] = json!([]); }
+        state["share"]["keys"].as_array_mut().unwrap().push(json!({ "name": k["name"], "sha256": k["sha256"], "created": crate::util::now_iso() }));
+    }
+    if let Some(n) = v["removeKey"].as_str() { if let Some(a) = state["share"]["keys"].as_array_mut() { a.retain(|k| k["name"] != n); } }
     // serving on the network: any host name (the LAN address, a phone's view of it); keys still decide who may call
     if v["listen"] == true && !state["share"]["hosts"].as_array().unwrap().iter().any(|x| x == "*") { state["share"]["hosts"].as_array_mut().unwrap().push(json!("*")); }
     if v["enabled"] == false { state["share"]["listen"] = json!(false); state["share"]["open"] = json!(false); }

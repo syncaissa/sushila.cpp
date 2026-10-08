@@ -66,11 +66,22 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
 @keyframes tin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @media (max-width:640px){.toasts{right:10px;left:10px;bottom:10px;width:auto}}
 `;
+  // opened through the temporary internet URL (https://sushila.ai/localhost/<id>/): this page's absolute paths
+  // (/api/..., /v1/..., /brand/...) live under that prefix; fetch, el() and elements added later are pointed there
+  const PFX = (location.pathname.match(/^\/localhost\/[0-9a-f]{20}(?=\/|$)/) || [''])[0];
+  const fixPath = (u) => (PFX && typeof u === 'string' && u.startsWith('/') && !u.startsWith('//') && !u.startsWith(PFX + '/') ? PFX + u : u);
+  if (PFX) {
+    const of = window.fetch.bind(window); window.fetch = (u, o) => of(fixPath(u), o);
+    const fixEl = (n) => { for (const a of ['src', 'href']) { const v = n.getAttribute && n.getAttribute(a); if (v && fixPath(v) !== v) n.setAttribute(a, fixPath(v)); } };
+    new MutationObserver((ms) => ms.forEach((m) => { if (m.type === 'attributes') fixEl(m.target);
+      m.addedNodes.forEach((n) => { if (n.nodeType === 1) { fixEl(n); if (n.querySelectorAll) n.querySelectorAll('[src],[href]').forEach(fixEl); } }); }))
+      .observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['src', 'href'] });
+  }
   const el = (tag, attrs = {}, ...kids) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
       if (k === 'class') n.className = v; else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
-      else if (v === true) n.setAttribute(k, ''); else if (v !== false && v != null) n.setAttribute(k, v);
+      else if (v === true) n.setAttribute(k, ''); else if (v !== false && v != null) n.setAttribute(k, (k === 'src' || k === 'href') ? fixPath(v) : v);
     }
     for (const k of kids.flat()) if (k != null) n.append(k.nodeType ? k : document.createTextNode(String(k)));
     return n;
@@ -104,7 +115,20 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
     toast(text, { kind: 'ask', title: o.title, onclose: () => fin(false),
       actions: [{ label: okLabel, primary: !o.danger, danger: !!o.danger, onclick: () => fin(true) }, { label: o.cancel || 'Cancel', onclick: () => fin(false) }] });
   });
-  // the Library's "Upload and copy link", reachable from the Inference page (set by the Library on this computer)
+  // ⓘ on a file: everything known about it, in a dialog (rows with an empty value are left out); Esc or a click outside closes
+  function showInfo(title, rows) {
+    const old = document.querySelector('.infobox'); if (old) old.remove();
+    const when = (t) => { const d = new Date(t); return isNaN(d) ? t : d.toLocaleString(); };
+    const box = el('div', { class: 'lbox infobox', role: 'dialog', 'aria-label': 'Information', onclick: (e) => { if (e.target === box) box.remove(); } },
+      el('div', { class: 'lboxin', style: 'width:min(640px,94vw)' }, el('div', { class: 'row', style: 'margin:0 0 8px' }, el('h2', { style: 'margin:0;font-size:18px' }, 'ⓘ ' + title), el('span', { style: 'flex:1' }),
+        el('button', { class: 'ghost', onclick: () => box.remove() }, 'Close')),
+        el('dl', { class: 'infodl' }, ...rows.filter(([, v]) => v != null && v !== '' && v !== -1).flatMap(([k, v, opt]) => [el('dt', {}, k),
+          el('dd', { class: opt === 'pre' ? 'pre' : '' }, opt === 'date' ? when(v) : opt === 'link' ? el('a', { href: v, target: '_blank', rel: 'noopener' }, v) : String(v))]))));
+    const esc = (e) => { if (e.key === 'Escape') { box.remove(); document.removeEventListener('keydown', esc); } };
+    document.addEventListener('keydown', esc); document.body.append(box);
+  }
+  const infoBtn = (onclick) => el('button', { class: 'ghost infobtn', title: 'Information about this file', 'aria-label': 'Information', onclick }, 'ⓘ');
+  // the Library's "Upload and get link", reachable from the Inference page (set by the Library on this computer)
   let shareFromInference = null;
 
 
@@ -154,12 +178,17 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
 .secbody{padding:0 16px 14px;border-top:1px solid var(--line)}.secbody>h2:first-child{display:none}.pill.warn{color:var(--warn);border-color:var(--warn)}.pill.mut{color:var(--mut)}
 .downbar{position:sticky;top:0;z-index:50;background:#fff4e5;color:#7a4b00;border-bottom:2px solid #f5b301;padding:10px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .downbar .dlbtn{margin:0}
-.spacebox{width:min(1000px,96vw)}.spacebox h3{margin:18px 0 6px}.warnnote{margin:12px 0;padding:10px 14px;border-radius:10px;background:var(--accbg);font-size:14px}
+.spacebox{width:min(1000px,96vw)}.tunbtn{margin-right:8px;padding:6px 12px;font-size:13px}.tunlink{font-size:18px;font-weight:700;word-break:break-all;margin:8px 0}
+@media (max-width:640px){.tunbtn{font-size:12px;padding:5px 8px}}.infobtn{font-weight:800;padding:4px 10px!important;border-radius:99px!important}
+.infodl{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;margin:0;font-size:14px}.infodl dt{color:var(--mut);font-weight:600}.infodl dd{margin:0;overflow-wrap:anywhere}.infodl dd.pre{white-space:pre-wrap}.spacebox h3{margin:18px 0 6px}.warnnote{margin:12px 0;padding:10px 14px;border-radius:10px;background:var(--accbg);font-size:14px}
 .srvstat{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 14px;background:var(--card)}
 .srvstat .dot{width:12px;height:12px;border-radius:50%;flex:none;background:var(--ok);box-shadow:0 0 0 4px rgba(18,122,58,.15)}.srvstat.down{border-color:var(--err);background:var(--errbg)}.srvstat.down .dot{background:var(--err);box-shadow:0 0 0 4px rgba(180,35,24,.15)}
 .switch{display:flex;align-items:center;gap:10px;cursor:pointer;max-width:420px}.switch input{position:absolute;opacity:0;width:1px;height:1px}
-.switch .slider{flex:none;position:relative;width:46px;height:26px;border-radius:99px;background:var(--line);transition:background .15s}.switch .slider::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .15s}
-.switch input:checked+.slider{background:var(--acc)}.switch input:checked+.slider::after{transform:translateX(20px)}.switch input:focus-visible+.slider{outline:2px solid var(--acc);outline-offset:2px}
+.popbox{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.switch .slider{flex:none;position:relative;width:68px;height:32px;border-radius:99px;background:#9aa4b2;transition:background .2s;box-shadow:inset 0 1px 3px rgba(0,0,0,.25)}
+.switch .slider::after{content:'';position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.35);transition:transform .2s}
+.switch .slider span{position:absolute;top:0;line-height:32px;font-size:11px;font-weight:800;color:#fff;letter-spacing:.5px}.switch .slider .on{left:10px;opacity:0}.switch .slider .off{right:9px}
+.switch input:checked+.slider{background:var(--ok)}.switch input:checked+.slider::after{transform:translateX(36px)}.switch input:checked+.slider .on{opacity:1}.switch input:checked+.slider .off{opacity:0}.switch input:focus-visible+.slider{outline:2px solid var(--acc);outline-offset:2px}
 .snav b{margin-right:12px}.snav .brand{display:inline-flex;align-items:center;gap:8px;font-size:16px;letter-spacing:.2px}
 .snav .mark{width:30px;height:30px;border-radius:8px;background:#fff;box-shadow:0 0 0 1px var(--line);object-fit:contain}
 .snav{padding:8px 18px;gap:4px;box-shadow:0 1px 0 var(--line)}.smenu{position:relative;margin-right:8px}.smenu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 4px}.smenu summary::-webkit-details-marker{display:none}
@@ -187,13 +216,47 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
     const mark = el('img', { class: 'mark', src: '/brand/logo-anim.webp', alt: '', width: 30, height: 30, onerror: (e) => { e.target.onerror = null; e.target.src = '/favicon.png'; } });
     fetch('/brand/logo-anim.webp').then((r) => (r.ok ? r.blob() : null)).then((b) => { if (!b) return; let u = null;
       mark.addEventListener('mouseenter', () => { if (u) URL.revokeObjectURL(u); u = URL.createObjectURL(b); mark.src = u; }); }).catch(() => {});
+    // 🌐 the temporary internet URL (every tab, this computer only): https://sushila.ai/localhost/<id>/ to this engine
+    async function internetUrl() {
+      let st0 = {}; try { st0 = await (await api('/api/tunnel')).json(); } catch (_) {}
+      const show = (t, key) => {
+        const old = document.querySelector('.infobox'); if (old) old.remove();
+        const box = el('div', { class: 'lbox infobox', onclick: (e) => { if (e.target === box) box.remove(); } }, el('div', { class: 'lboxin', style: 'width:min(640px,94vw)' },
+          el('div', { class: 'row', style: 'margin:0 0 8px' }, el('h2', { style: 'margin:0;font-size:18px' }, '🌐 Temporary internet URL'), el('span', { style: 'flex:1' }), el('button', { class: 'ghost', onclick: () => box.remove() }, 'Close')),
+          el('div', { class: 'tunlink' }, el('a', { href: t.link, target: '_blank', rel: 'noopener' }, t.link)),
+          el('div', { class: 'row' }, el('button', { onclick: () => { try { navigator.clipboard.writeText(t.link); toast(t.link, { kind: 'ok', title: 'Link copied' }); } catch (_) {} } }, 'Copy link'),
+            el('button', { class: 'ghost', onclick: async () => { if (!await ask('Visitors with the old key can no longer use the link; give them the new one.', 'New key', { title: 'Make a new access key?' })) return;
+              try { const k = await (await api('/api/tunnel/new-key', { method: 'POST' })).json(); box.remove(); show(Object.assign({}, t), k.key); toast('The old key stopped working.', { kind: 'ok', title: 'New access key' }); } catch (e) { toast(String(e.message || e), { kind: 'err', title: 'Could not change the key' }); } } }, '🔑 New access key'),
+            el('button', { class: 'danger', onclick: async () => { const r = await (await api('/api/tunnel/stop', { method: 'POST' })).json().catch(() => ({})); box.remove(); toast('The link stops answering until Sushila makes it again (same address, same key).', { kind: 'ok', title: 'Internet URL closed' }); } }, 'Stop')),
+          key ? el('div', { class: 'warnnote' }, el('b', {}, 'Access key for visitors: '), el('code', { style: 'user-select:all;word-break:break-all' }, key),
+            el('div', { class: 'sub' }, 'People who open the link use the Inference page of this Sushila Engine; it asks them for this key. Give the key only to people you trust. Admin, Library and the files on this computer stay on this computer.')) : null,
+          el('label', { class: 'row', style: 'gap:8px;cursor:pointer' }, el('input', { type: 'checkbox', checked: !(st.settings && st.settings.internetUrlAtStart === false),
+            onchange: async (e) => { const on = e.target.checked; await api('/api/tunnel/' + (on ? 'at-start-on' : 'at-start-off'), { method: 'POST' }).catch(() => {});
+              toast(on ? 'Every start of Sushila opens your link (same address, same key), shown in its window and here.' : 'Sushila no longer opens the link when it starts; this button still does.', { kind: 'ok', title: on ? 'Link at every start' : 'No link at start' }); } }),
+            el('span', {}, 'Open this link every time Sushila starts')),
+          el('div', { class: 'sub', style: 'margin-top:10px' }, 'Open since ' + new Date(t.since).toLocaleString() + '. It works while Sushila runs and this computer is online; the address and key stay the same next time. Your links, and how they are kept secure: sushila.ai/mycontent → Internet links.')));
+        document.body.append(box);
+      };
+      if (st0.running) { show(st0, st0.key); return; }
+      let acct = {}; try { acct = await (await api('/api/share/me')).json(); } catch (_) {}
+      if (!acct.signedIn) {
+        toast('The link is made with your sushila.ai account: sign in with your e-mail (a one-time code, no password to remember). Then press Get temporary internet URL again.', { kind: 'info', title: 'Sign in to sushila.ai first',
+          actions: [{ label: 'Sign in', primary: true, onclick: () => { lib.signin = { step: 'email', email: lib.acct.lastEmail || '', pending: null, purpose: 'SIGN_IN' }; location.hash = '#library'; } }, { label: 'Not now' }] });
+        return;
+      }
+      if (!await ask('A link like https://sushila.ai/localhost/… reaches this Sushila Engine from anywhere, through a Cloudflare tunnel (cloudflared is downloaded once, about 40 MB). Visitors need the access key made for the link and see only the Inference page. It stays open while Sushila runs; Stop closes it.',
+        'Get the link', { title: 'Open this Sushila Engine to the internet?' })) return;
+      const wait = toast('Starting the tunnel… (the first time it also downloads cloudflared)', { kind: 'info', title: 'Getting a temporary internet URL', ms: 120000 });
+      try { const r = await api('/api/tunnel/start', { method: 'POST' }); const t = r.ok ? await r.json() : null; wait(); if (!t) throw new Error(await r.text()); show(t, t.key); }
+      catch (e) { wait(); toast(String(e.message || e), { kind: 'err', title: 'Could not get a temporary internet URL' }); }
+    }
     const nav = el('nav', { class: 'snav' }, menu, el('b', { class: 'brand' }, mark, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
-      el('span', { style: 'flex:1' }), local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
+      el('span', { style: 'flex:1' }), local ? el('button', { class: 'ghost tunbtn', title: 'A link that reaches this Sushila Engine from the internet', onclick: () => internetUrl() }, '🌐 Get temporary internet URL') : null, local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
     const box = el('div', { id: 'manage', class: 'manage hidden' });
     document.body.prepend(nav); document.body.append(box);
     // when Sushila stops while this page is open: a banner says so, with a Start button (sushila:// starts the program on
     // Windows, where Sushila registers that link for this user), and the page comes back by itself when it runs again
-    const down = el('div', { class: 'downbar hidden', role: 'alert' }, el('b', {}, 'The Sushila.cpp server is not running on this computer. '),
+    const down = el('div', { class: 'downbar hidden', role: 'alert' }, el('b', {}, 'Sushila Engine is not running on this computer. '),
       el('a', { class: 'dlbtn', href: 'sushila://start' }, '▶ Start Sushila'),
       el('span', { class: 'sub' }, ' or double-click sushila.exe (Windows), or run sushila serve in a terminal. Not installed? Get it at ', el('a', { href: 'https://sushila.ai/install', target: '_blank', rel: 'noopener' }, 'sushila.ai/install'), '. This page reconnects by itself.'));
     document.body.prepend(down);
@@ -252,16 +315,16 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
       box.append(full); if (views != null) box.append(el('span', { class: 'mviews' }, '👁 ' + viewsText(views)));
       return box;
     }
-    // the Inference page's "Upload and copy link": the file it just made (by path, else the newest of that kind since it
+    // the Inference page's "Upload and get link": the file it just made (by path, else the newest of that kind since it
     // was asked for), signed in here first when needed
     if (local) shareFromInference = async (kind, since, path) => {
       await libLoad();
       const norm = (f) => String(f || '').replace(/\\/g, '/');
       const x = (lib.items || []).find((i) => path ? norm(i.path) === norm(path) : i.kind === kind && Date.parse(i.created) >= since - 5000);
-      if (!x) { toast('It is not in the Library yet; try again in a moment.', { kind: 'warn', title: 'Upload and copy link' }); return; }
+      if (!x) { toast('It is not in the Library yet; try again in a moment.', { kind: 'warn', title: 'Upload and get link' }); return; }
       if (x.link) { try { await navigator.clipboard.writeText(x.link); } catch (_) {} toast(x.link, { kind: 'ok', title: 'Already uploaded. The link is copied.' }); return; }
       if (!lib.acct.signedIn) {
-        lib.signin = { step: 'email', email: '', pending: x, purpose: 'SIGN_IN' };
+        lib.signin = { step: 'email', email: lib.acct.lastEmail || '', pending: x, purpose: 'SIGN_IN' };
         toast('Sign in with your e-mail (a code, no password) on the Library tab; the upload continues after that.', { kind: 'info', title: 'Sign in to sushila.ai first' });
         location.hash = '#library'; return;
       }
@@ -273,13 +336,13 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
       lib.views = {};
       if (lib.acct && lib.acct.signedIn) { try { for (const m of (await shareCall('list')).items || []) lib.views[m.link] = m.views || 0; } catch (_) {} }
     }
-    const SHARE_NOTICE = 'Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported. Manage your uploads at sushila.ai/mycontent.';
+    const SHARE_NOTICE = 'All uploaded files are visible to everyone who has the link. You may delete them at any time at sushila.ai/mycontent. Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported.';
     const shareCall = async (act, body) => { const r = await api('/api/share/' + act, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; };
     // Share link: asks once per file, signs in by e-mail code when needed, uploads, copies the link
     async function libShare(x) {
-      if (!lib.acct.signedIn) { lib.signin = { step: 'email', email: '', pending: x, purpose: 'SIGN_IN' }; libRender(); return; }
+      if (!lib.acct.signedIn) { lib.signin = { step: 'email', email: lib.acct.lastEmail || '', pending: x, purpose: 'SIGN_IN' }; libRender(); return; }
       if (!await ask('Anyone with the link can open it. It is labelled AI-generated, and you can delete it at any time (Shared links, or sushila.ai/mycontent).\n\n' + SHARE_NOTICE,
-        'Upload and copy link', { title: 'Upload "' + x.name + '" to sushila.ai?' })) return;
+        'Upload and get link', { title: 'Upload "' + x.name + '" to sushila.ai?' })) return;
       lib.msg = 'Uploading ' + x.name + '…'; libRender();
       try {
         const m = await shareCall('upload', { rel: x.rel }); let copied = false;
@@ -310,7 +373,10 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
       return el('div', { class: 'card signin' }, el('b', {}, 'Sign in to sushila.ai to share'),
         el('div', { class: 'sub' }, 'No password: a 6-digit code is e-mailed to you each time you sign in. Shared files are stored on sushila.ai (public/usercontent/<your account id>/) and anyone with the link can open them; nothing else leaves your computer.'),
         el('div', { class: 'sub', style: 'font-weight:600' }, SHARE_NOTICE),
-        si.step === 'email' ? el('div', { class: 'row' }, el('input', { id: 'siemail', type: 'email', placeholder: 'you@example.com', value: si.email, onkeydown: (e) => { if (e.key === 'Enter') go(); } }),
+        si.step === 'email' && si.email && lib.acct.lastEmail === si.email && !si.other ? el('div', { class: 'row' }, el('span', {}, 'Sign in as ', el('b', {}, si.email), '?'),
+            el('input', { id: 'siemail', type: 'hidden', value: si.email }), el('button', { onclick: go }, 'Send me the code'),
+            el('button', { class: 'ghost', onclick: () => { si.other = true; si.email = ''; libRender(); } }, 'Not you? Use another e-mail'))
+        : si.step === 'email' ? el('div', { class: 'row' }, el('input', { id: 'siemail', type: 'email', placeholder: 'you@example.com', value: si.email, onkeydown: (e) => { if (e.key === 'Enter') go(); } }),
             si.purpose === 'SIGN_UP' ? el('input', { id: 'sifirst', placeholder: 'First name' }) : null, el('button', { onclick: go }, si.purpose === 'SIGN_UP' ? 'Create account and send code' : 'Send code'))
           : el('div', { class: 'row' }, el('span', { class: 'sub' }, 'Code sent to ' + si.email + ':'), el('input', { id: 'sicode', inputmode: 'numeric', maxlength: 6, placeholder: '123456', onkeydown: (e) => { if (e.key === 'Enter') go(); } }),
             el('button', { onclick: go }, 'Sign in'), el('button', { class: 'ghost', onclick: () => { si.step = 'email'; libRender(); } }, 'Use another e-mail')),
@@ -340,6 +406,11 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
     const SORTS = [['new', 'Newest first'], ['old', 'Oldest first'], ['az', 'Name A–Z'], ['za', 'Name Z–A'], ['big', 'Largest first'], ['small', 'Smallest first'], ['kind', 'Kind']];
     const when = (t) => (t || '').replace('T', ' ').slice(0, 16);
     const title = (x) => x.prompt || x.name;
+    const fileInfo = (x) => showInfo(x.name, [['Kind', x.kind === 'image' ? 'Picture' : x.kind === 'music' ? 'Song' : 'Video'], ['Prompt', x.prompt, 'pre'],
+      ['Lyrics', x.lyrics && x.lyrics !== '[Instrumental]' ? x.lyrics : x.lyrics ? 'Instrumental' : '', 'pre'], ['Model', x.pack], ['Mode', x.mode === 'turbo' ? 'Accelerated' : x.mode === 'regular' ? 'Standard' : ''],
+      ['Size', x.size], ['Seed', x.seed], ['Length', x.duration ? x.duration + ' s' : ''], ['Frames', x.frames], ['File size', human(x.bytes || 0)],
+      ['Made', x.created, 'date'], ['Generated on', x.remote ? 'this Sushila Engine, for someone on another device' : 'this computer'], ['Deleted', x.trash ? x.deleted : '', 'date'],
+      ['Saved at', x.path, 'pre'], ['Link on sushila.ai', x.link, 'link'], ['Views', x.link && lib.views && x.link in lib.views ? viewsText(lib.views[x.link]) : '']]);
     function libList() {
       const all = lib.inTrash ? lib.trash : (lib.items || []);
       const words = lib.q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -361,14 +432,14 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
            el('button', { class: 'danger', onclick: async () => { if (await ask('This cannot be undone.', 'Delete permanently', { title: 'Delete "' + x.name + '" permanently?', danger: true })) libAct('purge', x.rel, 'Deleted permanently: ' + x.name); } }, 'Delete permanently')]
         : [el('button', { class: 'ghost', onclick: () => libReveal(x.path) }, '📁 Show in folder'), el('a', { class: 'dlbtn', href: fileUrl(x, true) }, '⬇ Download'),
            el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(x.path); lib.msg = 'Copied: ' + x.path; } catch (_) { lib.msg = x.path; } libRender(); } }, 'Copy path'),
-           x.link ? null : el('button', { class: 'ghost', onclick: () => libShare(x) }, '⬆ Upload and copy link'),
+           x.link ? null : el('button', { class: 'ghost', onclick: () => libShare(x) }, '⬆ Upload and get link'),
            el('button', { class: 'danger', onclick: () => libAct('delete', x.rel, 'Moved to the trash: ' + x.name + ' (Trash: restore or delete permanently)') }, '🗑 Delete')];
       return el('div', { class: 'libcard' }, mediaBox(preview, x.link && lib.views && x.link in lib.views ? lib.views[x.link] : null), el('div', { class: 'libbody' }, el('b', {}, title(x).slice(0, 160)),
         el('div', { class: 'sub' }, facts), x.lyrics && x.lyrics !== '[Instrumental]' ? el('details', {}, el('summary', { class: 'sub' }, 'Lyrics'), el('pre', { class: 'lyr' }, x.lyrics)) : null,
         el('div', { class: 'sub', style: 'word-break:break-all' }, x.path),
         x.link ? el('div', { class: 'sub' }, '🔗 ', el('a', { href: x.link, target: '_blank', rel: 'noopener', style: 'word-break:break-all' }, x.link), ' ',
           el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(x.link); lib.msg = 'Copied: ' + x.link; } catch (_) {} libRender(); } }, 'Copy link')) : null,
-        el('div', { class: 'row' }, ...acts.filter(Boolean))));
+        el('div', { class: 'row' }, infoBtn(() => fileInfo(x)), ...acts.filter(Boolean))));
     }
     // Details: one file per line, with a small preview, what it is, model, size, date, link and views, and the actions
     function libTable(items) {
@@ -384,12 +455,12 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
           el('td', {}, x.kind === 'image' ? 'Picture' : x.kind === 'music' ? 'Song' : 'Video', x.size ? el('div', { class: 'sub' }, x.size) : null, x.duration ? el('div', { class: 'sub' }, x.duration + ' s') : null),
           el('td', { class: 'sub' }, x.pack || ''), el('td', { class: 'num' }, human(x.bytes || 0)), el('td', { class: 'sub' }, x.trash ? when(x.deleted) : when(x.created)),
           el('td', { class: 'sub' }, x.link ? el('a', { href: x.link, target: '_blank', rel: 'noopener' }, x.link.replace(/^https?:\/\//, '')) : '—', x.link && lib.views && x.link in lib.views ? el('div', {}, '👁 ' + viewsText(lib.views[x.link])) : null),
-          el('td', { class: 'lacts' }, ...(x.trash
+          el('td', { class: 'lacts' }, infoBtn(() => fileInfo(x)), ...(x.trash
             ? [el('button', { class: 'ghost', onclick: () => libAct('restore', x.rel, 'Restored ' + x.name) }, '↩ Restore'),
                el('button', { class: 'danger', onclick: async () => { if (await ask('This cannot be undone.', 'Delete permanently', { title: 'Delete "' + x.name + '" permanently?', danger: true })) libAct('purge', x.rel, 'Deleted permanently: ' + x.name); } }, 'Delete permanently')]
             : [el('button', { class: 'ghost', title: 'Show in folder', onclick: () => libReveal(x.path) }, '📁'), el('a', { class: 'dlbtn', title: 'Download', href: fileUrl(x, true) }, '⬇'),
                x.link ? el('button', { class: 'ghost', title: 'Copy link', onclick: () => { try { navigator.clipboard.writeText(x.link); } catch (_) {} toast(x.link, { kind: 'ok', title: 'Link copied' }); } }, '🔗 Copy link')
-                 : el('button', { class: 'ghost', onclick: () => libShare(x) }, '⬆ Upload and copy link'),
+                 : el('button', { class: 'ghost', onclick: () => libShare(x) }, '⬆ Upload and get link'),
                el('button', { class: 'danger', title: 'Delete (to the trash)', onclick: () => libAct('delete', x.rel, 'Moved to the trash: ' + x.name + ' (Trash: restore or delete permanently)') }, '🗑')])))))));
     }
     function libRender() {
@@ -401,7 +472,7 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
         el('span', { style: 'flex:1' }),
         el('button', { class: 'ghost', title: lib.folder, onclick: () => libReveal(lib.folder) }, '📁 Where are my files'),
         el('button', { class: 'ghost', onclick: async () => { await libLoad(); libRender(); } }, '↻ Refresh'),
-        el('button', { class: lib.showShared ? '' : 'ghost', onclick: () => { lib.showShared = !lib.showShared; lib.inTrash = false; if (lib.showShared && !lib.acct.signedIn) { lib.showShared = false; lib.signin = { step: 'email', email: '', pending: null, purpose: 'SIGN_IN' }; } libRender(); } }, lib.showShared ? '← Back to the Library' : '🔗 Shared links'),
+        el('button', { class: lib.showShared ? '' : 'ghost', onclick: () => { lib.showShared = !lib.showShared; lib.inTrash = false; if (lib.showShared && !lib.acct.signedIn) { lib.showShared = false; lib.signin = { step: 'email', email: lib.acct.lastEmail || '', pending: null, purpose: 'SIGN_IN' }; } libRender(); } }, lib.showShared ? '← Back to the Library' : '🔗 Shared links'),
         el('button', { class: lib.inTrash ? '' : 'ghost', onclick: () => { lib.inTrash = !lib.inTrash; lib.showShared = false; libRender(); } }, lib.inTrash ? '← Back to the Library' : '🗑 Trash (' + lib.trash.length + ')'),
         lib.inTrash && lib.trash.length ? el('button', { class: 'danger', onclick: async () => { if (await ask('This cannot be undone.', 'Empty trash', { title: 'Delete all ' + lib.trash.length + ' files in the trash permanently?', danger: true })) libAct('empty', '', 'The trash is empty.'); } }, 'Empty trash') : null);
       const where = el('div', { class: 'sub libwhere' }, 'Your files are in ', el('code', { style: 'user-select:all' }, lib.folder), ' (pictures in images/, songs in music/, videos in video/, one folder per day).');
@@ -626,7 +697,7 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
     // the top of Admin: the server's status (always), and "keep popular model packs ready" (a switch; asked once)
     function serverBar() {
       if (!serverUp) return el('div', { class: 'srvstat down', role: 'alert' }, el('span', { class: 'dot' }),
-        el('div', {}, el('b', {}, 'The Sushila.cpp server is not running.'), el('div', { class: 'sub' }, 'Start it on this computer: ',
+        el('div', {}, el('b', {}, 'Sushila Engine is not running.'), el('div', { class: 'sub' }, 'Start it on this computer: ',
           el('a', { href: 'sushila://start' }, '▶ Start Sushila'), ' (Windows), or double-click sushila.exe, or run ', el('code', {}, 'sushila serve'), '. Not installed yet? Install it from ',
           el('a', { href: 'https://sushila.ai/install', target: '_blank', rel: 'noopener' }, 'sushila.ai/install'), '. This page reconnects by itself.')));
       const run = (st.running || []), eng = st.engine && st.engine.version;
@@ -637,15 +708,59 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
       const left = pop.filter((p) => !have.has(p.id)).reduce((n, p) => n + (p.bytes || 0), 0);
       const on = !!(st.settings && st.settings.keepPopular);
       const busy = (st.tasks || []).find((t) => t.status === 'running' && t.source === 'keep popular packs ready');
-      return el('div', { class: 'srvstat up' }, el('span', { class: 'dot' }),
-        el('div', { style: 'flex:1;min-width:220px' }, el('b', {}, 'Sushila.cpp server is running'),
-          el('div', { class: 'sub' }, ['version ' + (st.appVersion || '?'), eng ? 'engine ' + eng : 'no engine yet', 'http://localhost:' + ((st.settings && st.settings.port) || 7874),
-            run.length ? run.map((r) => r.name + (r.ready ? '' : ' (loading)')).join(', ') + ' running' : 'no model running'].join(' · '))),
-        el('label', { class: 'switch', title: 'Downloads the popular model packs (chat, code, pictures, songs, video) that fit this computer, one at a time, and keeps them installed' },
-          el('input', { type: 'checkbox', id: 'keeppop', checked: on, onchange: (e) => setKeepPopular(e.target.checked) }), el('span', { class: 'slider' }),
+      const sw = !admin.loggedIn ? el('div', { class: 'sub' }, 'Log in below to choose model packs or keep the popular ones ready.')
+        : el('div', { class: 'popbox' }, el('label', { class: 'switch', title: 'Downloads the popular model packs (chat, code, pictures, songs, video) that fit this computer, one at a time, and keeps them installed' },
+          el('input', { type: 'checkbox', id: 'keeppop', role: 'switch', checked: on, 'aria-checked': String(on), onchange: (e) => setKeepPopular(e.target.checked) }), el('span', { class: 'slider' }, el('span', { class: 'on' }, 'ON'), el('span', { class: 'off' }, 'OFF')),
           el('span', {}, el('b', {}, 'Keep popular model packs ready'), el('span', { class: 'sub', style: 'display:block' },
             !pop.length ? 'chat, code, pictures, songs and video, downloaded in the background' : on ? (busy ? 'downloading ' + busy.target + (busy.total ? ' · ' + Math.round(100 * busy.done / busy.total) + '%' : '') + ' · ' : '') + ready + ' of ' + pop.length + ' ready'
-              : ready + ' of ' + pop.length + ' installed' + (left ? ' · about ' + human(left) + ' to download' : '')))));
+              : ready + ' of ' + pop.length + ' installed' + (left ? ' · about ' + human(left) + ' to download' : '')))),
+          el('button', { class: 'ghost', onclick: () => choosePacks() }, '📦 Choose model packs…'));
+      return el('div', { class: 'srvstat up' }, el('span', { class: 'dot' }),
+        el('div', { style: 'flex:1;min-width:220px' }, el('b', {}, 'Sushila Engine is running'),
+          el('div', { class: 'sub' }, ['version ' + (st.appVersion || '?'), eng ? 'engine ' + eng : 'no engine yet', 'http://localhost:' + ((st.settings && st.settings.port) || 7874),
+            run.length ? run.map((r) => r.name + (r.ready ? '' : ' (loading)')).join(', ') + ' running' : 'no model running'].join(' · '))),
+        sw);
+    }
+    // every pack in the catalog: installed, ready to install (choose with a tick), downloading, or needs other hardware;
+    // Install selected puts them in the engine's install queue (one at a time, in the background; the page may close)
+    async function choosePacks() {
+      if (spaceBox) spaceBox.remove();
+      const body = el('div', {}, el('div', { class: 'sub' }, 'Reading the list of model packs…'));
+      spaceBox = el('div', { class: 'lbox', onclick: (e) => { if (e.target === spaceBox) { spaceBox.remove(); spaceBox = null; } } },
+        el('div', { class: 'lboxin spacebox' }, el('div', { class: 'row', style: 'margin:0 0 6px' }, el('h2', { style: 'margin:0' }, '📦 Model packs'), el('span', { style: 'flex:1' }),
+          el('button', { class: 'ghost', onclick: () => { spaceBox.remove(); spaceBox = null; } }, 'Close')), body));
+      document.body.append(spaceBox);
+      try { catalog = await (await api('/api/catalog')).json(); } catch (_) {}
+      const picked = new Set();
+      const KN = { text: 'Chat', chat: 'Chat', code: 'Code', image: 'Pictures', music: 'Songs', video: 'Video' };
+      const draw = () => {
+        const have = new Set((st.packs || []).map((p) => p.id)), queued = new Set((st.settings && st.settings.installQueue) || []);
+        const tasks = (st.tasks || []).filter((t) => t.status === 'running' && t.action === 'install');
+        const all = ((catalog && catalog.packs) || []).filter((p) => !p.variantOf || have.has(p.id));
+        const stateOf = (p) => have.has(p.id) ? 'installed' : tasks.some((t) => t.target === p.id) ? 'downloading' : queued.has(p.id) ? 'queued' : p.fits === false ? 'nofit' : 'ready';
+        const can = all.filter((p) => stateOf(p) === 'ready');
+        const size = [...picked].reduce((n, id) => n + ((all.find((p) => p.id === id) || {}).bytes || 0), 0);
+        const label = { installed: '✓ Installed', downloading: '⬇ Downloading', queued: '⏳ In the queue', nofit: 'Needs other hardware', ready: 'Ready to install' };
+        body.replaceChildren(
+          el('div', { class: 'row', style: 'margin:0 0 10px' },
+            el('button', { class: 'ghost', disabled: !can.length, onclick: () => { can.forEach((p) => picked.add(p.id)); draw(); } }, '☑ Select all not installed (' + can.length + ')'),
+            picked.size ? el('button', { class: 'ghost', onclick: () => { picked.clear(); draw(); } }, 'Clear') : null, el('span', { style: 'flex:1' }),
+            el('button', { disabled: !picked.size, onclick: async () => {
+              const ids = [...picked]; picked.clear();
+              await control({ action: 'settings', values: { queueInstall: ids } }, 'Install ' + ids.length + ' model pack' + (ids.length > 1 ? 's' : ''));
+              toast(ids.length + ' model pack' + (ids.length > 1 ? 's' : '') + ' (' + human(size) + ') download one at a time in the background; you can close this page. Progress: Recent actions.', { kind: 'ok', title: 'Installing the chosen model packs' });
+              setTimeout(draw, 1200); } }, '⬇ Install selected' + (picked.size ? ' (' + picked.size + ', ' + human(size) + ')' : ''))),
+          el('div', { class: 'tablewrap' }, el('table', { class: 'libtable' }, el('tbody', {}, ...all.sort((a, b) => (KN[a.category || a.kind] || '').localeCompare(KN[b.category || b.kind] || '') || a.name.localeCompare(b.name)).map((p) => {
+            const stt = stateOf(p), t = tasks.find((x) => x.target === p.id);
+            return el('tr', { class: 'pk-' + stt },
+              el('td', { style: 'width:34px' }, stt === 'ready' ? el('input', { type: 'checkbox', 'aria-label': 'Choose ' + p.name, checked: picked.has(p.id), onchange: (e) => { if (e.target.checked) picked.add(p.id); else picked.delete(p.id); draw(); } }) : null),
+              el('td', {}, el('b', {}, p.name), el('div', { class: 'sub' }, [KN[p.category || p.kind] || p.kind, p.license, p.popular ? 'popular' : null].filter(Boolean).join(' · '))),
+              el('td', { class: 'num' }, human(p.bytes || 0)),
+              el('td', {}, el('span', { class: 'pill ' + (stt === 'installed' ? 'on' : stt === 'nofit' ? 'off' : '') }, label[stt] + (t && t.total ? ' ' + Math.round(100 * t.done / t.total) + '%' : ''))));
+          })))));
+      };
+      draw();
+      const tick = setInterval(() => { if (!spaceBox || !document.body.contains(spaceBox)) { clearInterval(tick); return; } poll().then(draw).catch(() => {}); }, 3000);
     }
     function setKeepPopular(v) {
       control({ action: 'settings', values: { keepPopular: v } }, v ? 'Keep popular model packs ready' : 'Stop keeping popular packs ready');
@@ -662,7 +777,7 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
         'Yes, download and keep ready', { title: 'Download all the popular model packs in the background?', cancel: 'Not now' }).then((y) => { if (y) setKeepPopular(true); });
     }
     // Make space on this computer: every model pack (Remove) and every file Sushila made, largest first, with where it
-    // is; each file can be uploaded (Upload and copy link, recommended first) and deleted permanently; the trash emptied
+    // is; each file can be uploaded (Upload and get link, recommended first) and deleted permanently; the trash emptied
     let spaceBox = null;
     async function makeSpace() {
       if (spaceBox) spaceBox.remove();
@@ -692,15 +807,15 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
           el('div', { class: 'sub' }, 'They are in ', el('code', { style: 'user-select:all' }, lib.folder), ' ', el('button', { class: 'ghost', onclick: () => libReveal(lib.folder) }, '📁 Open the folder')),
           el('div', { class: 'row' }, ...kinds.map(([k, t, f]) => { const a = files.filter((x) => x.kind === k);
             return el('span', { class: 'pill' }, t + ': ' + a.length + ' · ' + human(sum(a)) + ' · ' + lib.folder + sep + f); })),
-          el('div', { class: 'note warnnote' }, '💡 Before you delete a file, we recommend ', el('b', {}, 'Upload and copy link'), ': it keeps a copy on sushila.ai that opens from its link. Deleting here removes the file from this computer for good.'),
+          el('div', { class: 'note warnnote' }, '💡 Before you delete a file, we recommend ', el('b', {}, 'Upload and get link'), ': it keeps a copy on sushila.ai that opens from its link. Deleting here removes the file from this computer for good.'),
           files.length ? el('div', { class: 'tablewrap' }, el('table', { class: 'libtable' }, el('tbody', {}, ...files.slice(0, 200).map((x) => el('tr', {},
             el('td', { class: 'lthumb' }, x.kind === 'image' ? el('img', { src: fileUrl(x), alt: '', loading: 'lazy', style: 'width:64px;height:48px;object-fit:cover;border-radius:6px' }) : el('span', { class: 'lticon' }, x.kind === 'music' ? '🎵' : '🎬')),
             el('td', { class: 'lname' }, el('b', {}, title(x).slice(0, 100)), el('div', { class: 'sub', style: 'word-break:break-all' }, x.path)),
             el('td', { class: 'num' }, human(x.bytes || 0)),
-            el('td', { class: 'lacts' }, x.link ? el('span', { class: 'pill on', title: x.link }, '✓ on sushila.ai') : el('button', { onclick: async () => { await libShare(x); draw(); } }, '⬆ Upload and copy link'),
+            el('td', { class: 'lacts' }, x.link ? el('span', { class: 'pill on', title: x.link }, '✓ on sushila.ai') : el('button', { onclick: async () => { await libShare(x); draw(); } }, '⬆ Upload and get link'),
               el('button', { class: 'danger', onclick: async () => {
                 const t = 'Delete "' + x.name + '" permanently?';
-                const msg = x.link ? 'Its copy on sushila.ai (' + x.link + ') stays. The file on this computer is gone for good.' : 'It is not uploaded yet: we recommend Upload and copy link first, so a copy stays on sushila.ai. Deleted here, it is gone for good.';
+                const msg = x.link ? 'Its copy on sushila.ai (' + x.link + ') stays. The file on this computer is gone for good.' : 'It is not uploaded yet: we recommend Upload and get link first, so a copy stays on sushila.ai. Deleted here, it is gone for good.';
                 if (!await ask(msg, x.link ? 'Delete permanently' : 'Delete permanently anyway', { title: t, danger: true, cancel: x.link ? 'Cancel' : 'Cancel (upload first)' })) return;
                 try { for (const act of ['delete', 'purge']) { const r = await api('/api/library/' + act, { method: 'POST', body: JSON.stringify({ rel: x.rel }) }); if (!r.ok) throw new Error(await r.text()); }
                   toast(human(x.bytes || 0) + ' freed.', { kind: 'ok', title: 'Deleted ' + x.name }); } catch (e) { toast(String(e.message || e), { kind: 'err', title: 'Could not delete' }); }
@@ -840,7 +955,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     let want = opts.model || qs.get('model') || '';
     let autoPrompt = (opts.prompt || qs.get('prompt') || '').slice(0, 2000), autoRun = !!opts.run || qs.get('run') === '1';  // e.g. the first-start demo
     let autoLyrics = (opts.lyrics || qs.get('lyrics') || '').slice(0, 4000);
-    if (!embedded && (qs.get('t') || qs.get('model') || qs.get('prompt'))) history.replaceState(null, '', '/');
+    if (!embedded && (qs.get('t') || qs.get('model') || qs.get('prompt'))) history.replaceState(null, '', (PFX || '') + '/');
     let hosts = store.get('sushila-hosts', []);     // remote Host Stations: ["https://ai.example.com", ...]
     let keys = store.get('sushila-keys', {});       // their access keys, kept in this browser only
     let server = embedded ? '' : store.get('sushila-server', '');   // '' = this computer
@@ -876,7 +991,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       // another server: the menu shows only once one was added; until then a small button opens the form
       el('div', { class: 'bar2 srvbar', id: 'srvbar' }, el('label', { class: 'lbl', for: 'srv' }, 'Server'), serverSel),
       el('span', { class: 'pill', id: 'status' }, '…'),
-      el('button', { class: 'ghost icon', id: 'srvbtn', title: 'Use a Sushila server on another computer', onclick: () => { $('remote').classList.remove('hidden'); $('rurl').focus(); } }, '⇄'),
+      el('button', { class: 'ghost icon', id: 'srvbtn', title: 'Use a Sushila Engine on another computer', onclick: () => { $('remote').classList.remove('hidden'); $('rurl').focus(); } }, '⇄'),
       el('button', { class: 'ghost icon', id: 'maxbtn', title: 'Maximize: only the conversation, as large as the window', onclick: () => setMax(true) }, '⛶'),
       embedded && opts.onBrowser ? el('button', { class: 'ghost', onclick: () => opts.onBrowser(model && model.packId) }, 'Open in browser') : null);
     const main = el('div', { id: 'main' });
@@ -906,30 +1021,29 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       const q = pickQ.trim().toLowerCase();
       const shown = list.filter((p) => (!pickFilter || kindOf(p) === pickFilter) && (!q || (p.name + ' ' + p.id + ' ' + KIND_LABEL[kindOf(p)]).toLowerCase().includes(q)))
         .sort((a, b) => (!!models.find((m) => m.packId === b.id)) - (!!models.find((m) => m.packId === a.id)) || a.name.localeCompare(b.name));
-      const row = (p) => {
-        const run = models.find((m) => m.packId === p.id), k = kindOf(p);
-        const modes = p.turbo ? ['turbo', 'regular'] : ['regular'];
-        const sel = run ? (run.mode || 'regular') : (p.mode && modes.includes(p.mode) ? p.mode : modes[0]);
-        const chosen = { mode: sel };
-        const modeBox = modes.length > 1 ? el('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Mode' }, ...modes.map((md) => el('button', {
-          class: md === sel ? 'on' : '', role: 'radio', 'aria-checked': String(md === sel), title: md === 'turbo' ? 'Sushila\'s precomputed files for this model' : 'The plain model',
-          onclick: (e) => { chosen.mode = md; e.target.parentNode.querySelectorAll('button').forEach((b) => { b.classList.toggle('on', b === e.target); b.setAttribute('aria-checked', String(b === e.target)); }); } }, modeName(md)))) : el('span', { class: 'sub' }, 'Standard');
-        const status = run ? el('span', { class: 'pill on' }, (run.ready ? '● Running' : '◌ Loading') + (run.cpu ? ' on the CPU' : '') + ' · ' + modeName(run.mode)) : el('span', { class: 'pill' }, 'Stopped');
-        const go = (md) => { togglePicker(false); modelSel.value = p.id + '|' + md; pickModel(true); };
-        const acts = server ? [run ? el('button', { onclick: () => go(run.mode || 'regular') }, 'Use') : null]
-          : [el('button', { onclick: () => go(chosen.mode) }, run && (run.mode || 'regular') === chosen.mode ? (cur && cur.packId === p.id ? 'In use' : 'Use') : run ? 'Switch mode' : 'Start'),
-             run ? el('button', { class: 'ghost', onclick: () => { togglePicker(false); ask('It frees the memory it uses.', 'Stop', { title: 'Stop ' + p.name + '?' }).then((y) => { if (y) usePack('stop', p.id); }); } }, 'Stop') : null];
-        return el('div', { class: 'pkrow' + (cur && cur.packId === p.id ? ' cur' : '') }, el('div', { class: 'pkkind' }, el('span', {}, KIND_ICON[k] || '💬'), el('small', {}, KIND_LABEL[k] || 'Chat')),
-          el('div', { class: 'pkinfo' }, el('b', {}, p.name), el('div', { class: 'sub' }, [p.bytes ? (p.bytes >= 1e9 ? gb(p.bytes) : Math.max(1, Math.round(p.bytes / 1e6)) + ' MB') : null, p.custom ? 'your own model' : null].filter(Boolean).join(' · ')), status),
-          el('div', { class: 'pkacts' }, modeBox, el('div', { class: 'row', style: 'margin:0' }, ...acts.filter(Boolean))));
+      // one line per pack and mode: "Name (Accelerated)", "Name (Standard)", each with its own status and buttons
+      const row = (p, md) => {
+        const run = models.find((m) => m.packId === p.id), k = kindOf(p), here = run && (run.mode || 'regular') === md;
+        const status = here ? el('span', { class: 'pill on' }, (run.ready ? '● Running' : '◌ Loading') + (run.cpu ? ' on the CPU' : '')) : el('span', { class: 'pill' }, run ? 'Stopped (running in ' + modeName(run.mode) + ')' : 'Stopped');
+        const go = () => { togglePicker(false); modelSel.value = p.id + '|' + md; pickModel(true); };
+        const using = here && cur && cur.packId === p.id && (cur.mode || 'regular') === md;
+        const acts = server ? [here ? el('button', { onclick: go }, using ? 'In use' : 'Use') : null]
+          : [el('button', { class: here ? (using ? '' : '') : '', onclick: go }, here ? (using ? 'In use' : 'Use') : 'Start'),
+             here ? el('button', { class: 'ghost', onclick: () => { togglePicker(false); ask('It frees the memory it uses.', 'Stop', { title: 'Stop ' + p.name + ' (' + modeName(md) + ')?' }).then((y) => { if (y) usePack('stop', p.id); }); } }, 'Stop') : null];
+        return el('div', { class: 'pkrow' + (using ? ' cur' : '') }, el('div', { class: 'pkkind' }, el('span', {}, KIND_ICON[k] || '💬'), el('small', {}, KIND_LABEL[k] || 'Chat')),
+          el('div', { class: 'pkinfo' }, el('b', {}, p.name + ' (' + modeName(md) + ')'),
+            el('div', { class: 'sub' }, [md === 'turbo' ? 'with Sushila\'s precomputed files' : 'the plain model', p.bytes ? (p.bytes >= 1e9 ? gb(p.bytes) : Math.max(1, Math.round(p.bytes / 1e6)) + ' MB') : null, p.custom ? 'your own model' : null].filter(Boolean).join(' · ')), status),
+          el('div', { class: 'pkacts' }, el('div', { class: 'row', style: 'margin:0' }, ...acts.filter(Boolean))));
       };
+      const rows = shown.flatMap((p) => (p.turbo ? ['turbo', 'regular'] : ['regular']).map((md) => [p, md]))
+        .sort((a, b) => { const ra = models.some((m) => m.packId === a[0].id && (m.mode || 'regular') === a[1]), rb = models.some((m) => m.packId === b[0].id && (m.mode || 'regular') === b[1]); return rb - ra; });
       picker.replaceChildren(el('div', { class: 'pkhead' },
           el('div', { class: 'seg tabs2', role: 'tablist', 'aria-label': 'What it makes' }, ...tabs.map(([k, t, n]) => el('button', { class: k === pickFilter ? 'on' : '', role: 'tab', 'aria-selected': String(k === pickFilter),
             onclick: () => { pickFilter = k; store.set('sushila-pick-kind', k); renderPicker(); } }, t + ' ', el('span', { class: 'cnt' }, String(n))))),
           el('input', { id: 'pickq', type: 'search', placeholder: 'Search models…', value: pickQ, oninput: (e) => { pickQ = e.target.value; renderPicker(); const i = $('pickq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }),
           el('button', { class: 'ghost', onclick: () => togglePicker(false) }, 'Close')),
         el('div', { class: 'sub pknote' }, server ? 'Models running on ' + server.replace(/^https?:\/\//, '') + '.' : 'One model runs at a time: starting one stops the other. Accelerated uses Sushila\'s precomputed files for the model; Standard runs the plain model. More models: Admin → Model packs.'),
-        shown.length ? el('div', { class: 'pklist' }, ...shown.map(row)) : el('div', { class: 'sub', style: 'padding:18px' }, list.length ? 'No model matches.' : 'No model installed yet: Admin → Model packs.'));
+        rows.length ? el('div', { class: 'pklist' }, ...rows.map(([p, md]) => row(p, md))) : el('div', { class: 'sub', style: 'padding:18px' }, list.length ? 'No model matches.' : 'No model installed yet: Admin → Model packs.'));
     }
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !picker.classList.contains('hidden')) togglePicker(false); });
     function setMax(on) { app.classList.toggle('maxed', on); if (on && $('q')) $('q').focus(); }
@@ -1003,14 +1117,14 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         if (!server && !token && !embedded && models.length) {
           const t = await fetch(base() + '/v1/models', { headers: auth() }).catch(() => null);
           if (t && t.status === 401) {
-            const k = (window.prompt('This Sushila server needs an access key (ask its owner: sushila keys add <name>).') || '').trim();
+            const k = (window.prompt('This Sushila Engine needs an access key (ask its owner: sushila keys add <name>).') || '').trim();
             if (k) { keys[''] = k; store.set('sushila-keys', keys); }
           }
           if (t && t.ok) setStatus('Server: ' + location.host, 'on');
         }
       } catch (e) {
         models = []; modelSel.replaceChildren(el('option', { value: '' }, '—'));
-        setStatus(server ? 'Cannot reach ' + server + ' (is sharing on, and this address allowed there?)' : 'Sushila Host Station is not running', 'off');
+        setStatus(server ? 'Cannot reach ' + server + ' (is sharing on, and this address allowed there?)' : 'Sushila Engine is not running', 'off');
       }
       pickModel();
     }
@@ -1080,7 +1194,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     }
     // made on this computer: upload it to sushila.ai and copy the link (the Library's flow: sign-in, notice, toast)
     const shareBtn = (kind, since, path) => (server || !shareFromInference ? null
-      : el('button', { class: 'ghost sharebtn', onclick: () => shareFromInference(kind, since, path) }, '⬆ Upload and copy link'));
+      : el('button', { class: 'ghost sharebtn', onclick: () => shareFromInference(kind, since, path) }, '⬆ Upload and get link'));
     const keyHint = () => (server && !keys[server] ? el('div', { class: 'sub' }, 'This server needs an access key: choose "Add a remote server…" again with the key.') : null);
     // ---------- the background queue (Host Station runs it; the same queue for the app window and every page)
     const outUrl = (id, dl) => base() + '/api/queue/' + encodeURIComponent(id) + '/output?' + (server ? 'key=' + encodeURIComponent(keys[server] || '') : 't=' + encodeURIComponent(token)) + (dl ? '&download=1' : '');
@@ -1227,8 +1341,12 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
           if (j.status === 'completed') {
             const res = j.result || {}, mime = res.mime_type || 'video/webm', src = `data:${mime};base64,${res.b64_json}`, secs = ((performance.now() - t0) / 1000).toFixed(0);
             const ext = (res.output_format || 'webm') === 'webp' ? 'webp' : (res.output_format || 'webm');
+            const mi = [model && model.name, model && modeName(model.mode)];  // the model that made it (ⓘ)
             $('vgallery').prepend(el('figure', { class: 'track' }, el('video', { src, controls: true, loop: true, autoplay: true, muted: true, playsinline: true, style: 'width:100%;border-radius:10px' }),
-              el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${res.frame_count || frames} frames · ${secs} s · `, el('a', { href: src, download: 'sushila-video.' + ext, class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('video', started))));
+              el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${res.frame_count || frames} frames · ${secs} s · `, el('a', { href: src, download: 'sushila-video.' + ext, class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('video', started), ' ',
+              infoBtn(() => showInfo('Video', [['Prompt', prompt, 'pre'], ['Model', mi[0]], ['Mode', mi[1]], ['Size', w + '×' + h], ['Frames', res.frame_count || frames],
+                ['Seed', seed || 'random'], ['Made in', secs + ' s'], ['Made', new Date(started).toISOString(), 'date'], ['Generated on', server ? server.replace(/^https?:\/\//, '') : 'this computer'],
+                ['Saved at', server ? '' : 'the Library (outputs/video)']])))));
             $('vmsg').textContent = `Done in ${secs} s.`;
             break;
           }
@@ -1333,8 +1451,12 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         const blob = /^audio\//.test(ct) ? await r.blob() : audioFromMultipart(await r.arrayBuffer(), ct);
         if (!blob) throw new Error('The server returned no audio.');
         const src = URL.createObjectURL(blob), secs = ((performance.now() - t0) / 1000).toFixed(0);
+        const mi = [model && model.name, model && modeName(model.mode)];  // the model that made it (ⓘ)
         $('tracks').prepend(el('div', { class: 'track' }, el('b', {}, style), el('div', { class: 'meta' }, `made in ${secs} s` + (lyrics && lyrics !== '[Instrumental]' ? ' · with your lyrics' : '')),
-          el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-song.mp3', class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('music', started)));
+          el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-song.mp3', class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('music', started), ' ',
+          infoBtn(() => showInfo('Song', [['Style', style, 'pre'], ['Lyrics', lyrics === '[Instrumental]' ? 'Instrumental' : lyrics || 'written by the model', 'pre'], ['Length', req.duration > 0 ? req.duration + ' s' : 'automatic'],
+            ['Model', mi[0]], ['Mode', mi[1]], ['Made in', secs + ' s'], ['Made', new Date(started).toISOString(), 'date'],
+            ['Generated on', server ? server.replace(/^https?:\/\//, '') : 'this computer'], ['Saved at', server ? '' : 'the Library (outputs/music)']]))));
         $('mmsg').textContent = `Done in ${secs} s.`;
       } catch (e) { await showProblem($('mmsg'), e, 'making your song'); }
       finally { $('mgo').disabled = false; }
@@ -1389,8 +1511,12 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         const j = await r.json(), secs = ((performance.now() - t0) / 1000).toFixed(1);
         const imgs = (j.data || []).map((d) => ({ src: d.b64_json ? 'data:image/png;base64,' + d.b64_json : d.url, file: d.sushila_file })).filter((x) => x.src);
         if (!imgs.length) throw new Error('The server returned no image.');
+        const mi = [model && model.name, model && modeName(model.mode)];  // the model that made it (ⓘ)
         for (const { src, file } of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
-          el('a', { href: src, download: file ? file.split(/[\\/]/).pop() : 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('image', started, file), file ? ' ' : null, file ? savedAt(file) : null)));
+          el('a', { href: src, download: file ? file.split(/[\\/]/).pop() : 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('image', started, file), ' ',
+          infoBtn(() => showInfo('Picture', [['Prompt', prompt, 'pre'], ['Model', mi[0]], ['Mode', mi[1]], ['Size', $('isize').value], ['Seed', seed || 'random'],
+            ['Made in', secs + ' s'], ['Made', new Date(started).toISOString(), 'date'], ['Generated on', server ? server.replace(/^https?:\/\//, '') : 'this computer'], ['Saved at', file, 'pre']])),
+          file ? ' ' : null, file ? savedAt(file) : null)));
         $('imsg').textContent = `${imgs.length} image${imgs.length > 1 ? 's' : ''} in ${secs} s`;
       } catch (e) { await showProblem($('imsg'), e, 'making your picture'); }
       finally { $('igo').disabled = false; }

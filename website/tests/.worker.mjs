@@ -739,7 +739,7 @@ function page(env, user, models, packs = [], app = null, mode = 'home') {
         <button class="copy" data-copy="${m.sha256}" title="Copy sha256">sha256</button></td>
     </tr>`).join('');
 
-  // model packs: installed by sushila (the Sushila.cpp server) running on the visitor's computer. "Install" opens its
+  // model packs: installed by sushila (the Sushila Engine) running on the visitor's computer. "Install" opens its
   // page (http://localhost:7874/install/<pack>), which asks before installing; or the command; or the pack file
   const packRows = packs.map((p) => `
     <tr>
@@ -1110,7 +1110,14 @@ const FORM_CSS = `<style>
 </style>`;
 
 // Shared browser helper: POST JSON, show the message.
-const CLIENT = `<script>
+// Questions and notices on every page: a card at the bottom right (never the browser's dialog boxes).
+// toast(title, text, {ask: 'OK label', danger, err}) -> Promise<boolean> (true for the button, false for Cancel)
+const TOAST_JS = `function toast(title,text,o){o=o||{};var X=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+if(!document.getElementById('toastcss')){var st=document.createElement('style');st.id='toastcss';st.textContent='.toast{position:fixed;right:18px;bottom:18px;z-index:1000;width:min(440px,calc(100vw - 36px));background:var(--bg,#fff);color:var(--fg,#111);border:1px solid var(--line,#ddd);border-left:6px solid var(--acc,#0f766e);border-radius:12px;padding:14px 16px;box-shadow:0 12px 32px rgba(16,24,40,.25);font:15px/1.45 system-ui,sans-serif}.toast.err{border-left-color:#b42318}.toast b{display:block;margin-bottom:2px}.toast .tb{display:flex;gap:8px;margin-top:12px}.toast .tb button{padding:7px 14px;border-radius:9px;border:1px solid var(--acc,#0f766e);background:var(--acc,#0f766e);color:#fff;font-weight:700;cursor:pointer}.toast .tb button.g{background:transparent;color:var(--acc,#0f766e)}.toast .tb button.d{background:#b42318;border-color:#b42318}@media (max-width:640px){.toast{right:10px;left:10px;width:auto}}';document.head.appendChild(st);}
+var old=document.querySelector('.toast');if(old)old.remove();var t=document.createElement('div');t.className='toast'+(o.err?' err':'');t.setAttribute('role',o.ask?'alertdialog':'status');
+t.innerHTML='<b>'+X(title)+'</b><div>'+X(text||'')+'</div>'+(o.ask?'<div class="tb"><button class="'+(o.danger?'d':'')+'">'+X(o.ask)+'</button><button class="g">Cancel</button></div>':'');document.body.appendChild(t);
+return new Promise(function(res){if(!o.ask){setTimeout(function(){t.remove()},o.err?12000:6000);res(true);return}var b=t.querySelectorAll('button');b[0].focus();b[0].onclick=function(){t.remove();res(true)};b[1].onclick=function(){t.remove();res(false)}});}`;
+const CLIENT = `<script>${TOAST_JS}
 async function api(path, data){
   const r = await fetch(path, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(data||{})});
   let d = {}; try { d = await r.json(); } catch(e) {}
@@ -1120,11 +1127,11 @@ async function api(path, data){
 function say(id, text, ok){ const m=document.getElementById(id); m.textContent=text||''; m.className='msg '+(ok?'ok':'err'); }
 </script>`;
 
-const SIGNIN = (url) => () => {
+const SIGNIN = (url, intro) => () => {
   const next = (url.searchParams.get('next') || '/account').startsWith('/') ? url.searchParams.get('next') || '/account' : '/account';
   return `${FORM_CSS}
-<h1>Sign in</h1>
-<p class="meta">No password: we e-mail you a one-time code. Any e-mail linked to your account works.</p>
+${intro || '<h1>Sign in</h1>'}
+<p class="meta"><b>No password to remember:</b> enter your e-mail address and we e-mail you a one-time code (OTP) to sign in, every time. Any e-mail linked to your account works.</p>
 <div class="auth">
   <div id="step1">
     <label for="email">E-mail</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com">
@@ -1207,7 +1214,7 @@ ${CLIENT}
   $('emails').addEventListener('click', async (ev) => {
     const rm = ev.target.getAttribute('data-rm'), pr = ev.target.getAttribute('data-primary');
     try {
-      if (rm) { if (!confirm('Remove '+rm+' from your account? You will no longer be able to sign in with it.')) return; await api('/api/account', {action:'remove-email', email:rm}); location.reload(); }
+      if (rm) { if (!await toast('Remove '+rm+' from your account?', 'You will no longer be able to sign in with it.', {ask:'Remove', danger:true})) return; await api('/api/account', {action:'remove-email', email:rm}); location.reload(); }
       if (pr) { await api('/api/account', {action:'make-primary', email:pr}); location.reload(); }
     } catch(err){ say('m2', err.message); } });
   let ne = '';
@@ -1541,6 +1548,7 @@ const TABLES = {
   compare: 'sushilaai-compare',     // PK runId: admin "Compare Speeds" pods (pod id, model, results); pods are deleted, rows kept
   audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes; views of shared links (at "view#<id>#<visitor>")
   reportabuse: 'sushilaai-reportabuse', // PK reportId: every report sent from sushila.ai/reportabuse (link, reason, details, e-mail, time, IP)
+  localhostLinks: 'sushilaai-localhost-links', // PK id (20 hex): a temporary internet URL -> target (trycloudflare), userId, ip, time, status; index user-index (cleared monthly)
   fileViews: 'sushilaai-file-views',    // PK url (a shared link, "/c/<12 hex>") -> userId (its owner) and views (one per visitor per 24 h; log in audit)
 };
 const OTP_TTL_MS = 5 * 60 * 1000;      // a code is valid for 5 minutes
@@ -1733,8 +1741,8 @@ const SHARE_MAX = 50e6, SHARE_QUOTA = 2e9;
 const SHARE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'audio/mpeg': 'mp3', 'audio/wav': 'wav',
   'audio/flac': 'flac', 'audio/ogg': 'ogg', 'video/webm': 'webm', 'video/mp4': 'mp4' };
 const shareKey = (uid) => `public/usercontent/${uid}/`;
-const SHARE_NOTICE = 'Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported. Manage your uploads at sushila.ai/mycontent.';
-const DISCLAIMER = (local) => `${local ? 'Generated by a user with sushila.cpp on their own computer' : 'Generated on a remote Sushila server (sushila.cpp), at the request of a user on another device'}. To report abuse: sushila.ai/reportabuse`;
+const SHARE_NOTICE = 'All uploaded files are visible to everyone who has the link. You may delete them at any time at sushila.ai/mycontent. Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported.';
+const DISCLAIMER = (local) => `${local ? 'Generated by a user with sushila.cpp on their own computer' : 'Generated on a remote Sushila Engine (sushila.cpp), at the request of a user on another device'}. To report abuse: sushila.ai/reportabuse`;
 const MAKE_YOUR_OWN = 'You too can create unlimited free pictures, music and videos on your PC or laptop with sushila.cpp, downloadable at sushila.ai/install.';
 const viewKey = (id) => `/c/${id}`;
 // My content's trash: "Delete" sets trashedAt (and trashKey, for the sparse trash-index) on the link's row; the link stops
@@ -1921,6 +1929,7 @@ ${m.kind === 'image' ? `<meta property="og:image" content="${esc(origin)}${src}"
 .info{position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);background:var(--bg);color:var(--fg);z-index:10;padding:22px;overflow:auto;box-shadow:-12px 0 30px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .2s}
 .info.open{transform:none}.info h1{font-size:20px;margin:6px 0}.info .ai{display:inline-block;margin:6px 0;padding:3px 10px;border-radius:99px;background:var(--accbg);color:var(--acc);font-weight:700;font-size:13px}
 .info .sub{color:var(--mut);font-size:14px}.info a{color:var(--acc)}.info .x{float:right;border:0;background:transparent;color:var(--mut);font-size:26px;cursor:pointer}.info dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}.info dt{color:var(--mut)}
+.brand,.ctl,.views{transition:opacity .4s}body.idle .brand,body.idle .ctl,body.idle .views{opacity:0;pointer-events:none}body.idle{cursor:none}
 .info .btn{display:inline-block;margin:8px 8px 0 0;padding:8px 14px;border-radius:10px;background:var(--acc);color:#fff;text-decoration:none;font-weight:700}</style></head><body>
 <div class="stage">${media}</div>
 <a class="brand" href="/">Sushila</a>
@@ -1929,16 +1938,128 @@ ${m.kind === 'image' ? `<meta property="og:image" content="${esc(origin)}${src}"
 <aside class="info" id="info" aria-label="Information"><button class="x" id="ix" aria-label="Close">×</button>
 <div class="sub"><a href="/" style="font-weight:800;text-decoration:none">Sushila</a></div>
 <h1>${t}</h1><span class="ai">AI-generated</span>
-<dl><dt>Made with</dt><dd>Sushila${m.model ? ' · ' + esc(m.model) : ''}</dd><dt>Kind</dt><dd>${m.kind === 'image' ? 'Picture' : m.kind === 'video' ? 'Video' : 'Song'}</dd><dt>Generated on</dt><dd>${m.local === false ? 'a remote Sushila server' : 'the user\'s own computer'}</dd>
+<dl><dt>Made with</dt><dd>Sushila${m.model ? ' · ' + esc(m.model) : ''}</dd><dt>Kind</dt><dd>${m.kind === 'image' ? 'Picture' : m.kind === 'video' ? 'Video' : 'Song'}</dd><dt>Generated on</dt><dd>${m.local === false ? 'a remote Sushila Engine' : 'the user\'s own computer'}</dd>
 <dt>Shared</dt><dd>${esc((m.created || '').slice(0, 10))}</dd><dt>Views</dt><dd>${vtext}</dd>${m.bytes ? `<dt>Size</dt><dd>${(m.bytes / 1e6).toFixed(1)} MB</dd>` : ''}<dt>Link</dt><dd><a href="${esc(viewKey(id))}">${esc(origin.replace(/^https?:\/\//, ''))}${esc(viewKey(id))}</a></dd></dl>
-<p><a class="btn" href="${esc(viewKey(id))}/download">Download</a><a class="btn" style="background:transparent;color:var(--err);border:1px solid var(--err)" href="${esc(report)}">Report abuse</a></p>
-<p class="sub">${esc(DISCLAIMER(m.local !== false))}. ${esc(MAKE_YOUR_OWN).replace('sushila.ai/install', '<a href="/install">sushila.ai/install</a>')}</p></aside>
-<script>(function(){var info=document.getElementById('info'),ib=document.getElementById('ib');
-function show(on){info.classList.toggle('open',on);ib.setAttribute('aria-expanded',String(on));}
+<p><a class="btn" href="${esc(viewKey(id))}/download">Download</a></p>
+<p class="sub">${esc(DISCLAIMER(m.local !== false))}. ${esc(MAKE_YOUR_OWN).replace('sushila.ai/install', '<a href="/install">sushila.ai/install</a>')}</p>
+<p class="sub" style="margin-top:28px;border-top:1px solid var(--line);padding-top:12px"><a href="${esc(report)}">Report abuse</a></p></aside>
+<script>(function(){var info=document.getElementById('info'),ib=document.getElementById('ib'),idle;
+function wake(){document.body.classList.remove('idle');clearTimeout(idle);idle=setTimeout(function(){if(!info.classList.contains('open'))document.body.classList.add('idle');},3000);}
+['mousemove','mousedown','touchstart','keydown','wheel'].forEach(function(e){document.addEventListener(e,wake,{passive:true});});wake();
+function show(on){info.classList.toggle('open',on);ib.setAttribute('aria-expanded',String(on));wake();}
 ib.onclick=function(){show(!info.classList.contains('open'));};document.getElementById('ix').onclick=function(){show(false);};
 document.addEventListener('keydown',function(e){if(e.key==='Escape')show(false);if(e.key==='i')show(!info.classList.contains('open'));});
 document.getElementById('fb').onclick=function(){var d=document.documentElement;if(document.fullscreenElement)document.exitFullscreen();else if(d.requestFullscreen)d.requestFullscreen().catch(function(){});else if(d.webkitRequestFullscreen)d.webkitRequestFullscreen();};
 ${m.kind === 'music' ? 'show(false);' : ''}})();</script></body></html>`;
+}
+
+// --- Temporary internet URL: https://sushila.ai/localhost/<id>/ -> a Cloudflare quick tunnel to someone's Sushila Engine.
+// The app (signed in: e-mail code) registers https://<words>.trycloudflare.com; one row per link in
+// sushilaai-localhost-links (id, target, userId, ip, country, browser, time, status). Visitors' requests are forwarded
+// to that address only. The forwarded pages run sandboxed (an opaque origin, no sushila.ai cookies in either direction),
+// so a page from someone's computer can never act as a signed-in sushila.ai user.
+const TUNNEL_ID = /^[0-9a-f]{20}$/, TUNNEL_TARGET = /^https:\/\/[a-z0-9-]{3,63}\.trycloudflare\.com$/;
+const tunnelCache = new Map();  // id -> {row, until}: a few seconds, so a page's many requests do not each read the table
+async function tunnelRow(db, id, fresh = false) {
+  const c = tunnelCache.get(id);
+  if (!fresh && c && c.until > Date.now()) return c.row;
+  const row = await db.get(TABLES.localhostLinks, { id: S(id) });
+  tunnelCache.set(id, { row, until: Date.now() + 15000 }); if (tunnelCache.size > 2000) tunnelCache.clear();
+  return row;
+}
+async function tunnelApi(request, env, db, p, url) {
+  const app = await readAppToken(request, env);
+  if (!app) return json({ error: 'Please sign in to sushila.ai (an e-mail code, no password).' }, 401);
+  if (!db.configured) return json({ error: 'Not available right now.' }, 503);
+  let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+  if (p === '/api/app/tunnel') {
+    if (limited(request, 'tunnel', 10)) return json({ error: 'Too many links. Please wait a minute.' }, 429);
+    const target = String(d.target || '').toLowerCase();
+    if (!TUNNEL_TARGET.test(target)) return json({ error: 'Only a Cloudflare quick tunnel (https://….trycloudflare.com) can be linked.' }, 400);
+    // the same link as last time (this computer remembers its id): it now leads to the new tunnel
+    const prev = String(d.id || '');
+    if (TUNNEL_ID.test(prev)) {
+      try {
+        await db.request('UpdateItem', { TableName: TABLES.localhostLinks, Key: { id: S(prev) }, ConditionExpression: 'userId = :u',
+          UpdateExpression: 'SET target = :t, #s = :on, updatedAt = :n, ip = :ip REMOVE stoppedAt', ExpressionAttributeNames: { '#s': 'status' },
+          ExpressionAttributeValues: { ':u': S(app.userId), ':t': S(target), ':on': S('online'), ':n': S(new Date().toISOString()), ':ip': S(request.headers.get('cf-connecting-ip') || '-') } });
+        tunnelCache.delete(prev);
+        return json({ id: prev, link: `${url.origin}/localhost/${prev}/`, same: true });
+      } catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) throw e; }  // deleted (or not this account's): a new link
+    }
+    let id;
+    for (let i = 0; i < 5 && !id; i++) {
+      const c = hex(crypto.getRandomValues(new Uint8Array(10)));
+      try { await db.put(TABLES.localhostLinks, { id: S(c), target: S(target), userId: S(app.userId), status: S('online'), createdAt: S(new Date().toISOString()), updatedAt: S(new Date().toISOString()),
+        ip: S(request.headers.get('cf-connecting-ip') || '-'), country: S((request.cf && request.cf.country) || '-'), userAgent: S(clean(request.headers.get('user-agent'), 200) || '-') }, 'attribute_not_exists(id)'); id = c; }
+      catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) throw e; }
+    }
+    if (!id) return json({ error: 'Could not make a link.' }, 500);
+    return json({ id, link: `${url.origin}/localhost/${id}/` });
+  }
+  if (p === '/api/app/tunnel/stop') {
+    const id = String(d.id || '');
+    if (!TUNNEL_ID.test(id)) return json({ error: 'Bad request.' }, 400);
+    await tunnelSetStatus(db, app.userId, id, 'stopped');
+    return json({ ok: true });
+  }
+  return json({ error: 'Not found.' }, 404);
+}
+async function tunnelSetStatus(db, uid, id, status) {  // only the account's own link
+  try { await db.request('UpdateItem', { TableName: TABLES.localhostLinks, Key: { id: S(id) }, ConditionExpression: 'userId = :u', UpdateExpression: 'SET #s = :s, stoppedAt = :t',
+    ExpressionAttributeNames: { '#s': 'status' }, ExpressionAttributeValues: { ':u': S(uid), ':s': S(status), ':t': S(new Date().toISOString()) } }); tunnelCache.delete(id); return true; }
+  catch (e) { if (/ConditionalCheckFailed/.test(e.message)) return false; throw e; }
+}
+const TUNNEL_CSP = 'sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads';
+function tunnelDown(why) {
+  const gone = why === 'gone';
+  return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${gone ? 'Link closed' : 'Not answering'} · Sushila</title>
+<style>body{font:17px/1.6 system-ui,sans-serif;max-width:640px;margin:10vh auto;padding:20px;color:#16202c}h1{font-size:24px}ol li{margin:8px 0}code{background:#f0f2f5;padding:1px 6px;border-radius:5px}.s{color:#5b6876;font-size:15px}</style>
+${gone ? `<h1>This link was closed</h1><p>Its owner deleted it at sushila.ai/mycontent, or it never existed.</p>`
+  : `<h1>This Sushila Engine is not answering right now</h1><p>The computer it runs on is off, asleep, offline, or Sushila was closed there.</p>
+<p><b>If it is your computer</b>, to bring this link back:</p><ol>
+<li>Go to that computer and make sure it is on and connected to the internet.</li>
+<li>Start Sushila: on Windows double-click <b>sushila.exe</b> (or press <b>Start Sushila</b> at <a href="https://sushila.ai/start">sushila.ai/start</a> on that computer); on macOS or Linux run <code>sushila serve</code> in a terminal.</li>
+<li>Keep the Sushila window open. Within about a minute this same link works again: reload this page.</li></ol>
+<p class="s">The link stays the same from start to start. Visitors need the access key shown in the Sushila window on that computer.</p>`}
+<p class="s">Make free pictures, music and videos on your own computer: <a href="https://sushila.ai/install">sushila.ai/install</a>.</p>`, { status: gone ? 404 : 502, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...SEC } });
+}
+async function tunnelProxy(request, db, p, url) {
+  const m = p.match(/^\/localhost\/([0-9a-f]{20})(\/.*)?$/);
+  if (!m) return tunnelDown('gone');
+  const [, id, rest] = m, prefix = `/localhost/${id}`;
+  if (!rest) return Response.redirect(`${url.origin}${prefix}/${url.search}`, 301);
+  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type, authorization, x-sushila-visitor, x-sushila-token, x-sushila-admin', 'access-control-max-age': '600' };
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });  // the sandboxed page's own requests
+  if (!db.configured) return tunnelDown('down');
+  const row = await tunnelRow(db, id);
+  if (!row) return tunnelDown('gone');
+  // the targets to try: this link's tunnel, then the same account's newest working one (an old link that was not
+  // deleted leads to the latest)
+  const targets = str(row, 'status') === 'online' ? [str(row, 'target')] : [];
+  const newest = async () => { try { const r = await db.request('Query', { TableName: TABLES.localhostLinks, IndexName: 'user-index', KeyConditionExpression: 'userId = :u',
+      FilterExpression: '#s = :on', ExpressionAttributeNames: { '#s': 'status' }, ExpressionAttributeValues: { ':u': S(str(row, 'userId')), ':on': S('online') }, ScanIndexForward: false, Limit: 20 });
+    return (r.Items || []).sort((a, b) => (str(b, 'updatedAt') || str(b, 'createdAt')).localeCompare(str(a, 'updatedAt') || str(a, 'createdAt'))).map((x) => str(x, 'target')); } catch { return []; } };
+  const h = new Headers();
+  for (const [k, v] of request.headers) if (!/^(host|cookie|cf-|x-forwarded-|x-real-ip|origin|referer)/i.test(k)) h.set(k, v);
+  const buf = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer();  // may be sent twice
+  const tryOne = async (t) => { try { const x = await fetch(t + rest + url.search, { method: request.method, headers: h, body: buf, redirect: 'manual' }); return (x.status === 530 || x.status === 1033 || x.status === 502) ? null : x; } catch { return null; } };
+  let r = targets.length ? await tryOne(targets[0]) : null;
+  if (!r) { for (const t of (await newest()).filter((t) => !targets.includes(t)).slice(0, 2)) { r = await tryOne(t); if (r) break; } }
+  if (!r) return tunnelDown('down');
+  const out = new Headers();
+  for (const [k, v] of r.headers) if (!/^(set-cookie|content-security-policy|x-frame-options|access-control-|content-length|content-encoding)$/i.test(k)) out.set(k, v);
+  const loc = r.headers.get('location'); if (loc && loc.startsWith('/') && !loc.startsWith('//')) out.set('location', prefix + loc);
+  out.set('content-security-policy', TUNNEL_CSP); out.set('x-content-type-options', 'nosniff'); out.set('referrer-policy', 'no-referrer');
+  for (const [k, v] of Object.entries(cors)) out.set(k, v);
+  if ((r.headers.get('content-type') || '').includes('text/html')) {  // the page shell's own absolute paths (script, icons)
+    const t = (await r.text()).replace(/(\s(?:src|href)=")\/(?!\/)/g, `$1${prefix}/`);
+    return new Response(t, { status: r.status, headers: out });
+  }
+  return new Response(r.body, { status: r.status, headers: out });
+}
+async function myLinks(db, uid) {
+  return db.queryAll(TABLES.localhostLinks, 'user-index', 'userId = :u', { ':u': S(uid) }, { ScanIndexForward: false }, 200);
 }
 
 // --- Install (sushila.ai/install): every file that installing Sushila downloads, with its size, checksum and link ---
@@ -2018,8 +2139,9 @@ async function reportAbuse(request, env, db) {
 }
 
 // --- My content (sushila.ai/mycontent): the signed-in account's shared files, with views; delete any of them ---
-const MYCONTENT = (items, used) => () => {
+const MYCONTENT = (items, used, links = []) => () => {
   // the list is rendered in the browser from this JSON (search, filters, sort, layout without a reload)
+  const L2 = links.map((r) => ({ id: str(r, 'id'), status: str(r, 'status'), createdAt: str(r, 'createdAt'), stoppedAt: str(r, 'stoppedAt'), ip: str(r, 'ip'), country: str(r, 'country') }));
   const data = items.map((m) => ({ id: m.id, kind: m.kind, title: m.title || '', model: m.model || '', created: m.created || '', bytes: m.bytes || 0, views: m.views || 0, trashedAt: m.trashedAt || '', link: m.link }));
   return `${FORM_CSS}<style>.mc{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:14px}
 .mc .c{border:1px solid var(--line);border-radius:14px;padding:10px;overflow:hidden}.mbox{position:relative;background:var(--line);border-radius:10px;overflow:hidden;min-height:120px;display:flex;align-items:center;justify-content:center}
@@ -2031,21 +2153,16 @@ const MYCONTENT = (items, used) => () => {
 .seg button{background:transparent;color:var(--fg);border:0;padding:6px 12px;font-weight:600;cursor:pointer}.seg button+button{border-left:1px solid var(--line)}.seg button.on{background:var(--acc);color:#fff}
 .lt{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px}.lt td,.lt th{padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}.lt img{width:64px;height:48px;object-fit:cover;border-radius:6px}
 .acts button,.acts a{margin-right:8px}.danger{color:#b42318}
-.toast{position:fixed;right:18px;bottom:18px;z-index:50;width:min(440px,calc(100vw - 36px));background:var(--bg);color:var(--fg);border:1px solid var(--line);border-left:6px solid var(--acc);border-radius:12px;padding:14px 16px;box-shadow:0 12px 32px rgba(16,24,40,.25);font-size:15px}
-.toast.err{border-left-color:#b42318}.toast b{display:block;margin-bottom:2px}.toast .tb{display:flex;gap:8px;margin-top:12px}.toast .tb button{padding:7px 14px;border-radius:9px;border:1px solid var(--acc);background:var(--acc);color:#fff;font-weight:700;cursor:pointer}
-.toast .tb button.g{background:transparent;color:var(--acc)}.toast .tb button.d{background:#b42318;border-color:#b42318}</style>
+.secnote{margin:14px 0;padding:12px 16px;border:1px solid var(--line);border-left:5px solid var(--acc);border-radius:12px;background:var(--bg)}.secnote ul{margin:8px 0 0;padding-left:20px}.secnote li{margin:6px 0;font-size:14px}</style>
 <h1>My content</h1>
 <p class="note">${esc(SHARE_NOTICE)}</p>
-<p class="meta"><span id="sum"></span> · ${(used / 1e6).toFixed(1)} MB of ${SHARE_QUOTA / 1e9} GB. Shared from the Library of Sushila on your computer (Upload and copy link).</p>
+<p class="meta"><span id="sum"></span> · ${(used / 1e6).toFixed(1)} MB of ${SHARE_QUOTA / 1e9} GB. Shared from the Library of Sushila on your computer (Upload and get link).</p>
 <div class="bar"><div class="seg" id="tabs"></div><input id="q" type="search" placeholder="Search titles, models, dates…"><select id="kind"><option value="">All kinds</option><option value="image">Pictures</option><option value="music">Songs</option><option value="video">Videos</option></select>
 <select id="sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="views">Most viewed</option><option value="big">Largest first</option><option value="az">Title A–Z</option></select>
 <div class="seg" id="lay"><button data-l="grid">▦ Large</button><button data-l="list">☰ Details</button></div></div>
 <p class="s" id="trashnote" hidden>Files in the trash are not shown to anyone. They are deleted automatically ${TRASH_DAYS} days after you moved them there; Restore brings one back with the same link.</p>
 <div id="list"></div><div id="m" class="msg"></div>${CLIENT}<script>
-var D=${JSON.stringify(data).replace(/</g, '\\u003c')},TD=${TRASH_DAYS},inTrash=false,lay='grid';try{lay=localStorage.getItem('mc-lay')||'grid'}catch(e){}
-function toast(title,text,o){o=o||{};var old=document.querySelector('.toast');if(old)old.remove();var t=document.createElement('div');t.className='toast'+(o.err?' err':'');t.setAttribute('role',o.ask?'alertdialog':'status');
- t.innerHTML='<b>'+E(title)+'</b><div>'+E(text||'')+'</div>'+(o.ask?'<div class="tb"><button class="'+(o.danger?'d':'')+'">'+E(o.ask)+'</button><button class="g">Cancel</button></div>':'');document.body.appendChild(t);
- return new Promise(function(res){if(!o.ask){setTimeout(function(){t.remove()},o.err?12000:6000);res(true);return}var b=t.querySelectorAll('button');b[0].focus();b[0].onclick=function(){t.remove();res(true)};b[1].onclick=function(){t.remove();res(false)}});}
+var D=${JSON.stringify(data).replace(/</g, '\\u003c')},LK=${JSON.stringify(L2).replace(/</g, '\\u003c')},TD=${TRASH_DAYS},inTrash=false,inLinks=false,lay='grid';try{lay=localStorage.getItem('mc-lay')||'grid'}catch(e){}
 function E(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function src(m){return '/c/'+m.id+'/file'}function mb(b){return (b/1e6).toFixed(1)+' MB'}function v(n){return n.toLocaleString('en-US')+' view'+(n===1?'':'s')}
 function left(m){var d=TD-Math.floor((Date.now()-Date.parse(m.trashedAt))/864e5);return d>1?d+' days left':d===1?'1 day left':'deleted soon'}
@@ -2056,15 +2173,25 @@ function render(){var q=document.getElementById('q').value.trim().toLowerCase(),
  var all=D.filter(function(m){return !!m.trashedAt===inTrash}),L=all.filter(function(m){return(!k||m.kind===k)&&(!q||(m.title+' '+m.model+' '+m.created.slice(0,10)+' '+m.id).toLowerCase().indexOf(q)>=0)});
  L.sort(function(a,b){return so==='old'?a.created.localeCompare(b.created):so==='views'?b.views-a.views:so==='big'?b.bytes-a.bytes:so==='az'?a.title.localeCompare(b.title):b.created.localeCompare(a.created)});
  var nf=D.filter(function(m){return!m.trashedAt}).length,nt=D.length-nf;
- document.getElementById('tabs').innerHTML='<button class="'+(inTrash?'':'on')+'" onclick="tab(false)">My files ('+nf+')</button><button class="'+(inTrash?'on':'')+'" onclick="tab(true)">🗑 Trash ('+nt+')</button>';
+ document.getElementById('tabs').innerHTML='<button class="'+(inTrash||inLinks?'':'on')+'" onclick="tab(false)">My files ('+nf+')</button><button class="'+(inTrash&&!inLinks?'on':'')+'" onclick="tab(true)">🗑 Trash ('+nt+')</button><button class="'+(inLinks?'on':'')+'" onclick="links()">🌐 Internet links ('+LK.length+')</button>';
+ if(inLinks){renderLinks();return}
  document.getElementById('sum').textContent=nf+' file'+(nf===1?'':'s')+(nt?' · '+nt+' in the trash':'');document.getElementById('trashnote').hidden=!inTrash;
  [].forEach.call(document.querySelectorAll('#lay button'),function(b){b.className=b.dataset.l===lay?'on':''});
  var el=document.getElementById('list');
- if(!L.length){el.innerHTML='<p class="s" style="margin:24px 0">'+(all.length?'Nothing matches.':inTrash?'The trash is empty.':'Nothing shared yet. In Sushila, open the Library tab and press Upload and copy link on a picture, song or video.')+'</p>';return}
+ if(!L.length){el.innerHTML='<p class="s" style="margin:24px 0">'+(all.length?'Nothing matches.':inTrash?'The trash is empty.':'Nothing shared yet. In Sushila, open the Library tab and press Upload and get link on a picture, song or video.')+'</p>';return}
  el.innerHTML=lay==='list'?'<div style="overflow-x:auto"><table class="lt"><thead><tr><th></th><th>Title</th><th>Kind</th><th>Model</th><th>Views</th><th>Size</th><th>'+(inTrash?'Deleted':'Shared')+'</th><th></th></tr></thead><tbody>'+L.map(function(m){
    return '<tr id="c-'+m.id+'"><td>'+media(m,true)+'</td><td><b>'+E(m.title||m.id)+'</b></td><td>'+({image:'Picture',music:'Song',video:'Video'}[m.kind]||m.kind)+'</td><td class="s">'+E(m.model)+'</td><td>'+m.views+'</td><td>'+mb(m.bytes)+'</td><td class="s">'+(inTrash?E(m.trashedAt.slice(0,10))+'<br>'+left(m):E(m.created.slice(0,10)))+'</td><td class="acts">'+acts(m)+'</td></tr>'}).join('')+'</tbody></table></div>'
   :'<div class="mc">'+L.map(function(m){return '<div class="c" id="c-'+m.id+'"><div class="mbox">'+media(m)+'<button class="mfull" title="Full screen (Esc to return)" onclick="full(this)">⛶</button><span class="mviews">👁 '+m.views.toLocaleString('en-US')+'</span></div><div class="t">'+E(m.title||m.id)+'</div><div class="s">'+E(m.created.slice(0,10))+' · '+v(m.views)+' · '+mb(m.bytes)+(inTrash?' · '+left(m):'')+'</div><div class="s acts">'+acts(m)+'</div></div>'}).join('')+'</div>';}
-function tab(t){inTrash=t;render()}
+function tab(t){inTrash=t;inLinks=false;render()}
+function links(){inLinks=true;render()}
+function renderLinks(){document.getElementById('trashnote').hidden=true;var el=document.getElementById('list');
+ var sec='<details class="secnote" open><summary><b>How this is kept secure</b></summary><ul><li><b>Only you can make a link.</b> Sushila on your computer asks sushila.ai for it with your account, which you signed in to with your e-mail and a one-time code (OTP). Without that sign-in sushila.ai refuses: no account, no link. Each link is stored with your account, the time and the address it came from.</li><li><b>A link cannot be guessed:</b> 20 random characters (80 bits).</li><li><b>The link alone is not enough.</b> Using a model through it needs the access key made with that link, shown only on your computer. Your Sushila Engine checks the key on every request.</li><li><b>Visitors see only the Inference page.</b> Admin, the Library, your files, installing, starting or stopping models need your computer\\'s own token, which Sushila gives only to pages opened on that computer (localhost). Through the link the engine sees another device and refuses them.</li><li><b>sushila.ai forwards a link only to the Cloudflare tunnel your engine registered</b> (https://….trycloudflare.com). Pages from your computer run sandboxed on sushila.ai: they never see anyone\\'s sushila.ai sign-in, and your computer never receives visitors\\' sushila.ai cookies.</li><li><b>Stop it at any time:</b> Delete here, or Stop (🌐) on your computer. The link stops at once. A link you did not delete always leads to your newest working one, with the same access key; choose a new key at any time in 🌐 (the old one stops working at once).</li></ul></details>';
+ if(!LK.length){el.innerHTML=sec+'<p class="s" style="margin:24px 0">No internet links yet. In Sushila on your computer, press 🌐 Get temporary internet URL: a link like sushila.ai/localhost/… reaches your Sushila Engine from anywhere while it runs.</p>';return}
+ el.innerHTML=sec+'<p class="s">Each link reaches your Sushila Engine while it runs (visitors need the access key shown when you made it). Delete stops a link at once.</p><div style="overflow-x:auto"><table class="lt"><thead><tr><th>Link</th><th>Status</th><th>Made</th><th>From</th><th></th></tr></thead><tbody>'+LK.map(function(k){var u=location.origin+'/localhost/'+k.id+'/';
+  return '<tr id="l-'+k.id+'"><td><a href="'+u+'" target="_blank">'+E(u.replace(/^https?:\\/\\//,''))+'</a></td><td>'+(k.status==='online'?'<b style="color:#127a3a">● online</b>':'stopped'+(k.stoppedAt?'<br><span class="s">'+E(k.stoppedAt.slice(0,16).replace('T',' '))+'</span>':''))+'</td><td class="s">'+E(k.createdAt.slice(0,16).replace('T',' '))+'</td><td class="s">'+E(k.ip)+' '+E(k.country)+'</td><td class="acts"><button class="linkbtn" onclick="copyL(\\''+k.id+'\\')">Copy</button><button class="linkbtn danger" onclick="delL(\\''+k.id+'\\')">Delete</button></td></tr>'}).join('')+'</tbody></table></div>';}
+function copyL(id){var u=location.origin+'/localhost/'+id+'/';try{navigator.clipboard.writeText(u);toast('Link copied',u)}catch(e){toast('The link',u)}}
+async function delL(id){if(!await toast('Delete this internet link?','It stops working at once for everyone.',{ask:'Delete',danger:true}))return;
+ try{await api('/api/mycontent/link-delete',{id:id});LK=LK.filter(function(k){return k.id!==id});toast('Deleted','The link stopped working.');render()}catch(e){toast('Could not delete',e.message,{err:true})}}
 function full(b){var box=b.parentNode,m=box.querySelector('img,video')||box;if(document.fullscreenElement)document.exitFullscreen();else if(m.requestFullscreen)m.requestFullscreen().catch(function(){});}
 function copy(id){var u=location.origin+'/c/'+id;try{navigator.clipboard.writeText(u);toast('Link copied',u)}catch(e){toast('The link',u)}}
 async function act(a,id){var m=D.find(function(x){return x.id===id});
@@ -2686,7 +2813,7 @@ const HOST_PACKS = [
         '--cfg-scale', '1.0', '--steps', '8', '--diffusion-fa', '--offload-to-cpu'],
       // Accelerated: Sushila's precomputed cache plan for Z-Image (EasyCache 0.2: 1.10x on held-out prompts, SSIM 0.98)
       turboRequest: { cache_mode: 'easycache', cache_option: 'threshold=0.2' } } },
-  { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs (4-bit NVIDIA kernels)', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
+  { id: 'z-image-turbo-nvidia', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA GPUs', model: 'precomputed/z-image-turbo-nvidia', minRamGB: 16,
     variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 7.5, maxCompute: 11.9 },
     description: 'Z-Image-Turbo with Nunchaku 4-bit kernels for NVIDIA RTX 20/30/40-series: a 768x768 image in 6 steps (Accelerated) or the published 1024x1024 / 8 steps (Standard). Speed depends on the GPU: about a second on a large server or desktop GPU, much longer on PC and laptop GPUs with 8-16 GB. Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant int4 transformer'],
@@ -2707,7 +2834,7 @@ const HOST_PACKS = [
       ['weights/vae/diffusion_pytorch_model.safetensors', 'vae/diffusion_pytorch_model.safetensors', 'weights'],
       ['weights/transformer/svdq-int4_r128-z-image-turbo.safetensors', 'transformer/svdq-int4_r128-z-image-turbo.safetensors', 'weights']],
     serve: { engine: 'image-nunchaku', model: 'model_index.json', args: ['--model-dir', '{pack}/model_index.json', '--transformer', '{pack}/transformer/svdq-int4_r128-z-image-turbo.safetensors'] } },
-  { id: 'z-image-turbo-nvidia-fp4', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA RTX 50-series (FP4 NVIDIA kernels)', model: 'precomputed/z-image-turbo-nvidia-fp4', minRamGB: 16,
+  { id: 'z-image-turbo-nvidia-fp4', category: 'Images', kind: 'image', name: 'Z-Image-Turbo for NVIDIA RTX 50-series', model: 'precomputed/z-image-turbo-nvidia-fp4', minRamGB: 16,
     variantOf: 'z-image-turbo', requires: { gpu: 'nvidia', minCompute: 12.0 },
     description: 'Z-Image-Turbo with Nunchaku FP4 kernels for NVIDIA RTX 50-series (Blackwell). Accelerated: 768x768 in 6 steps; Standard: the published 1024x1024 / 8 steps. Installs the Sushila image runtime for NVIDIA (PyTorch + Nunchaku) once.',
     license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo', artifacts: ['Nunchaku SVDQuant fp4 transformer'],
@@ -2962,7 +3089,7 @@ const HS_WIZARD = (app, packs = []) => {
 #hswiz .pk:hover,#hswiz .pk[aria-pressed=true]{border-color:var(--acc);background:var(--accbg)}#hswiz .pk b{display:block}#hswiz .cat{margin:14px 0 2px;font-weight:700;font-size:14px;color:var(--mut)}
 </style>
 <dialog id="hswiz" aria-labelledby="hswiz-t"><div class="in" id="hswiz-body"></div></dialog>
-<script>
+<script>${TOAST_JS}
 (function () {
   const APP = ${data};
   const dlg = document.getElementById('hswiz'), body = document.getElementById('hswiz-body');
@@ -3108,7 +3235,7 @@ const HS_WIZARD = (app, packs = []) => {
       const d = items[b.closest('.hsdl-item').dataset.id]; if (!d) return;
       if (act === 'pause' && d.state === 'running') { d.state = 'paused'; d.ctrl.abort(); }
       else if (act === 'resume') run(d);
-      else if (act === 'cancel' && confirm('Cancel this download?')) { if (d.state === 'running') { d.state = 'cancelled'; d.ctrl.abort(); } else { delete items[d.id]; } }
+      else if (act === 'cancel') { toast('Cancel this download?', 'What is downloaded so far is discarded.', {ask:'Cancel download', danger:true}).then(function(y){ if (!y) return; if (d.state === 'running') { d.state = 'cancelled'; d.ctrl.abort(); } else { delete items[d.id]; } draw(); }); }
       else if (act === 'save') save(d);
       draw();
     });
@@ -3375,6 +3502,7 @@ export default {
     const session = await readSession(request, env);
     const html = (b, extra = {}) => new Response(b, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': session ? 'private, no-store' : 'public, max-age=300', ...SEC, ...extra } });
     try {
+      if (p === '/localhost' || p.startsWith('/localhost/')) return await tunnelProxy(request, db, p, url);  // temporary internet URLs
       if (method === 'POST') {
         if (p === '/api/waitlist') return await waitlist(request, env, db);
         if (p === '/api/auth/send-code') return await sendCode(request, env, db, session);
@@ -3383,6 +3511,17 @@ export default {
         if (p === '/api/app/verify-code') return await verifyCode(request, env, db, null, true);
         if (p === '/api/app/upload' || p === '/api/app/delete') return await shareApi(request, env, db, b2, p, url);
         if (p === '/api/reportabuse') return await reportAbuse(request, env, db);
+        if (p === '/api/app/tunnel' || p === '/api/app/tunnel/stop') return await tunnelApi(request, env, db, p, url);
+        if (p === '/api/mycontent/link-delete') {  // My content -> Internet links: the account's own link stops at once
+          if (!session) return json({ error: 'Please sign in.' }, 401);
+          if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
+          let d; try { d = await body(request); } catch { return json({ error: 'Bad request.' }, 400); }
+          const id = String(d.id || ''); if (!TUNNEL_ID.test(id)) return json({ error: 'Bad request.' }, 400);
+          const row = await db.get(TABLES.localhostLinks, { id: S(id) });
+          if (!row || str(row, 'userId') !== session.userId) return json({ error: 'No such link.' }, 404);
+          await db.del(TABLES.localhostLinks, { id: S(id) }); tunnelCache.delete(id);
+          return json({ ok: true });
+        }
         if (/^\/api\/mycontent\/(trash|restore|delete)$/.test(p)) return await myContentDelete(request, env, db, b2, session, p.split('/').pop());
         if (p === '/api/auth/verify-code') return await verifyCode(request, env, db, session);
         if (p === '/api/auth/sign-out') return new Response(null, { status: 303, headers: { location: '/', 'set-cookie': clearCookie() } });
@@ -3493,12 +3632,15 @@ export default {
       }
       if (p === '/reportabuse' || p === '/reportabuse/') return html(docPage(env, 'Report abuse', 'Report a file shared on sushila.ai or other misuse of Sushila.', REPORTABUSE(url), user));
       if (p === '/mycontent' || p === '/mycontent/') {
-        if (!user) return Response.redirect(`${url.origin}/signin?next=/mycontent`, 302);
+        // signed out: the sign-in (e-mail, then a one-time code) right here, then back to My content
+        if (!user) { const u = new URL(url); u.searchParams.set('next', '/mycontent');
+          return html(docPage(env, 'My content', 'Your files shared from Sushila: sign in with your e-mail.', SIGNIN(u, `<h1>My content</h1><p>The pictures, songs and videos you uploaded from Sushila (Upload and get link). ${esc(SHARE_NOTICE)}</p><h2 style="font-size:18px">Sign in</h2>`), user)); }
         if (!b2.configured) return html(docPage(env, 'My content', 'Your shared files.', () => '<h1>My content</h1><p>Not available right now.</p>', user));
         const { files, items } = await shareList(b2, user.userId);
         await withRows(db, items);
+        let links = []; try { links = await myLinks(db, user.userId); } catch (e) { console.error('links', e.message); }
         const used = files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0);
-        return html(docPage(env, 'My content', 'Your files shared from Sushila: views, links, delete.', MYCONTENT(items, used), user));
+        return html(docPage(env, 'My content', 'Your files shared from Sushila: views, links, delete.', MYCONTENT(items, used, links), user));
       }
       // a bookmark for Sushila on this computer: opens http://localhost:7874/ when it runs, else offers to start it
       if (p === '/start') return html(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Start Sushila</title>${ICON_LINKS}

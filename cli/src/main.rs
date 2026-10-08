@@ -25,6 +25,7 @@ mod tui;
 mod diag;
 mod library;
 mod share;
+mod tunnel;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -736,6 +737,46 @@ fn ask_password(ctx: &Ctx, change: bool) -> Result<(), String> {
     }
     Err("no admin password set".into())
 }
+/// The first start in a window or terminal: "Create a link to your app?" Yes: the sushila.ai sign-in here (e-mail, then
+/// the one-time code e-mailed to it; a new account asks a first name), and a link at every start. The answer is kept
+/// (settings.internetUrlAtStart); the 🌐 button on the page changes it later. Not asked when nobody can answer.
+async fn ask_internet(ctx: &mut Ctx) {
+    if !(std::io::IsTerminal::is_terminal(&std::io::stdin()) || tui::in_screen()) || !ctx.setting("internetUrlAtStart").is_null() { return; }
+    use std::io::Write;
+    let read = |q: &str| -> String { eprint!("{q}"); let _ = std::io::stderr().flush(); window::signal("ask"); let mut l = String::new(); let _ = std::io::stdin().read_line(&mut l); l.trim().to_string() };
+    eprintln!("\nA link to your app (https://sushila.ai/localhost/...) reaches this Sushila Engine from your phone or anywhere, while it runs.\nVisitors need its access key and see only the Inference page; Admin, Library and your files stay on this computer.");
+    let a = read("Create a link to your app? [y/N]: ").to_lowercase();
+    let yes = a == "y" || a == "yes";
+    ctx.state["settings"]["internetUrlAtStart"] = json!(yes); let _ = ctx.save();
+    if !yes { eprintln!("No link. Make one at any time with 🌐 Get temporary internet URL on the page."); return; }
+    if share::me(&ctx.data)["signedIn"] == true { eprintln!("Signed in to sushila.ai as {}; the link appears below once the engine is ready.", share::me(&ctx.data)["email"].as_str().unwrap_or("")); return; }
+    eprintln!("The link is made with a sushila.ai account. No password to remember: we e-mail you a one-time code (OTP) to sign in.");
+    let last = share::last_email(&ctx.data);
+    for _ in 0..3 {
+        // the e-mail from last time: Enter sends the code to it; "Not you?" types another one
+        let typed = if last.is_empty() { read("Your e-mail address: ") } else { read(&format!("Sign in as {last}? Press Enter for the code (not you? type your e-mail address): ")) };
+        let email = if typed.is_empty() && !last.is_empty() { last.clone() } else { typed };
+        if !email.contains('@') { eprintln!("That does not look like an e-mail address."); continue; }
+        let mut first = String::new();
+        let sent = match share::send_code(&ctx.data, &email, "SIGN_IN").await {
+            Ok(_) => Ok(()),
+            Err(e) if e.contains("No account") || e.contains("no account") => {
+                first = read("New sushila.ai account: your first name: ");
+                share::send_code(&ctx.data, &email, "SIGN_UP").await.map(|_| ())
+            }
+            Err(e) => Err(e),
+        };
+        if let Err(e) = sent { eprintln!("Could not send the code: {e}"); continue; }
+        for _ in 0..3 {
+            let code = read(&format!("The 6-digit code e-mailed to {email}: "));
+            match share::verify(&ctx.data, &email, &code, &first).await {
+                Ok(_) => { eprintln!("Signed in to sushila.ai as {email}. The link to your app appears below once the engine is ready."); return; }
+                Err(e) => eprintln!("{e}"),
+            }
+        }
+    }
+    eprintln!("Not signed in, so no link this time. 🌐 Get temporary internet URL on the page signs in and makes one.");
+}
 fn open_browser(url: &str) {
     let _ = if cfg!(windows) { std::process::Command::new("cmd").args(["/c", "start", "", url]).spawn() }
             else if cfg!(target_os = "macos") { std::process::Command::new("open").arg(url).spawn() }
@@ -848,10 +889,35 @@ async fn make_room(ctx: &mut Ctx, o: &mut Owner, pack: &str) {
 /// settings.keepPopular: the popular model packs (catalog "popular", one per kind) are installed in the background, one
 /// at a time, and kept installed: each that fits this computer, with 10 GB to spare on the disk. A pack that failed is
 /// tried again after 6 hours. Checked every minute while the server runs; switching it off stops new downloads.
+/// Also settings.installQueue: the packs chosen on the Admin page ("Choose model packs", Install selected), installed
+/// the same way, one at a time, and taken off the queue once installed (or when they cannot be).
 async fn keep_popular(ctx: &mut Ctx, o: &mut Owner, failed: &mut std::collections::HashMap<String, std::time::Instant>) {
-    if ctx.setting("keepPopular") != true { return; }
+    let queue: Vec<String> = ctx.setting("installQueue").as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default();
+    if ctx.setting("keepPopular") != true && queue.is_empty() { return; }
     if o.tasks.iter().any(|t| t["status"] == "running" && (t["action"] == "install" || t["action"] == "engine-install")) { return; }
     if ctx.load_catalog().await.is_err() { return; }
+    // the chosen packs first: drop the installed ones (and ones that failed), install the next
+    let mut left = vec![];
+    for id in &queue {
+        let best = ctx.best_variant(id).await;
+        if ctx.packs().contains_key(&best) || ctx.packs().contains_key(id.as_str()) { continue; }
+        if failed.get(&best).map(|t| t.elapsed() < Duration::from_secs(6 * 3600)).unwrap_or(false) && o.tasks.iter().any(|t| t["target"] == id.as_str() && t["status"] == "failed") {
+            ctx.log(&format!("install queue: {id} could not be installed (see Recent actions); taken off the queue")); continue;
+        }
+        left.push(id.clone());
+    }
+    if left != queue { ctx.state["settings"]["installQueue"] = json!(left); let _ = ctx.save(); }
+    if let Some(id) = left.first().cloned() {
+        let best = ctx.best_variant(&id).await;
+        if !failed.get(&best).map(|t| t.elapsed() < Duration::from_secs(6 * 3600)).unwrap_or(false) {
+            ctx.log(&format!("install queue: installing {id} in the background ({} chosen, one at a time)", left.len()));
+            failed.insert(best, std::time::Instant::now());
+            let tid = format!("chosen-{id}-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0));
+            control(ctx, o, json!({ "id": tid, "action": "install", "pack": id, "source": "chosen model packs" })).await;
+            return;
+        }
+    }
+    if ctx.setting("keepPopular") != true { return; }
     for id in core::popular_packs(ctx.catalog.as_ref().unwrap()) {
         let best = ctx.best_variant(&id).await;
         if ctx.packs().contains_key(&best) || ctx.packs().contains_key(&id) { continue; }
@@ -930,9 +996,16 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
             }
             "stop" => { ctx.stop_model(&pack).await; o.starting.remove(&pack); Ok(true) }
             "settings" => {
-                for k in ["threads", "contextSize", "gpuLayers", "parallel", "keepCopy", "enginePort", "port", "idleMinutes", "keepPopular"] {
+                for k in ["threads", "contextSize", "gpuLayers", "parallel", "keepCopy", "enginePort", "port", "idleMinutes", "keepPopular", "internetUrlAtStart"] {
                     if let Some(v) = r["values"].get(k) { if v.is_number() || v.is_boolean() { ctx.state["settings"][k] = v.clone(); } }
                 }
+                // "Install selected" on the Admin page: these pack ids join the install queue (keep_popular installs them)
+                if let Some(a) = r["values"]["queueInstall"].as_array() {
+                    let mut q: Vec<Value> = ctx.setting("installQueue").as_array().cloned().unwrap_or_default();
+                    for v in a { if let Some(id) = v.as_str().filter(|i| core::safe_id_dots(i)) { if !q.iter().any(|x| x == id) { q.push(json!(id)); } } }
+                    ctx.state["settings"]["installQueue"] = json!(q);
+                }
+                if r["values"]["clearQueue"] == true { ctx.state["settings"]["installQueue"] = json!([]); }
                 if let Some(t) = r["values"]["ticker"].as_str() { if t != "on" && t != "off" { return Err("ticker is on or off".into()); } ctx.state["settings"]["ticker"] = json!(t); }
                 if let Some(u) = r["values"]["catalogUrl"].as_str() { crate::net::check_url(u, false)?; ctx.state["settings"]["catalogUrl"] = json!(u); ctx.catalog = None; }
                 ctx.save()?; Ok(true)
@@ -1002,6 +1075,10 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             }
         });
     }
+    // the link to the app at every start (settings.internetUrlAtStart): asked at the first start in a window or
+    // terminal, with the sushila.ai sign-in (e-mail and a one-time code); then made once the engine answers
+    ask_internet(ctx).await;
+    tokio::spawn(tunnel::at_start(ctx.data.clone(), port, ctx.setting("internetUrlAtStart")));
     if !webserver::password_set(&ctx.data) {
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) { if let Err(e) = ask_password(ctx, false) { ctx.log(&format!("admin password: {e}")); } }
         else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/admin on this computer to set it")); }
@@ -1173,7 +1250,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                 }
             }
         }
-        if last_popular.elapsed() > Duration::from_secs(60) { last_popular = std::time::Instant::now(); keep_popular(ctx, &mut o, &mut popular_failed).await; }
+        if last_popular.elapsed() > Duration::from_secs(if ctx.setting("installQueue").as_array().map(|a| !a.is_empty()).unwrap_or(false) { 5 } else { 60 }) { last_popular = std::time::Instant::now(); keep_popular(ctx, &mut o, &mut popular_failed).await; }
         // idle models are unloaded (settings.idleMinutes); a request for one loads it again (webserver::reload_idle)
         let idle = ctx.setting("idleMinutes").as_u64().unwrap_or(0);
         if idle > 0 && last_idle.elapsed() > Duration::from_secs(5) {
@@ -1279,6 +1356,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     if let Some((_, h, _)) = current.take() { h.abort(); }
     for jb in q["jobs"].as_array_mut().into_iter().flatten() { if jb["status"] == "running" { jb["status"] = json!("queued"); jb["progress"] = json!("continues after a restart"); } }
     save_q(&q, &qpath);
+    let _ = tokio::time::timeout(Duration::from_secs(5), tunnel::stop(&ctx.data)).await;  // the link then answers "not answering: how to restart" (offline: at most 5 s)
     ctx.stop_all().await;
     ctx.state["owner"] = Value::Null; ctx.state["tasks"] = json!([]);
     let _ = ctx.save();

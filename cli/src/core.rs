@@ -1080,7 +1080,7 @@ pub fn tail_lines(p: &Path, n: usize) -> String {
 /// the image runtime's Python), except this process. Nothing else is touched. Returns what was stopped.
 pub fn kill_strays(data: &Path) -> Vec<String> {
     let home = std::fs::canonicalize(data).unwrap_or(data.to_path_buf());
-    let dirs = [home.join("engine"), home.join("runtime")];
+    let dirs = [home.join("engine"), home.join("runtime"), home.join("tools")];  // tools: cloudflared (tunnel.rs)
     let me = std::process::id();
     let mut sys = sysinfo::System::new();
     sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
@@ -1163,17 +1163,19 @@ pub fn free_disk(dir: &std::path::Path) -> Option<u64> {
     let home = std::fs::canonicalize(dir).unwrap_or(dir.to_path_buf());
     sysinfo::Disks::new_with_refreshed_list().list().iter().filter(|d| home.starts_with(d.mount_point())).max_by_key(|d| d.mount_point().as_os_str().len()).map(|d| d.available_space())
 }
-/// A pack name without a speed claim in brackets: "Z-Image-Turbo for NVIDIA GPUs (Accelerated: 0.9 s on ...)" ->
-/// "Z-Image-Turbo for NVIDIA GPUs (Accelerated on NVIDIA kernels)"; other names come back unchanged.
+/// A pack name without a mode or speed in brackets: "Z-Image-Turbo for NVIDIA GPUs (Accelerated: under 1 second)" and
+/// older "(4-bit NVIDIA kernels)" names -> "Z-Image-Turbo for NVIDIA GPUs"; the pages add the mode themselves
+/// ("... (Standard)", "... (Accelerated)"). Other names come back unchanged.
 pub fn plain_name(n: &str) -> String {
-    match (n.find(" (Accelerated:"), n.ends_with(')')) {
-        (Some(i), true) if n[i..].contains(" s ") || n[i..].contains(" s;") =>
-            format!("{} ({} NVIDIA kernels)", &n[..i], if n.contains("50-series") { "FP4" } else { "4-bit" }),
-        _ => n.to_string(),
+    for tail in [" (Accelerated", " (4-bit NVIDIA kernels)", " (FP4 NVIDIA kernels)"] {
+        if let Some(i) = n.find(tail) { if n.ends_with(')') { return n[..i].to_string(); } }
     }
+    n.to_string()
 }
 #[test] fn plain_names() {
-    assert_eq!(plain_name("Z-Image-Turbo for NVIDIA GPUs (Accelerated: 0.9 s on a desktop RTX 4090; slower on 8-16 GB GPUs)"), "Z-Image-Turbo for NVIDIA GPUs (4-bit NVIDIA kernels)");
+    assert_eq!(plain_name("Z-Image-Turbo for NVIDIA GPUs (Accelerated: 0.9 s on a desktop RTX 4090; slower on 8-16 GB GPUs)"), "Z-Image-Turbo for NVIDIA GPUs");
+    assert_eq!(plain_name("Z-Image-Turbo for NVIDIA GPUs (Accelerated: under 1 second)"), "Z-Image-Turbo for NVIDIA GPUs");
+    assert_eq!(plain_name("Z-Image-Turbo for NVIDIA RTX 50-series (FP4 NVIDIA kernels)"), "Z-Image-Turbo for NVIDIA RTX 50-series");
     assert_eq!(plain_name("Qwen3 4B Instruct 2507 (chat, 4-bit)"), "Qwen3 4B Instruct 2507 (chat, 4-bit)");
 }
 

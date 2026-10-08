@@ -45,7 +45,7 @@ r = await call('/api/app/uploads', { headers: { authorization: 'Bearer ' + appTo
 ok(j.items.length === 1 && j.items[0].views === 2, 'app list: the upload with its views');
 // My content needs the website session (same account)
 const sess = Buffer.from(`${uid}|${exp}|${h(env.SESSION_SECRET, `session|${uid}|${exp}`)}`).toString('base64');
-r = await call('/mycontent'); ok(r.status === 302 && /signin\?next=\/mycontent/.test(r.headers.get('location')), 'My content: signed out goes to sign-in');
+r = await call('/mycontent'); t = await r.text(); ok(r.status === 200 && t.includes('No password to remember') && t.includes('one-time code') && t.includes('visible to everyone') && t.includes('id="email"'), 'My content signed out: asks for the e-mail here (no password, a one-time code)');
 // loadUser needs a users row; the page is checked through the API path instead when the row is missing
 r = await call('/reportabuse?url=' + encodeURIComponent(up.link)); t = await r.text(); ok(t.includes('Report abuse') && t.includes(up.id), 'Report abuse page: link filled in');
 r = await call('/api/reportabuse', { method: 'POST', headers: { 'content-type': 'application/json', origin: O }, body: JSON.stringify({ url: up.link, reason: 'Other', details: 'LIVE TEST - please ignore', email: '' }) });

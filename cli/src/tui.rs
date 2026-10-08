@@ -396,9 +396,9 @@ fn run(s: &mut Screen, data: &Path, exe: &Path, args: &[String]) -> ExitCode {
         let t0 = Instant::now();
         s.ready = false;
         let mut child = match c.spawn() { Ok(ch) => ch, Err(e) => { s.note(&format!("could not start the server: {e}")); return hold(s, 1); } };
-        // until the server takes typed lines: a moving "starting Sushila..." where the prompt will be (the first start
+        // until the server takes typed lines: a moving "starting Sushila Engine..." where the prompt will be (the first start
         // downloads the engine and a model, which takes minutes)
-        s.busy = Some(Instant::now()); s.busy_label = if restarts > 0 { "restarting Sushila" } else { "starting Sushila" };
+        s.busy = Some(Instant::now()); s.busy_label = if restarts > 0 { "restarting Sushila Engine" } else { "starting Sushila Engine" };
         drop(c);  // the parent's copies of the pipe's write end: the reader sees the end when the server's are closed
         { let tx = s.tx.clone(); let mut r = reader; std::thread::spawn(move || { let mut b = [0u8; 8192]; loop { match r.read(&mut b) { Ok(0) | Err(_) => { let _ = tx.send(Ev::OutEnd); return; } Ok(n) => { if tx.send(Ev::Out(b[..n].to_vec())).is_err() { return; } } } } }); }
         let mut stop_at: Option<Instant> = None;

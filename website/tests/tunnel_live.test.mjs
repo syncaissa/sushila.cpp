@@ -1,0 +1,46 @@
+// Temporary internet URL: register a real quick tunnel, proxy through sushila.ai/localhost/<id>/, stop, delete (real DynamoDB)
+import './share_live_shim.mjs';
+const { default: W } = await import(process.env.WORKER || './worker.mjs');
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+const env = { AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN, AWS_REGION: 'us-east-1', SESSION_SECRET: 'tun-test-' + Date.now() };
+const uid = 'u_tuntest' + crypto.randomBytes(4).toString('hex'), exp = Date.now() + 3600e3, h = (m) => crypto.createHmac('sha256', env.SESSION_SECRET).update(m).digest('hex');
+const app = Buffer.from(`${uid}|${exp}|${h(`app|${uid}|${exp}`)}`).toString('base64'), sess = Buffer.from(`${uid}|${exp}|${h(`session|${uid}|${exp}`)}`).toString('base64');
+const O = 'https://sushila.ai', call = (p, i = {}) => W.fetch(new Request(O + p, i), env, { waitUntil() {} });
+const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
+const target = fs.readFileSync(process.env.T + '/url', 'utf8').trim();
+let r = await call('/api/app/tunnel', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target }) });
+ok(r.status === 401, 'register without sushila.ai sign-in: refused (401)');
+r = await call('/api/app/tunnel', { method: 'POST', headers: { authorization: 'Bearer ' + app, 'content-type': 'application/json' }, body: JSON.stringify({ target: 'https://evil.example.com' }) });
+ok(r.status === 400, 'only https://….trycloudflare.com can be linked (no open proxy)');
+r = await call('/api/app/tunnel', { method: 'POST', headers: { authorization: 'Bearer ' + app, 'content-type': 'application/json' }, body: JSON.stringify({ target }) });
+const reg = await r.json(); console.log(JSON.stringify(reg));
+ok(r.status === 200 && /^https:\/\/sushila\.ai\/localhost\/[0-9a-f]{20}\/$/.test(reg.link), 'signed in: link sushila.ai/localhost/<20 hex>/');
+const P = `/localhost/${reg.id}`;
+r = await call(P); ok(r.status === 301 && r.headers.get('location').endsWith(P + '/'), 'without the last slash: redirected');
+r = await call(P + '/', { headers: { cookie: 'sushila_session=SECRET' } }); let t = await r.text();
+ok(r.status === 200 && t.includes(`src="${P}/sushila.js"`) && t.includes(`href="${P}/favicon-32.png"`), 'page through the link: its paths point under /localhost/<id>/');
+ok(/sandbox/.test(r.headers.get('content-security-policy') || '') && !r.headers.get('set-cookie'), 'sandboxed (opaque origin), the PC cannot set sushila.ai cookies');
+r = await call(P + '/api/state?x=1', { headers: { cookie: 'sushila_session=SECRET' } }); const j = await r.json();
+ok(j.host && j.host.endsWith('.trycloudflare.com') && j.cookie === null && j.path === '/api/state?x=1', 'the PC sees the tunnel host (not localhost) and never the visitor\'s sushila.ai cookie');
+r = await call(P + '/api/state', { method: 'OPTIONS' }); ok(r.status === 204, 'CORS preflight for the sandboxed page');
+const q = (await import('node:child_process')).execFileSync('aws', ['dynamodb', 'get-item', '--region', 'us-east-1', '--table-name', 'sushilaai-localhost-links', '--key', JSON.stringify({ id: { S: reg.id } }), '--output', 'json']).toString();
+const row = JSON.parse(q).Item; ok(row && row.userId.S === uid && row.target.S === target && row.ip && row.createdAt && row.status.S === 'online', 'table: id, target, userId, ip, time, status');
+r = await call('/api/app/tunnel/stop', { method: 'POST', headers: { authorization: 'Bearer ' + app, 'content-type': 'application/json' }, body: JSON.stringify({ id: reg.id }) });
+ok(r.status === 200, 'Stop');
+r = await call(P + '/'); t = await r.text(); ok(r.status === 502 && t.includes('Start Sushila') && t.includes('sushila.exe') && t.includes('reload this page'), 'stopped, no other working link: how to restart Sushila on that computer');
+// the same link again at the next start (the app sends its id)
+r = await call('/api/app/tunnel', { method: 'POST', headers: { authorization: 'Bearer ' + app, 'content-type': 'application/json' }, body: JSON.stringify({ target, id: reg.id }) });
+let again = await r.json(); ok(again.id === reg.id && again.same, 'next start: the same link (same address)');
+r = await call(P + '/api/state'); ok(r.status === 200, 'the same link works again');
+// an old link leads to the newest working one: a second link, the first one stopped
+r = await call('/api/app/tunnel', { method: 'POST', headers: { authorization: 'Bearer ' + app, 'content-type': 'application/json' }, body: JSON.stringify({ target }) });
+const second = await r.json(); ok(second.id && second.id !== reg.id, 'a second link');
+await call('/api/app/tunnel/stop', { method: 'POST', headers: { authorization: 'Bearer ' + app, 'content-type': 'application/json' }, body: JSON.stringify({ id: reg.id }) });
+r = await call(P + '/api/state'); const j2 = await r.json().catch(() => ({})); ok(r.status === 200 && j2.path === '/api/state', 'an old (stopped, not deleted) link leads to the newest working one');
+await (await import('node:child_process')).execFileSync('aws', ['dynamodb', 'delete-item', '--region', 'us-east-1', '--table-name', 'sushilaai-localhost-links', '--key', JSON.stringify({ id: { S: second.id } })]);
+const other = 'u_other' + crypto.randomBytes(4).toString('hex'), osess = Buffer.from(`${other}|${exp}|${h(`session|${other}|${exp}`)}`).toString('base64');
+const del = (s) => call('/api/mycontent/link-delete', { method: 'POST', headers: { 'content-type': 'application/json', origin: O, cookie: `sushila_session=${s}` }, body: JSON.stringify({ id: reg.id }) });
+r = await del(osess); ok(r.status === 404, 'another account cannot delete your link');
+r = await del(sess); ok(r.status === 200, 'My content: you delete your own link');
+r = await call(P + '/'); ok(r.status === 404, 'deleted link: 404');

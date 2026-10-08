@@ -83,6 +83,10 @@ SCHEMA = {
         'hash': 'reportId',
         'pitr': True, 'protect': True,
     },
+    'sushilaai-localhost-links': {       # temporary internet URLs (sushila.ai/localhost/<id>/): target, userId, ip, time, status (cleared monthly)
+        'hash': 'id',
+        'indexes': {'user-index': {'hash': 'userId', 'range': 'createdAt', 'projection': 'ALL'}},  # My content -> Internet links
+    },
     'sushilaai-file-views': {            # one row per shared link sushila.ai/c/<12 hex>: url "/c/<id>", userId (owner), views
         'hash': 'url',                   # (the row is the link: it is made first, so ids are unique, and names the owner's folder)
         'indexes': {'trash-index': {'hash': 'trashKey', 'range': 'trashedAt', 'projection': 'ALL'}},  # sparse: My content's trash (cron purge)

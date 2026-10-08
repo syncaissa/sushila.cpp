@@ -11,10 +11,12 @@ fn site(dir: &Path) -> String {
 }
 fn account(dir: &Path) -> Value { std::fs::read_to_string(dir.join("share.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(Value::Null) }
 
+/// The e-mail used last time (kept after signing out or when the sign-in expires): asked again only for the code.
+pub fn last_email(dir: &Path) -> String { std::fs::read_to_string(dir.join("share-email.txt")).map(|t| t.trim().to_string()).unwrap_or_default() }
 /// What the page needs: signed in or not, and as which e-mail.
 pub fn me(dir: &Path) -> Value {
     let a = account(dir);
-    json!({ "signedIn": a["token"].is_string(), "email": a["email"], "userId": a["userId"], "site": site(dir) })
+    json!({ "signedIn": a["token"].is_string(), "email": a["email"], "userId": a["userId"], "site": site(dir), "lastEmail": last_email(dir) })
 }
 pub fn sign_out(dir: &Path) -> Value { let _ = std::fs::remove_file(dir.join("share.json")); json!({ "ok": true }) }
 
@@ -45,6 +47,7 @@ pub async fn verify(dir: &Path, email: &str, code: &str, first_name: &str) -> Re
     let v = call(dir, reqwest::Method::POST, "/api/app/verify-code",
         Some((serde_json::to_vec(&json!({ "email": email, "code": code, "firstName": first_name })).unwrap(), "application/json".into())), false).await?;
     let t = v["token"].as_str().ok_or("sushila.ai did not return a sign-in")?;
+    let _ = std::fs::write(dir.join("share-email.txt"), v["email"].as_str().unwrap_or(email));
     std::fs::write(dir.join("share.json"), json!({ "token": t, "userId": v["userId"], "email": v["email"].as_str().unwrap_or(email), "since": crate::util::now_iso() }).to_string())
         .map_err(|e| e.to_string())?;
     Ok(me(dir))
@@ -83,6 +86,15 @@ pub async fn upload(dir: &Path, rel: &str) -> Result<Value, String> {
     note(dir, json!({ "rel": rel, "id": v["id"], "link": v["link"], "file": v["file"], "created": v["created"] }));
     crate::core::log(true, &format!("shared {rel}: {}", v["link"].as_str().unwrap_or("")));
     Ok(v)
+}
+/// The temporary internet URL: sushila.ai records it for this account and answers {id, link} (sushila.ai/localhost/<id>/).
+pub async fn tunnel_register(dir: &Path, target: &str, id: &str) -> Result<Value, String> {
+    // id: this computer's link from before; sushila.ai keeps it (the same address) unless it was deleted
+    call(dir, reqwest::Method::POST, "/api/app/tunnel", Some((serde_json::to_vec(&json!({ "target": target, "id": id })).unwrap(), "application/json".into())), true).await
+        .map_err(|e| if e.contains("sign in") || e.contains("not signed in") { "sign in to sushila.ai first (Library: Upload and get link asks for your e-mail)".to_string() } else { e })
+}
+pub async fn tunnel_stop(dir: &Path, id: &str) -> Result<Value, String> {
+    call(dir, reqwest::Method::POST, "/api/app/tunnel/stop", Some((serde_json::to_vec(&json!({ "id": id })).unwrap(), "application/json".into())), true).await
 }
 /// The account's shared files, from sushila.ai.
 pub async fn list(dir: &Path) -> Result<Value, String> { call(dir, reqwest::Method::GET, "/api/app/uploads", None, true).await }

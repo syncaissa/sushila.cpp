@@ -4,7 +4,7 @@
 //   /api/mode, /api/queue...  mode switches and the background queue (request files in data_dir, applied by the owner)
 //   /api/control, /api/logs   install, remove, start, stop... and the shared log (this computer only; applied by sushila serve)
 //   /api/shutdown             asks the owner to stop (this computer only; the sushila command honours it)
-//   /v1/*, /health            forwarded to the running Sushila.cpp server for the named model (OpenAI-compatible)
+//   /v1/*, /health            forwarded to the running Sushila Engine for the named model (OpenAI-compatible)
 // Only this computer may call it unless sharing is on (state.json "share"): then the listed host names and access keys.
 use std::{collections::HashMap, path::{Path, PathBuf}, sync::Arc, time::Duration};
 use serde_json::{json, Value};
@@ -252,7 +252,15 @@ async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
     // only the "public" part of the Host Station state (models and what runs): never the session token or keys
     let origin = headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
     let mut v = st.get("public").cloned().unwrap_or(json!({}));
-    v["now"] = crate::util::progress_now();  // downloads in progress (for the Admin page)
+    if local_host(&headers, s.port) {  // the page on this computer (http://localhost:<port>/)
+        v["now"] = crate::util::progress_now();  // downloads in progress (for the Admin page)
+    } else {
+        // another device (the network, or a temporary internet URL): only what the Inference page needs - which
+        // models run - never this computer's packs, settings, recent actions or downloads
+        let running: Vec<Value> = v["running"].as_array().cloned().unwrap_or_default().into_iter()
+            .map(|r| json!({ "packId": r["packId"], "name": r["name"], "kind": r["kind"], "category": r["category"], "mode": r["mode"], "turbo": r["turbo"], "ready": r["ready"] })).collect();
+        v = json!({ "app": v["app"], "appVersion": v["appVersion"], "running": running, "packs": [], "remote": true });
+    }
     with_cors_for(axum::Json(v).into_response(), &st, origin.as_deref())
 }
 
@@ -626,6 +634,32 @@ async fn srv_use(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: a
     (axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "id": id }))).into_response()
 }
 
+/// The temporary internet URL (tunnel.rs): status, start, stop. This computer only (the local token).
+async fn srv_tunnel(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) || caller(&headers, &st).as_deref() != Some("local") || !local_host(&headers, s.port) { return (axum::http::StatusCode::FORBIDDEN, "only this computer").into_response(); }
+    axum::Json(crate::tunnel::status().await).into_response()
+}
+async fn srv_tunnel_act(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(act): axum::extract::Path<String>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) || caller(&headers, &st).as_deref() != Some("local") || !local_host(&headers, s.port) { return (axum::http::StatusCode::FORBIDDEN, "only this computer can open or close its internet URL").into_response(); }
+    match act.as_str() {
+        "start" => match crate::tunnel::start(&s.data_dir, s.port).await { Ok(v) => axum::Json(v).into_response(), Err(e) => (axum::http::StatusCode::BAD_GATEWAY, e).into_response() },
+        "stop" => axum::Json(crate::tunnel::stop(&s.data_dir).await).into_response(),
+        "new-key" => match crate::tunnel::new_key(&s.data_dir).await { Ok(v) => axum::Json(v).into_response(), Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e).into_response() },
+        // a new link at every start, or not (this computer's choice; no admin login needed for its own internet link)
+        "at-start-on" | "at-start-off" => {
+            let id = new_id().replacen("job-", "task-", 1); let dir = s.data_dir.join("control-in");
+            let req = json!({ "id": id, "action": "settings", "values": { "internetUrlAtStart": act == "at-start-on" }, "source": "temporary internet URL" });
+            if std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(dir.join(format!("{id}.json")), req.to_string())).is_err() { return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not save").into_response(); }
+            axum::Json(json!({ "ok": true })).into_response()
+        }
+        _ => (axum::http::StatusCode::NOT_FOUND, "start or stop").into_response(),
+    }
+}
+
 /// POST /api/reveal {"path": ...}: opens the system's file manager at a file in the home folder's outputs (Explorer with
 /// the file selected, Finder likewise, the folder elsewhere). Only for this computer, and only inside outputs/.
 async fn srv_reveal(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: axum::extract::Request) -> axum::response::Response {
@@ -994,6 +1028,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
         .route("/api/reveal", axum::routing::post(srv_reveal))
         .route("/api/use", axum::routing::post(srv_use))
+        .route("/api/tunnel", axum::routing::get(srv_tunnel)).route("/api/tunnel/:act", axum::routing::post(srv_tunnel_act))
         .route("/api/system", axum::routing::get(srv_system))
         .route("/favicon.ico", axum::routing::get(srv_brand)).route("/favicon.png", axum::routing::get(srv_brand)).route("/favicon-32.png", axum::routing::get(srv_brand))
         .route("/apple-touch-icon.png", axum::routing::get(srv_brand)).route("/brand/:file", axum::routing::get(srv_brand))

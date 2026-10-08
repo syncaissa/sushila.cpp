@@ -305,7 +305,7 @@ impl Window {
             for c in keyword_candidates(&args, &packs, mine.as_deref()) { if !cands.contains(&c) && cands.len() < 3 { cands.push(c); } }
         } else if cands.len() < 3 {
             let list: String = subcommands().iter().map(|(n, a)| format!("{n}: {}\n", a.lines().next().unwrap_or(""))).collect();
-            let extra = format!("The user typed this into the Sushila server window, but it is not a valid sushila command. Reply ONLY with 1 to 3 lines, each exactly \"CMD: sushila <command> <arguments>\", using only these commands and pack ids from the facts:\n{list}");
+            let extra = format!("The user typed this into the Sushila Engine window, but it is not a valid sushila command. Reply ONLY with 1 to 3 lines, each exactly \"CMD: sushila <command> <arguments>\", using only these commands and pack ids from the facts:\n{list}");
             eprintln!("(not a command; asking the assistant what you meant…)");
             if let Ok(v) = self.assistant(line, Some(&extra), false) { for c in parse_candidates(v["answer"].as_str().unwrap_or("")) { if !cands.contains(&c) && cands.len() < 3 { cands.push(c); } } }
         }
