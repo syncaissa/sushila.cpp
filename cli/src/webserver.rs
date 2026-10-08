@@ -238,6 +238,20 @@ async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
     with_cors_for(axum::Json(v).into_response(), &st, origin.as_deref())
 }
 
+/// GET /api/diagnose?pack=<id>: why that pack failed (GPU and RAM free, programs on the GPU, disk, its log, crashes),
+/// with advice; this computer only (it names programs and paths).
+async fn srv_diagnose(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>,
+                      headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) || caller(&headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    let pack = q.get("pack").cloned().unwrap_or_default();
+    if pack.is_empty() || !crate::core::safe_id_dots(&pack) { return (axum::http::StatusCode::BAD_REQUEST, "pack=<id>").into_response(); }
+    let dir = s.data_dir.clone();
+    let d = tokio::task::spawn_blocking(move || crate::diag::diagnose(&dir, &pack)).await.unwrap_or(Value::Null);
+    axum::Json(d).into_response()
+}
+
 /// GET /api/system (Admin): the health of this computer and of Sushila: GPU, CPU, memory, disk, engine, uptime, crashes.
 async fn srv_system(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
@@ -420,7 +434,8 @@ fn not_running_msg(st: &Value, id: &str, engine: Option<(bool, &Path)>) -> Strin
     let tail = last.map(|l| format!(" (its last log line: {l})")).unwrap_or_default();
     match engine {
         Some((true, _)) => format!("{name} is still loading. Wait until it shows as ready (Admin page, Packs; or the Sushila window), then try again{tail}."),
-        Some((false, _)) => format!("{name} is not running: its engine stopped{tail}. Start it again on the Admin page (Packs, Start), or type start {id} in the Sushila window; if it stops again, Admin page, Logs, Crashes says why (often: not enough GPU memory, so stop another model first)."),
+        // stopped: Sushila's own diagnosis (GPU and RAM free, programs on the GPU, its log), then how to start it again
+        Some((false, dir)) => format!("{name} is not running. {}{tail} Start it again on the Admin page (Packs, Start) or at the top of the Inference page.", crate::diag::one_line(&crate::diag::diagnose(dir, id))),
         None => format!("{name} is installed but not running, in Standard or Accelerated mode. Start it on the Admin page (Packs, Start), or type start {id} in the Sushila window, then choose it at the top of this page."),
     }
 }
@@ -832,6 +847,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/reveal", axum::routing::post(srv_reveal))
         .route("/api/use", axum::routing::post(srv_use))
         .route("/api/system", axum::routing::get(srv_system))
+        .route("/api/diagnose", axum::routing::get(srv_diagnose))
         .route("/api/shutdown", axum::routing::post(srv_shutdown))
         .route("/api/control", axum::routing::post(srv_control).options(srv_control))
         .route("/api/logs", axum::routing::get(srv_logs))

@@ -426,6 +426,7 @@ body{background:radial-gradient(1200px 600px at 10% -10%,var(--accbg),transparen
 #mdl{flex:1 1 auto;min-width:0;width:100%;max-width:none;font-size:15px;padding:9px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
 button.icon{font-size:17px;padding:6px 11px;line-height:1.2}
 #stopbtn,.top .pill{white-space:nowrap}
+.diag{margin-top:8px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink)}.diag ul{margin:4px 0 8px;padding-left:20px}
 .hero{text-align:center;padding:36px 10px 26px}.hero h2{margin:8px 0 4px;font-size:22px;font-weight:700}.heroicon{font-size:38px}
 #chatlog:has(.bubble) .hero{display:none}
 #srv{font-size:13px;padding:6px 10px;border-radius:10px;background:var(--bg);max-width:220px}
@@ -875,14 +876,20 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       }
       return null;
     }
-    // a broken connection or a lost job means the model's engine stopped or restarted: say that, in words
-    async function whatHappened(e, what) {
+    // a broken connection or a lost job means the model's engine stopped or restarted: Sushila finds out why (GPU and
+    // memory free, programs on the GPU, disk, the engine's log) and the message says it, with what to do
+    async function showProblem(box, e, what) {
       const m = String((e && e.message) || e);
-      if (!/Failed to fetch|NetworkError|Load failed|Job not found|not running|did not answer|503/.test(m) || !model) return m;
-      let r = null; try { const st = await (await fetch(base() + '/api/state')).json(); r = (st.running || []).find((x) => x.packId === model.packId); } catch (_) {}
-      const state = !r ? 'It is not running now: start it again at the top of this page.' : !r.ready ? 'Sushila is restarting it now; try again when it shows as running.' : 'It runs again now; try again.';
-      return model.name + ' stopped while ' + what + ', so this result was lost. ' + state
-        + ' Often the reason is GPU memory (another program, or a shorter or smaller request helps); the reason is in Admin, Full log.';
+      box.className = 'msg err';
+      if (!/Failed to fetch|NetworkError|Load failed|Job not found|not running|did not answer|stopped|503|500/.test(m) || !model) { box.textContent = m; return; }
+      let r = null, d = null;
+      try { const st = await (await fetch(base() + '/api/state')).json(); r = (st.running || []).find((x) => x.packId === model.packId); } catch (_) {}
+      if (!server) { try { const x = await fetch(base() + '/api/diagnose?pack=' + encodeURIComponent(model.packId), { headers: auth() }); if (x.ok) d = await x.json(); } catch (_) {} }
+      const now = !r ? 'It is not running now: start it again at the top of this page.' : !r.ready ? 'Sushila is restarting it now; try again when it shows as running.' : 'It runs again now; you can try again.';
+      box.replaceChildren(el('div', {}, el('b', {}, model.name + ' stopped while ' + what + ', so this result was lost. ')), el('div', {}, now),
+        d ? el('div', { class: 'diag' }, el('div', {}, el('b', {}, 'Why: '), d.verdict + '.'),
+          el('ul', {}, ...(d.facts || []).map((f) => el('li', {}, f))), el('div', {}, el('b', {}, 'What to do: ')), el('ul', {}, ...(d.advice || []).map((a) => el('li', {}, a))))
+          : el('div', { class: 'sub' }, 'Details: Admin, Full log.'));
     }
     async function makeMusic() {
       const style = $('mstyle').value.trim(); let lyrics = $('mlyrics').value.trim();
@@ -902,7 +909,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         $('tracks').prepend(el('div', { class: 'track' }, el('b', {}, style), el('div', { class: 'meta' }, `made in ${secs} s` + (lyrics && lyrics !== '[Instrumental]' ? ' · with your lyrics' : '')),
           el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-song.mp3', class: 'dlbtn' }, '⬇ Download')));
         $('mmsg').textContent = `Done in ${secs} s.`;
-      } catch (e) { $('mmsg').className = 'msg err'; $('mmsg').textContent = await whatHappened(e, 'making your song'); }
+      } catch (e) { await showProblem($('mmsg'), e, 'making your song'); }
       finally { $('mgo').disabled = false; }
     }
 
@@ -958,7 +965,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         for (const { src, file } of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
           el('a', { href: src, download: file ? file.split(/[\\/]/).pop() : 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'), file ? ' ' : null, file ? savedAt(file) : null)));
         $('imsg').textContent = `${imgs.length} image${imgs.length > 1 ? 's' : ''} in ${secs} s`;
-      } catch (e) { $('imsg').className = 'msg err'; $('imsg').textContent = await whatHappened(e, 'making your picture'); }
+      } catch (e) { await showProblem($('imsg'), e, 'making your picture'); }
       finally { $('igo').disabled = false; }
     }
 

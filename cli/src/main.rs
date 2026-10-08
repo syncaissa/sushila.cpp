@@ -22,6 +22,7 @@ mod assistant;
 mod window;
 mod ticker;
 mod tui;
+mod diag;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -1019,6 +1020,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                             Ok(()) => { let _ = ctx.model_ready(&id); webserver::mark_idle(&id, false); if let Some(t) = t { o.finish(&t, &Ok(())); } }
                             Err(e) => {
                                 ctx.log(&format!("{e}")); ctx.model_failed(&id).await;
+                                ctx.log(&format!("why: {}", diag::one_line(&diag::diagnose(&ctx.data, &id))));
                                 if let Some(next) = ctx.fallback_for(&id, &e).await {
                                     match ctx.install_engine(Some(next)).await { Ok(()) => { let _ = o.start(ctx, &id, None, t.clone()).await; } Err(e2) => { if let Some(t) = t { o.finish(&t, &Err(e2)); } } }
                                 } else if let Some(t) = t { o.finish(&t, &Err(e)); }
@@ -1152,6 +1154,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             let why = core::exit_reason(status);
             ctx.log(&format!("{id} stopped unexpectedly{}; {}{} (see {})", if why.is_empty() { " (killed)".to_string() } else { why },
                 if again { "restarting it" } else { "not restarted: 3 crashes in 10 minutes" }, last.map(|l| format!("; its last line: {l}")).unwrap_or_default(), log.display()));
+            ctx.log(&format!("why: {}", diag::one_line(&diag::diagnose(&ctx.data, &id))));
             ctx.stop_model(&id).await;
             if again { if let Err(e) = o.start(ctx, &id, mode.as_deref(), None).await { ctx.log(&format!("{id}: {e}")); } }
         }

@@ -1,0 +1,44 @@
+poll: {"error":"Job not found"}
+== terminal:
+[04:47:17] why: ACE-Step 1.5 (songs from lyrics and a style) ran out of GPU memory (GPU: NVIDIA GeForce RTX 3090 with 7.0 of 24.0 GB free; Programs using the GPU now: another program (17.0 GB); Memory (RAM): 974.7 of 1082.0 GB free). Close other programs that use the GPU (games, video editors, browsers with many tabs), then try again.
+== /api/diagnose (what the page shows):
+Why: ACE-Step 1.5 (songs from lyrics and a style) ran out of GPU memory
+ - GPU: NVIDIA GeForce RTX 3090 with 7.0 of 24.0 GB free
+ - Programs using the GPU now: another program (17.0 GB)
+ - Memory (RAM): 974.6 of 1082.0 GB free
+ - Disk with the home folder: 30.6 GB free
+ - ACE-Step 1.5 (songs from lyrics and a style) is running again now
+ - Its last stop: exit code 1 (2026-10-08 04:47:17); 2 kept in total
+ - Its last log lines: [Server] Listening on 127.0.0.1:8766 | [Server] Pipelines: /lm /synth /understand | [Server] Models: 1 LM, 1 Text-Enc, 1 DiT, 1 VAE, 0 Adapter
+What to do:
+ - Close other programs that use the GPU (games, video editors, browsers with many tabs), then try again.
+ - Make less at once: a smaller picture size, fewer pictures, or a shorter song or video.
+[04:49:27] ace-step-15: each ACE-Step model loads for its own step (7.0 GB of GPU memory free; keeping all loaded needs about 19 GB)
+/lm: {"error":"Job not found"}
+song 30 s:
+  /lm done 5s
+  /synth done 4s
+   659773 bytes
+song 180 s:
+  /lm done 11s
+  /synth done 5s
+   24 bytes
+peak GPU memory incl. the 17 GB other program: 23609 MiB of 24576
+ggml_backend_cuda_buffer_type_alloc_buffer: allocating 6300.00 MiB on device 0: cudaMalloc failed: out of memory
+[VAE] FATAL: graph alloc failed for T=960
+[VAE] FATAL: tile 0 decode failed
+song 180 s:
+  /lm done 11s
+  /synth done 11s
+   4032189 bytes
+song 240 s:
+  /lm done 13s
+  /synth done 13s
+   5376189 bytes
+peak GPU memory incl. the 17 GB other program: 23361 MiB of 24576
+    Finished `release` profile [optimized] target(s) in 56.56s
+[04:53:18] ace-step-15: each ACE-Step model loads for its own step (7.0 GB of GPU memory free; keeping all loaded needs about 19 GB)
+[04:53:18] starting ace-step-15 (Accelerated, 1 parallel slot) on port 8766: /root/it/home/engine/0.1.1/sushila-ace-server --models /root/it/home/model-packs/ace-step-15 --host 127.0.0.1 --port 8766 --max-seq 4096 --vae-chunk 256 --fast-sampler
+  /lm done 11s
+  /synth done 11s
+PRODUCT PATH: 3-min song OK with 17 GB taken by another program

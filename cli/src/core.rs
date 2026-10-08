@@ -650,8 +650,16 @@ impl Ctx {
         }
         // music: keeping every ACE-Step model on the GPU between songs needs about 16 GB (measured on an RTX 3090: 16.0 GB
         // with --keep-loaded, 7.1 GB without, the same 9 s for a 30 s song); only GPUs of about 20 GB or more keep them
-        let keep_loaded: Vec<String> = if engine == "music" && self.gpu_room_for(&json!({ "bytes": 13e9 })).await { vec!["--keep-loaded".into()] } else { vec![] };
-        if engine == "music" && keep_loaded.is_empty() { self.log(&format!("{id}: each ACE-Step model loads for its own step (this GPU has less than about 20 GB)")); }
+        // decided on the memory free now (other programs may hold some), not the card's size
+        let free_gb = if engine == "music" { crate::diag::gpu().map(|g| g["totalGB"].as_f64().unwrap_or(0.0) - g["usedGB"].as_f64().unwrap_or(0.0)) } else { None };
+        let keep = engine == "music" && match free_gb { Some(f) => f >= 19.0, None => self.gpu_room_for(&json!({ "bytes": 13e9 })).await };
+        // with little GPU memory free (an 8 GB laptop GPU, or other programs holding some): a smaller LM buffer (4,096 tokens
+        // still hold a 4-minute song) and smaller audio-decoding tiles. Measured on an RTX 3090 with 17 GB taken by another
+        // program (7 GB free): 30 s, 3 min and 4 min songs all finish, at most 5.9 GB used; with the defaults they fail
+        let small = engine == "music" && free_gb.map(|f| f < 12.0).unwrap_or(!keep);
+        let keep_loaded: Vec<String> = if keep { vec!["--keep-loaded".into()] }
+            else if small { ["--max-seq", "4096", "--vae-chunk", "256"].iter().map(|x| x.to_string()).collect() } else { vec![] };
+        if engine == "music" && !keep { self.log(&format!("{id}: each ACE-Step model loads for its own step ({} of GPU memory free; keeping all loaded needs about 19 GB)", free_gb.map(|f| format!("{f:.1} GB")).unwrap_or("less than 20 GB".into()))); }
         let rt = self.state["runtimes"]["image-nunchaku"].clone();
         let servers = self.state["engine"]["servers"].clone();
         let cpu = self.cpu_only.contains(id);  // a pack asked to run on the CPU (none by default)
