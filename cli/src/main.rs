@@ -3,7 +3,7 @@
 //   sushila engine install            Sushila.cpp for this computer's GPU (CUDA, Vulkan, Metal; CPU only as a fallback)
 //   sushila packs                     the model packs in the catalog (installed ones marked)
 //   sushila install <pack>|<file>     download (or take a .sushilapack file), check the Sushila signature and every sha256
-//   sushila serve [<pack>...]         the inference page + OpenAI-compatible API on http://127.0.0.1:8765, models, the queue
+//   sushila serve [<pack>...]         the inference page + OpenAI-compatible API on http://127.0.0.1:7874, models, the queue
 //   sushila run <pack> "<prompt>"     one answer, picture, video or song, printed or saved (for scripts and tests)
 //   sushila status | stop | list | verify | remove <pack> | service install | selftest
 //   sushila doctor | bench | chat | assistant | search | show | ps | top | ...   (sushila --help lists them; cmds.rs)
@@ -23,6 +23,7 @@ mod window;
 mod ticker;
 mod tui;
 mod diag;
+mod library;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -32,7 +33,7 @@ use crate::util::*;
 
 #[derive(Parser)]
 #[command(name = "sushila", version, about = "Sushila.cpp from the command line: the same commands on Windows, macOS and Linux",
-          after_help = "Examples:\n  sushila install qwen3-4b-instruct-2507\n  sushila serve                      # then open http://127.0.0.1:8765\n  sushila run qwen2.5-0.5b-q4km \"Write a haiku about GPUs\"\n  sushila selftest                   # engine + smallest model + one answer: exit code 0 = works")]
+          after_help = "Examples:\n  sushila install qwen3-4b-instruct-2507\n  sushila serve                      # then open http://127.0.0.1:7874\n  sushila run qwen2.5-0.5b-q4km \"Write a haiku about GPUs\"\n  sushila selftest                   # engine + smallest model + one answer: exit code 0 = works")]
 struct Cli {
     /// Use this home folder for this command (default: the remembered home, see `sushila home`; or $SUSHILA_HOME)
     #[arg(long, global = true)]
@@ -352,7 +353,7 @@ fn out(json_mode: bool, v: Value, text: impl FnOnce() -> String) {
 
 /// The running server on this computer (the owner), if any: its port.
 async fn owner_port(ctx: &Ctx) -> Option<u16> {
-    let port = ctx.setting("port").as_u64().unwrap_or(8765) as u16;
+    let port = ctx.setting("port").as_u64().unwrap_or(7874) as u16;
     http_text(&format!("http://127.0.0.1:{port}/api/state"), 2).await.ok().map(|_| port)
 }
 /// Sends a request to the owner and follows it to the end (progress on stderr). The same path the page's Admin tab uses.
@@ -498,7 +499,7 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
                 let up = http_text(&format!("http://127.0.0.1:{port}/health"), 2).await.is_ok() || http_text(&format!("http://127.0.0.1:{port}/"), 2).await.is_ok();
                 running.push(json!({ "id": id, "port": port, "mode": r["mode"], "up": up }));
             }
-            let port = ctx.setting("port").as_u64().unwrap_or(8765);
+            let port = ctx.setting("port").as_u64().unwrap_or(7874);
             let serving = http_text(&format!("http://127.0.0.1:{port}/api/state"), 2).await.is_ok();
             let v = json!({ "engine": st["engine"], "packs": ctx.packs().keys().collect::<Vec<_>>(), "running": running, "serving": serving, "page": format!("http://127.0.0.1:{port}/"), "dataDir": ctx.data.to_string_lossy() });
             out(j, v.clone(), || format!("engine:  {}\npacks:   {}\nserving: {}\nrunning: {}",
@@ -516,14 +517,14 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             if *follow { let mut off = text.len(); loop { tokio::time::sleep(Duration::from_millis(500)).await; let t = std::fs::read(&p).unwrap_or_default(); if t.len() > off { print!("{}", String::from_utf8_lossy(&t[off..])); off = t.len(); } else if t.len() < off { off = 0; } } }
         }
         Cmd::Stop { pack: None } => {
-            let port = ctx.setting("port").as_u64().unwrap_or(8765);
+            let port = ctx.setting("port").as_u64().unwrap_or(7874);
             let token = ctx.state["token"].as_str().unwrap_or("").to_string();
             let r = reqwest::Client::new().post(format!("http://127.0.0.1:{port}/api/shutdown")).header("x-sushila-token", token).header("x-sushila-admin", webserver::cli_token(&ctx.data)).send().await;
             match r { Ok(r) if r.status().is_success() => out(j, json!({ "ok": true }), || "stopping sushila serve".into()),
                       _ => { std::fs::write(ctx.data.join("shutdown-request.json"), "{}").map_err(err)?; out(j, json!({ "ok": true, "note": "no server answered; a stop request was left for it" }), || "no server answered on this computer".into()) } }
         }
         Cmd::Url => {
-            let port = ctx.setting("port").as_u64().unwrap_or(8765);
+            let port = ctx.setting("port").as_u64().unwrap_or(7874);
             ctx.save()?;
             let network = ctx.state["share"]["enabled"].as_bool().unwrap_or(false);
             let u = urls(port as u16, network);
@@ -706,7 +707,7 @@ fn service(ctx: &mut Ctx, act: &ServiceCmd, j: bool) -> Result<(), String> {
 // Host Station and the sushila commands ask it through /api/control. Every step goes to logs/sushila.log.
 /// Asks for the Admin tab's password in the terminal (twice, not shown) and saves its hash.
 fn ask_password(ctx: &Ctx, change: bool) -> Result<(), String> {
-    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) { return Err("no terminal to ask in: set it on the Admin tab of http://localhost:8765/ instead".into()); }
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) { return Err("no terminal to ask in: set it on the Admin tab of http://localhost:7874/ instead".into()); }
     eprintln!("{} the admin password for the Admin tab of the web page (at least 8 characters).\nLost it later? Delete {} and restart: it is asked again.",
         if change { "Choose" } else { "First start: choose" }, ctx.data.join("adminpassword").display());
     for _ in 0..3 {
@@ -917,7 +918,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     if lock.try_lock().is_err() { return Err("another `sushila serve` already owns this home folder: `sushila status`".into()); }
     if !ctx.engine_ok() { ctx.install_engine(None).await?; }
     if let Some(p) = port { ctx.state["settings"]["port"] = json!(p); }
-    let port = ctx.setting("port").as_u64().unwrap_or(8765) as u16;
+    let port = ctx.setting("port").as_u64().unwrap_or(7874) as u16;
     // `sushila share on` remembers serving on the network (share.listen; share.open: without keys)
     let listen = host.is_none() && ctx.state["share"]["listen"] == true;
     let open = open || (listen && ctx.state["share"]["open"] == true);
@@ -1058,8 +1059,11 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                         if current.as_ref().map(|c| c.0 == jid).unwrap_or(false) {
                             let (_, _, t0) = current.take().unwrap();
                             if let Some(jb) = q["jobs"].as_array_mut().unwrap().iter_mut().find(|x| x["id"] == jid.as_str()) {
+                                // the result is marked as AI-made (library::mark_ai) with the job's model and prompt
+                                let mark_pack = jb["model"].as_str().unwrap_or("").to_string();
+                                let mark_prompt = jb["params"]["prompt"].as_str().or(jb["params"]["style"].as_str()).or(jb["title"].as_str()).unwrap_or("").to_string();
                                 match res.and_then(|o2| { let file = format!("{jid}.{}", o2.ext); std::fs::create_dir_all(ctx.data.join("outputs")).map_err(err)?;
-                                                          std::fs::write(ctx.data.join("outputs").join(&file), &o2.bytes).map_err(err)?; Ok(json!({ "file": file, "mime": o2.mime, "bytes": o2.bytes.len() })) }) {
+                                                          std::fs::write(ctx.data.join("outputs").join(&file), library::mark_ai(&o2.bytes, &o2.ext, &mark_pack, &mark_prompt)).map_err(err)?; Ok(json!({ "file": file, "mime": o2.mime, "bytes": o2.bytes.len() })) }) {
                                     Ok(outv) => { jb["output"] = outv; jb["status"] = json!("ready"); jb["progress"] = json!(format!("ready in {} s", t0.elapsed().as_secs()));
                                                   ctx.log(&format!("queue: {} is ready", jb["title"].as_str().filter(|t| !t.is_empty()).unwrap_or(jb["kind"].as_str().unwrap_or("job")))); }
                                     Err(e) => { jb["status"] = json!("failed"); jb["error"] = json!(e.chars().take(300).collect::<String>()); jb["progress"] = json!(""); ctx.log(&format!("queue: job failed: {e}")); }

@@ -13,8 +13,8 @@ downloads of the engine and model packs from files.sushila.ai.
 
 ## First start
 Double-click `sushila` (or run `sushila serve`). A terminal window opens and prints the addresses:
-Inference http://localhost:8765/, Admin http://localhost:8765/admin (this computer only), Documentation
-http://localhost:8765/docs, API http://localhost:8765/v1, and the home folder. On the first start it asks for an Admin
+Inference http://localhost:7874/, Admin http://localhost:7874/admin (this computer only), Documentation
+http://localhost:7874/docs, API http://localhost:7874/v1, and the home folder. On the first start it asks for an Admin
 password, downloads the engine for your GPU, installs a default chat model and opens your browser. The default model
 depends on the computer: Qwen3 4B (`qwen3-4b-instruct-2507`, about 2.5 GB) with an NVIDIA GPU of 8 GB or more, another
 GPU reporting 8 GB or more, a Mac with Apple silicon and 16 GB or more, or no GPU but 16 GB of memory or more (and
@@ -47,7 +47,7 @@ restart; start it with `sushila start <pack>` or on the Admin tab.
 ## Using Sushila from a phone or another computer
 1. `sushila share on` (or start with `sushila serve --public`), then restart the server: `sushila stop`, then
 `sushila serve`. 2. Make an access key for the phone: `sushila keys add phone` (it is shown once). 3. `sushila share qr`
-prints a QR code of this computer's address (for example http://192.168.1.20:8765/); open it on the phone, which must
+prints a QR code of this computer's address (for example http://192.168.1.20:7874/); open it on the phone, which must
 be on the same network, and enter the key once. If the phone cannot connect, a firewall may block the port:
 `sushila doctor` prints the command to open it. `sushila share on --open` needs no key (trusted networks only);
 `sushila share off` stops sharing. The Admin tab is never available from other machines. For the internet use HTTPS:
@@ -102,7 +102,7 @@ lossy (measured similarity about 0.93-0.98 to Standard); choose Standard if you 
 the Inference page lists each pack in both modes, e.g. "Z-Image-Turbo (Accelerated)"; or `sushila mode <pack> standard|accelerated`.
 
 ## The Inference page and running models
-The Inference page (http://localhost:8765/) has one model picker: every installed pack, once per mode, with what it
+The Inference page (http://localhost:7874/) has one model picker: every installed pack, once per mode, with what it
 does (Chat, Code, Image, Music, Video) and whether it runs. Choosing one that is stopped asks first and starts it; ■ Stop
 stops it. Chips by kind (Chat, Image, ...) jump to that kind. One model pack runs at a time: starting one stops the
 others, on the page, the Admin page and with `sushila start` alike (all show the same state). The terminal and Ask
@@ -128,16 +128,23 @@ fit. `sushila selftest` checks the whole chain and fails if a GPU is present but
 "25/25 layers on the GPU"). `sushila doctor` checks drivers, disk, ports and signatures and prints fixes.
 
 ## The Admin tab and security
-The Admin page (http://localhost:8765/admin) installs and removes packs, updates the engine, shows the queue, logs and
+The Admin page (http://localhost:7874/admin) installs and removes packs, updates the engine, shows the queue, logs and
 crashes, and changes settings. It works only on this computer and needs the Admin password, stored as a hash. Change
 it with `sushila password` (asks the current one); lost it? run `sushila password --reset` in a terminal on this
 computer. Other machines can use the Inference page and API only when you share the server (`sushila serve --public`
 or `sushila share on`) and give them an access key (`sushila keys add <name>`).
 
 ## Using the API
-The API is OpenAI-compatible at http://localhost:8765/v1 (chat completions, completions, images, models). On this
+The API is OpenAI-compatible at http://localhost:7874/v1 (chat completions, completions, images, models). On this
 computer the page's token is used automatically; from other machines send `Authorization: Bearer <key>`.
 `sushila example <pack> curl|python|js` prints a working snippet.
+
+## Making songs
+On the Inference page pick the music pack (ACE-Step), write lyrics (or leave them empty for an instrumental), describe
+the style and choose a length: 30 seconds to 5 minutes in half-minute steps, or Auto, which estimates the length from
+the lyrics (about 1.6 sung words a second, plus an intro, an outro and short breaks between [Verse], [Chorus] ...
+sections; no lyrics: 1 minute) and shows the estimate. On GPUs with little free memory (8 GB laptop GPUs) Sushila starts
+the music engine with smaller working buffers, so long songs still fit.
 
 ## Long jobs and the queue
 Videos and long songs run in a background queue, one job at a time. Close the browser and come back later; finished
@@ -158,7 +165,7 @@ removes the background service and the home pointer; `--all` also deletes the ho
 `sushila service remove` undoes it.
 
 ## Common problems
-Port 8765 busy: another Sushila is running (`sushila status`) or another program uses the port (`sushila serve --port
+Port 7874 busy: another Sushila is running (`sushila status`) or another program uses the port (`sushila serve --port
 8800`). Slow or "0 layers on GPU": update the graphics driver, then `sushila engine install` and `sushila selftest`.
 Model does not start: not enough memory; pick a smaller pack or close other GPU programs. macOS says the program
 cannot be opened: right-click it and choose Open once (the program is not yet notarized by Apple). Windows SmartScreen:

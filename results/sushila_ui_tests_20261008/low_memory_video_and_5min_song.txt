@@ -1,0 +1,13 @@
+GPU used by the other program: 16427 MiB, 24564 MiB
+[08:46:53] serving on http://127.0.0.1:7874 (data /root/v/home)
+[08:47:01] wan2.2-ti2v-5b is ready on port 7875
+port 7874
+video job job_6ac75886_00000000
+video OK 49 frames
+video took 210 s; peak GPU (incl. the other program): 22753 MiB
+[08:50:38] starting ace-step-15 (Accelerated, 1 parallel slot) on port 7876: /root/m/home/engine/0.1.1/sushila-ace-server --models /root/m/home/model-packs/ace-step-15 --host 127.0.0.1 --port 7876 --max-seq 4096 --vae-chunk 256 --fast-sampler
+  /lm done 18s
+  /synth done 24s
+5-min song OK: 6711485 bytes
+peak GPU (incl. the other program): 22283 MiB
+VTEST_DONE

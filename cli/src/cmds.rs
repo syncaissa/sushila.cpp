@@ -408,7 +408,7 @@ async fn doctor(ctx: &mut Ctx, j: bool) -> Result<(), String> {
     match std::fs::write(&probe, "x") { Ok(()) => { let _ = std::fs::remove_file(&probe); add("OK", "home folder", format!("{} is writable", ctx.data.display()), ""); }
         Err(e) => add("FAIL", "home folder", format!("{} is not writable: {e}", ctx.data.display()), "sushila home <a folder you own>") }
     // port
-    let port = ctx.setting("port").as_u64().unwrap_or(8765) as u16;
+    let port = ctx.setting("port").as_u64().unwrap_or(7874) as u16;
     if owner_port(ctx).await.is_some() { add("OK", "port", format!("{port}: this Sushila's server answers"), ""); }
     else if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() { add("OK", "port", format!("{port} is free"), ""); }
     else { add("FAIL", "port", format!("{port} is used by another program"), "sushila config set port 8800   (or sushila serve --port 8800)"); }
@@ -836,7 +836,7 @@ async fn search(ctx: &mut Ctx, text: Option<&str>, kind: Option<&str>, fits: boo
 
 // 14 open
 async fn open(ctx: &mut Ctx, page: Option<&str>, j: bool) -> Result<(), String> {
-    let port = ctx.setting("port").as_u64().unwrap_or(8765);
+    let port = ctx.setting("port").as_u64().unwrap_or(7874);
     let path = match page { None | Some("inference") | Some("use") => "/", Some("admin") => "/admin", Some("docs") => "/docs", Some("assistant") => "/#assistant", Some(o) => return Err(format!("unknown page {o}: open, open admin, open docs, open assistant")) };
     let url = format!("http://localhost:{port}{path}");
     let up = owner_port(ctx).await.is_some();
@@ -850,7 +850,7 @@ fn example(ctx: &Ctx, pack: &str, lang: Option<&str>, j: bool) -> Result<(), Str
     let p = pack_rec(ctx, pack)?;
     let lang = lang.unwrap_or("curl");
     if !["curl", "python", "js"].contains(&lang) { return Err("curl, python or js".into()); }
-    let port = ctx.setting("port").as_u64().unwrap_or(8765);
+    let port = ctx.setting("port").as_u64().unwrap_or(7874);
     let here = snippet(lang, &format!("http://localhost:{port}"), pack, &kind_of(&p), ("x-sushila-token", &token(ctx)));
     let lan = crate::local_ip().unwrap_or("<this computer's address>".into());
     let there = snippet(lang, &format!("http://{lan}:{port}"), pack, &kind_of(&p), ("Authorization", "Bearer <access key from: sushila keys add <name>>"));
@@ -1044,7 +1044,7 @@ async fn watch(ctx: &mut Ctx, folder: &Path, pack: Option<String>, once: bool, j
 
 // 24 share
 async fn share(ctx: &mut Ctx, act: &crate::ShareCmd, j: bool) -> Result<(), String> {
-    let port = ctx.setting("port").as_u64().unwrap_or(8765);
+    let port = ctx.setting("port").as_u64().unwrap_or(7874);
     let lan = crate::local_ip().map(|ip| format!("http://{ip}:{port}/"));
     let serving = owner_port(ctx).await.is_some();
     match act {
@@ -1305,7 +1305,7 @@ fn walk(d: &Path) -> Vec<PathBuf> { let mut v = vec![]; for e in std::fs::read_d
 async fn https(ctx: &mut Ctx, domain: &str, j: bool) -> Result<(), String> {
     let d = domain.trim().to_ascii_lowercase();
     if d.is_empty() || !d.contains('.') || !d.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') { return Err("give a domain name, e.g. ai.example.com".into()); }
-    let port = ctx.setting("port").as_u64().unwrap_or(8765);
+    let port = ctx.setting("port").as_u64().unwrap_or(7874);
     let dir = ctx.data.join("https"); std::fs::create_dir_all(&dir).map_err(err)?;
     let file = dir.join("Caddyfile");
     // the Host header is passed on as is (never rewritten to localhost: that would hand the page's local token to the internet)
@@ -1365,7 +1365,7 @@ async fn assistant(ctx: &mut Ctx, question: Option<String>, j: bool) -> Result<(
     let gpu = ctx.nvidia_gpu().await; let other = ctx.other_gpu().await;
     let mut cat = read_json(&ctx.data.join("catalog-cache.json")).unwrap_or(Value::Null);
     if !cat["packs"].is_array() && ctx.write_catalog_cache().await.is_ok() { cat = read_json(&ctx.data.join("catalog-cache.json")).unwrap_or(Value::Null); }
-    let port = ctx.setting("port").as_u64().unwrap_or(8765);
+    let port = ctx.setting("port").as_u64().unwrap_or(7874);
     let st = ctx.state.clone();
     let facts = crate::assistant::live_facts(&st, &cat, &gpu, &other, &ctx.info, port, true, &ctx.data.to_string_lossy());
     let pack = default_text_pack(ctx).await;
@@ -1409,14 +1409,14 @@ mod tests {
     use super::*;
     #[test] fn iso_roundtrip() { let t = now_iso(); let s = iso_secs(&t).unwrap(); assert!(now_secs().abs_diff(s) < 5); assert_eq!(iso_secs("1970-01-02T00:00:01Z"), Some(86401)); }
     #[test] fn snippets() {
-        let c = snippet("curl", "http://localhost:8765", "qwen", "text", ("x-sushila-token", "abc"));
-        assert!(c.contains("http://localhost:8765/v1/chat/completions") && c.contains("x-sushila-token: abc") && c.contains("\"model\":\"qwen\""));
-        let p = snippet("python", "http://10.0.0.2:8765", "qwen", "text", ("Authorization", "Bearer sk-1"));
-        assert!(p.contains("base_url=\"http://10.0.0.2:8765/v1\"") && p.contains("api_key=\"sk-1\""));
+        let c = snippet("curl", "http://localhost:7874", "qwen", "text", ("x-sushila-token", "abc"));
+        assert!(c.contains("http://localhost:7874/v1/chat/completions") && c.contains("x-sushila-token: abc") && c.contains("\"model\":\"qwen\""));
+        let p = snippet("python", "http://10.0.0.2:7874", "qwen", "text", ("Authorization", "Bearer sk-1"));
+        assert!(p.contains("base_url=\"http://10.0.0.2:7874/v1\"") && p.contains("api_key=\"sk-1\""));
         assert!(snippet("js", "http://h:1", "z", "image", ("a", "b")).contains("/v1/images/generations"));
         assert!(snippet("curl", "http://h:1", "w", "video", ("a", "b")).contains("/api/queue"));
     }
-    #[test] fn qr() { let q = qr_text("http://192.168.1.20:8765/").unwrap(); let lines: Vec<&str> = q.lines().collect(); assert!(lines.len() >= 12 && lines.iter().all(|l| l.chars().count() == lines[0].chars().count())); }
+    #[test] fn qr() { let q = qr_text("http://192.168.1.20:7874/").unwrap(); let lines: Vec<&str> = q.lines().collect(); assert!(lines.len() >= 12 && lines.iter().all(|l| l.chars().count() == lines[0].chars().count())); }
     #[test] fn settings_validated() {
         assert_eq!(parse_setting("ticker", "off").unwrap(), json!("off")); assert!(parse_setting("ticker", "maybe").is_err());
         assert_eq!(parse_setting("port", "8800").unwrap(), json!(8800)); assert!(parse_setting("port", "0").is_err()); assert!(parse_setting("nope", "1").is_err());

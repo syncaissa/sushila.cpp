@@ -4,11 +4,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let fails = 0; const ok = (c, w) => { console.log((c ? 'ok   ' : 'FAIL ') + w); if (!c) fails++; };
 const state = { app: 'sushila', appVersion: '0.1.1', engine: { version: '0.1.1' }, gpu: 'NVIDIA GPU (CUDA)', running: [{ packId: 'qwen2.5-0.5b-q4km', name: 'Qwen 0.5B', kind: 'text', mode: 'turbo', ready: true, turbo: true }],
   packs: [{ id: 'qwen2.5-0.5b-q4km', name: 'Qwen 0.5B', kind: 'text', turbo: true, bytes: 535e6 }], tasks: [{ id: 'task-1', action: 'install', target: 'qwen3-4b', source: 'cli', status: 'running', label: 'file 1 of 1', done: 1e9, total: 2.5e9, started: '2026-10-06T23:00:00Z' }],
-  settings: { port: 8765, threads: 0, contextSize: 4096, gpuLayers: -1, parallel: 1 }, share: { enabled: false, keys: 0 }, owner: { since: '2026-10-06T22:00:00Z' } };
+  settings: { port: 7874, threads: 0, contextSize: 4096, gpuLayers: -1, parallel: 1 }, share: { enabled: false, keys: 0 }, owner: { since: '2026-10-06T22:00:00Z' } };
 const catalog = { packs: [{ id: 'qwen2.5-0.5b-q4km', name: 'Qwen 0.5B', kind: 'text', bytes: 535e6, fits: true }, { id: 'qwen3-4b', name: 'Qwen3 4B', kind: 'text', bytes: 2.5e9, fits: true }, { id: 'z-nv', name: 'Z NVIDIA', kind: 'image', bytes: 9e9, fits: false }] };
 async function page(token, hash, search = '', adm = { passwordSet: true, loggedIn: true, allowed: true }) {
   const sent = []; const A = Object.assign({}, adm);
-  const w = new JSDOM('<!doctype html><div id="app"></div>', { url: 'http://localhost:8765/' + search + hash, runScripts: 'outside-only', pretendToBeVisual: true }).window;
+  const w = new JSDOM('<!doctype html><div id="app"></div>', { url: 'http://localhost:7874/' + search + hash, runScripts: 'outside-only', pretendToBeVisual: true }).window;
   if (token) w.SUSHILA_TOKEN = token;
   w.confirm = () => true;
   w.fetch = async (u, o = {}) => { u = String(u); if (o.method === 'POST') sent.push({ u, body: o.body, h: o.headers });
@@ -16,6 +16,12 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
     if (u.includes('/api/admin/setup') || u.includes('/api/admin/login')) { const pw = JSON.parse(o.body).password; if (pw !== 'correct horse') return { ok: false, status: 401, json: async () => ({}), text: async () => 'wrong password' }; A.passwordSet = true; A.loggedIn = true; return { ok: true, status: 200, json: async () => ({ session: 's'.repeat(48) }), text: async () => '' }; }
     if (u.includes('/api/assistant') && JSON.parse(o.body).question === 'quote me') return { ok: true, status: 200, json: async () => ({ mode: 'quote', model: 'qwen2.5-0.5b-q4km', answer: '…', quotes: [{ title: 'The Admin tab and security', source: 'notes', text: 'lost it? run sushila password --reset' }], commands: ['sushila password --reset'], hint: 'For fuller answers install a bigger chat model, e.g. `sushila install qwen3-4b-instruct-2507` (needs about 3 GB).', sources: [] }), text: async () => '' };
     if (u.includes('/api/assistant')) { const b = JSON.parse(o.body); return { ok: true, status: 200, json: async () => ({ answer: 'Run sushila install qwen2.5-coder-7b (' + b.history.length + ')', model: 'qwen2.5-0.5b-q4km', sources: [{ title: 'Installing a model', source: 'notes' }] }), text: async () => '' }; }
+    if (u.includes('/api/library') && !u.includes('/api/library/')) { const lb = { folder: '/home/me/sushila/outputs', items: [
+        { rel: 'images/2026-10-08/101500-a-red-fox.png', path: '/home/me/sushila/outputs/images/2026-10-08/101500-a-red-fox.png', name: '101500-a-red-fox.png', kind: 'image', bytes: 2e6, created: '2026-10-08T10:15:00Z', pack: 'z-image-turbo', prompt: 'a red fox in the snow', size: '1024x1024', seed: 7 },
+        { rel: 'music/2026-10-08/101700-summer-pop.mp3', path: '/home/me/sushila/outputs/music/2026-10-08/101700-summer-pop.mp3', name: '101700-summer-pop.mp3', kind: 'music', bytes: 4e6, created: '2026-10-08T10:17:00Z', pack: 'ace-step-15', prompt: 'summer pop, guitar', lyrics: '[Verse] sunlight on my face', duration: 120 }],
+        trash: [{ rel: 'video/old.webm', path: '/x/.trash/video/old.webm', name: 'old.webm', kind: 'video', bytes: 9e6, deleted: '2026-10-08T09:00:00Z', trash: true }] };
+      return { ok: true, status: 200, json: async () => lb, text: async () => JSON.stringify(lb) }; }
+    if (u.includes('/api/library/')) return { ok: true, status: 200, json: async () => ({ ok: true }), text: async () => '{}' };
     if (u.includes('/api/system')) { const sy = { gpu: { name: 'NVIDIA GeForce RTX 3070 Laptop GPU', memTotalGB: 8, memUsedGB: 3.1, utilPct: 4, driver: '581.29', tempC: 51 }, cpu: { name: 'Intel Core i7', cores: 16 }, ram: { totalGB: 16, freeGB: 7.5 }, disk: { mount: 'C:\\', freeGB: 210, totalGB: 950 }, home: 'C:\\Users\\me\\AppData\\Roaming\\ai.sushila.hoststation', os: 'windows x86_64', engine: { version: '0.1.1', key: 'windows-x86_64-cuda', gpuBuild: true }, uptimeS: 3600, requests: 12, crashesToday: 0, crashesTotal: 0, app: '0.1.1' }; return { ok: true, status: 200, json: async () => sy, text: async () => JSON.stringify(sy) }; }
     const j = u.includes('/api/admin') ? A : u.includes('/api/state') ? state : u.includes('/api/catalog') ? catalog : u.includes('/api/logs') ? { next: 20, text: '2026 [server] hello log\n' } : u.includes('/api/queue') ? { paused: false, jobs: [{ id: 'job-1', kind: 'text', model: 'qwen', status: 'ready', title: 'poem' }] } : u.includes('/api/control') ? { id: 'task-x' } : {};
     return { ok: true, status: 200, json: async () => j, text: async () => JSON.stringify(j) }; };
@@ -23,7 +29,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
   return { w, d: w.document, sent };
 }
 let p = await page('tok123', '#admin/packs');
-ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].map((a) => a.textContent).join(',') === 'Inference,Admin' && p.d.querySelectorAll('nav.snav .brand').length === 1 && !p.d.querySelector('#app .top h1'), 'local page: Inference and Admin, Sushila named once');
+ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].map((a) => a.textContent).join(',') === 'Inference,Library,Admin' && p.d.querySelectorAll('nav.snav .brand').length === 1 && !p.d.querySelector('#app .top h1'), 'local page: Inference, Library and Admin, Sushila named once');
 ok([...p.d.querySelectorAll('#manage details.sec > summary .sectitle')].map((x) => x.textContent).join(',') === 'What is happening now,System health,Model packs,Queue,Recent actions,Full log,Engine,Settings', 'Admin: one page of sections (now, health, packs, queue, actions, log, engine, settings)');
 ok(p.d.body.textContent.includes('All good') && p.d.body.textContent.includes('RTX 3070 Laptop GPU') && p.d.body.textContent.includes('GB free'), 'Admin: system health (GPU, memory, disk) with a one-line verdict');
 ok(p.d.body.textContent.includes('Qwen 0.5B') && p.d.body.textContent.includes('Accelerated'), 'Admin: what is happening now lists the running model');
@@ -44,6 +50,20 @@ p.w.location.hash = '#admin/queue'; await sleep(300); ok(p.d.body.textContent.in
 p.w.location.hash = '#admin/actions'; await sleep(300); ok(p.d.body.textContent.includes('Recent actions') && p.d.body.textContent.includes('install qwen3-4b') && !p.d.body.textContent.includes('Running now'), 'Recent actions tab lists the actions (and only there in full)');
 p.w.location.hash = '#admin/logs'; await sleep(300); ok(p.d.body.textContent.includes('hello log'), 'Logs tab shows the shared log');
 p.w.location.hash = '#admin/settings'; await sleep(300); ok(p.d.querySelector('#set-gpuLayers').value === '-1', 'Settings tab shows the settings');
+p.w.location.hash = '#library'; await sleep(500);
+{ const cards = () => [...p.d.querySelectorAll('#manage .libcard')];
+  ok(cards().length === 2 && p.d.body.textContent.includes('Where are my files') && p.d.body.textContent.includes('/home/me/sushila/outputs'), 'Library: every file, and where they are');
+  ok(cards()[0].textContent.includes('summer pop') && cards()[0].querySelector('audio') && cards()[1].querySelector('img'), 'Library: newest first, with a player or a preview');
+  const q = p.d.getElementById('libq'); q.value = 'sunlight'; q.dispatchEvent(new p.w.Event('input')); await sleep(100);
+  ok(cards().length === 1 && cards()[0].textContent.includes('summer pop'), 'Library: search looks in the lyrics too');
+  q.value = ''; q.dispatchEvent(new p.w.Event('input')); await sleep(100);
+  [...p.d.querySelectorAll('#manage .chip')].find((b) => b.textContent.includes('Pictures')).click(); await sleep(100);
+  ok(cards().length === 1 && cards()[0].textContent.includes('red fox'), 'Library: filter by kind');
+  [...cards()[0].querySelectorAll('button')].find((b) => b.textContent.includes('Delete')).click(); await sleep(300);
+  ok(p.sent.some((x) => x.u.includes('/api/library/delete') && JSON.parse(x.body).rel.includes('red-fox')), 'Library: Delete moves the file to the trash');
+  [...p.d.querySelectorAll('#manage .adminhead button')].find((b) => b.textContent.includes('Trash')).click(); await sleep(100);
+  [...p.d.querySelectorAll('#manage .chip')].find((b) => b.textContent === 'All').click(); await sleep(100);
+  ok(cards().length === 1 && cards()[0].textContent.includes('Restore') && cards()[0].textContent.includes('Delete permanently'), 'Library: the trash, with Restore and Delete permanently'); }
 p.w.location.hash = ''; await sleep(300); ok(!p.d.getElementById('app').classList.contains('hidden') && p.d.getElementById('manage').classList.contains('hidden'), 'Use tab shows the inference page');
 { const sel = p.d.getElementById('mdl'), w = p.d.getElementById('modewait');
   const texts = [...sel.options].map((o) => o.textContent);

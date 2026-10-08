@@ -15,7 +15,25 @@ use crate::net::client;
 pub const APP_JS: &str = include_str!("../web/sushila_page.js");
 /// The documentation (one self-contained file; the website can serve the same file).
 pub const DOCS_HTML: &str = include_str!("../web/sushila_docs.html");
-const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sushila Inference</title></head><body><div id="app"></div><script src="/sushila.js"></script></body></html>"#;
+/// Sushila's logo, as on sushila.ai: the favicon in three sizes and the logo animation (logo/SushilaLogoWithBaseG.mp4,
+/// the swan cropped square, 72 px, 12 frames a second, played once) for the header of every page.
+const BRAND: [(&str, &str, &[u8]); 7] = [
+    ("/favicon.ico", "image/png", include_bytes!("../web/brand/sushila-logo-32.png")),
+    ("/favicon-32.png", "image/png", include_bytes!("../web/brand/sushila-logo-32.png")),
+    ("/favicon.png", "image/png", include_bytes!("../web/brand/sushila-logo-64.png")),
+    ("/apple-touch-icon.png", "image/png", include_bytes!("../web/brand/sushila-logo-180.png")),
+    ("/brand/logo-anim.webp", "image/webp", include_bytes!("../web/brand/logo-anim.webp")),
+    ("/brand/logo.png", "image/png", include_bytes!("../web/brand/logo-still.png")),
+    ("/brand/logo-64.png", "image/png", include_bytes!("../web/brand/sushila-logo-64.png")),
+];
+async fn srv_brand(uri: axum::http::Uri) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    match BRAND.iter().find(|(p, _, _)| *p == uri.path()) {
+        Some((_, ct, b)) => ([("content-type", *ct), ("cache-control", "public, max-age=86400")], *b).into_response(),
+        None => (axum::http::StatusCode::NOT_FOUND, "not found").into_response(),
+    }
+}
+const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sushila Inference</title><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="64x64" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"></head><body><div id="app"></div><script src="/sushila.js"></script></body></html>"#;
 
 // ---------- local web server ----------
 pub struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>>,
@@ -238,6 +256,50 @@ async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
     with_cors_for(axum::Json(v).into_response(), &st, origin.as_deref())
 }
 
+/// The Library (this computer only): GET /api/library -> {folder, items, trash: [...]}, GET /api/library/file?rel=&trash=1
+/// (the file itself, for previews; ?t= carries the token for <img>/<audio>/<video>), POST /api/library/<delete|restore|purge|empty>
+/// {"rel": ...}.
+fn lib_local(s: &Srv, headers: &axum::http::HeaderMap, q: &HashMap<String, String>) -> bool {
+    let st = read_state(&s.data_dir);
+    let mut h = headers.clone();
+    if let Some(t) = q.get("t") { if let Ok(v) = axum::http::HeaderValue::from_str(t) { h.insert("x-sushila-token", v); } }
+    host_ok(&h, s.port, &st) && caller(&h, &st).as_deref() == Some("local")
+}
+async fn srv_library(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !lib_local(&s, &headers, &q) { return (axum::http::StatusCode::FORBIDDEN, "the Library is for this computer only").into_response(); }
+    let dir = s.data_dir.clone();
+    let v = tokio::task::spawn_blocking(move || json!({ "folder": dir.join("outputs").to_string_lossy(), "items": crate::library::list(&dir), "trash": crate::library::list_trash(&dir) })).await.unwrap_or(Value::Null);
+    axum::Json(v).into_response()
+}
+async fn srv_library_file(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !lib_local(&s, &headers, &q) { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    let rel = q.get("rel").cloned().unwrap_or_default();
+    if rel.is_empty() || rel.starts_with('/') || rel.contains(':') || rel.split(['/', '\\']).any(|c| c == "..") { return (axum::http::StatusCode::BAD_REQUEST, "bad path").into_response(); }
+    let base = if q.contains_key("trash") { s.data_dir.join("outputs").join(".trash") } else { s.data_dir.join("outputs") };
+    let p = base.join(&rel);
+    let Ok(data) = tokio::fs::read(&p).await else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response() };
+    let name = p.file_name().map(|n| n.to_string_lossy().replace('"', "")).unwrap_or_default();
+    let disp = format!("{}; filename=\"{name}\"", if q.contains_key("download") { "attachment" } else { "inline" });
+    ([("content-type", crate::library::mime_of(&p).to_string()), ("content-disposition", disp), ("cache-control", "private, max-age=3600".to_string())], data).into_response()
+}
+async fn srv_library_act(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(act): axum::extract::Path<String>, headers: axum::http::HeaderMap, body: axum::body::Bytes) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !lib_local(&s, &headers, &HashMap::new()) { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    let rel = serde_json::from_slice::<Value>(&body).ok().and_then(|v| v["rel"].as_str().map(String::from)).unwrap_or_default();
+    let dir = s.data_dir.clone();
+    let r = match act.as_str() {
+        "delete" => crate::library::delete(&dir, &rel).map(|_| json!({ "ok": true })),
+        "restore" => crate::library::restore(&dir, &rel).map(|_| json!({ "ok": true })),
+        "purge" => crate::library::purge(&dir, &rel).map(|_| json!({ "ok": true })),
+        "empty" => Ok(json!({ "ok": true, "removed": crate::library::empty_trash(&dir) })),
+        _ => Err("unknown action".into()),
+    };
+    crate::core::log(true, &format!("library: {act} {rel}: {}", r.as_ref().map(|_| "done".to_string()).unwrap_or_else(|e| e.clone())));
+    match r { Ok(v) => axum::Json(v).into_response(), Err(e) => (axum::http::StatusCode::BAD_REQUEST, e).into_response() }
+}
+
 /// GET /api/diagnose?pack=<id>: why that pack failed (GPU and RAM free, programs on the GPU, disk, its log, crashes),
 /// with advice; this computer only (it names programs and paths).
 async fn srv_diagnose(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>,
@@ -391,7 +453,18 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     for h in ["content-type", "accept"] {
         if let Some(v) = parts.headers.get(h).and_then(|v| v.to_str().ok()) { r = r.header(h, v); }
     }
-    let prompt = serde_json::from_slice::<Value>(&bytes).ok().and_then(|v| v.get("prompt").and_then(|p| p.as_str()).map(String::from)).unwrap_or_default();
+    let req_json = serde_json::from_slice::<Value>(&bytes).ok().unwrap_or(Value::Null);
+    let prompt = req_json.get("prompt").and_then(|p| p.as_str()).map(String::from).unwrap_or_default();
+    // songs and videos come back later, by job id: what was asked is kept until then, so the result is saved with it
+    let music_synth = parts.method == axum::http::Method::POST && path == "/v1/music/synth";
+    let video_gen = parts.method == axum::http::Method::POST && path == "/v1/video/vid_gen";
+    let result_of = if path == "/v1/music/job" && parts.uri.query().map(|q| q.contains("result=1")).unwrap_or(false) {
+        parts.uri.query().and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("id=")).map(String::from)) }
+        else { path.strip_prefix("/v1/video/jobs/").filter(|x| !x.contains('/')).map(String::from) };
+    let asked = { let first = if req_json.is_array() { req_json[0].clone() } else { req_json.clone() };
+        json!({ "pack": model, "prompt": first.get("caption").or(first.get("prompt")).cloned(), "lyrics": first.get("lyrics").cloned(),
+                "duration": first.get("duration").cloned(), "seed": first.get("seed").cloned(), "frames": first.get("video_frames").cloned(),
+                "size": first.get("width").and_then(|w| w.as_u64()).map(|w| format!("{w}x{}", first["height"].as_u64().unwrap_or(0))) }) };
     let mut resp = match r.send().await {
         // a picture is also saved in the home folder (outputs/images/<date>/), so it can be found without downloading;
         // this computer gets the path of each file in the answer (sushila_file), other machines do not
@@ -400,10 +473,31 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
             let body = resp.bytes().await.unwrap_or_default();
             drop(guard);
             let out = match serde_json::from_slice::<Value>(&body) {
-                Ok(mut v) => { save_images(&s.data_dir, &prompt, &mut v, local); serde_json::to_vec(&v).unwrap_or(body.to_vec()) }
+                Ok(mut v) => { save_images(&s.data_dir, &prompt, &mut v, local, &model, req_json.get("size").and_then(|x| x.as_str()).unwrap_or("")); serde_json::to_vec(&v).unwrap_or(body.to_vec()) }
                 Err(_) => body.to_vec(),
             };
             (axum::http::StatusCode::OK, [("content-type", "application/json".to_string()), ("cache-control", "no-store".to_string())], out).into_response()
+        }
+        // a music or video job just started: remember what was asked, by its id
+        Ok(resp) if (music_synth || video_gen) && resp.status().is_success() => {
+            guard.status = 200;
+            let body = resp.bytes().await.unwrap_or_default();
+            drop(guard);
+            if let Some(id) = serde_json::from_slice::<Value>(&body).ok().and_then(|v| v["id"].as_str().map(String::from)) {
+                if let Ok(mut m) = PENDING.lock() { m.insert(id, (if video_gen { "video" } else { "music" }, asked.clone())); }
+            }
+            (axum::http::StatusCode::OK, [("content-type", "application/json".to_string()), ("cache-control", "no-store".to_string())], body.to_vec()).into_response()
+        }
+        // its result: saved once in the Library (outputs/music or outputs/video), then passed on unchanged
+        Ok(resp) if result_of.as_ref().map(|id| PENDING.lock().map(|m| m.contains_key(id)).unwrap_or(false)).unwrap_or(false) && resp.status().is_success() => {
+            guard.status = 200;
+            let ctype = resp.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("application/octet-stream").to_string();
+            let body = resp.bytes().await.unwrap_or_default();
+            drop(guard);
+            let id = result_of.clone().unwrap_or_default();
+            let saved = save_job_result(&s.data_dir, &id, &ctype, &body);
+            if saved { if let Ok(mut m) = PENDING.lock() { m.remove(&id); } }
+            (axum::http::StatusCode::OK, [("content-type", ctype), ("cache-control", "no-store".to_string())], body.to_vec()).into_response()
         }
         Ok(resp) => {
             let status = axum::http::StatusCode::from_u16(resp.status().as_u16()).unwrap_or(axum::http::StatusCode::BAD_GATEWAY);
@@ -442,7 +536,27 @@ fn not_running_msg(st: &Value, id: &str, engine: Option<(bool, &Path)>) -> Strin
 
 /// Writes each image of an images answer to outputs/images/<YYYY-MM-DD>/<HHMMSS>-<first words of the prompt>-<n>.png
 /// and, for this computer, adds its path to the answer (data[i].sushila_file).
-fn save_images(dir: &Path, prompt: &str, v: &mut Value, local: bool) {
+/// Music and video jobs started through this server, by id: (kind, what was asked), until their result is saved.
+static PENDING: std::sync::LazyLock<std::sync::Mutex<HashMap<String, (&'static str, Value)>>> = std::sync::LazyLock::new(Default::default);
+/// A finished song (audio, or multipart with the audio in it) or video (JSON with base64 once completed): saved.
+fn save_job_result(dir: &Path, id: &str, ctype: &str, body: &[u8]) -> bool {
+    use base64::Engine;
+    let Some((kind, asked)) = PENDING.lock().ok().and_then(|m| m.get(id).cloned()) else { return false };
+    let title = asked["prompt"].as_str().unwrap_or(kind).to_string();
+    if kind == "music" {
+        let (audio, t) = if ctype.starts_with("audio/") { (body.to_vec(), ctype.to_string()) } else { match crate::library::audio_in_multipart(body, ctype) { Some(x) => x, None => return false } };
+        let ext = if t.contains("mpeg") { "mp3" } else if t.contains("wav") { "wav" } else if t.contains("flac") { "flac" } else { "ogg" };
+        return crate::library::save(dir, "music", ext, &audio, &title, asked).is_some();
+    }
+    let Ok(v) = serde_json::from_slice::<Value>(body) else { return false };
+    if v["status"] != "completed" { return false; }
+    let Some(b) = v["result"]["b64_json"].as_str() else { return false };
+    let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b) else { return false };
+    let ext = v["result"]["output_format"].as_str().filter(|e| ["webm", "mp4", "webp", "gif"].contains(e)).unwrap_or("webm").to_string();
+    crate::library::save(dir, "video", &ext, &bytes, &title, asked).is_some()
+}
+
+fn save_images(dir: &Path, prompt: &str, v: &mut Value, local: bool, pack: &str, size: &str) {
     use base64::Engine;
     let now = crate::util::now_iso();
     let day = dir.join("outputs").join("images").join(&now[..10]);
@@ -456,7 +570,10 @@ fn save_images(dir: &Path, prompt: &str, v: &mut Value, local: bool) {
         let Ok(png) = base64::engine::general_purpose::STANDARD.decode(b) else { continue };
         let mut f = day.join(format!("{stamp}-{}-{}.png", if slug.is_empty() { "image" } else { &slug }, i + 1));
         let mut k = 2; while f.exists() { f = day.join(format!("{stamp}-{slug}-{}-{k}.png", i + 1)); k += 1; }
-        if std::fs::write(&f, png).is_ok() && local { it["sushila_file"] = json!(f.to_string_lossy()); }
+        if std::fs::write(&f, crate::library::mark_ai(&png, "png", pack, clean)).is_ok() {
+            crate::library::record(dir, &f, "image", json!({ "pack": pack, "prompt": clean, "size": size, "seed": it.get("seed").cloned() }));
+            if local { it["sushila_file"] = json!(f.to_string_lossy()); }
+        }
     }
 }
 
@@ -496,7 +613,11 @@ async fn srv_reveal(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req
     let p = p.map(|p| if p.is_absolute() { p } else { outputs.join(p) });
     let (Some(f), Ok(root)) = (p.and_then(|p| std::fs::canonicalize(p).ok()), std::fs::canonicalize(&outputs)) else { return (axum::http::StatusCode::NOT_FOUND, "that file is not there any more").into_response() };
     if !f.starts_with(&root) { return (axum::http::StatusCode::FORBIDDEN, "only files in the outputs folder").into_response(); }
-    let r = if cfg!(windows) {
+    // a folder (Where are my files) opens as itself; a file opens its folder with it selected
+    let r = if f.is_dir() {
+        let d = f.to_string_lossy().trim_start_matches(r"\\?\").to_string();
+        std::process::Command::new(if cfg!(windows) { "explorer" } else if cfg!(target_os = "macos") { "open" } else { "xdg-open" }).arg(d).spawn()
+    } else if cfg!(windows) {
         // explorer wants /select,"<path>" as one argument, with the Windows path (no \\?\ prefix)
         let w = f.to_string_lossy().trim_start_matches(r"\\?\").to_string();
         std::process::Command::new("explorer").arg(format!("/select,{w}")).spawn()
@@ -847,7 +968,12 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/reveal", axum::routing::post(srv_reveal))
         .route("/api/use", axum::routing::post(srv_use))
         .route("/api/system", axum::routing::get(srv_system))
+        .route("/favicon.ico", axum::routing::get(srv_brand)).route("/favicon.png", axum::routing::get(srv_brand)).route("/favicon-32.png", axum::routing::get(srv_brand))
+        .route("/apple-touch-icon.png", axum::routing::get(srv_brand)).route("/brand/:file", axum::routing::get(srv_brand))
         .route("/api/diagnose", axum::routing::get(srv_diagnose))
+        .route("/api/library", axum::routing::get(srv_library))
+        .route("/api/library/file", axum::routing::get(srv_library_file))
+        .route("/api/library/:act", axum::routing::post(srv_library_act))
         .route("/api/shutdown", axum::routing::post(srv_shutdown))
         .route("/api/control", axum::routing::post(srv_control).options(srv_control))
         .route("/api/logs", axum::routing::get(srv_logs))

@@ -83,16 +83,24 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     const local = !!token;  // the page carries this computer's token only when opened here (http://localhost:<port>/)
     let session = ''; try { session = sessionStorage.getItem('sushila-admin') || ''; } catch (_) {}
     const api = (path, opts = {}) => fetch(path, Object.assign({}, opts, { headers: Object.assign({ 'x-sushila-token': token, 'x-sushila-admin': session, 'content-type': 'application/json' }, opts.headers || {}) }));
-    const TABS = [['', 'Inference'], ['admin', 'Admin']];
+    const TABS = [['', 'Inference'], ['library', 'Library'], ['admin', 'Admin']];
     // the Admin page: one page of sections that open and close (remembered in this browser); #admin/<section> opens one
     const SUB = [['now', 'What is happening now'], ['health', 'System health'], ['packs', 'Model packs'], ['queue', 'Queue'], ['actions', 'Recent actions'],
       ['logs', 'Full log'], ['engine', 'Engine'], ['settings', 'Settings']];
     const openSecs = new Set((() => { try { return JSON.parse(localStorage.getItem('sushila-admin-open')) || ['now', 'health', 'packs']; } catch (_) { return ['now', 'health', 'packs']; } })());
     const saveOpen = () => { try { localStorage.setItem('sushila-admin-open', JSON.stringify([...openSecs])); } catch (_) {} };
-    let sys = null, scrollTo = '';
+    let sys = null, scrollTo = '', libFresh = false;
     let admin = { passwordSet: true, loggedIn: false, allowed: false }, sub = 'packs';
     document.head.append(el('style', {}, `
 .snav{display:flex;gap:2px;align-items:center;padding:6px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.libwhere{margin:-6px 0 10px}.libbar{position:sticky;top:0;z-index:2;background:var(--bg);padding:8px 0;display:flex;flex-direction:column;gap:8px}
+.libbar input[type=search]{width:100%;font-size:15px;padding:10px 14px;border-radius:12px}.libbar select{padding:6px 10px;border-radius:10px}
+.chip{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:6px 14px;font-weight:600}.chip.on{background:var(--acc);color:#fff;border-color:transparent}
+.libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:6px}
+.libcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 2px 10px rgba(16,24,40,.04)}
+.libprev{background:var(--code);display:flex;align-items:center;justify-content:center;min-height:80px}.libprev img,.libprev video{width:100%;max-height:260px;object-fit:contain;display:block}.libprev audio{width:94%;margin:16px 0}
+.libbody{padding:10px 12px;display:flex;flex-direction:column;gap:4px}.libbody .row{margin-top:6px}.libbody button,.libbody .dlbtn{padding:5px 10px;font-size:13px;margin:0}
+.lyr{white-space:pre-wrap;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;max-height:160px;overflow:auto;background:var(--code);padding:6px;border-radius:8px}
 .adminhead{display:flex;align-items:center;gap:10px;margin:8px 0 14px;flex-wrap:wrap}.adminhead h1{font-size:22px;margin:0 6px 0 0}
 .sec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0;box-shadow:0 2px 10px rgba(16,24,40,.04)}
 .sec>summary{cursor:pointer;list-style:none;padding:13px 16px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
@@ -100,7 +108,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
 .secbadge{font-size:12px;font-weight:600;color:var(--mut);background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:1px 9px}
 .secbody{padding:0 16px 14px;border-top:1px solid var(--line)}.secbody>h2:first-child{display:none}.pill.warn{color:var(--warn);border-color:var(--warn)}.pill.mut{color:var(--mut)}
 .snav b{margin-right:12px}.snav .brand{display:inline-flex;align-items:center;gap:8px;font-size:16px;letter-spacing:.2px}
-.snav .mark{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc),#6366f1);color:#fff;font-size:14px;font-weight:800}
+.snav .mark{width:30px;height:30px;border-radius:8px;background:#fff;box-shadow:0 0 0 1px var(--line);object-fit:contain}
 .snav{padding:8px 18px;gap:4px;box-shadow:0 1px 0 var(--line)}.smenu{position:relative;margin-right:8px}.smenu summary{list-style:none;cursor:pointer;font-size:20px;padding:0 4px}.smenu summary::-webkit-details-marker{display:none}
 .smenu>div{position:absolute;top:30px;left:0;z-index:20;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
 .smenu>div a{display:block;color:var(--ink)}.snav a{padding:6px 12px;border-radius:8px;color:var(--mut);text-decoration:none;font-weight:600;font-size:14px}
@@ -122,12 +130,16 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         local ? el('a', { href: '#admin', onclick: close }, 'Admin') : null,
         el('a', { href: '/docs' }, 'Documentation'), el('a', { href: '#assistant', onclick: close }, 'Ask Sushila'), el('a', { href: '/docs#api' }, 'API'), where));
     if (local) api('/api/admin').then((r) => r.json()).then((a) => { const h = document.getElementById('shome'); if (h && a.home) h.textContent = 'Home folder: ' + a.home; }).catch(() => {});
-    const nav = el('nav', { class: 'snav' }, menu, el('b', { class: 'brand' }, el('span', { class: 'mark' }, 'S'), 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
+    // the logo animation (as on sushila.ai) plays when a page opens and again when the pointer is on it
+    const mark = el('img', { class: 'mark', src: '/brand/logo-anim.webp', alt: '', width: 30, height: 30, onerror: (e) => { e.target.onerror = null; e.target.src = '/favicon.png'; } });
+    fetch('/brand/logo-anim.webp').then((r) => (r.ok ? r.blob() : null)).then((b) => { if (!b) return; let u = null;
+      mark.addEventListener('mouseenter', () => { if (u) URL.revokeObjectURL(u); u = URL.createObjectURL(b); mark.src = u; }); }).catch(() => {});
+    const nav = el('nav', { class: 'snav' }, menu, el('b', { class: 'brand' }, mark, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
       el('span', { style: 'flex:1' }), local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
     const box = el('div', { id: 'manage', class: 'manage hidden' });
     document.body.prepend(nav); document.body.append(box);
     let st = {}, catalog = null, logNext = 0, logText = '', view = '', note = '';
-    const human = (b) => (b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : (b / 1e6).toFixed(0) + ' MB');
+    const human = (b) => (b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(0) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB');
     const say = (t) => { note = t; render(); };
     async function control(body, what) {
       try {
@@ -155,6 +167,69 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         el('label', { for: 'apw' }, 'Password'), el('input', { id: 'apw', type: 'password', autocomplete: first ? 'new-password' : 'current-password', onkeydown: key }),
         first ? [el('label', { for: 'apw2' }, 'Again'), el('input', { id: 'apw2', type: 'password', autocomplete: 'new-password', onkeydown: key })] : null,
         el('div', { class: 'row' }, el('button', { onclick: go }, first ? 'Save the password' : 'Log in'))];
+    }
+    // ---------- the Library: every picture, song and video made here (outputs/ in the home folder), searchable by any
+    // field, sortable, with Show in folder, Download, Copy path and Delete (to the Library's trash: Restore or Delete permanently)
+    const lib = { items: null, trash: [], folder: '', q: '', kind: '', pack: '', sort: 'new', inTrash: false, msg: '' };
+    const fileUrl = (x, dl) => '/api/library/file?rel=' + encodeURIComponent(x.rel) + (x.trash ? '&trash=1' : '') + (dl ? '&download=1' : '') + '&t=' + encodeURIComponent(token);
+    async function libLoad() { try { const j = await (await api('/api/library')).json(); lib.items = j.items || []; lib.trash = j.trash || []; lib.folder = j.folder || ''; } catch (e) { lib.items = []; lib.msg = 'Could not read the Library: ' + e.message; } }
+    async function libAct(act, rel, what) {
+      try { const r = await api('/api/library/' + act, { method: 'POST', body: JSON.stringify({ rel }) }); if (!r.ok) throw new Error(await r.text()); lib.msg = what; }
+      catch (e) { lib.msg = 'Could not ' + act + ': ' + e.message; }
+      await libLoad(); libRender();
+    }
+    const libReveal = (path) => api('/api/reveal', { method: 'POST', body: JSON.stringify({ path }) }).then(async (r) => { lib.msg = r.ok ? 'Opened ' + path : await r.text(); libRender(); });
+    const KINDS = [['', 'All'], ['image', '🖼 Pictures'], ['music', '🎵 Music'], ['video', '🎬 Videos']];
+    const SORTS = [['new', 'Newest first'], ['old', 'Oldest first'], ['az', 'Name A–Z'], ['za', 'Name Z–A'], ['big', 'Largest first'], ['small', 'Smallest first'], ['kind', 'Kind']];
+    const when = (t) => (t || '').replace('T', ' ').slice(0, 16);
+    const title = (x) => x.prompt || x.name;
+    function libList() {
+      const all = lib.inTrash ? lib.trash : (lib.items || []);
+      const words = lib.q.toLowerCase().split(/\s+/).filter(Boolean);
+      const hay = (x) => [x.prompt, x.lyrics, x.pack, x.kind, x.name, x.rel, when(x.created), when(x.deleted), x.size, x.seed, x.duration, x.mode, x.source].filter((v) => v != null).join(' ').toLowerCase();
+      let v = all.filter((x) => (!lib.kind || x.kind === lib.kind) && (!lib.pack || x.pack === lib.pack) && words.every((w) => hay(x).includes(w)));
+      const by = { new: (a, b) => (b.created || b.deleted || '').localeCompare(a.created || a.deleted || ''), old: (a, b) => (a.created || '').localeCompare(b.created || ''),
+        az: (a, b) => title(a).localeCompare(title(b)), za: (a, b) => title(b).localeCompare(title(a)), big: (a, b) => b.bytes - a.bytes, small: (a, b) => a.bytes - b.bytes,
+        kind: (a, b) => (a.kind || '').localeCompare(b.kind || '') || (b.created || '').localeCompare(a.created || '') }[lib.sort];
+      return v.sort(by);
+    }
+    function libCard(x) {
+      const src = fileUrl(x);
+      const preview = x.kind === 'image' ? el('img', { src, alt: title(x), loading: 'lazy' }) : x.kind === 'video' ? el('video', { src, controls: true, preload: 'metadata', muted: true, playsinline: true })
+        : el('audio', { src, controls: true, preload: 'none' });
+      const facts = [x.kind === 'image' ? 'Picture' : x.kind === 'music' ? 'Song' : 'Video', x.pack, x.size, x.duration ? x.duration + ' s' : null, x.frames ? x.frames + ' frames' : null,
+        x.seed != null && x.seed !== -1 ? 'seed ' + x.seed : null, human(x.bytes || 0), x.trash ? 'deleted ' + when(x.deleted) : when(x.created)].filter(Boolean).join(' · ');
+      const acts = x.trash
+        ? [el('button', { onclick: () => libAct('restore', x.rel, 'Restored ' + x.name) }, '↩ Restore'),
+           el('button', { class: 'danger', onclick: () => { if (window.confirm('Delete "' + x.name + '" permanently? This cannot be undone.')) libAct('purge', x.rel, 'Deleted permanently: ' + x.name); } }, 'Delete permanently')]
+        : [el('button', { class: 'ghost', onclick: () => libReveal(x.path) }, '📁 Show in folder'), el('a', { class: 'dlbtn', href: fileUrl(x, true) }, '⬇ Download'),
+           el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(x.path); lib.msg = 'Copied: ' + x.path; } catch (_) { lib.msg = x.path; } libRender(); } }, 'Copy path'),
+           el('button', { class: 'danger', onclick: () => libAct('delete', x.rel, 'Moved to the trash: ' + x.name + ' (Trash: restore or delete permanently)') }, '🗑 Delete')];
+      return el('div', { class: 'libcard' }, el('div', { class: 'libprev' }, preview), el('div', { class: 'libbody' }, el('b', {}, title(x).slice(0, 160)),
+        el('div', { class: 'sub' }, facts), x.lyrics && x.lyrics !== '[Instrumental]' ? el('details', {}, el('summary', { class: 'sub' }, 'Lyrics'), el('pre', { class: 'lyr' }, x.lyrics)) : null,
+        el('div', { class: 'sub', style: 'word-break:break-all' }, x.path), el('div', { class: 'row' }, ...acts)));
+    }
+    function libRender() {
+      if (view !== 'library') return;
+      if (lib.items === null) { box.replaceChildren(el('h1', {}, 'Library'), el('div', { class: 'sub' }, 'Reading…')); return; }
+      const packs = [...new Set((lib.inTrash ? lib.trash : lib.items).map((x) => x.pack).filter(Boolean))].sort();
+      const shown = libList(), focus = document.activeElement && document.activeElement.id, caret = focus === 'libq' ? $('libq').selectionStart : null;
+      const head = el('div', { class: 'adminhead' }, el('h1', {}, lib.inTrash ? '🗑 Trash' : 'Library'), el('span', { class: 'pill' }, shown.length + ' of ' + (lib.inTrash ? lib.trash : lib.items).length),
+        el('span', { style: 'flex:1' }),
+        el('button', { class: 'ghost', title: lib.folder, onclick: () => libReveal(lib.folder) }, '📁 Where are my files'),
+        el('button', { class: 'ghost', onclick: async () => { await libLoad(); libRender(); } }, '↻ Refresh'),
+        el('button', { class: lib.inTrash ? '' : 'ghost', onclick: () => { lib.inTrash = !lib.inTrash; libRender(); } }, lib.inTrash ? '← Back to the Library' : '🗑 Trash (' + lib.trash.length + ')'),
+        lib.inTrash && lib.trash.length ? el('button', { class: 'danger', onclick: () => { if (window.confirm('Delete all ' + lib.trash.length + ' files in the trash permanently?')) libAct('empty', '', 'The trash is empty.'); } }, 'Empty trash') : null);
+      const where = el('div', { class: 'sub libwhere' }, 'Your files are in ', el('code', { style: 'user-select:all' }, lib.folder), ' (pictures in images/, songs in music/, videos in video/, one folder per day).');
+      const bar = el('div', { class: 'libbar' },
+        el('input', { id: 'libq', type: 'search', placeholder: 'Search prompts, lyrics, models, file names, dates, sizes, seeds…', value: lib.q, oninput: (e) => { lib.q = e.target.value; libRender(); } }),
+        el('div', { class: 'row', style: 'margin:0' }, ...KINDS.map(([k, t]) => el('button', { class: 'chip' + (lib.kind === k ? ' on' : ''), onclick: () => { lib.kind = k; libRender(); } }, t)),
+          el('select', { onchange: (e) => { lib.pack = e.target.value; libRender(); } }, el('option', { value: '' }, 'All models'), ...packs.map((p) => el('option', { value: p, selected: p === lib.pack }, p))),
+          el('select', { onchange: (e) => { lib.sort = e.target.value; libRender(); } }, ...SORTS.map(([k, t]) => el('option', { value: k, selected: k === lib.sort }, t)))));
+      box.replaceChildren(head, where, lib.msg ? el('div', { class: 'msg ok' }, lib.msg) : '', bar,
+        shown.length ? el('div', { class: 'libgrid' }, ...shown.map(libCard))
+          : el('div', { class: 'sub', style: 'margin:30px 0;text-align:center' }, lib.inTrash ? 'The trash is empty.' : (lib.items.length ? 'Nothing matches the search.' : 'Nothing made yet: pictures, songs and videos from the Inference page appear here.')));
+      if (focus === 'libq') { const q = $('libq'); q.focus(); if (caret != null) q.setSelectionRange(caret, caret); }
     }
     async function poll() {
       if (view === 'admin') { try { admin = await (await api('/api/admin')).json(); } catch (_) {} }
@@ -319,7 +394,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
         } }, 'Change password'), el('span', { class: 'sub' }, 'Lost it? On this computer: sushila password --reset')),
         el('h2', {}, 'Access from other machines'),
         el('p', { class: 'sub' }, sh.enabled ? ('On' + (sh.open ? ', open to anyone who can reach the port (no key)' : ', ' + sh.keys + ' access key(s)')) : 'Off: only this computer can use it.'),
-        el('pre', {}, 'sushila serve --public --port ' + (s.port || 8765) + '     # reachable at http://<this machine>:' + (s.port || 8765) + '/\nsushila keys add <name>                  # an access key for another machine or app')];
+        el('pre', {}, 'sushila serve --public --port ' + (s.port || 7874) + '     # reachable at http://<this machine>:' + (s.port || 7874) + '/\nsushila keys add <name>                  # an access key for another machine or app')];
     }
     // "Ask Sushila": questions about Sushila, answered by the installed text model from the documentation (POST /api/assistant);
     // the sources (sections of the notes and documentation) are shown under each answer. One panel, kept while the page lives.
@@ -367,6 +442,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       if (!view) { app.classList.remove('hidden'); box.classList.add('hidden'); return; }
       app.classList.add('hidden'); box.classList.remove('hidden');
       if (view === 'assistant') { const p = assistantPanel(); if (box.firstChild !== p || box.childNodes.length !== 1) box.replaceChildren(p); return; }
+      if (view === 'library') { if (lib.items === null) { libRender(); await libLoad(); } if (!box.querySelector('.libbar') || libFresh) { libFresh = false; libRender(); } return; }  // drawn once; Refresh or an action redraws
       if (document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && sub !== 'logs' && admin.loggedIn) return;  // do not redraw while typing
       if (!admin.loggedIn) { if (!(document.activeElement && box.contains(document.activeElement))) box.replaceChildren(note ? el('div', { class: 'msg err' }, note) : '', ...[].concat(loginView()).flat().filter(Boolean)); else if (note && !box.querySelector('.msg')) box.prepend(el('div', { class: 'msg err' }, note)); return; }
       const h = healthLine(), live = (st.now || []).length + (st.tasks || []).filter((t) => t.status === 'running').length;
@@ -392,7 +468,8 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
     }
     function route() {
       const h = location.hash.slice(1).split('/');
-      view = h[0] === 'assistant' ? 'assistant' : local && h[0] === 'admin' ? 'admin' : ''; note = '';
+      view = h[0] === 'assistant' ? 'assistant' : local && h[0] === 'admin' ? 'admin' : local && h[0] === 'library' ? 'library' : ''; note = '';
+      if (view === 'library') { lib.items = null; libFresh = true; }
       // #admin/<section> (also the old tab names) opens that section and scrolls to it
       const alias = { logs: 'logs', log: 'logs' }, want = alias[h[1]] || h[1];
       if (view === 'admin' && SUB.some(([x]) => x === want)) { openSecs.add(want); saveOpen(); scrollTo = want; sub = want; }
@@ -838,12 +915,15 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create music'),
         el('label', { for: 'mlyrics' }, '1. Lyrics'), el('textarea', { id: 'mlyrics', rows: 9, placeholder: '[verse]\nWrite your lyrics here…\n\n[chorus]\n…\n\n(leave empty for an instrumental, or let the model write them: type [auto])' }),
         el('label', { for: 'mstyle' }, '2. Style'), el('input', { id: 'mstyle', placeholder: 'e.g. upbeat acoustic folk, warm male vocals, guitar and fiddle, 110 bpm' }),
-        el('div', { class: 'bar2', style: 'margin-top:10px' }, el('label', {}, 'Length ', el('select', { id: 'mdur' }, [30, 60, 90, 120, 180].map((d) => el('option', { value: d, selected: d === 60 }, d < 60 ? d + ' seconds' : (d / 60) + ' min'))))),
+        el('div', { class: 'bar2', style: 'margin-top:10px' }, el('label', {}, 'Length ', el('select', { id: 'mdur', onchange: () => showAutoLength() }, ['auto', 30, 60, 90, 120, 150, 180, 210, 240, 270, 300].map((d) => el('option', { value: d, selected: d === 'auto' },
+            d === 'auto' ? 'Auto (from the lyrics)' : d < 60 ? d + ' seconds' : (d / 60) + ' min')))), el('span', { class: 'sub', id: 'mautolen' })),
         el('div', { class: 'row' }, el('button', { id: 'mgo', class: 'big', onclick: makeMusic }, 'Generate'),
           el('button', { class: 'ghost', onclick: () => { const style = $('mstyle').value.trim(); if (!style) return;
-            addToQueue('music', style, { style, lyrics: $('mlyrics').value.trim(), duration: +$('mdur').value }, $('mmsg')); } }, 'Add to queue')),
+            addToQueue('music', style, { style, lyrics: $('mlyrics').value.trim(), duration: songLength() }, $('mmsg')); } }, 'Add to queue')),
         el('div', { class: 'msg', id: 'mmsg' }), keyHint(), el('div', { id: 'tracks' })));
+      $('mlyrics').addEventListener('input', showAutoLength);
       if (autoLyrics) { $('mlyrics').value = autoLyrics; autoLyrics = ''; }
+      showAutoLength();
       if (autoPrompt) { $('mstyle').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeMusic(); } }
     }
     const musicCall = async (path, opt = {}) => {
@@ -891,6 +971,19 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
           el('ul', {}, ...(d.facts || []).map((f) => el('li', {}, f))), el('div', {}, el('b', {}, 'What to do: ')), el('ul', {}, ...(d.advice || []).map((a) => el('li', {}, a))))
           : el('div', { class: 'sub' }, 'Details: Admin, Full log.'));
     }
+    // Auto length: sung at about 1.6 words a second, plus an intro and an outro (15 s) and a 6 s break per section
+    // ([Verse], [Chorus], ...), rounded to 10 s, between 30 s and 5 minutes; no lyrics or [Instrumental]: 1 minute
+    function autoLength(lyrics) {
+      const t = (lyrics || '').trim();
+      if (!t || /^\[instrumental\]$/i.test(t) || t === '[auto]') return 60;
+      const lines = t.split('\n').map((x) => x.trim()).filter(Boolean);
+      const tags = lines.filter((x) => /^\[[^\]]+\]$/.test(x)).length;
+      const words = lines.filter((x) => !/^\[[^\]]+\]$/.test(x)).join(' ').split(/\s+/).filter(Boolean).length;
+      return Math.min(300, Math.max(30, Math.round((words / 1.6 + 15 + 6 * tags) / 10) * 10));
+    }
+    const fmtLen = (s) => (s < 60 ? s + ' seconds' : (s / 60).toFixed(s % 60 ? 1 : 0).replace('.0', '') + ' min');
+    function songLength() { const v = $('mdur').value; return v === 'auto' ? autoLength($('mlyrics').value) : +v; }
+    function showAutoLength() { const x = $('mautolen'); if (x) x.textContent = $('mdur').value === 'auto' ? 'about ' + fmtLen(autoLength($('mlyrics').value)) + ' for these lyrics' : ''; }
     async function makeMusic() {
       const style = $('mstyle').value.trim(); let lyrics = $('mlyrics').value.trim();
       if (!style || !model) { $('mmsg').className = 'msg err'; $('mmsg').textContent = 'Describe the style first (2. Style).'; return; }
@@ -898,7 +991,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       $('mgo').disabled = true; $('mmsg').className = 'msg';
       const t0 = performance.now();
       try {
-        const req = { caption: style, lyrics, duration: +$('mdur').value, seed: -1, output_format: 'mp3' };
+        const req = { caption: style, lyrics, duration: songLength(), seed: -1, output_format: 'mp3' };
         const planned = await (await musicJob('/lm', req, 'Writing the song (step 1 of 2)')).json();
         const songs = (Array.isArray(planned) ? planned : [planned]).map((x) => Object.assign({}, x, { output_format: 'mp3' }));
         const r = await musicJob('/synth', songs, 'Singing it (step 2 of 2)');

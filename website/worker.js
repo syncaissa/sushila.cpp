@@ -146,7 +146,7 @@ Windows, macOS and Linux.</p>
       admin password. The first model depends on the computer: Qwen3 4B (about 2.5 GB) with a GPU of 8 GB or more, a Mac with
       Apple silicon and 16 GB or more, or 16 GB of memory without a GPU (if the disk has room); otherwise Qwen2.5 0.5B (about 535 MB).
       The log says which one and why.</li>
-  <li>Open <a href="http://localhost:8765/">http://localhost:8765/</a> in a browser (double-clicking opens it for you).</li>
+  <li>Open <a href="http://localhost:7874/">http://localhost:7874/</a> in a browser (double-clicking opens it for you).</li>
 </ol>
 <p>To check that everything works: <code>sushila selftest</code>. It installs what is needed, asks the small model (or the 4B model, if installed) one question and
 ends with <code>PASS</code> (exit code 0) or says what failed.</p>
@@ -184,7 +184,7 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila precompute &lt;pack&gt;</code></td><td>Experimental: runs the repository's day-0 landscape pipeline (<code>scripts/day0_landscape.sh</code>) for a text pack; without the repository it prints what is needed.</td></tr>
 <tr><th colspan="2">Serving</th></tr>
 <tr><td><code>sushila serve [&lt;pack&gt;...]</code></td><td>Starts the server: web page, API and queue, and the named packs (default: the first installed one).</td></tr>
-<tr><td><code>sushila serve --port 8844</code></td><td>Another port (default 8765).</td></tr>
+<tr><td><code>sushila serve --port 8844</code></td><td>Another port (default 7874).</td></tr>
 <tr><td><code>sushila serve --public</code></td><td>Reachable from other machines (listens on all addresses); they need an access key.</td></tr>
 <tr><td><code>sushila serve --public --open</code></td><td>No key needed for chat and generation (trusted networks only).</td></tr>
 <tr><td><code>sushila serve --standard</code></td><td>Plain models instead of Accelerated (Sushila's precomputed files off).</td></tr>
@@ -205,7 +205,7 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila share on [--open] | off | qr</code></td><td>Other machines: <code>on</code> makes the next <code>sushila serve</code> listen on the network (keys needed unless <code>--open</code>), <code>off</code> stops sharing at once, <code>qr</code> prints a QR code of the network address for a phone.</td></tr>
 <tr><td><code>sushila https &lt;domain&gt;</code></td><td>HTTPS for a domain: writes a Caddyfile (Caddy forwards to this server), allows that host name, prints the steps; offers to start Caddy if it is installed. Installs nothing itself.</td></tr>
 <tr><td><code>sushila home</code></td><td>Sushila's <b>home folder</b>: where <code>model-packs</code>, settings, logs and the engine live. Sushila remembers it in one small text file in your own settings folder, which every user can write without admin rights: Windows <code>%APPDATA%\\sushila\\home</code> (<code>C:\\Users\\&lt;you&gt;\\AppData\\Roaming\\sushila\\home</code>), macOS <code>~/Library/Application Support/sushila/home</code>, Linux <code>~/.config/sushila/home</code>. It holds one line, the folder's path, which you can also edit by hand; <code>sushila home</code> prints where it is. Sushila reads it at every start and goes straight there. It is the only file Sushila keeps outside its home folder. If it is deleted, Sushila searches again (and writes it again); if it finds no home, it asks for the folder of your existing home, or starts a new one when you press Enter. The first time, it searches the usual places (the system's app-data folder, next to the program, the current folder, <code>~/sushila</code>, Documents, Downloads); if it finds several homes it <b>asks</b> which one to use. <code>sushila home &lt;folder&gt;</code> makes another folder the home (replacing the remembered one); <code>sushila home --reset</code> forgets it so the next start searches again; <code>--data-dir &lt;folder&gt;</code> uses a folder for one command only. The home is also printed every time the server starts. (<code>sushila location</code> is the same command.)</td></tr>
-<tr><td><code>sushila url</code></td><td>The addresses: <b>Inference URL</b> (the page for using models, e.g. <code>http://localhost:8765/</code>), <b>Admin URL</b> (<code>http://localhost:8765/admin</code>, this computer only, password protected), the OpenAI-compatible API, and the address for other machines when serving on the network. The same block is printed every time the server starts, in the terminal or in the window that opens when you double-click <code>sushila</code>.</td></tr>
+<tr><td><code>sushila url</code></td><td>The addresses: <b>Inference URL</b> (the page for using models, e.g. <code>http://localhost:7874/</code>), <b>Admin URL</b> (<code>http://localhost:7874/admin</code>, this computer only, password protected), the OpenAI-compatible API, and the address for other machines when serving on the network. The same block is printed every time the server starts, in the terminal or in the window that opens when you double-click <code>sushila</code>.</td></tr>
 <tr><th colspan="2">Generating from the terminal</th></tr>
 <tr><td><code>sushila run &lt;pack&gt; "&lt;prompt&gt;"</code></td><td>One answer (printed), or one picture, video or song (saved). Uses the running model if there is one.</td></tr>
 <tr><td><code>... --out file.png</code></td><td>Where to save; images also take <code>--size 1024x1024 --seed 42</code>, video <code>--size 1280x704 --frames 121</code>, music <code>--lyrics "..." --duration 60</code> (the prompt is the style).</td></tr>
@@ -255,13 +255,13 @@ NVIDIA: a recent driver is enough (the CUDA runtime comes with the engine).</div
 </div>
 
 <h2 id="serve">Serving and the web page</h2>
-<p><code>sushila serve</code> runs one web server on one port (default 8765). The page has two tabs:</p>
+<p><code>sushila serve</code> runs one web server on one port (default 7874). The page has two tabs:</p>
 <ul>
   <li><b>Use</b>: chat, code, images, music and video with the running models; a background queue for long jobs.</li>
   <li><b>Admin</b> (this computer only, with the admin password): Packs (install, start, stop, verify, remove), Engine, Queue, Logs, Settings.</li>
 </ul>
 <p>Every page has the ☰ menu with Inference, Admin (this computer only), this documentation and the API, followed by the four addresses and, on this computer, the home folder: the same lines the server prints when it starts. Each running model's engine listens on an internal port
-(8766, 8767, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
+(7875, 7876, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
 <p><b>Accelerated or Standard</b>: Accelerated uses Sushila's precomputed files for the model (faster); Standard is the plain model,
 as Ollama or stock llama.cpp would run it. Switch on the Use tab, or start with <code>--standard</code>.</p>
 <h3 id="window">The server window</h3>
@@ -307,7 +307,7 @@ Caddy or nginx (any reverse proxy that forwards to the port works).</div>
 </ul>
 
 <h2 id="api">API (OpenAI-compatible)</h2>
-<pre>curl http://localhost:8765/v1/chat/completions \\
+<pre>curl http://localhost:7874/v1/chat/completions \\
   -H "Authorization: Bearer &lt;key&gt;" -H "content-type: application/json" \\
   -d '{"model":"qwen3-4b-instruct-2507","messages":[{"role":"user","content":"Hello"}]}'</pre>
 <table>
@@ -733,14 +733,14 @@ function page(env, user, models, packs = [], app = null, mode = 'home') {
     </tr>`).join('');
 
   // model packs: installed by sushila (the Sushila.cpp server) running on the visitor's computer. "Install" opens its
-  // page (http://localhost:8765/install/<pack>), which asks before installing; or the command; or the pack file
+  // page (http://localhost:7874/install/<pack>), which asks before installing; or the command; or the pack file
   const packRows = packs.map((p) => `
     <tr>
       <td><b>${esc(p.name)}</b>${(p.artifacts || []).length ? ' <span class="tag">precomputed</span>' : ''}<div class="sub">${esc(p.description || '')}</div></td>
       <td>${esc(p.category || '')}</td>
       <td class="num">${gb(p.files.reduce((a, f) => a + (f.bytes || 0), 0))}</td>
       <td>${p.licenseUrl ? `<a href="${esc(p.licenseUrl)}">${esc(p.license)}</a>` : esc(p.license)}</td>
-      <td class="act"><a class="btn small sinstall" data-pack="${esc(p.id)}" href="http://localhost:8765/install/${esc(p.id)}" target="_blank" rel="noopener" title="Opens Sushila on this computer (it must be running: sushila serve, or double-click sushila); it asks before installing">Install</a>
+      <td class="act"><a class="btn small sinstall" data-pack="${esc(p.id)}" href="http://localhost:7874/install/${esc(p.id)}" target="_blank" rel="noopener" title="Opens Sushila on this computer (it must be running: sushila serve, or double-click sushila); it asks before installing">Install</a>
         <button class="btn small ghost copycmd" data-cmd="sushila install ${esc(p.id)}" title="sushila install ${esc(p.id)}">Copy command</button>
         <a class="btn small ghost" href="/hoststation/pack/${esc(p.id)}.sushilapack" title="One file with the whole pack: sushila install ${esc(p.id)}.sushilapack, or unpack it into the model-packs folder">Download pack</a></td>
     </tr>`).join('');
@@ -933,7 +933,7 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
     <li><b>Download</b> Sushila for your system (one file). <span class="sub">The downloads open when the Sushila paper is published:
       <a href="#" id="getnotify">email me when they are ready</a>.</span></li>
     <li><b>Run it</b>: double-click it; the first time it sets itself up for your GPU and asks you to choose an admin password.
-      Or in a terminal: <code>sushila serve</code>. Your browser opens <code>http://localhost:8765</code>.</li>
+      Or in a terminal: <code>sushila serve</code>. Your browser opens <code>http://localhost:7874</code>.</li>
     <li><b>Choose a model pack</b> below (<b>Install</b>), or on its Admin tab. Everything runs on your computer: free, private, offline once installed.</li>
   </ol>
   <div id="sstatus2" class="note" role="status" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0">Checking whether Sushila runs on this computer…</div>
@@ -947,7 +947,7 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
   one program (<code>sushila</code>, <code>sushila.exe</code> on Windows) that runs the models and serves a web page for chat, code,
   images, music and video. Every pack is signed by Sushila and contains only data files; Sushila checks each file before using it.</p>
   <p class="sub">Three ways to add a pack, all the same result (a folder in <code>model-packs</code>):
-  <b>Install</b> opens Sushila on this computer (<code>http://localhost:8765</code>; start it first) and asks before installing ·
+  <b>Install</b> opens Sushila on this computer (<code>http://localhost:7874</code>; start it first) and asks before installing ·
   <b>Copy command</b> for a terminal (<code>sushila install &lt;pack&gt;</code>) · <b>Download pack</b>: one file, then
   <code>sushila install &lt;file&gt;</code>, or unpack it into the <code>model-packs</code> folder (found within seconds, no restart).</p>
   ${packs.length ? `<div class="tablewrap"><table>
@@ -961,7 +961,7 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
 (function () {
   const boxes = ['sstatus', 'sstatus2'].map((i) => document.getElementById(i)).filter(Boolean);
   if (!boxes.length) return;
-  let port = 8765; try { const p = +localStorage.getItem('sushila-port'); if (p > 0 && p < 65536) port = p; } catch (_) {}
+  let port = 7874; try { const p = +localStorage.getItem('sushila-port'); if (p > 0 && p < 65536) port = p; } catch (_) {}
   let up = null, reason = '';
   const paint = () => {
     const html = up
@@ -2483,7 +2483,7 @@ ${product('videogen', 'sushilaVideoGen.cpp', 'Sushila VideoGen', 'Short videos f
   <li><b>Install the app.</b> On Windows, run the installer and choose <i>Only for me</i> or <i>All users</i>. On macOS, drag it to Applications. On Linux, open the .deb, .rpm or AppImage.</li>
   <li><b>Install Sushila.cpp</b> on the Home screen. If it is already on your computer, choose <i>Find an existing installation</i>.</li>
   <li><b>Add a model pack</b>: in the app, or with <a href="/#packs">Install in Host Station</a> on this website. The app shows the pack, its size and license, and asks before installing.</li>
-  <li><b>Start</b> the model, then <b>Launch Inference Page</b>: a chat page opens at <code>http://127.0.0.1:8765/</code>, running entirely on your computer.</li>
+  <li><b>Start</b> the model, then <b>Launch Inference Page</b>: a chat page opens at <code>http://127.0.0.1:7874/</code>, running entirely on your computer.</li>
 </ol>
 
 <h2>Safe by design</h2>
@@ -3000,7 +3000,7 @@ export default {
         return new Response(r.body, { status: r.status, headers: out });
       }
       if (p === '/manual' || p === '/manual/') return html(page(env, user, await visibleModels(db), [], null, 'manual'));
-      if (p === '/docs' || p === '/docs/') return new Response(SUSHILA_DOCS_HTML.replaceAll('href="/"', 'href="http://localhost:8765/"').replaceAll('href="/#admin"', 'href="http://localhost:8765/#admin"'), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } });  // the same page sushila serves at /docs; Use/Admin point to the visitor's own Sushila
+      if (p === '/docs' || p === '/docs/') return new Response(SUSHILA_DOCS_HTML.replaceAll('href="/"', 'href="http://localhost:7874/"').replaceAll('href="/#admin"', 'href="http://localhost:7874/#admin"'), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } });  // the same page sushila serves at /docs; Use/Admin point to the visitor's own Sushila
       if (p === '/hoststation' || p === '/hoststation/') {
         let app = null;
         try { if (b2.configured) app = await hostApp(env, b2); } catch (e) { console.error('hostApp', e.message); }

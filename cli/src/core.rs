@@ -65,11 +65,14 @@ impl Ctx {
         let raw = std::fs::read_to_string(data.join("state.json")).ok();
         let mut s: Value = raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(json!({}));
         if !s.is_object() { s = json!({}); }
-        let defaults = json!({ "catalogUrl": CATALOG_URL, "port": 8765, "enginePort": 8766, "threads": 0, "contextSize": 4096, "gpuLayers": -1,
+        let defaults = json!({ "catalogUrl": CATALOG_URL, "port": 7874, "enginePort": 7875, "threads": 0, "contextSize": 4096, "gpuLayers": -1,
                                "scope": "user", "parallel": 0, "keepCopy": true, "idleMinutes": 0 });
         let mut settings = defaults.as_object().unwrap().clone();
         if let Some(o) = s.get("settings").and_then(|x| x.as_object()) { for (k, v) in o { settings.insert(k.clone(), v.clone()); } }
         if settings.get("gpuLayers").and_then(|v| v.as_i64()) == Some(99) { settings.insert("gpuLayers".into(), json!(-1)); }
+        // the default address moved from port 8765 to 7874 ("SUSH" on a phone keypad): homes that kept the old default move too
+        if settings.get("port").and_then(|v| v.as_u64()) == Some(8765) { settings.insert("port".into(), json!(7874)); }
+        if settings.get("enginePort").and_then(|v| v.as_u64()) == Some(8766) { settings.insert("enginePort".into(), json!(7875)); }
         if settings.get("settingsVersion").is_none() {  // 1 was the old default: now 0 = choose the parallel slots from the hardware
             if settings.get("parallel").and_then(|v| v.as_i64()) == Some(1) { settings.insert("parallel".into(), json!(0)); }
             settings.insert("settingsVersion".into(), json!(2));
@@ -557,8 +560,8 @@ impl Ctx {
     // ---------- run models
     fn free_port(&self) -> u16 {
         let used: Vec<u64> = self.state["running"].as_object().map(|m| m.values().filter_map(|r| r["port"].as_u64()).collect()).unwrap_or_default();
-        let mut p = self.setting("enginePort").as_u64().unwrap_or(8766);
-        while used.contains(&p) || p == self.setting("port").as_u64().unwrap_or(8765) || std::net::TcpListener::bind(("127.0.0.1", p as u16)).is_err() { p += 1; }
+        let mut p = self.setting("enginePort").as_u64().unwrap_or(7875);
+        while used.contains(&p) || p == self.setting("port").as_u64().unwrap_or(7874) || std::net::TcpListener::bind(("127.0.0.1", p as u16)).is_err() { p += 1; }
         p as u16
     }
     /// How many requests a text model serves at once (continuous batching): from the GPU memory left after the model,

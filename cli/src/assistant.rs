@@ -472,10 +472,10 @@ mod tests {
         assert!(running_chat(&st).is_none());
         let h = fuller_hint(&st, &cat).unwrap();
         assert!(h.contains("`sushila start qwen3-4b-instruct-2507`") && h.contains("this stops Z-Image-Turbo NVIDIA"), "{h}");
-        let i = intent_answer("how do I make a picture of a cat?", &st, 8765).unwrap();
-        assert!(i.contains("z-image-turbo-nvidia") && i.contains("http://localhost:8765/"), "{i}");
-        assert!(intent_answer("make me a song", &st, 8765).unwrap().contains("sushila install ace-step-15"));
-        assert!(intent_answer("make a video", &st, 8765).unwrap().contains("need a video pack") && intent_answer("draw an image", &json!({}), 1).unwrap().contains("need an image pack"));
+        let i = intent_answer("how do I make a picture of a cat?", &st, 7874).unwrap();
+        assert!(i.contains("z-image-turbo-nvidia") && i.contains("http://localhost:7874/"), "{i}");
+        assert!(intent_answer("make me a song", &st, 7874).unwrap().contains("sushila install ace-step-15"));
+        assert!(intent_answer("make a video", &st, 7874).unwrap().contains("need a video pack") && intent_answer("draw an image", &json!({}), 1).unwrap().contains("need an image pack"));
         assert!(quote_sections("why is the sky blue?").is_empty(), "off-topic: nothing quoted");
         assert!(!quote_sections("I forgot the admin password").is_empty());
         // with the chat model running and ready, it answers (no hint)
