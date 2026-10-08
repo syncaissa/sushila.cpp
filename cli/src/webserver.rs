@@ -63,8 +63,7 @@ pub async fn start_and_wait(dir: &Path, model: &str, secs: u64) -> Option<Value>
     if st.get("running").and_then(|r| r.get(model)).and_then(|r| r.get("ready")).and_then(|x| x.as_bool()) == Some(true) { return Some(st); }
     if st.get("running").and_then(|r| r.get(model)).is_none() {
         let id = new_id().replacen("job-", "task-", 1);
-        let cdir = dir.join("control-in"); let _ = std::fs::create_dir_all(&cdir);
-        let _ = std::fs::write(cdir.join(format!("{id}.json")), json!({ "id": id, "action": "start", "pack": model, "source": "on demand" }).to_string());
+        let _ = crate::util::post_request(dir, "control-in", &id, &json!({ "id": id, "action": "start", "pack": model, "source": "on demand" }));
     }
     for _ in 0..secs * 2 {
         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -138,9 +137,79 @@ pub fn cli_token(dir: &Path) -> String {
     let mut b = [0u8; 24]; let _ = getrandom::getrandom(&mut b);
     let t = hex::encode(b); let _ = write_private(&p, &t); t
 }
+/// "This computer": a request whose connection really comes from this machine (loopback) and did not pass through a
+/// proxy or tunnel, and which names this server by a local address. The connection's origin is set by `mark_peer`
+/// (from the socket, never from the request), so another machine cannot claim it with a Host header.
+const PEER_LOCAL: &str = "x-sushila-peer-local";
+const PEER_IP: &str = "x-sushila-peer-ip";
 fn local_host(headers: &axum::http::HeaderMap, port: u16) -> bool {
     let host = headers.get("host").and_then(|h| h.to_str().ok()).unwrap_or("");
-    host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}")
+    headers.get(PEER_LOCAL).map(|v| v == "1").unwrap_or(false) && (host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}"))
+}
+/// Requests per minute for another device: by access key, or in open mode by the caller's real address (an open-mode
+/// visitor id is chosen by the browser, so it cannot be the limit). Windows older than a minute are dropped as the
+/// map is used, so it holds only the last minute's callers.
+fn rate_ok(s: &Srv, who: &str, headers: &axum::http::HeaderMap, st: &Value) -> bool {
+    let per_min = share(st).and_then(|sh| sh.get("perMinute")).and_then(|v| v.as_u64()).unwrap_or(30).max(1) as u32;
+    let bucket = if who.starts_with("open") { format!("ip-{}", peer_ip(headers)) } else { who.to_string() };
+    let mut hits = s.hits.lock().unwrap();
+    if hits.len() > 256 { hits.retain(|_, (_, t)| t.elapsed() < Duration::from_secs(60)); }
+    let e = hits.entry(bucket).or_insert((0, std::time::Instant::now()));
+    if e.1.elapsed() > Duration::from_secs(60) { *e = (0, std::time::Instant::now()); }
+    e.0 += 1;
+    e.0 <= per_min
+}
+/// A file sent in pieces (never read whole into memory), with Range support so players can seek: one byte range
+/// ("bytes=a-b", "bytes=a-", "bytes=-n"); anything else gets the whole file.
+async fn file_response(p: &Path, mime: &str, disp: String, cache: &str, range: Option<&axum::http::HeaderValue>) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
+    let Ok(mut f) = tokio::fs::File::open(p).await else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response() };
+    let Ok(len) = f.metadata().await.map(|m| m.len()) else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response() };
+    let want = range.and_then(|r| r.to_str().ok()).and_then(|r| parse_range(r, len));
+    let mut h = axum::http::HeaderMap::new();
+    for (k, v) in [("content-type", mime), ("content-disposition", disp.as_str()), ("cache-control", cache), ("accept-ranges", "bytes")] {
+        if let Ok(v) = axum::http::HeaderValue::from_str(v) { h.insert(k, v); }
+    }
+    let (status, start, n) = match want {
+        Some((a, b)) => { if let Ok(v) = axum::http::HeaderValue::from_str(&format!("bytes {a}-{b}/{len}")) { h.insert("content-range", v); } (axum::http::StatusCode::PARTIAL_CONTENT, a, b - a + 1) }
+        None if range.is_some() && len > 0 && range.and_then(|r| r.to_str().ok()).map(|r| r.starts_with("bytes=")).unwrap_or(false) => {
+            if let Ok(v) = axum::http::HeaderValue::from_str(&format!("bytes */{len}")) { h.insert("content-range", v); }
+            return (axum::http::StatusCode::RANGE_NOT_SATISFIABLE, h).into_response();
+        }
+        None => (axum::http::StatusCode::OK, 0, len),
+    };
+    if start > 0 && f.seek(std::io::SeekFrom::Start(start)).await.is_err() { return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not read the file").into_response(); }
+    if let Ok(v) = axum::http::HeaderValue::from_str(&n.to_string()) { h.insert("content-length", v); }
+    (status, h, axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(f.take(n)))).into_response()
+}
+/// "bytes=a-b" / "bytes=a-" / "bytes=-n" within a file of `len` bytes -> (first, last), inclusive.
+fn parse_range(r: &str, len: u64) -> Option<(u64, u64)> {
+    let spec = r.strip_prefix("bytes=")?;
+    if spec.contains(',') || len == 0 { return None; }
+    let (a, b) = spec.split_once('-')?;
+    let (a, b) = (a.trim(), b.trim());
+    let (first, last) = if a.is_empty() { let n: u64 = b.parse().ok()?; if n == 0 { return None; } (len.saturating_sub(n), len - 1) }
+        else { let first: u64 = a.parse().ok()?; let last = if b.is_empty() { len - 1 } else { b.parse::<u64>().ok()?.min(len - 1) }; (first, last) };
+    (first <= last && first < len).then_some((first, last))
+}
+/// A path that may be forwarded to an engine: no "." or ".." segment, no encoded dot, slash or backslash, no backslash
+/// (the query cannot change the path, so it is not checked).
+fn proxy_path_ok(path: &str) -> bool {
+    let low = path.to_ascii_lowercase();
+    !path.split('/').any(|seg| seg == "." || seg == "..") && !path.contains('\\') && !["%2e", "%2f", "%5c"].iter().any(|e| low.contains(e))
+}
+/// The peer's IP address (from the socket), for rate limits.
+fn peer_ip(headers: &axum::http::HeaderMap) -> String { headers.get(PEER_IP).and_then(|v| v.to_str().ok()).unwrap_or("?").to_string() }
+/// Every request passes here first: what the request says about its own origin is removed, and the socket's truth is
+/// written instead. A request through cloudflared also arrives from 127.0.0.1, but carries Cloudflare's headers.
+async fn mark_peer(axum::extract::ConnectInfo(peer): axum::extract::ConnectInfo<std::net::SocketAddr>, mut req: axum::extract::Request, next: axum::middleware::Next) -> axum::response::Response {
+    let h = req.headers_mut();
+    h.remove(PEER_LOCAL); h.remove(PEER_IP);
+    let proxied = ["cf-connecting-ip", "cf-ray", "cdn-loop", "x-forwarded-for", "x-forwarded-host", "forwarded", "x-real-ip"].iter().any(|k| h.contains_key(*k));
+    if peer.ip().is_loopback() && !proxied { h.insert(PEER_LOCAL, axum::http::HeaderValue::from_static("1")); }
+    if let Ok(v) = axum::http::HeaderValue::from_str(&peer.ip().to_string()) { h.insert(PEER_IP, v); }
+    next.run(req).await
 }
 /// Admin requests: from this computer (or from anywhere when share.remoteAdmin is on), with an Admin-tab session or
 /// the sushila commands' token.
@@ -182,7 +251,7 @@ fn host_ok(headers: &axum::http::HeaderMap, port: u16, st: &Value) -> bool {
     // Local use: only pages on this machine (blocks DNS-rebinding pages from other sites). Shared: also the configured
     // public host names (as sent by browsers or a reverse proxy).
     let host = headers.get("host").and_then(|h| h.to_str().ok()).unwrap_or("");
-    if host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}") { return true; }
+    if local_host(headers, port) { return true; }
     let Some(sh) = share(st) else { return false };
     let name = host.rsplit_once(':').map(|(h, p)| if p.chars().all(|c| c.is_ascii_digit()) { h } else { host }).unwrap_or(host).to_ascii_lowercase();
     sh.get("hosts").and_then(|h| h.as_array()).map(|a| a.iter().filter_map(|x| x.as_str()).any(|x| x == "*" || x.eq_ignore_ascii_case(&name))).unwrap_or(false)
@@ -192,7 +261,8 @@ fn host_ok(headers: &axum::http::HeaderMap, port: u16, st: &Value) -> bool {
 fn caller(headers: &axum::http::HeaderMap, st: &Value) -> Option<String> {
     let token = st.get("token").and_then(|t| t.as_str()).unwrap_or("");
     let given = headers.get("x-sushila-token").and_then(|h| h.to_str().ok()).unwrap_or("");
-    if !token.is_empty() && given == token { return Some("local".into()); }
+    // the token counts only on a connection that really comes from this computer (not through a proxy or tunnel)
+    if !token.is_empty() && given == token && headers.get(PEER_LOCAL).map(|v| v == "1").unwrap_or(false) { return Some("local".into()); }
     let sh = share(st)?;
     let keyed = headers.get("authorization").and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(|k| k.trim())
         .filter(|k| k.len() >= 20).map(|k| hex::encode(Sha256::digest(k.as_bytes())))
@@ -213,8 +283,7 @@ async fn srv_page(axum::extract::State(s): axum::extract::State<Arc<Srv>>, heade
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     // Opened on this computer (http://localhost:<port>/ or 127.0.0.1): the page carries this computer's token, so the
     // address alone is enough. Other sites cannot read this page (no CORS on /), and it may not be framed.
-    let host = headers.get("host").and_then(|h| h.to_str().ok()).unwrap_or("");
-    let local = host == format!("127.0.0.1:{}", s.port) || host == format!("localhost:{}", s.port);
+    let local = local_host(&headers, s.port);
     let html = match (local, st.get("token").and_then(|t| t.as_str())) {
         (true, Some(t)) => PAGE_HTML.replace("<div id=\"app\"></div>", &format!("<div id=\"app\"></div><script>window.SUSHILA_TOKEN={};</script>", Value::String(t.to_string()))),
         _ => PAGE_HTML.to_string(),
@@ -289,13 +358,11 @@ async fn srv_library_file(axum::extract::State(s): axum::extract::State<Arc<Srv>
     use axum::response::IntoResponse;
     if !lib_local(&s, &headers, &q) { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
     let rel = q.get("rel").cloned().unwrap_or_default();
-    if rel.is_empty() || rel.starts_with('/') || rel.contains(':') || rel.split(['/', '\\']).any(|c| c == "..") { return (axum::http::StatusCode::BAD_REQUEST, "bad path").into_response(); }
     let base = if q.contains_key("trash") { s.data_dir.join("outputs").join(".trash") } else { s.data_dir.join("outputs") };
-    let p = base.join(&rel);
-    let Ok(data) = tokio::fs::read(&p).await else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response() };
-    let name = p.file_name().map(|n| n.to_string_lossy().replace('"', "")).unwrap_or_default();
+    let Some(p) = crate::library::resolve(&base, &rel) else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response() };
+    let name = p.file_name().map(|n| n.to_string_lossy().replace(['"', '\r', '\n'], "")).unwrap_or_default();
     let disp = format!("{}; filename=\"{name}\"", if q.contains_key("download") { "attachment" } else { "inline" });
-    ([("content-type", crate::library::mime_of(&p).to_string()), ("content-disposition", disp), ("cache-control", "private, max-age=3600".to_string())], data).into_response()
+    file_response(&p, crate::library::mime_of(&p), disp, "private, max-age=3600", headers.get("range")).await
 }
 async fn srv_library_act(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(act): axum::extract::Path<String>, headers: axum::http::HeaderMap, body: axum::body::Bytes) -> axum::response::Response {
     use axum::response::IntoResponse;
@@ -407,6 +474,10 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         return r;
     }
     if !path.starts_with("/v1/") { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); }
+    // only the engine API itself: no dot segments or encoded separators (they would let a URL resolve outside /v1/
+    // on the engine), and only the methods the API uses
+    if !proxy_path_ok(&path) { return (axum::http::StatusCode::BAD_REQUEST, "bad path").into_response(); }
+    if parts.method != axum::http::Method::GET && parts.method != axum::http::Method::POST { return (axum::http::StatusCode::METHOD_NOT_ALLOWED, "GET or POST").into_response(); }
     let rid = request_id(&parts.headers);
     let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
     let with_cors = |r: axum::response::Response, st: &Value| with_cors_for(r, st, origin.as_deref());
@@ -421,12 +492,7 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         who_s = who_name(&who, &st);
         local = who == "local";
         if who != "local" {
-            let per_min = share(&st).and_then(|sh| sh.get("perMinute")).and_then(|v| v.as_u64()).unwrap_or(30).max(1) as u32;
-            let mut hits = s.hits.lock().unwrap();
-            let e = hits.entry(who).or_insert((0, std::time::Instant::now()));
-            if e.1.elapsed() > Duration::from_secs(60) { *e = (0, std::time::Instant::now()); }
-            e.0 += 1;
-            if e.0 > per_min { drop(hits); return deny(axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests for this key; try again in a minute"); }
+            if !rate_ok(&s, &who, &parts.headers, &st) { return deny(axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests for this key; try again in a minute"); }
         }
     }
     // several models can run at once (state.running = {pack id: {port, ...}}); a request names its model like any
@@ -519,7 +585,7 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
             let body = resp.bytes().await.unwrap_or_default();
             drop(guard);
             if let Some(id) = serde_json::from_slice::<Value>(&body).ok().and_then(|v| v["id"].as_str().map(String::from)) {
-                if let Ok(mut m) = PENDING.lock() { m.insert(id, (if video_gen { "video" } else { "music" }, asked.clone())); }
+                pending_add(id, if video_gen { "video" } else { "music" }, &asked);
             }
             (axum::http::StatusCode::OK, [("content-type", "application/json".to_string()), ("cache-control", "no-store".to_string())], body.to_vec()).into_response()
         }
@@ -572,11 +638,20 @@ fn not_running_msg(st: &Value, id: &str, engine: Option<(bool, &Path)>) -> Strin
 /// Writes each image of an images answer to outputs/images/<YYYY-MM-DD>/<HHMMSS>-<first words of the prompt>-<n>.png
 /// and, for this computer, adds its path to the answer (data[i].sushila_file).
 /// Music and video jobs started through this server, by id: (kind, what was asked), until their result is saved.
-static PENDING: std::sync::LazyLock<std::sync::Mutex<HashMap<String, (&'static str, Value)>>> = std::sync::LazyLock::new(Default::default);
+/// Entries are small (texts cut to 4,000 characters), expire after a day (results never fetched) and are at most 1,000.
+static PENDING: std::sync::LazyLock<std::sync::Mutex<HashMap<String, (&'static str, Value, std::time::Instant)>>> = std::sync::LazyLock::new(Default::default);
+fn pending_add(id: String, kind: &'static str, asked: &Value) {
+    let mut a = asked.clone();
+    if let Some(o) = a.as_object_mut() { for v in o.values_mut() { if let Some(t) = v.as_str() { if t.len() > 4000 { *v = json!(t.chars().take(4000).collect::<String>()); } } } }
+    let Ok(mut m) = PENDING.lock() else { return };
+    m.retain(|_, (_, _, t)| t.elapsed() < Duration::from_secs(24 * 3600));
+    if m.len() >= 1000 { if let Some(old) = m.iter().min_by_key(|(_, (_, _, t))| *t).map(|(k, _)| k.clone()) { m.remove(&old); } }
+    m.insert(id, (kind, a, std::time::Instant::now()));
+}
 /// A finished song (audio, or multipart with the audio in it) or video (JSON with base64 once completed): saved.
 fn save_job_result(dir: &Path, id: &str, ctype: &str, body: &[u8]) -> bool {
     use base64::Engine;
-    let Some((kind, asked)) = PENDING.lock().ok().and_then(|m| m.get(id).cloned()) else { return false };
+    let Some((kind, asked, _)) = PENDING.lock().ok().and_then(|m| m.get(id).cloned()) else { return false };
     let title = asked["prompt"].as_str().unwrap_or(kind).to_string();
     if kind == "music" {
         let (audio, t) = if ctype.starts_with("audio/") { (body.to_vec(), ctype.to_string()) } else { match crate::library::audio_in_multipart(body, ctype) { Some(x) => x, None => return false } };
@@ -628,9 +703,8 @@ async fn srv_use(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req: a
     }
     let mode = v["mode"].as_str().filter(|m| *m == "turbo" || *m == "regular");
     let id = new_id().replacen("job-", "task-", 1);
-    let dir = s.data_dir.join("control-in");
     let req = json!({ "id": id, "action": action, "pack": pack, "mode": mode, "source": "inference page" });
-    if std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(dir.join(format!("{id}.json")), req.to_string())).is_err() { return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not queue the request").into_response(); }
+    if crate::util::post_request(&s.data_dir, "control-in", &id, &req).is_err() { return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not queue the request").into_response(); }
     (axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "id": id }))).into_response()
 }
 
@@ -651,9 +725,9 @@ async fn srv_tunnel_act(axum::extract::State(s): axum::extract::State<Arc<Srv>>,
         "new-key" => match crate::tunnel::new_key(&s.data_dir).await { Ok(v) => axum::Json(v).into_response(), Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e).into_response() },
         // a new link at every start, or not (this computer's choice; no admin login needed for its own internet link)
         "at-start-on" | "at-start-off" => {
-            let id = new_id().replacen("job-", "task-", 1); let dir = s.data_dir.join("control-in");
+            let id = new_id().replacen("job-", "task-", 1);
             let req = json!({ "id": id, "action": "settings", "values": { "internetUrlAtStart": act == "at-start-on" }, "source": "temporary internet URL" });
-            if std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(dir.join(format!("{id}.json")), req.to_string())).is_err() { return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not save").into_response(); }
+            if crate::util::post_request(&s.data_dir, "control-in", &id, &req).is_err() { return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not save").into_response(); }
             axum::Json(json!({ "ok": true })).into_response()
         }
         _ => (axum::http::StatusCode::NOT_FOUND, "start or stop").into_response(),
@@ -790,14 +864,14 @@ async fn srv_queue_add(axum::extract::State(s): axum::extract::State<Arc<Srv>>, 
     if !["text", "image", "video", "music"].contains(&kind) || !safe_id(&model.replace('.', "_")) {
         return with_cors_for((axum::http::StatusCode::BAD_REQUEST, "kind (text, image, video, music) and model are required").into_response(), &st, origin.as_deref());
     }
-    let pending = std::fs::read_dir(s.data_dir.join("queue-in")).map(|d| d.count()).unwrap_or(0);
-    let queued = read_queue(&s.data_dir).get("jobs").and_then(|j| j.as_array()).map(|a| a.len()).unwrap_or(0);
+    let pending = std::fs::read_dir(s.data_dir.join("queue-in")).map(|d| d.filter_map(|e| e.ok()).filter(|e| e.path().extension().map(|x| x == "json").unwrap_or(false)).count()).unwrap_or(0);
+    // only jobs still to do count (finished ones are pruned by the owner and never fill the queue)
+    let queued = read_queue(&s.data_dir).get("jobs").and_then(|j| j.as_array()).map(|a| a.iter().filter(|j| ["queued", "running", "paused"].contains(&j["status"].as_str().unwrap_or(""))).count()).unwrap_or(0);
     if pending + queued > 500 { return with_cors_for((axum::http::StatusCode::TOO_MANY_REQUESTS, "the queue is full").into_response(), &st, origin.as_deref()); }
     let id = new_id();
     let item = json!({ "action": "add", "id": id, "owner": who, "kind": kind, "model": model,
         "title": v.get("title").and_then(|t| t.as_str()).unwrap_or("").chars().take(200).collect::<String>(), "params": v.get("params").cloned().unwrap_or(json!({})) });
-    let dir = s.data_dir.join("queue-in");
-    if std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(dir.join(format!("{id}.json")), item.to_string())).is_err() {
+    if crate::util::post_request(&s.data_dir, "queue-in", &id, &item).is_err() {
         return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not queue").into_response();
     }
     with_cors_for((axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "id": id, "status": "queued" }))).into_response(), &st, origin.as_deref())
@@ -815,9 +889,7 @@ async fn srv_queue_action(axum::extract::State(s): axum::extract::State<Arc<Srv>
     // "all" pauses or resumes the whole queue: only this computer
     if id == "all" { if who != "local" { return (axum::http::StatusCode::FORBIDDEN, "only this computer can pause the whole queue").into_response(); } }
     else if !queue_job(&s.data_dir, &id).map(|j| owns(&who, &j)).unwrap_or(false) { return with_cors_for((axum::http::StatusCode::NOT_FOUND, "no such job").into_response(), &st, origin.as_deref()); }
-    let dir = s.data_dir.join("queue-in");
-    let _ = std::fs::create_dir_all(&dir);
-    let _ = std::fs::write(dir.join(format!("{}.json", new_id())), json!({ "action": action, "id": id }).to_string());
+    let _ = crate::util::post_request(&s.data_dir, "queue-in", &new_id(), &json!({ "action": action, "id": id }));
     with_cors_for((axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "ok": true }))).into_response(), &st, origin.as_deref())
 }
 async fn srv_queue_output(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(id): axum::extract::Path<String>,
@@ -835,10 +907,10 @@ async fn srv_queue_output(axum::extract::State(s): axum::extract::State<Arc<Srv>
     let out = job.get("output").cloned().unwrap_or(Value::Null);
     let file = out.get("file").and_then(|f| f.as_str()).unwrap_or("");
     if file.is_empty() || file.contains('/') || file.contains('\\') || file.starts_with('.') { return (axum::http::StatusCode::NOT_FOUND, "no output yet").into_response(); }
-    let Ok(data) = tokio::fs::read(s.data_dir.join("outputs").join(file)).await else { return (axum::http::StatusCode::NOT_FOUND, "output missing").into_response() };
+    if who != "local" && !rate_ok(&s, &who, &h, &st) { return (axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests; try again in a minute").into_response(); }
     let mime = out.get("mime").and_then(|m| m.as_str()).unwrap_or("application/octet-stream").to_string();
-    let disp = format!("{}; filename=\"{}\"", if q.contains_key("download") { "attachment" } else { "inline" }, file);
-    with_cors_for(([("content-type", mime), ("content-disposition", disp), ("cache-control", "no-store".to_string())], data).into_response(), &st, origin.as_deref())
+    let disp = format!("{}; filename=\"{}\"", if q.contains_key("download") { "attachment" } else { "inline" }, file.replace(['"', '\r', '\n'], ""));
+    with_cors_for(file_response(&s.data_dir.join("outputs").join(file), &mime, disp, "no-store", headers.get("range")).await, &st, origin.as_deref())
 }
 
 
@@ -871,8 +943,7 @@ async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, re
     if !["engine-install", "install", "install-file", "install-hf", "remove", "start", "stop", "settings", "verify", "catalog", "share", "mode"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
     let id = new_id().replacen("job-", "task-", 1);
     v["id"] = json!(id);
-    let dir = s.data_dir.join("control-in");
-    if std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(dir.join(format!("{id}.json")), v.to_string())).is_err() {
+    if crate::util::post_request(&s.data_dir, "control-in", &id, &v).is_err() {
         return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not queue the request").into_response();
     }
     with_cors_for((axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "id": id }))).into_response(), &st, origin.as_deref())
@@ -885,10 +956,10 @@ async fn srv_logs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum:
     let st = read_state(&s.data_dir);
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required (Admin tab), or use the sushila command on this computer").into_response(); }
-    let data = std::fs::read(s.data_dir.join("logs").join("sushila.log")).unwrap_or_default();
-    let since = q.get("since").and_then(|x| x.parse::<usize>().ok()).unwrap_or(0).min(data.len());
-    let start = since.max(data.len().saturating_sub(256 << 10));  // at most the last 256 KB
-    axum::Json(json!({ "next": data.len(), "text": String::from_utf8_lossy(&data[start..]) })).into_response()
+    // only what is new since `since`, at most the last 256 KB, read from the end (the log can be large); a log that
+    // became shorter (rotated) starts again from its beginning
+    let (next, text) = crate::util::read_tail(&s.data_dir.join("logs").join("sushila.log"), q.get("since").and_then(|x| x.parse::<u64>().ok()).unwrap_or(0), 256 << 10);
+    axum::Json(json!({ "next": next, "text": text })).into_response()
 }
 
 /// GET /api/catalog: the model packs this computer can install (written by the owner to catalog-cache.json), this computer only.
@@ -935,6 +1006,29 @@ async fn srv_admin(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
 }
 /// POST /api/login {password} -> {session}; POST /api/setup {password}: the first password, only from this computer
 /// and only while none is set; POST /api/admin/change {current, password} (logged in + the current password); POST /api/admin/logout.
+/// Password checks (Argon2, ~19 MB each): at most two at a time, and an address that gave 5 wrong passwords waits
+/// 15 minutes. Old entries are dropped as the map is used, so it stays small.
+static LOGIN_GATE: std::sync::LazyLock<tokio::sync::Semaphore> = std::sync::LazyLock::new(|| tokio::sync::Semaphore::new(2));
+static LOGIN_FAILS: std::sync::LazyLock<std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>>> = std::sync::LazyLock::new(Default::default);
+const LOCKOUT: Duration = Duration::from_secs(15 * 60);
+fn login_locked(ip: &str) -> bool {
+    let mut m = LOGIN_FAILS.lock().unwrap();
+    m.retain(|_, (_, t)| t.elapsed() < LOCKOUT);
+    m.get(ip).map(|(n, _)| *n >= 5).unwrap_or(false)
+}
+fn login_failed(ip: &str) {
+    let mut m = LOGIN_FAILS.lock().unwrap();
+    if m.len() > 10_000 { m.clear(); }
+    let e = m.entry(ip.to_string()).or_insert((0, std::time::Instant::now()));
+    e.0 += 1; e.1 = std::time::Instant::now();
+}
+async fn check_pw_gated(dir: PathBuf, ip: &str, pw: String) -> Result<bool, &'static str> {
+    if login_locked(ip) { return Err("too many wrong passwords from this address; try again in 15 minutes"); }
+    let _permit = LOGIN_GATE.acquire().await.map_err(|_| "busy")?;
+    let ok = tokio::task::spawn_blocking(move || check_password(&dir, &pw)).await.unwrap_or(false);
+    if !ok { login_failed(ip); tokio::time::sleep(Duration::from_secs(1)).await; }
+    Ok(ok)
+}
 async fn srv_login(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(what): axum::extract::Path<String>, req: axum::extract::Request) -> axum::response::Response {
     use axum::response::IntoResponse;
     let (parts, body) = req.into_parts();
@@ -952,9 +1046,11 @@ async fn srv_login(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum
             axum::Json(json!({ "session": new_session(&s) })).into_response()
         }
         "login" => {
-            let dir = s.data_dir.clone(); let pw2 = pw.clone();
-            let ok = tokio::task::spawn_blocking(move || check_password(&dir, &pw2)).await.unwrap_or(false);
-            if !ok { tokio::time::sleep(Duration::from_secs(1)).await; return (axum::http::StatusCode::UNAUTHORIZED, "wrong password").into_response(); }
+            match check_pw_gated(s.data_dir.clone(), &peer_ip(&parts.headers), pw.clone()).await {
+                Err(e) => return (axum::http::StatusCode::TOO_MANY_REQUESTS, e).into_response(),
+                Ok(false) => return (axum::http::StatusCode::UNAUTHORIZED, "wrong password").into_response(),
+                Ok(true) => {}
+            }
             axum::Json(json!({ "session": new_session(&s) })).into_response()
         }
         "change" => {
@@ -963,8 +1059,7 @@ async fn srv_login(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum
             if !admin_ok(&s, &parts.headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "log in first").into_response(); }
             let v = serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null);
             let (cur, new) = (v.get("current").and_then(|p| p.as_str()).unwrap_or("").to_string(), v.get("password").and_then(|p| p.as_str()).unwrap_or("").to_string());
-            let dir = s.data_dir.clone();
-            if !tokio::task::spawn_blocking(move || check_password(&dir, &cur)).await.unwrap_or(false) { tokio::time::sleep(Duration::from_secs(1)).await; return (axum::http::StatusCode::UNAUTHORIZED, "wrong current password").into_response(); }
+            if !check_pw_gated(s.data_dir.clone(), &peer_ip(&parts.headers), cur.clone()).await.unwrap_or(false) { return (axum::http::StatusCode::UNAUTHORIZED, "wrong current password").into_response(); }
             if let Err(e) = set_password(&s.data_dir, &new) { return (axum::http::StatusCode::BAD_REQUEST, e).into_response(); }
             let keep = parts.headers.get("x-sushila-admin").and_then(|h| h.to_str().ok()).unwrap_or("").to_string();
             let pid = password_id(&s.data_dir);
@@ -995,12 +1090,7 @@ async fn srv_assistant(axum::extract::State(s): axum::extract::State<Arc<Srv>>, 
     let Some(who) = caller(&parts.headers, &st) else { return cors((axum::http::StatusCode::UNAUTHORIZED, "an access key is required").into_response()) };
     let local = who == "local" && local_host(&parts.headers, s.port);
     if who != "local" {
-        let per_min = share(&st).and_then(|sh| sh.get("perMinute")).and_then(|v| v.as_u64()).unwrap_or(30).max(1) as u32;
-        let mut hits = s.hits.lock().unwrap();
-        let e = hits.entry(who.clone()).or_insert((0, std::time::Instant::now()));
-        if e.1.elapsed() > Duration::from_secs(60) { *e = (0, std::time::Instant::now()); }
-        e.0 += 1;
-        if e.0 > per_min { return cors((axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests; try again in a minute").into_response()); }
+        if !rate_ok(&s, &who, &parts.headers, &st) { return cors((axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests; try again in a minute").into_response()); }
     }
     let Ok(bytes) = axum::body::to_bytes(body, 256 << 10).await else { return (axum::http::StatusCode::PAYLOAD_TOO_LARGE, "request too large").into_response() };
     let v: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
@@ -1050,8 +1140,42 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/queue/:id/output", axum::routing::get(srv_queue_output))
         .route("/api/queue/:id/:action", axum::routing::post(srv_queue_action).options(srv_queue_action))
         .fallback(srv_proxy)
-        .with_state(srv);
+        .with_state(srv)
+        .layer(axum::middleware::from_fn(mark_peer));
     let (tx, rx) = oneshot::channel::<()>();
-    tokio::spawn(async move { let _ = axum::serve(listener, app).with_graceful_shutdown(async { let _ = rx.await; }).await; });
+    tokio::spawn(async move { let _ = axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>()).with_graceful_shutdown(async { let _ = rx.await; }).await; });
     Ok((format!("http://{bind}:{port}"), tx))
+}
+
+#[cfg(test)]
+mod robustness_tests {
+    use super::*;
+    #[test] fn proxy_paths() {
+        for ok in ["/v1/chat/completions", "/v1/models", "/v1/video/jobs/abc", "/v1/music/job"] { assert!(proxy_path_ok(ok), "{ok}"); }
+        for bad in ["/v1/../slots", "/v1/./props", "/v1/%2e%2e/props", "/v1/%2E%2e/x", "/v1/a%2fb", "/v1/a%5Cb", "/v1/a\\b", "/v1/video/../../x"] { assert!(!proxy_path_ok(bad), "{bad}"); }
+    }
+    #[test] fn ranges() {
+        assert_eq!(parse_range("bytes=0-99", 1000), Some((0, 99)));
+        assert_eq!(parse_range("bytes=900-", 1000), Some((900, 999)));
+        assert_eq!(parse_range("bytes=-100", 1000), Some((900, 999)));
+        assert_eq!(parse_range("bytes=0-5000", 1000), Some((0, 999)));
+        for bad in ["bytes=1000-", "bytes=5-2", "bytes=0-1,5-6", "items=0-1", "bytes=-0", "bytes=x-y"] { assert_eq!(parse_range(bad, 1000), None, "{bad}"); }
+        assert_eq!(parse_range("bytes=0-", 0), None);
+    }
+    #[test] fn local_needs_the_socket_not_the_host_header() {
+        let mut h = axum::http::HeaderMap::new();
+        h.insert("host", axum::http::HeaderValue::from_static("localhost:7874"));
+        assert!(!local_host(&h, 7874), "a Host header alone is not this computer");
+        h.insert(PEER_LOCAL, axum::http::HeaderValue::from_static("1"));
+        assert!(local_host(&h, 7874));
+        h.insert("host", axum::http::HeaderValue::from_static("abc.trycloudflare.com"));
+        assert!(!local_host(&h, 7874));
+    }
+    #[test] fn login_lockout() {
+        let ip = "203.0.113.99";
+        for _ in 0..4 { login_failed(ip); }
+        assert!(!login_locked(ip));
+        login_failed(ip);
+        assert!(login_locked(ip));
+    }
 }

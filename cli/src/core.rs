@@ -49,10 +49,19 @@ pub struct Ctx {
 /// Every action, from any client, goes to one file: <data>/logs/sushila.log ("<time> [source] message").
 pub static LOG_FILE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
 pub static SOURCE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+/// A log that reached 20 MB becomes <name>.1 (the previous .1 is dropped): logs never fill the disk.
+pub fn rotate_log(p: &Path) {
+    if std::fs::metadata(p).map(|m| m.len() > 20 << 20).unwrap_or(false) {
+        let old = PathBuf::from(format!("{}.1", p.display()));
+        let _ = std::fs::remove_file(&old); let _ = std::fs::rename(p, &old);
+    }
+}
 pub fn log(quiet: bool, line: &str) {
     if !quiet { eprintln!("[{}] {line}", &now_iso()[11..19]); }
     if let Some(p) = LOG_FILE.get() {
         use std::io::Write;
+        static WRITES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        if WRITES.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 500 == 0 { rotate_log(p); }  // checked now and then, not on every line
         if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p) {
             let _ = writeln!(f, "{} [{}] {}", now_iso(), SOURCE.get().map(|s| s.as_str()).unwrap_or("cli"), line.replace('\n', " | "));
         }
@@ -62,9 +71,22 @@ pub fn log(quiet: bool, line: &str) {
 impl Ctx {
     pub fn load(data: PathBuf, quiet: bool) -> Result<Ctx, String> {
         std::fs::create_dir_all(&data).map_err(|e| format!("cannot use the data folder {}: {e}", data.display()))?;
-        let raw = std::fs::read_to_string(data.join("state.json")).ok();
-        let mut s: Value = raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(json!({}));
-        if !s.is_object() { s = json!({}); }
+        // a state.json that cannot be read is kept aside (state.json.corrupt-<time>) and the last good copy is used:
+        // installed packs, keys and the engine record are never silently forgotten
+        let path = data.join("state.json");
+        let parse = |p: &Path| std::fs::read_to_string(p).ok().and_then(|r| serde_json::from_str::<Value>(&r).ok()).filter(|v| v.is_object());
+        let mut s: Value = match (path.exists(), parse(&path)) {
+            (_, Some(v)) => v,
+            (false, None) => json!({}),
+            (true, None) => {
+                let aside = data.join(format!("state.json.corrupt-{}", now_iso().replace(':', "-")));
+                let _ = std::fs::rename(&path, &aside);
+                match parse(&data.join("state.json.bak")) {
+                    Some(v) => { log(quiet, &format!("state.json could not be read (kept as {}); the last good copy (state.json.bak) is used", aside.display())); v }
+                    None => { log(quiet, &format!("state.json could not be read (kept as {}) and there is no good copy: starting with a new state", aside.display())); json!({}) }
+                }
+            }
+        };
         let defaults = json!({ "catalogUrl": CATALOG_URL, "port": 7874, "enginePort": 7875, "threads": 0, "contextSize": 4096, "gpuLayers": -1,
                                "scope": "user", "parallel": 0, "keepCopy": true, "idleMinutes": 0 });
         let mut settings = defaults.as_object().unwrap().clone();
@@ -99,7 +121,7 @@ impl Ctx {
                 }
             }
             let _ = std::fs::remove_dir(&old);
-            let _ = std::fs::write(data.join("state.json"), serde_json::to_string_pretty(&s).unwrap_or_default());  // the new folders, at once
+            let _ = write_atomic(&data.join("state.json"), serde_json::to_string_pretty(&s).unwrap_or_default().as_bytes());  // the new folders, at once
         }
         Ok(Ctx { data, packs_dir, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, other_vram: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())), cpu_only: Default::default() })
     }
@@ -138,16 +160,25 @@ impl Ctx {
         let owner = self.state.get("owner").cloned().unwrap_or(Value::Null);
         let packs: Vec<Value> = packs.into_iter().map(|mut p| { let id = p["id"].as_str().unwrap_or("").to_string(); p["bytes"] = self.state["packs"][&id]["bytes"].clone(); p }).collect();
         let s = &self.state["settings"];
-        let settings = json!({ "port": s["port"], "enginePort": s["enginePort"], "threads": s["threads"], "contextSize": s["contextSize"], "gpuLayers": s["gpuLayers"], "parallel": s["parallel"] });
+        let settings = json!({ "port": s["port"], "enginePort": s["enginePort"], "threads": s["threads"], "contextSize": s["contextSize"], "gpuLayers": s["gpuLayers"], "parallel": s["parallel"],
+                               "keepPopular": s["keepPopular"], "installQueue": s["installQueue"], "internetUrlAtStart": s["internetUrlAtStart"] });
         let sh = &self.state["share"];
         let share = json!({ "enabled": sh["enabled"], "open": sh["open"], "keys": sh["keys"].as_array().map(|a| a.len()).unwrap_or(0) });
         self.state["public"] = json!({ "app": "sushila", "appVersion": env!("CARGO_PKG_VERSION"), "engine": engine, "running": running, "packs": packs,
                                        "tasks": tasks, "owner": owner, "gpu": self.state["engine"]["key"].as_str().map(Self::gpu_label), "settings": settings, "share": share,
                                        "engineKey": self.state["engine"]["key"], "fallback": self.state["engineFallback"],
                                        "packsDir": self.packs_dir.to_string_lossy(), "packProblems": self.state.get("packProblems").cloned().unwrap_or(json!([])) });
-        let tmp = self.data.join("state.json.tmp");
-        std::fs::write(&tmp, serde_json::to_string_pretty(&self.state).map_err(err)?).map_err(err)?;
-        std::fs::rename(&tmp, self.data.join("state.json")).map_err(err)
+        // written whole or not at all (also after a crash or power loss); a copy of the last good state is kept as
+        // state.json.bak, refreshed at most every 10 minutes, for `load` to fall back on
+        static LAST_BAK: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+        let path = self.data.join("state.json");
+        if let Ok(mut b) = LAST_BAK.lock() {
+            if b.map(|t| t.elapsed() > Duration::from_secs(600)).unwrap_or(true) && path.is_file() {
+                if std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).is_some() { let _ = std::fs::copy(&path, self.data.join("state.json.bak")); }
+                *b = Some(std::time::Instant::now());
+            }
+        }
+        write_atomic(&path, serde_json::to_string_pretty(&self.state).map_err(err)?.as_bytes())
     }
 
     pub fn platform_key(&self) -> String {
@@ -294,17 +325,27 @@ impl Ctx {
         if self.state["engine"]["version"] == v.as_str() && self.state["engine"]["key"] == key.as_str() && self.engine_ok() {
             self.log(&format!("Sushila.cpp {v} ({key}) is already installed")); return Ok(None);
         }
-        Ok(Some(EnginePlan { staging: self.data.join("downloads").join(format!("sushila-cpp-{v}-{key}.{}", build["archive"].as_str().unwrap_or("zip"))),
-            dir: self.data.join("engine").join(&v), key, version: v, url, build, server_rel, quiet: self.quiet }))
+        let archive = build["archive"].as_str().unwrap_or("zip");
+        if !["zip", "tar.gz"].contains(&archive) { return Err("The build entry is not valid (archive type).".into()); }
+        // one folder per build (engine/<version>-<build>): a fallback or a reinstall never writes into the engine in use
+        Ok(Some(EnginePlan { staging: self.data.join("downloads").join(format!("sushila-cpp-{v}-{key}.{archive}")),
+            dir: self.data.join("engine").join(format!("{v}-{key}")), key, version: v, url, build, server_rel, quiet: self.quiet }))
     }
     /// Downloads and unpacks (no state is touched: safe to run in the background).
     pub async fn fetch_engine(p: &EnginePlan, prog: Option<&Prog>) -> Result<(), String> {
         log(p.quiet, &format!("installing Sushila.cpp {} for {} ({})", p.version, Self::gpu_label(&p.key), p.key));
         download_p(&p.url, &p.staging, p.build["sha256"].as_str(), p.build["bytes"].as_u64(), &format!("Sushila.cpp {}", p.version), p.quiet, prog).await?;
-        extract_archive(&p.staging, &p.dir).await?;
-        std::fs::write(p.dir.join("sushila-engine.json"), json!({ "version": p.version, "key": p.key, "sha256": p.build["sha256"], "server": p.server_rel, "servers": p.build["servers"] }).to_string()).map_err(err)?;
-        let _ = std::fs::remove_file(&p.staging);
-        Ok(())
+        // unpacked next to its place, then moved in whole: a half-unpacked engine is never used
+        let tmp = p.dir.with_file_name(format!(".{}.unpacking-{}", p.dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default(), &random_token()[..8]));
+        let res = async {
+            extract_archive(&p.staging, &tmp).await?;
+            std::fs::write(tmp.join("sushila-engine.json"), json!({ "version": p.version, "key": p.key, "sha256": p.build["sha256"], "server": p.server_rel, "servers": p.build["servers"] }).to_string()).map_err(err)?;
+            if p.dir.exists() { std::fs::remove_dir_all(&p.dir).map_err(|e| format!("the old copy of this engine build is in use or locked ({e}); stop its models and try again"))?; }
+            std::fs::rename(&tmp, &p.dir).map_err(err)
+        }.await;
+        if res.is_err() { let _ = std::fs::remove_dir_all(&tmp); }
+        let _ = std::fs::remove_file(&p.staging);  // the download is not kept, whether it worked or not
+        res
     }
     /// Records the installed engine in state.json.
     pub fn apply_engine(&mut self, p: &EnginePlan) -> Result<(), String> {
@@ -361,7 +402,8 @@ impl Ctx {
     /// The variant made for this computer's GPU (e.g. z-image-turbo-nvidia) if one fits, else the pack itself.
     pub async fn best_variant(&mut self, id: &str) -> String {
         let packs = self.catalog.as_ref().and_then(|c| c["packs"].as_array().cloned()).unwrap_or_default();
-        for p in packs.iter().filter(|p| p["variantOf"] == id) { if self.pack_fits(p).await { return p["id"].as_str().unwrap_or(id).to_string(); } }
+        // a variant's id becomes a folder name: only plain ids (the catalog is not signed as a whole)
+        for p in packs.iter().filter(|p| p["variantOf"] == id && p["id"].as_str().map(safe_id_dots).unwrap_or(false)) { if self.pack_fits(p).await { return p["id"].as_str().unwrap_or(id).to_string(); } }
         id.to_string()
     }
     fn check_pack(&self, pack: &Value) -> Result<(), String> {
@@ -400,6 +442,7 @@ impl Ctx {
     }
     /// Checks a catalog pack against its signed index and this computer; returns what to download (None: installed).
     pub async fn prepare_pack(&mut self, id: &str) -> Result<Option<PackPlan>, String> {
+        if !safe_id_dots(id) { return Err(format!("not a pack id: {id}")); }
         if self.packs().contains_key(id) { self.log(&format!("{id} is already installed")); return Ok(None); }
         self.load_catalog().await?;
         let pack = self.catalog_pack(id).ok_or_else(|| format!("{id} is not in the catalog (sushila packs lists them)"))?;
@@ -455,27 +498,19 @@ impl Ctx {
             }
             let staging = root;
             let raw = std::fs::read_to_string(staging.join("sushila-pack.json")).map_err(|_| "This file is not a Sushila model pack.".to_string())?;
-            let meta: Value = serde_json::from_str(&raw).map_err(err)?;
-            let name = meta["name"].as_str().unwrap_or("pack").to_string();
-            let index = self.signed_index(&meta["index"], &name)?;
-            let listed: HashMap<String, Value> = index["files"].as_array().map(|a| a.iter().map(|f| (f["path"].as_str().unwrap_or("").to_string(), f.clone())).collect()).unwrap_or_default();
-            for f in meta["files"].as_array().cloned().unwrap_or_default() {
-                let p = f["path"].as_str().unwrap_or("");
-                if !safe_rel_path(p) || !PACK_EXT.iter().any(|e| p.to_lowercase().ends_with(e)) { return Err(format!("{name}: {p} is not an allowed data file.")); }
-                let r = listed.get(f["src"].as_str().unwrap_or(""));
-                if r.map(|r| r["sha256"] != f["sha256"] || r["bytes"] != f["bytes"]).unwrap_or(true) { return Err(format!("{name}: {p} does not match the signed index.")); }
-                let got = file_sha256(&join_rel(&staging, p)).await.unwrap_or_else(|_| "missing".into());
-                if Some(got.as_str()) != f["sha256"].as_str() { return Err(format!("{name}: {p} is {}; nothing was installed.", if got == "missing" { "missing" } else { "damaged or changed" })); }
-            }
-            let model = meta["serve"]["model"].as_str().unwrap_or("");
-            if !safe_rel_path(model) || !meta["files"].as_array().map(|a| a.iter().any(|f| f["path"] == model)).unwrap_or(false) { return Err(format!("{name}: the model file is not part of the pack.")); }
-            let id = meta["id"].as_str().unwrap_or("").to_string();
-            if !safe_id_dots(&id) { return Err("the pack id is not valid".into()); }
+            let meta: Value = serde_json::from_str(&raw).map_err(|_| "This file is not a Sushila model pack.".to_string())?;
+            if meta["custom"] == true || !meta["index"].is_object() { return Err("A .sushilapack file must be signed by Sushila; this one is not.".into()); }
+            // exactly the checks of a pack folder put into model-packs (signature, every file's SHA-256, run settings),
+            // off the async loop: hashing gigabytes takes a while
+            let (data, st2) = (self.data.clone(), staging.clone());
+            let mut rec = tokio::task::spawn_blocking(move || verify_pack_folder(&data, &st2, None)).await.map_err(err)??;
+            prune_unlisted(&staging, &rec["files"]);  // nothing but the signed files and sushila-pack.json stays
+            let id = rec["id"].as_str().unwrap_or("").to_string();
             let dir = self.packs_dir.join(&id);
             if dir.exists() { std::fs::remove_dir_all(&dir).map_err(err)?; }
             if let Some(d) = dir.parent() { std::fs::create_dir_all(d).map_err(err)?; }
             std::fs::rename(&staging, &dir).map_err(err)?;
-            let rec = self.pack_record(&meta, &dir, Some(&path.to_string_lossy()));
+            rec["dir"] = json!(dir.to_string_lossy()); rec["source"] = json!(path.to_string_lossy());
             self.state["packs"][&id] = rec;
             self.save()?;
             Ok(id)
@@ -484,7 +519,15 @@ impl Ctx {
         res
     }
     /// The NVIDIA image runtime (Python 3.11 + PyTorch + Nunchaku + the Sushila image server), signed, every file checked.
+    /// The NVIDIA image runtime: checked and planned here (quick), fetched and set up by `fetch_runtime` (minutes, no
+    /// state touched: it runs in the background), recorded by `apply_runtime`.
     pub async fn install_runtime(&mut self, name: &str) -> Result<(), String> {
+        let plan = self.prepare_runtime(name)?;
+        let rec = Self::fetch_runtime(&plan).await?;
+        self.apply_runtime(&plan.name, rec)
+    }
+    pub fn apply_runtime(&mut self, name: &str, rec: Value) -> Result<(), String> { self.state["runtimes"][name] = rec; self.save() }
+    pub fn prepare_runtime(&self, name: &str) -> Result<RuntimePlan, String> {
         let cat = self.catalog.as_ref().map(|c| c["runtimes"][name].clone()).unwrap_or(Value::Null);
         let key = format!("{}-cuda", self.platform_key());
         let build = cat["builds"][&key].clone();
@@ -503,17 +546,21 @@ impl Ctx {
         let script = r["server"]["script"].as_str().unwrap_or("");
         if !safe_rel_path(exe_rel) || !script.ends_with(".py") || script.contains('/') { return Err("The runtime entry is not valid.".into()); }
         let v = index["version"].as_str().unwrap_or("0").to_string();
-        let dir = self.data.join("runtime").join(name).join(&v);
-        let dl = self.data.join("downloads");
+        Ok(RuntimePlan { name: name.to_string(), dir: self.data.join("runtime").join(name).join(&v), dl: self.data.join("downloads"), build, version: v,
+            exe_rel: exe_rel.to_string(), script: script.to_string(), quiet: self.quiet })
+    }
+    pub async fn fetch_runtime(p: &RuntimePlan) -> Result<Value, String> {
+        let (name, dir, dl, build, v, exe_rel, script) = (&p.name, &p.dir, &p.dl, &p.build, &p.version, p.exe_rel.as_str(), p.script.as_str());
+        let all = |b: &Value| -> Vec<Value> { let mut v = vec![b["python"].clone(), b["server"].clone()]; v.extend(b["wheels"].as_array().cloned().unwrap_or_default()); v };
         // one job: Python, the server script and the packages (PyTorch, Nunchaku and what they need), one bar for all
-        let every = all(&build);
-        let job = Job::new(&format!("{name} runtime"), every.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum(), every.len(), self.quiet);
-        self.log(&format!("installing the {name} runtime {v} (once; {} files, {}): Python with PyTorch and the 4-bit Nunchaku kernels", every.len(), human(job.total)));
+        let every = all(build);
+        let job = Job::new(&format!("{name} runtime"), every.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum(), every.len(), p.quiet);
+        log(p.quiet, &format!("installing the {name} runtime {v} (once; {} files, {}): Python with PyTorch and the 4-bit Nunchaku kernels", every.len(), human(job.total)));
         for (part, sub) in [("python", None), ("server", Some("server"))] {
             let f = &build[part];
             let fname = f["path"].as_str().unwrap_or("x").rsplit('/').next().unwrap_or("x").to_string();
             let file = dl.join(&fname);
-            download_in(f["url"].as_str().unwrap_or(""), &file, f["sha256"].as_str(), f["bytes"].as_u64(), &fname, self.quiet, None, Some(&job)).await?;
+            download_in(f["url"].as_str().unwrap_or(""), &file, f["sha256"].as_str(), f["bytes"].as_u64(), &fname, p.quiet, None, Some(&job)).await?;
             job.file_done(f["bytes"].as_u64().unwrap_or(0));
             extract_archive(&file, &match sub { Some(s) => dir.join(s), None => dir.clone() }).await?;
             let _ = std::fs::remove_file(&file);
@@ -522,13 +569,13 @@ impl Ctx {
         for w in build["wheels"].as_array().cloned().unwrap_or_default() {
             let fname = w["path"].as_str().unwrap_or("x").rsplit('/').next().unwrap_or("x").to_string();
             let dest = dir.join("wheels").join(&fname);
-            download_in(w["url"].as_str().unwrap_or(""), &dest, w["sha256"].as_str(), w["bytes"].as_u64(), &fname, self.quiet, None, Some(&job)).await?;
+            download_in(w["url"].as_str().unwrap_or(""), &dest, w["sha256"].as_str(), w["bytes"].as_u64(), &fname, p.quiet, None, Some(&job)).await?;
             job.file_done(w["bytes"].as_u64().unwrap_or(0));
             wheels.push(dest.to_string_lossy().to_string());
         }
         job.finish();
-        self.log("setting up the runtime's packages (a minute or two)");
-        let exe = join_rel(&dir, exe_rel);
+        log(p.quiet, "setting up the runtime's packages (a minute or two)");
+        let exe = join_rel(dir, exe_rel);
         set_executable(&exe);
         let exe_s = exe.to_string_lossy().to_string();
         let mut args: Vec<&str> = vec!["-m", "pip", "install", "--no-index", "--no-deps", "--no-warn-script-location", "--disable-pip-version-check"];
@@ -538,19 +585,10 @@ impl Ctx {
         let _ = std::fs::remove_dir_all(dir.join("wheels"));
         let t = run_capture(&exe_s, &["-c", "import torch, nunchaku; print(torch.cuda.is_available())"], 300).await.ok_or("the runtime's Python did not start")?;
         if t["code"] != 0 || !t["stdout"].as_str().unwrap_or("").contains("True") { return Err("The image runtime is installed, but PyTorch cannot use the NVIDIA GPU. Update the NVIDIA driver (570 or newer) and try again.".into()); }
-        self.state["runtimes"][name] = json!({ "version": v, "python": exe_s, "script": dir.join("server").join(script).to_string_lossy(), "dir": dir.to_string_lossy(), "installedAt": now_iso() });
-        self.save()
+        Ok(json!({ "version": v, "python": exe_s, "script": dir.join("server").join(script).to_string_lossy(), "dir": dir.to_string_lossy(), "installedAt": now_iso() }))
     }
     pub fn verify_pack(&self, id: &str) -> Result<Vec<String>, String> {
-        let p = self.packs().get(id).ok_or(format!("{id} is not installed"))?;
-        let dir = PathBuf::from(p["dir"].as_str().unwrap_or(""));
-        let mut bad = vec![];
-        for f in p["files"].as_array().cloned().unwrap_or_default() {
-            let path = join_rel(&dir, f["path"].as_str().unwrap_or(""));
-            let got = if path.exists() { sha256_of(&path).unwrap_or_default() } else { "missing".into() };
-            if Some(got.as_str()) != f["sha256"].as_str() { bad.push(format!("{} ({})", f["path"].as_str().unwrap_or(""), if got == "missing" { "missing" } else { "changed" })); }
-        }
-        Ok(bad)
+        Ok(verify_files(self.packs().get(id).ok_or(format!("{id} is not installed"))?))
     }
     pub fn remove_pack(&mut self, id: &str) -> Result<(), String> {
         let p = self.packs().get(id).cloned().ok_or(format!("{id} is not installed"))?;
@@ -638,7 +676,7 @@ impl Ctx {
     pub async fn spawn_model(&mut self, id: &str, mode: Option<&str>) -> Result<Spawned, String> {
         if !self.engine_ok() { return Err("Sushila.cpp is not installed: run `sushila engine install`".into()); }
         let p = self.packs().get(id).cloned().ok_or(format!("{id} is not installed: run `sushila install {id}`"))?;
-        if let Some(port) = self.state["running"][id]["port"].as_u64() { return Ok(Spawned { id: id.into(), port: port as u16, health: String::new(), log: PathBuf::new(), already: true }); }
+        if let Some(port) = self.state["running"][id]["port"].as_u64() { return Ok(Spawned { id: id.into(), port: port as u16, health: String::new(), log: PathBuf::new(), already: true, pid: 0 }); }
         // no mode asked for: the pack's remembered choice (`sushila mode`), else Accelerated when it has precomputed files
         let mode = mode.map(String::from).or_else(|| p["preferredMode"].as_str().filter(|m| *m == "regular" || (*m == "turbo" && can_turbo(&p))).map(String::from))
             .unwrap_or_else(|| if can_turbo(&p) { "turbo".into() } else { "regular".into() });
@@ -699,6 +737,7 @@ impl Ctx {
         self.log(&format!("starting {id} ({}, {slots} parallel slot{}) on port {port}: {program} {}", if mode == "turbo" { "Accelerated" } else { "Standard" }, if slots == 1 { "" } else { "s" }, args.join(" ")));
         let logs = self.data.join("logs"); let _ = std::fs::create_dir_all(&logs);
         // each start begins a section of the engine's log, so a failure shows only this run's lines
+        rotate_log(&logs.join(format!("{id}.log")));
         { use std::io::Write; if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(logs.join(format!("{id}.log"))) { let _ = writeln!(f, "----- start {} ({})", now_iso(), if mode == "turbo" { "Accelerated" } else { "Standard" }); } }
         let mut child = c.spawn().map_err(|e| format!("could not start {program}: {e}"))?;
         tie_to_us(&child);
@@ -719,7 +758,7 @@ impl Ctx {
                                             "pid": std::process::id(), "enginePid": engine_pid, "slots": slots, "cpu": self.cpu_only.contains(id) });
         self.save()?;
         let health = format!("http://127.0.0.1:{port}{}", if engine == "image" { "/" } else { "/health" });
-        Ok(Spawned { id: id.to_string(), port, health, log: logs.join(format!("{id}.log")), already: false })
+        Ok(Spawned { id: id.to_string(), port, health, log: logs.join(format!("{id}.log")), already: false, pid: engine_pid })
     }
     pub async fn stop_model(&mut self, id: &str) {
         if let Some(mut c) = self.procs.lock().await.remove(id) { let _ = c.kill().await; }
@@ -787,6 +826,8 @@ pub fn make_custom_meta(dir: &Path, source: Option<Value>) -> Result<Value, Stri
 /// download recorded one). Returns its installed record (custom: true).
 pub fn verify_custom_folder(data: &Path, dir: &Path, meta: &Value, prog: Option<&Prog>) -> Result<Value, String> {
     let name = meta["name"].as_str().unwrap_or("model").to_string();
+    // the id names its log file and state entry: a plain id only, like every pack
+    if !meta["id"].as_str().map(safe_id_dots).unwrap_or(false) { return Err(format!("{name}: the id in sushila-pack.json is not valid")); }
     let files = meta["files"].as_array().cloned().unwrap_or_default();
     let total: u64 = files.iter().map(|f| f["bytes"].as_u64().unwrap_or(0)).sum();
     let (mut done, mut rec_files) = (0u64, vec![]);
@@ -913,6 +954,22 @@ pub fn verify_pack_folder(data: &Path, dir: &Path, prog: Option<&Prog>) -> Resul
         "files": rec_files, "license": meta["license"], "scope": "user", "installedAt": now_iso(), "artifacts": meta.get("artifacts").cloned().unwrap_or(json!([])), "source": "model-packs folder" }))
 }
 
+/// Removes every file in a pack folder that is not one of its signed files (or sushila-pack.json), and empty folders.
+fn prune_unlisted(dir: &Path, files: &Value) {
+    let keep: std::collections::HashSet<PathBuf> = files.as_array().into_iter().flatten().filter_map(|f| f["path"].as_str()).map(|p| join_rel(dir, p))
+        .chain(std::iter::once(dir.join("sushila-pack.json"))).collect();
+    fn walk(d: &Path, keep: &std::collections::HashSet<PathBuf>) {
+        for e in std::fs::read_dir(d).into_iter().flatten().flatten() {
+            let p = e.path();
+            match e.file_type() {
+                Ok(t) if t.is_dir() => { walk(&p, keep); let _ = std::fs::remove_dir(&p); }
+                _ => if !keep.contains(&p) { let _ = std::fs::remove_file(&p); },
+            }
+        }
+    }
+    walk(dir, &keep);
+}
+
 pub enum Adopted { Registered(String), Precomputed(PackPlan), AlreadyHave(String) }
 
 impl Ctx {
@@ -1013,7 +1070,8 @@ impl Ctx {
 }
 
 pub struct EnginePlan { pub key: String, pub version: String, pub url: String, pub build: Value, pub server_rel: String, pub staging: PathBuf, pub dir: PathBuf, pub quiet: bool }
-pub struct Spawned { pub id: String, pub port: u16, pub health: String, pub log: PathBuf, pub already: bool }
+/// pid: the started process (0 when it already ran): a readiness result belongs to this process only.
+pub struct Spawned { pub id: String, pub port: u16, pub health: String, pub log: PathBuf, pub already: bool, pub pid: u32 }
 
 /// Why a process ended, in words: Windows status codes and Unix signals that mean "out of memory" or "crashed".
 pub fn exit_reason(st: std::process::ExitStatus) -> String {
@@ -1038,9 +1096,14 @@ pub fn exit_reason(st: std::process::ExitStatus) -> String {
 }
 
 /// Waits until a started model answers (up to 5 minutes), or reports why it stopped (the last lines of its log).
+pub const CANCELLED: &str = "cancelled: stopped before it was ready";
 pub async fn wait_ready(procs: Arc<Mutex<HashMap<String, tokio::process::Child>>>, s: &Spawned) -> Result<(), String> {
     for _ in 0..600 {
         if http_text(&s.health, 3).await.is_ok() { return Ok(()); }
+        // the process this start began: gone from the table (stopped, or replaced by a newer start) means cancelled,
+        // which is not a failure of the engine and never leads to the engine fallback
+        let ours = { let g = procs.lock().await; g.get(&s.id).and_then(|c| c.id()) == Some(s.pid) };
+        if !ours { return Err(CANCELLED.to_string()); }
         let exited = { let mut g = procs.lock().await; g.get_mut(&s.id).map(|c| c.try_wait().ok().flatten().is_some()).unwrap_or(true) };
         if exited {
             let code = { let mut g = procs.lock().await; g.get_mut(&s.id).and_then(|c| c.try_wait().ok().flatten()) };
@@ -1057,6 +1120,18 @@ pub async fn wait_ready(procs: Arc<Mutex<HashMap<String, tokio::process::Child>>
     Err(format!("{} did not become ready within 5 minutes; see {}", s.id, s.log.display()))
 }
 
+/// The files of an installed pack that are missing or changed (every SHA-256 recomputed; slow for big packs).
+pub fn verify_files(p: &Value) -> Vec<String> {
+    let dir = PathBuf::from(p["dir"].as_str().unwrap_or(""));
+    let mut bad = vec![];
+    for f in p["files"].as_array().cloned().unwrap_or_default() {
+        let path = join_rel(&dir, f["path"].as_str().unwrap_or(""));
+        let got = if path.exists() { sha256_of(&path).unwrap_or_default() } else { "missing".into() };
+        if Some(got.as_str()) != f["sha256"].as_str() { bad.push(format!("{} ({})", f["path"].as_str().unwrap_or(""), if got == "missing" { "missing" } else { "changed" })); }
+    }
+    bad
+}
+pub struct RuntimePlan { pub name: String, pub dir: PathBuf, pub dl: PathBuf, pub build: Value, pub version: String, pub exe_rel: String, pub script: String, pub quiet: bool }
 /// dir: where the download goes (hidden until complete, so the folder scan never sees half a pack); final_dir: model-packs/<id>.
 pub struct PackPlan { pub id: String, pub dir: PathBuf, pub final_dir: PathBuf, pub pack: Value, pub quiet: bool }
 

@@ -19,8 +19,7 @@ const PATTERNS: [(&[&str], &str, &str); 7] = [
 
 /// GPU numbers and the programs using it (nvidia-smi); None without an NVIDIA GPU.
 pub fn gpu() -> Option<Value> {
-    let q = |args: &[&str]| std::process::Command::new("nvidia-smi").args(args).stdin(std::process::Stdio::null()).stderr(std::process::Stdio::null())
-        .output().ok().filter(|o| o.status.success()).map(|o| String::from_utf8_lossy(&o.stdout).to_string());
+    let q = |args: &[&str]| crate::util::output_within("nvidia-smi", args, 8);
     let line = q(&["--query-gpu=name,memory.total,memory.used", "--format=csv,noheader,nounits"])?;
     let f: Vec<&str> = line.lines().next()?.split(',').map(str::trim).collect();
     let n = |i: usize| f.get(i).and_then(|x| x.parse::<f64>().ok()).map(|m| (m / 1024.0 * 10.0).round() / 10.0);

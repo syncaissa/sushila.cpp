@@ -123,6 +123,10 @@ p.w.location.hash = '#library'; await sleep(500);
   ok(q.d.body.textContent.includes('Sign in as me@example.com?') && [...q.d.querySelectorAll('#manage .signin button')].some((b) => b.textContent.includes('Not you')), 'remembered e-mail: only the code is asked, with "Not you?"');
   [...q.d.querySelectorAll('#manage .signin button')].find((b) => b.textContent === 'Send me the code').click(); await sleep(300);
   ok(q.sent.some((x) => x.u.includes('/api/share/code') && JSON.parse(x.body).email === 'me@example.com') && q.d.getElementById('sicode'), 'remembered e-mail: the code goes to it'); }
+{ p.w.location.hash = ''; await sleep(300);
+  const qp = p.d.getElementById('qpanel'); qp.open = true; qp.dispatchEvent(new p.w.Event('toggle')); await sleep(3600);
+  const first = p.d.querySelector('#qlist .qjob'); await sleep(3300);
+  ok(first && p.d.querySelector('#qlist .qjob') === first, 'Queue: an unchanged job keeps its row (media keep playing across refreshes)'); qp.open = false; }
 p.w.location.hash = ''; await sleep(300); ok(!p.d.getElementById('app').classList.contains('hidden') && p.d.getElementById('manage').classList.contains('hidden'), 'Use tab shows the inference page');
 { const sel = p.d.getElementById('mdl'), w = p.d.getElementById('modewait');
   const texts = [...sel.options].map((o) => o.textContent);

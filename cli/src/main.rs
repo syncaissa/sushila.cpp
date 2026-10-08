@@ -384,10 +384,16 @@ async fn remote(ctx: &Ctx, port: u16, body: Value) -> Result<(), String> {
     let id = r.json::<Value>().await.map_err(err)?["id"].as_str().unwrap_or("").to_string();
     if !ctx.quiet { eprintln!("sent to the running server ({}): task {id}", format!("http://127.0.0.1:{port}")); }
     let tty = std::io::IsTerminal::is_terminal(&std::io::stderr()) || tui::in_screen();
+    let mut unseen = 0;  // a task the server never shows (lost, or the server restarted): give up after about a minute
     loop {
         tokio::time::sleep(Duration::from_millis(700)).await;
-        let st: Value = c.get(format!("http://127.0.0.1:{port}/api/state")).send().await.map_err(err)?.json().await.map_err(err)?;
-        let Some(t) = st["tasks"].as_array().and_then(|a| a.iter().find(|t| t["id"] == id.as_str())).cloned() else { continue };
+        let st: Value = match c.get(format!("http://127.0.0.1:{port}/api/state")).timeout(Duration::from_secs(10)).send().await { Ok(r) => r.json().await.unwrap_or(Value::Null), Err(_) => Value::Null };
+        let Some(t) = st["tasks"].as_array().and_then(|a| a.iter().find(|t| t["id"] == id.as_str())).cloned() else {
+            unseen += 1;
+            if unseen > 85 { return Err(format!("the server no longer reports task {id} (it may have restarted); check with `sushila status`")); }
+            continue
+        };
+        unseen = 0;
         match t["status"].as_str() {
             Some("done") => { if tty && !ctx.quiet { crate::ticker::progress_clear(); } return Ok(()); }
             Some("failed") => { if tty && !ctx.quiet { eprintln!(); } return Err(t["error"].as_str().unwrap_or("failed").to_string()); }
@@ -544,12 +550,11 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
         }
         Cmd::Url => {
             let port = ctx.setting("port").as_u64().unwrap_or(7874);
-            ctx.save()?;
             let network = ctx.state["share"]["enabled"].as_bool().unwrap_or(false);
             let u = urls(port as u16, network);
             out(j, json!({ "url": u["inference"], "urls": u }), || url_banner(&u).replace(" is running", "").replace(" Type a command (e.g. install, ps, status), a question, or ? for help. Stop: Ctrl+C, type stop, or close this window\n", "").replace(" Copy: select with the mouse, then right-click (or Enter); paste: right-click or Ctrl+V; copy = copy the last answer\n", ""));
         }
-        Cmd::Keys { act } => keys(ctx, act, j)?,
+        Cmd::Keys { act } => keys(ctx, act, j).await?,
         Cmd::Home { .. } => {
             let others: Vec<String> = locate::candidates().into_iter().filter(|p| std::fs::canonicalize(p).ok() != std::fs::canonicalize(&ctx.data).ok()).map(|p| locate::describe(&p)).collect();
             out(j, json!({ "home": ctx.data.to_string_lossy(), "dataDir": ctx.data.to_string_lossy(), "packsDir": ctx.packs_dir.to_string_lossy(), "remembered": locate::pointer_file().filter(|f| f.is_file()).map(|f| f.to_string_lossy().to_string()), "others": others }),
@@ -651,19 +656,27 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
     Ok(())
 }
 
-fn keys(ctx: &mut Ctx, act: &KeysCmd, j: bool) -> Result<(), String> {
+/// Access keys: with a server running, the change goes to it (it owns state.json and would otherwise write over a
+/// change made here); without one, it is made here under the owner lock. Only the key's SHA-256 is stored.
+async fn keys(ctx: &mut Ctx, act: &KeysCmd, j: bool) -> Result<(), String> {
     use sha2::{Digest, Sha256};
     if !ctx.state["share"]["keys"].is_array() { ctx.state["share"]["keys"] = json!([]); }
+    let server = owner_port(ctx).await;
     match act {
         KeysCmd::Add { name } => {
             let key = format!("sk-sushila-{}", random_token());
-            ctx.state["share"]["keys"].as_array_mut().unwrap().push(json!({ "name": name, "sha256": hex::encode(Sha256::digest(key.as_bytes())), "created": now_iso() }));
-            ctx.save()?;
+            let sha = hex::encode(Sha256::digest(key.as_bytes()));
+            if let Some(p) = server { remote(ctx, p, json!({ "action": "share", "values": { "addKey": { "name": name, "sha256": sha } }, "source": "cli" })).await?; }
+            else { let _l = local_lock(ctx)?; ctx.state["share"]["keys"].as_array_mut().unwrap().push(json!({ "name": name, "sha256": sha, "created": now_iso() })); ctx.save()?; }
             out(j, json!({ "name": name, "key": key }), || format!("access key for {name} (shown once; only its sha256 is stored):\n{key}\nUse it as: Authorization: Bearer {key}"));
         }
         KeysCmd::List => { let names: Vec<Value> = ctx.state["share"]["keys"].as_array().unwrap().iter().map(|k| json!({ "name": k["name"], "created": k["created"] })).collect();
             out(j, json!(names), || names.iter().map(|k| format!("{}  {}", k["name"].as_str().unwrap_or(""), k["created"].as_str().unwrap_or(""))).collect::<Vec<_>>().join("\n")); }
-        KeysCmd::Remove { name } => { ctx.state["share"]["keys"].as_array_mut().unwrap().retain(|k| k["name"] != name.as_str()); ctx.save()?; out(j, json!({ "ok": true }), || format!("{name} removed")); }
+        KeysCmd::Remove { name } => {
+            if let Some(p) = server { remote(ctx, p, json!({ "action": "share", "values": { "removeKey": name }, "source": "cli" })).await?; }
+            else { let _l = local_lock(ctx)?; ctx.state["share"]["keys"].as_array_mut().unwrap().retain(|k| k["name"] != name.as_str()); ctx.save()?; }
+            out(j, json!({ "ok": true }), || format!("{name} removed"));
+        }
     }
     Ok(())
 }
@@ -737,46 +750,6 @@ fn ask_password(ctx: &Ctx, change: bool) -> Result<(), String> {
     }
     Err("no admin password set".into())
 }
-/// The first start in a window or terminal: "Create a link to your app?" Yes: the sushila.ai sign-in here (e-mail, then
-/// the one-time code e-mailed to it; a new account asks a first name), and a link at every start. The answer is kept
-/// (settings.internetUrlAtStart); the 🌐 button on the page changes it later. Not asked when nobody can answer.
-async fn ask_internet(ctx: &mut Ctx) {
-    if !(std::io::IsTerminal::is_terminal(&std::io::stdin()) || tui::in_screen()) || !ctx.setting("internetUrlAtStart").is_null() { return; }
-    use std::io::Write;
-    let read = |q: &str| -> String { eprint!("{q}"); let _ = std::io::stderr().flush(); window::signal("ask"); let mut l = String::new(); let _ = std::io::stdin().read_line(&mut l); l.trim().to_string() };
-    eprintln!("\nA link to your app (https://sushila.ai/localhost/...) reaches this Sushila Engine from your phone or anywhere, while it runs.\nVisitors need its access key and see only the Inference page; Admin, Library and your files stay on this computer.");
-    let a = read("Create a link to your app? [y/N]: ").to_lowercase();
-    let yes = a == "y" || a == "yes";
-    ctx.state["settings"]["internetUrlAtStart"] = json!(yes); let _ = ctx.save();
-    if !yes { eprintln!("No link. Make one at any time with 🌐 Get temporary internet URL on the page."); return; }
-    if share::me(&ctx.data)["signedIn"] == true { eprintln!("Signed in to sushila.ai as {}; the link appears below once the engine is ready.", share::me(&ctx.data)["email"].as_str().unwrap_or("")); return; }
-    eprintln!("The link is made with a sushila.ai account. No password to remember: we e-mail you a one-time code (OTP) to sign in.");
-    let last = share::last_email(&ctx.data);
-    for _ in 0..3 {
-        // the e-mail from last time: Enter sends the code to it; "Not you?" types another one
-        let typed = if last.is_empty() { read("Your e-mail address: ") } else { read(&format!("Sign in as {last}? Press Enter for the code (not you? type your e-mail address): ")) };
-        let email = if typed.is_empty() && !last.is_empty() { last.clone() } else { typed };
-        if !email.contains('@') { eprintln!("That does not look like an e-mail address."); continue; }
-        let mut first = String::new();
-        let sent = match share::send_code(&ctx.data, &email, "SIGN_IN").await {
-            Ok(_) => Ok(()),
-            Err(e) if e.contains("No account") || e.contains("no account") => {
-                first = read("New sushila.ai account: your first name: ");
-                share::send_code(&ctx.data, &email, "SIGN_UP").await.map(|_| ())
-            }
-            Err(e) => Err(e),
-        };
-        if let Err(e) = sent { eprintln!("Could not send the code: {e}"); continue; }
-        for _ in 0..3 {
-            let code = read(&format!("The 6-digit code e-mailed to {email}: "));
-            match share::verify(&ctx.data, &email, &code, &first).await {
-                Ok(_) => { eprintln!("Signed in to sushila.ai as {email}. The link to your app appears below once the engine is ready."); return; }
-                Err(e) => eprintln!("{e}"),
-            }
-        }
-    }
-    eprintln!("Not signed in, so no link this time. 🌐 Get temporary internet URL on the page signs in and makes one.");
-}
 fn open_browser(url: &str) {
     let _ = if cfg!(windows) { std::process::Command::new("cmd").args(["/c", "start", "", url]).spawn() }
             else if cfg!(target_os = "macos") { std::process::Command::new("open").arg(url).spawn() }
@@ -827,8 +800,8 @@ fn read_json(p: &std::path::Path) -> Option<Value> { std::fs::read_to_string(p).
 
 enum Done {
     Engine(String, Result<core::EnginePlan, String>),                       // task id
-    Pack(String, Result<(Option<core::EnginePlan>, core::PackPlan), String>),
-    Ready(Option<String>, String, Result<(), String>),                       // task id, pack id
+    Pack(String, Result<(Option<core::EnginePlan>, Option<(String, Value)>, core::PackPlan), String>),  // + runtime record
+    Ready(String, u32, Result<(), String>),                                  // pack id, the process it was for
     Job(String, Result<jobs::Output, String>),                               // queue job id
     Found(String, PathBuf, Result<Value, String>),                           // a pack folder dropped into model-packs, checked
     Hf(String, Result<(), String>),                                          // a GGUF downloaded from Hugging Face (the scan adopts it)
@@ -838,7 +811,9 @@ struct Owner {
     tasks: Vec<Value>,                                   // newest last; mirrored in state.public.tasks
     prog: std::collections::HashMap<String, Prog>,       // live progress of downloads
     tx: tokio::sync::mpsc::UnboundedSender<Done>,
-    starting: std::collections::HashSet<String>,         // packs loading in the background
+    starting: std::collections::HashMap<String, (u32, Vec<String>)>,  // packs loading: their process and the tasks waiting for them
+    after_engine: Vec<String>,                           // packs to start again once a fallback engine is installed
+    busy_model: Option<String>,                          // the model of the queue's current job (never stopped to make room)
     checking: std::collections::HashSet<PathBuf>,        // pack folders being verified
     rejected: std::collections::HashMap<PathBuf, std::time::SystemTime>,  // folders that failed (checked again when they change)
 }
@@ -864,26 +839,38 @@ impl Owner {
         if ctx.state["tasks"] != v { ctx.state["tasks"] = v; true } else { false }
     }
     /// Starts a model in the background: the process now, readiness reported through the channel.
+    /// Every request to start a pack that is already loading waits for that same load (none is left unanswered).
     async fn start(&mut self, ctx: &mut Ctx, id: &str, mode: Option<&str>, task: Option<String>) -> Result<(), String> {
-        if self.starting.contains(id) { return Ok(()); }
+        if let Some((_, waiting)) = self.starting.get_mut(id) { waiting.extend(task); return Ok(()); }
         let s = ctx.spawn_model(id, mode).await?;
         if s.already { if let Some(t) = task { self.finish(&t, &Ok(())); } return Ok(()); }
-        self.starting.insert(id.to_string());
-        let (tx, procs, pid) = (self.tx.clone(), ctx.procs.clone(), id.to_string());
-        tokio::spawn(async move { let r = core::wait_ready(procs, &s).await; let _ = tx.send(Done::Ready(task, pid, r)); });
+        self.starting.insert(id.to_string(), (s.pid, task.into_iter().collect()));
+        let (tx, procs, pack, pid) = (self.tx.clone(), ctx.procs.clone(), id.to_string(), s.pid);
+        tokio::spawn(async move { let r = core::wait_ready(procs, &s).await; let _ = tx.send(Done::Ready(pack, pid, r)); });
         Ok(())
+    }
+    /// A pack stopped while it loads: the tasks waiting for it end ("stopped before it was ready"); its readiness result,
+    /// when it comes, belongs to a process that is gone and is ignored.
+    fn cancel_start(&mut self, id: &str) {
+        if let Some((_, waiting)) = self.starting.remove(id) { for t in waiting { self.finish(&t, &Err("stopped before it was ready".into())); } }
     }
 }
 
 /// One model pack at a time: starting one stops the others (the terminal's Sushila helper needs no model; a chat model
 /// that happens to run answers its free-form questions).
-async fn make_room(ctx: &mut Ctx, o: &mut Owner, pack: &str) {
+/// The one admission rule, for every start (page, commands, queue): a model that is working (the queue's current job,
+/// or requests being answered) is never stopped to make room; the start waits or is refused, with the reason.
+async fn make_room(ctx: &mut Ctx, o: &mut Owner, pack: &str) -> Result<(), String> {
     let running: Vec<String> = ctx.state["running"].as_object().map(|m| m.keys().cloned().collect()).unwrap_or_default();
+    if let Some(busy) = running.iter().find(|id| id.as_str() != pack && (o.busy_model.as_deref() == Some(id.as_str()) || webserver::in_flight(id) > 0)) {
+        return Err(format!("{busy} is busy (a queued job or a request is running); {pack} starts when it is done, or stop {busy} first"));
+    }
     for id in &running {
         if id == pack { continue; }
         ctx.log(&format!("stopping {id}: one model pack at a time ({pack} starts)"));
-        ctx.stop_model(id).await; o.starting.remove(id);
+        ctx.stop_model(id).await; o.cancel_start(id);
     }
+    Ok(())
 }
 
 /// settings.keepPopular: the popular model packs (catalog "popular", one per kind) are installed in the background, one
@@ -895,7 +882,10 @@ async fn keep_popular(ctx: &mut Ctx, o: &mut Owner, failed: &mut std::collection
     let queue: Vec<String> = ctx.setting("installQueue").as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default();
     if ctx.setting("keepPopular") != true && queue.is_empty() { return; }
     if o.tasks.iter().any(|t| t["status"] == "running" && (t["action"] == "install" || t["action"] == "engine-install")) { return; }
-    if ctx.load_catalog().await.is_err() { return; }
+    // an unreachable catalog is tried again after 5 minutes, not on every tick (each try can take a while)
+    static CATALOG_FAILED: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+    if ctx.catalog.is_none() && CATALOG_FAILED.lock().unwrap().map(|t| t.elapsed() < Duration::from_secs(300)).unwrap_or(false) { return; }
+    if ctx.load_catalog().await.is_err() { *CATALOG_FAILED.lock().unwrap() = Some(std::time::Instant::now()); return; }
     // the chosen packs first: drop the installed ones (and ones that failed), install the next
     let mut left = vec![];
     for id in &queue {
@@ -939,6 +929,23 @@ async fn keep_popular(ctx: &mut Ctx, o: &mut Owner, failed: &mut std::collection
     }
 }
 
+/// Finished queue jobs (ready, failed, cancelled) are kept 30 days, at most the 200 newest; older ones leave the queue
+/// with their output file. Jobs still to do are never touched.
+fn prune_queue(q: &mut Value, data: &std::path::Path) {
+    let Some(jobs) = q["jobs"].as_array_mut() else { return };
+    let done = |j: &Value| ["ready", "failed", "cancelled"].contains(&j["status"].as_str().unwrap_or(""));
+    let cutoff = std::time::SystemTime::now().checked_sub(Duration::from_secs(30 * 86400)).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs()).unwrap_or(0);
+    let mut finished: Vec<(u64, String)> = jobs.iter().filter(|j| done(j)).map(|j| (j["finished"].as_str().and_then(cmds::iso_secs).unwrap_or(0), j["id"].as_str().unwrap_or("").to_string())).collect();
+    finished.sort_by(|a, b| b.0.cmp(&a.0));
+    let drop: std::collections::HashSet<String> = finished.iter().enumerate().filter(|(i, (t, _))| *i >= 200 || *t < cutoff).map(|(_, (_, id))| id.clone()).collect();
+    if drop.is_empty() { return; }
+    jobs.retain(|j| {
+        let gone = drop.contains(j["id"].as_str().unwrap_or(""));
+        if gone { if let Some(f) = j["output"]["file"].as_str().filter(|f| !f.contains(['/', '\\']) && f.starts_with("job-")) { let _ = std::fs::remove_file(data.join("outputs").join(f)); } }
+        !gone
+    });
+}
+
 async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
     let (id, action) = (r["id"].as_str().unwrap_or("task").to_string(), r["action"].as_str().unwrap_or("").to_string());
     let pack = r["pack"].as_str().unwrap_or("").to_string();
@@ -958,14 +965,24 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
             }
             "install" => {
                 if !core::safe_id_dots(&pack) { return Err("a pack id is required".into()); }
+                // one install of a pack at a time (two would share its temporary folder and partial files)
+                if o.tasks.iter().any(|t| t["id"] != id.as_str() && t["status"] == "running" && t["action"] == "install" && t["target"] == pack.as_str()) {
+                    return Err(format!("{pack} is already being installed"));
+                }
                 ctx.load_catalog().await?;
                 let id2 = ctx.best_variant(&pack).await;
                 let eng = if ctx.engine_ok() { None } else { ctx.prepare_engine(None).await? };
                 let Some(p) = ctx.prepare_pack(&id2).await? else { return Ok(true) };
-                if p.pack["serve"]["engine"] == "image-nunchaku" && !ctx.state["runtimes"]["image-nunchaku"].is_object() { ctx.install_runtime("image-nunchaku").await?; }
+                // the image runtime (when the pack needs it), the engine and the pack: all fetched in the background
+                let rt = if p.pack["serve"]["engine"] == "image-nunchaku" && !ctx.state["runtimes"]["image-nunchaku"].is_object() { Some(ctx.prepare_runtime("image-nunchaku")?) } else { None };
                 let tx = o.tx.clone(); let t = id.clone();
                 tokio::spawn(async move {
-                    let r = async { if let Some(e) = &eng { Ctx::fetch_engine(e, Some(&prog)).await?; } Ctx::fetch_pack(&p, Some(&prog)).await?; Ok((eng, p)) }.await;
+                    let r = async {
+                        let rt_rec = match &rt { Some(plan) => Some((plan.name.clone(), Ctx::fetch_runtime(plan).await?)), None => None };
+                        if let Some(e) = &eng { Ctx::fetch_engine(e, Some(&prog)).await?; }
+                        Ctx::fetch_pack(&p, Some(&prog)).await?;
+                        Ok((eng, rt_rec, p))
+                    }.await;
                     let _ = tx.send(Done::Pack(t, r));
                 });
                 Ok(false)
@@ -983,18 +1000,23 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
                 tokio::spawn(async move { let r = core::download_hf_gguf(&pd, &spec, q, Some(&prog)).await.map(|_| ()); let _ = tx.send(Done::Hf(t, r)); });
                 Ok(false)
             }
-            "verify" => { let bad = ctx.verify_pack(&pack)?; if bad.is_empty() { Ok(true) } else { Err(format!("missing or changed: {}", bad.join(", "))) } }
+            // hashing a whole pack takes a while: on a blocking thread, so the owner loop keeps answering
+            "verify" => {
+                let rec = ctx.packs().get(&pack).cloned().ok_or(format!("{pack} is not installed"))?;
+                let bad = tokio::task::spawn_blocking(move || core::verify_files(&rec)).await.map_err(err)?;
+                if bad.is_empty() { Ok(true) } else { Err(format!("missing or changed: {}", bad.join(", "))) }
+            }
             "catalog" => { ctx.catalog = None; ctx.write_catalog_cache().await?; Ok(true) }
             "remove" => { if ctx.state["running"][&pack].is_object() { ctx.stop_model(&pack).await; } ctx.remove_pack(&pack)?; Ok(true) }
             "start" => {
                 if !ctx.packs().contains_key(&pack) { return Err(format!("{pack} is not installed")); }
                 // a mode chosen with the start (the inference page lists each pack per mode) is remembered as its choice
                 if let Some(m) = r["mode"].as_str().filter(|m| *m == "turbo" || *m == "regular") { ctx.state["packs"][&pack]["preferredMode"] = json!(m); ctx.save()?; }
-                if ctx.state["running"][&pack].is_object() && r["mode"].as_str().map(|m| ctx.state["running"][&pack]["mode"] != m).unwrap_or(false) { ctx.stop_model(&pack).await; o.starting.remove(&pack); }
-                make_room(ctx, o, &pack).await;
+                if ctx.state["running"][&pack].is_object() && r["mode"].as_str().map(|m| ctx.state["running"][&pack]["mode"] != m).unwrap_or(false) { ctx.stop_model(&pack).await; o.cancel_start(&pack); }
+                make_room(ctx, o, &pack).await?;
                 o.start(ctx, &pack, r["mode"].as_str(), Some(id.clone())).await?; Ok(ctx.state["running"][&pack]["ready"] == true)
             }
-            "stop" => { ctx.stop_model(&pack).await; o.starting.remove(&pack); Ok(true) }
+            "stop" => { ctx.stop_model(&pack).await; o.cancel_start(&pack); Ok(true) }
             "settings" => {
                 for k in ["threads", "contextSize", "gpuLayers", "parallel", "keepCopy", "enginePort", "port", "idleMinutes", "keepPopular", "internetUrlAtStart"] {
                     if let Some(v) = r["values"].get(k) { if v.is_number() || v.is_boolean() { ctx.state["settings"][k] = v.clone(); } }
@@ -1017,7 +1039,7 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
                 if !ctx.packs().contains_key(&pack) { return Err(format!("{pack} is not installed")); }
                 ctx.state["packs"][&pack]["preferredMode"] = json!(m); ctx.save()?;
                 if ctx.state["running"][&pack].is_object() && ctx.state["running"][&pack]["mode"] != m.as_str() {
-                    ctx.stop_model(&pack).await; o.starting.remove(&pack);
+                    ctx.stop_model(&pack).await; o.cancel_start(&pack);
                     o.start(ctx, &pack, Some(&m), Some(id.clone())).await?; Ok(false)
                 } else { Ok(true) }
             }
@@ -1034,7 +1056,19 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
 async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<String>, standard: bool, max: usize, open: bool, j: bool) -> Result<(), String> {
     let _ = core::SOURCE.set("server".into());
     let lock = std::fs::OpenOptions::new().create(true).write(true).open(ctx.data.join("owner.lock")).map_err(err)?;
-    if lock.try_lock().is_err() { return Err("another `sushila serve` already owns this home folder: `sushila status`".into()); }
+    // Seamless restart / upgrade: another Sushila owns this home folder. It is asked to hand over (it stops its models
+    // cleanly and writes what ran to resume.json), and this one carries on: the same models in the same modes, the
+    // queue, the link to the app.
+    if lock.try_lock().is_err() {
+        eprintln!("Another Sushila is running with this home folder: it hands over to this one (its models, queue and link carry on here)...");
+        let _ = write_atomic(&ctx.data.join("shutdown-request.json"), b"{}");
+        let mut taken = false;
+        for _ in 0..180 { tokio::time::sleep(Duration::from_millis(500)).await; if lock.try_lock().is_ok() { taken = true; break; } }
+        if !taken { return Err("another Sushila owns this home folder and did not hand over within 90 s; stop it (`sushila stop`) or see `sushila status`".into()); }
+        let _ = std::fs::remove_file(ctx.data.join("shutdown-request.json"));
+        *ctx = Ctx::load(ctx.data.clone(), ctx.quiet)?;  // what the other one saved on its way out
+        ctx.log("took over from the Sushila that ran before");
+    }
     if !ctx.engine_ok() { ctx.install_engine(None).await?; }
     if let Some(p) = port { ctx.state["settings"]["port"] = json!(p); }
     let port = ctx.setting("port").as_u64().unwrap_or(7874) as u16;
@@ -1075,10 +1109,9 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             }
         });
     }
-    // the link to the app at every start (settings.internetUrlAtStart): asked at the first start in a window or
-    // terminal, with the sushila.ai sign-in (e-mail and a one-time code); then made once the engine answers
-    ask_internet(ctx).await;
-    tokio::spawn(tunnel::at_start(ctx.data.clone(), port, ctx.setting("internetUrlAtStart")));
+    // the link to the app (settings.internetUrlAtStart): asked at the first start by the window (window.rs, its own
+    // input thread, so nothing waits for the answer); made once the engine answers and the answer is yes
+    tokio::spawn(tunnel::at_start(ctx.data.clone(), port));
     if !webserver::password_set(&ctx.data) {
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) { if let Err(e) = ask_password(ctx, false) { ctx.log(&format!("admin password: {e}")); } }
         else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/admin on this computer to set it")); }
@@ -1097,29 +1130,54 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Done>();
-    let mut o = Owner { tasks: vec![], prog: Default::default(), tx, starting: Default::default(), checking: Default::default(), rejected: Default::default() };
+    let mut o = Owner { tasks: vec![], prog: Default::default(), tx, starting: Default::default(), after_engine: vec![], busy_model: None, checking: Default::default(), rejected: Default::default() };
     let mut last_scan = std::time::Instant::now() - Duration::from_secs(10);
-    // at start: the chat model (Qwen3 4B or the small default) if installed, else the first installed pack
-    let mut ids: Vec<String> = if packs.is_empty() { ctx.assistant_pack().map(|a| vec![a]).unwrap_or_else(|| ctx.packs().keys().take(max).cloned().collect()) } else { packs.to_vec() };
+    // at start: what ran before a restart or handover in the last 30 minutes (resume.json: packs and modes); else the
+    // chat model (Qwen3 4B or the small default) if installed, else the first installed pack
+    let resume: Vec<(String, Option<String>)> = read_json(&ctx.data.join("resume.json")).filter(|r| r["at"].as_str().and_then(cmds::iso_secs).map(|t| cmds::now_secs().saturating_sub(t) < 1800).unwrap_or(false))
+        .and_then(|r| r["running"].as_array().cloned()).unwrap_or_default().iter()
+        .filter_map(|x| x["pack"].as_str().filter(|p| ctx.packs().contains_key(*p)).map(|p| (p.to_string(), x["mode"].as_str().map(String::from)))).collect();
+    let _ = std::fs::remove_file(ctx.data.join("resume.json"));
+    let modes: std::collections::HashMap<String, Option<String>> = if packs.is_empty() { resume.iter().cloned().collect() } else { Default::default() };
+    if !modes.is_empty() { ctx.log(&format!("resuming: {}", resume.iter().map(|(p, m)| format!("{p} ({})", m.as_deref().unwrap_or("default"))).collect::<Vec<_>>().join(", "))); }
+    let mut ids: Vec<String> = if !modes.is_empty() { resume.iter().map(|(p, _)| p.clone()).collect() }
+        else if packs.is_empty() { ctx.assistant_pack().map(|a| vec![a]).unwrap_or_else(|| ctx.packs().keys().take(max).cloned().collect()) } else { packs.to_vec() };
     if ids.is_empty() {
         ctx.load_catalog().await?;
         let (id, why) = ctx.default_pack().await;
         ctx.log(&format!("no packs installed: {why}"));
         let id = ctx.best_variant(&id).await; ctx.install_pack(&id).await?; ids.push(id);
     }
-    for id in &ids { if let Err(e) = o.start(ctx, id, if standard { Some("regular") } else { None }, None).await { ctx.log(&format!("{id}: {e}")); } }
+    for id in &ids {
+        let mode = if standard { Some("regular".to_string()) } else { modes.get(id).cloned().flatten() };
+        if let Err(e) = o.start(ctx, id, mode.as_deref(), None).await { ctx.log(&format!("{id}: {e}")); }
+    }
     out(j, json!({ "ok": true, "page": page, "urls": u, "api": format!("{addr}/v1"), "models": ids }), || format!(
         "Models: {} (loading in the background: `sushila status`)\n  page:  {page}\n  API:   header x-sushila-token: <token> here, or Authorization: Bearer <key> from other machines\n  log:   {}\n",
         ids.join(", "), ctx.data.join("logs").join("sushila.log").display()));
     // the queue: one job at a time, like the desktop app
     let qpath = ctx.data.join("queue.json");
     let mut q = read_json(&qpath).unwrap_or(json!({ "paused": false, "jobs": [] }));
+    prune_queue(&mut q, &ctx.data);
     for jb in q["jobs"].as_array_mut().into_iter().flatten() { if jb["status"] == "running" { jb["status"] = json!("queued"); jb["progress"] = json!("continues after a restart"); } }
-    let save_q = |q: &Value, p: &std::path::Path| { let tmp = p.with_extension("json.tmp"); let _ = std::fs::write(&tmp, serde_json::to_string_pretty(q).unwrap()); let _ = std::fs::rename(&tmp, p); };
+    let save_q = |q: &Value, p: &std::path::Path| { let _ = write_atomic(p, serde_json::to_string(q).unwrap_or_default().as_bytes()); };
     save_q(&q, &qpath);
     let mut current: Option<(String, tokio::task::JoinHandle<()>, std::time::Instant)> = None;
     let progress = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
     let ctrl_c = tokio::signal::ctrl_c(); tokio::pin!(ctrl_c);
+    // `kill`, a service manager's stop, or a closed terminal (SIGTERM / SIGHUP): the same clean stop as Ctrl+C, so the
+    // engines end with the server (Windows: the job object does this)
+    let stop_signal = async {
+        #[cfg(unix)] {
+            use tokio::signal::unix::{signal, SignalKind};
+            match (signal(SignalKind::terminate()), signal(SignalKind::hangup())) {
+                (Ok(mut t), Ok(mut h)) => { tokio::select! { _ = t.recv() => {}, _ = h.recv() => {} } }
+                _ => std::future::pending::<()>().await,
+            }
+        }
+        #[cfg(not(unix))] std::future::pending::<()>().await
+    };
+    tokio::pin!(stop_signal);
     // for the crash-recovery test only: SUSHILA_TEST_PANIC_AFTER=<seconds> makes the server panic on purpose
     if let Some(secs) = std::env::var("SUSHILA_TEST_PANIC_AFTER").ok().and_then(|v| v.parse::<u64>().ok()) {
         std::thread::spawn(move || { std::thread::sleep(Duration::from_secs(secs)); std::process::abort(); });
@@ -1134,23 +1192,48 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         let mut changed = false;
         tokio::select! {
             _ = &mut ctrl_c => break,
+            _ = &mut stop_signal => { ctx.log("stop signal received: stopping cleanly"); break; }
             d = rx.recv() => if let Some(d) = d {
                 match d {
-                    Done::Engine(t, r) => { let r = r.and_then(|p| ctx.apply_engine(&p)); if let Err(e) = &r { ctx.log(&format!("engine install failed: {e}")); } o.finish(&t, &r); }
+                    Done::Engine(t, r) => {
+                        let r = r.and_then(|p| ctx.apply_engine(&p));
+                        if let Err(e) = &r { ctx.log(&format!("engine install failed: {e}")); }
+                        o.finish(&t, &r);
+                        // packs that waited for a fallback engine: started again (their waiting tasks follow that start)
+                        for id in std::mem::take(&mut o.after_engine) {
+                            let waiting = o.starting.remove(&id).map(|(_, w)| w).unwrap_or_default();
+                            if r.is_ok() { if let Err(e) = o.start(ctx, &id, None, None).await { for t in &waiting { o.finish(t, &Err(e.clone())); } } else if let Some(e) = o.starting.get_mut(&id) { e.1.extend(waiting); } }
+                            else { for t in waiting { o.finish(&t, &Err(r.clone().err().unwrap_or_default())); } }
+                        }
+                    }
                     Done::Pack(t, r) => {
-                        let r = r.and_then(|(e, p)| { if let Some(e) = e { ctx.apply_engine(&e)?; } ctx.apply_pack(&p) });
+                        let r = r.and_then(|(e, rt, p)| { if let Some((n, rec)) = rt { ctx.apply_runtime(&n, rec)?; } if let Some(e) = e { ctx.apply_engine(&e)?; } ctx.apply_pack(&p) });
                         if let Err(e) = &r { ctx.log(&format!("install failed: {e}")); } o.finish(&t, &r);
                     }
-                    Done::Ready(t, id, r) => {
-                        o.starting.remove(&id);
+                    Done::Ready(id, pid, r) => {
+                        // only the result for the pack's current start counts (a stopped or replaced start is ignored)
+                        if o.starting.get(&id).map(|(p, _)| *p != pid).unwrap_or(true) { continue; }
+                        let (_, waiting) = o.starting.remove(&id).unwrap_or_default();
                         match r {
-                            Ok(()) => { let _ = ctx.model_ready(&id); webserver::mark_idle(&id, false); if let Some(t) = t { o.finish(&t, &Ok(())); } }
+                            Ok(()) => { let _ = ctx.model_ready(&id); webserver::mark_idle(&id, false); for t in waiting { o.finish(&t, &Ok(())); } }
                             Err(e) => {
                                 ctx.log(&format!("{e}")); ctx.model_failed(&id).await;
                                 ctx.log(&format!("why: {}", diag::one_line(&diag::diagnose(&ctx.data, &id))));
-                                if let Some(next) = ctx.fallback_for(&id, &e).await {
-                                    match ctx.install_engine(Some(next)).await { Ok(()) => { let _ = o.start(ctx, &id, None, t.clone()).await; } Err(e2) => { if let Some(t) = t { o.finish(&t, &Err(e2)); } } }
-                                } else if let Some(t) = t { o.finish(&t, &Err(e)); }
+                                match ctx.fallback_for(&id, &e).await {
+                                    // another engine build: downloaded in the background (Done::Engine), then the pack starts again
+                                    Some(next) => match ctx.prepare_engine(Some(next)).await {
+                                        Ok(Some(p)) => {
+                                            let tid = format!("fallback-{}", webserver::new_id());
+                                            let prog = o.task(&tid, "engine-install", &p.key.clone(), "engine fallback");
+                                            o.after_engine.push(id.clone()); for t in waiting { o.starting.entry(id.clone()).or_insert((0, vec![])).1.push(t); }
+                                            let tx = o.tx.clone(); let t2 = tid.clone();
+                                            tokio::spawn(async move { let r = Ctx::fetch_engine(&p, Some(&prog)).await.map(|_| p); let _ = tx.send(Done::Engine(t2, r)); });
+                                        }
+                                        Ok(None) => { let _ = o.start(ctx, &id, None, None).await; for t in waiting { o.starting.entry(id.clone()).or_insert((0, vec![])).1.push(t); } }
+                                        Err(e2) => { for t in waiting { o.finish(&t, &Err(e2.clone())); } }
+                                    },
+                                    None => { for t in waiting { o.finish(&t, &Err(e.clone())); } }
+                                }
                             }
                         }
                     }
@@ -1165,7 +1248,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                                 Ok(core::Adopted::Precomputed(plan)) => {
                                     let (tx, t2) = (o.tx.clone(), t.clone()); let prog = o.task(&format!("{t}-pre"), "precomputed files", &plan.id, "model-packs folder");
                                     o.finish(&t, &Ok(()));
-                                    tokio::spawn(async move { let r = Ctx::fetch_pack(&plan, Some(&prog)).await.map(|_| (None, plan)); let _ = tx.send(Done::Pack(format!("{t2}-pre"), r)); });
+                                    tokio::spawn(async move { let r = Ctx::fetch_pack(&plan, Some(&prog)).await.map(|_| (None, None, plan)); let _ = tx.send(Done::Pack(format!("{t2}-pre"), r)); });
                                 }
                                 Err(e) => { ctx.log(&format!("{}: {e}", dir.display())); o.finish(&t, &Err(e)); }
                             },
@@ -1206,10 +1289,8 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         }
         if ctx.data.join("shutdown-request.json").exists() { let _ = std::fs::remove_file(ctx.data.join("shutdown-request.json")); ctx.log("stop requested"); break; }
         // control requests (Host Station, the sushila commands): oldest first
-        let cdir = ctx.data.join("control-in");
-        let mut cf: Vec<PathBuf> = std::fs::read_dir(&cdir).map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().map(|x| x == "json").unwrap_or(false)).collect()).unwrap_or_default();
-        cf.sort();
-        for f in cf { let r = read_json(&f); let _ = std::fs::remove_file(&f); if let Some(r) = r { control(ctx, &mut o, r).await; } }
+        o.busy_model = current.as_ref().and_then(|c| q["jobs"].as_array().and_then(|a| a.iter().find(|x| x["id"] == c.0.as_str())).and_then(|x| x["model"].as_str().map(String::from)));
+        for r in take_requests(&ctx.data, "control-in") { control(ctx, &mut o, r).await; }
         // the model-packs folder: new pack folders are verified and become available; removed ones disappear (no restart)
         if last_scan.elapsed() > Duration::from_secs(3) {
             last_scan = std::time::Instant::now();
@@ -1245,7 +1326,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             if let (Some(id), Some(mode)) = (m["model"].as_str(), m["mode"].as_str()) {
                 if ctx.packs().contains_key(id) && ctx.state["running"][id]["mode"] != mode {
                     ctx.log(&format!("{id}: switching to {}", if mode == "turbo" { "Accelerated" } else { "Standard" }));
-                    ctx.stop_model(id).await; o.starting.remove(id);
+                    ctx.stop_model(id).await; o.cancel_start(id);
                     if let Err(e) = o.start(ctx, id, Some(mode), None).await { ctx.log(&format!("{id}: {e}")); }
                 }
             }
@@ -1257,7 +1338,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             last_idle = std::time::Instant::now();
             let busy = current.as_ref().and_then(|c| q["jobs"].as_array().and_then(|a| a.iter().find(|x| x["id"] == c.0.as_str())).and_then(|x| x["model"].as_str().map(String::from)));
             for (id, r) in ctx.state["running"].as_object().cloned().unwrap_or_default() {
-                if r["ready"] != true || o.starting.contains(&id) || busy.as_deref() == Some(id.as_str()) || webserver::in_flight(&id) > 0 { continue; }
+                if r["ready"] != true || o.starting.contains_key(&id) || busy.as_deref() == Some(id.as_str()) || webserver::in_flight(&id) > 0 { continue; }
                 // the last use: a request through this server, the engine's own log (CLI jobs talk to it directly), or the start
                 let log_t = std::fs::metadata(ctx.data.join("logs").join(format!("{id}.log"))).and_then(|m| m.modified()).ok();
                 let start_t = r["startedAt"].as_str().and_then(cmds::iso_secs).map(|s| std::time::UNIX_EPOCH + Duration::from_secs(s));
@@ -1273,7 +1354,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         let dead: Vec<(String, std::process::ExitStatus)> = { let mut g = ctx.procs.lock().await; g.iter_mut().filter_map(|(id, c)| c.try_wait().ok().flatten().map(|s| (id.clone(), s))).collect() };
         for (id, status) in dead {
             let code = status.code();
-            if o.starting.contains(&id) { continue; }
+            if o.starting.contains_key(&id) { continue; }
             // a model's engine crashed: record why, restart it (at most 3 times in 10 minutes)
             let mode = ctx.state["running"][&id]["mode"].as_str().map(String::from);
             let log = ctx.data.join("logs").join(format!("{id}.log"));
@@ -1291,12 +1372,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             if again { if let Err(e) = o.start(ctx, &id, mode.as_deref(), None).await { ctx.log(&format!("{id}: {e}")); } }
         }
         // queue requests from pages: add / pause / resume / cancel / remove
-        let inbox = ctx.data.join("queue-in");
-        let mut files: Vec<PathBuf> = std::fs::read_dir(&inbox).map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().map(|x| x == "json").unwrap_or(false)).collect()).unwrap_or_default();
-        files.sort();
-        for f in files {
-            let r = read_json(&f); let _ = std::fs::remove_file(&f);
-            let Some(r) = r else { continue };
+        for r in take_requests(&ctx.data, "queue-in") {
             let id = r["id"].as_str().unwrap_or("").to_string();
             let act = r["action"].as_str().unwrap_or("").to_string();
             if act == "add" {
@@ -1343,19 +1419,28 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                     if let Some(x) = q["jobs"].as_array_mut().unwrap().iter_mut().find(|x| x["id"] == jid.as_str()) { x["status"] = json!("running"); x["started"] = json!(now_iso()); x["error"] = json!(""); }
                     current = Some((jid, h, std::time::Instant::now()));
                     changed = true;
-                } else if !ctx.state["running"][&model].is_object() && !o.starting.contains(&model) {
-                    if let Some(x) = q["jobs"].as_array_mut().unwrap().iter_mut().find(|x| x["id"] == jid.as_str()) { x["progress"] = json!("starting the model…"); }
-                    if let Err(e) = o.start(ctx, &model, None, None).await { entry_err(&mut q, e); }
-                    changed = true;
+                } else if !ctx.state["running"][&model].is_object() && !o.starting.contains_key(&model) {
+                    // the same admission rule as every start: the job waits while another model is working
+                    match make_room(ctx, &mut o, &model).await {
+                        Err(why) => { if let Some(x) = q["jobs"].as_array_mut().unwrap().iter_mut().find(|x| x["id"] == jid.as_str()) { let w = json!(format!("waiting: {why}")); if x["progress"] != w { x["progress"] = w; changed = true; } } }
+                        Ok(()) => {
+                            if let Some(x) = q["jobs"].as_array_mut().unwrap().iter_mut().find(|x| x["id"] == jid.as_str()) { x["progress"] = json!("starting the model…"); }
+                            if let Err(e) = o.start(ctx, &model, None, None).await { entry_err(&mut q, e); }
+                            changed = true;
+                        }
+                    }
                 }
             }
         }
-        if changed { save_q(&q, &qpath); }
+        if changed { prune_queue(&mut q, &ctx.data); save_q(&q, &qpath); }
         if (o.publish(ctx) && last_pub.elapsed() > Duration::from_millis(700)) || last_pub.elapsed() > Duration::from_secs(5) { let _ = ctx.save(); last_pub = std::time::Instant::now(); }
     }
     if let Some((_, h, _)) = current.take() { h.abort(); }
     for jb in q["jobs"].as_array_mut().into_iter().flatten() { if jb["status"] == "running" { jb["status"] = json!("queued"); jb["progress"] = json!("continues after a restart"); } }
     save_q(&q, &qpath);
+    // what runs now, for the next start (a restart or a handover resumes it)
+    let running: Vec<Value> = ctx.state["running"].as_object().map(|m| m.iter().map(|(id, r)| json!({ "pack": id, "mode": r["mode"] })).collect()).unwrap_or_default();
+    let _ = write_atomic(&ctx.data.join("resume.json"), json!({ "at": now_iso(), "running": running }).to_string().as_bytes());
     let _ = tokio::time::timeout(Duration::from_secs(5), tunnel::stop(&ctx.data)).await;  // the link then answers "not answering: how to restart" (offline: at most 5 s)
     ctx.stop_all().await;
     ctx.state["owner"] = Value::Null; ctx.state["tasks"] = json!([]);

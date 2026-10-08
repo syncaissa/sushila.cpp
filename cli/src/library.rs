@@ -130,11 +130,13 @@ fn el(id: &[u8], data: &[u8]) -> Vec<u8> {
 fn webm_tags(b: &[u8], tags: &[(&str, &str)]) -> Option<Vec<u8>> {
     // EBML header, then the Segment
     if !b.starts_with(&[0x1A, 0x45, 0xDF, 0xA3]) { return None; }
-    let (hl, hw) = vint(b, 4)?; let mut p = 4 + hw + hl as usize;
-    if b.get(p..p + 4)? != [0x18, 0x53, 0x80, 0x67] { return None; }
+    // every size read from the file is checked against the file's length (a damaged file is left as it is)
+    let (hl, hw) = vint(b, 4)?;
+    let mut p = 4usize.checked_add(hw)?.checked_add(usize::try_from(hl).ok()?)?;
+    if b.get(p..p.checked_add(4)?)? != [0x18, 0x53, 0x80, 0x67] { return None; }
     let (seg_len, seg_w) = vint(b, p + 4)?;
     let seg_size_at = p + 4; let seg_data = p + 4 + seg_w;
-    if seg_data as u64 + seg_len != b.len() as u64 { return None; }  // unknown size or something after the Segment: leave it
+    if (seg_data as u64).checked_add(seg_len)? != b.len() as u64 { return None; }  // unknown size or something after the Segment: leave it
     let simple: Vec<u8> = tags.iter().flat_map(|(k, v)| el(&[0x67, 0xC8], &[el(&[0x45, 0xA3], k.as_bytes()), el(&[0x44, 0x87], v.as_bytes())].concat())).collect();
     let new_tags = el(&[0x12, 0x54, 0xC3, 0x67], &el(&[0x73, 0x73], &[el(&[0x63, 0xC0], &[]), simple].concat()));
     let tags_pos = (b.len() - seg_data) as u64;  // position inside the Segment
@@ -144,10 +146,11 @@ fn webm_tags(b: &[u8], tags: &[(&str, &str)]) -> Option<Vec<u8>> {
     p = seg_data;
     if out.get(p..p + 4) == Some(&[0x11, 0x4D, 0x9B, 0x74]) {
         let (sh_len, sh_w) = vint(&out, p + 4)?;
-        let void_at = p + 4 + sh_w + sh_len as usize;
+        let void_at = (p + 4 + sh_w).checked_add(usize::try_from(sh_len).ok()?)?;
         if out.get(void_at) == Some(&0xEC) {
             let (v_len, v_w) = vint(&out, void_at + 1)?;
-            let void_total = 1 + v_w + v_len as usize;
+            let void_total = (1 + v_w).checked_add(usize::try_from(v_len).ok()?)?;
+            if void_at.checked_add(void_total)? > out.len() { return None; }
             let pos: Vec<u8> = { let bs = tags_pos.to_be_bytes(); let z = bs.iter().position(|&x| x != 0).unwrap_or(7); bs[z..].to_vec() };
             let seek = el(&[0x4D, 0xBB], &[el(&[0x53, 0xAB], &[0x12, 0x54, 0xC3, 0x67]), el(&[0x53, 0xAC], &pos)].concat());
             let rest = void_total.checked_sub(seek.len()).unwrap_or(0);
@@ -192,11 +195,12 @@ pub fn audio_in_multipart(body: &[u8], ctype: &str) -> Option<(Vec<u8>, String)>
         let start = at + sep.len();
         if text.get(start..start + 2) == Some(b"--") { return None; }
         let next = find(text, sep.as_bytes(), start)?;
-        let head_end = find(text, b"\r\n\r\n", start)?;
+        // the part's headers end before the next boundary; a part without them is skipped
+        let Some(head_end) = find(&text[..next], b"\r\n\r\n", start) else { at = next; continue };
         let head = String::from_utf8_lossy(&text[start..head_end]).to_lowercase();
         if let Some(t) = head.lines().find_map(|l| l.strip_prefix("content-type:")).map(|t| t.trim().to_string()).filter(|t| t.starts_with("audio/")) {
-            let mut end = next; if text.get(end - 2..end) == Some(b"\r\n") { end -= 2; }
-            return Some((text[head_end + 4..end].to_vec(), t));
+            let mut end = next; if end >= 2 && text.get(end - 2..end) == Some(b"\r\n") { end -= 2; }
+            return (head_end + 4 <= end).then(|| (text[head_end + 4..end].to_vec(), t));
         }
         at = next;
     }
@@ -244,8 +248,15 @@ pub fn list(dir: &Path) -> Vec<Value> {
 fn trash(dir: &Path) -> PathBuf { dir.join("outputs").join(".trash") }
 /// A path given by the page, made safe: relative, inside outputs (or the trash), no "..".
 fn safe(base: &Path, rel: &str) -> Option<PathBuf> {
-    if rel.is_empty() || rel.starts_with('/') || rel.starts_with('\\') || rel.contains(':') || rel.split(['/', '\\']).any(|c| c == ".." || c.is_empty()) { return None; }
+    if rel.is_empty() || rel.starts_with('/') || rel.starts_with('\\') || rel.contains(':') || rel.split(['/', '\\']).any(|c| c == ".." || c == "." || c.is_empty()) { return None; }
     Some(base.join(rel))
+}
+/// An existing file under `base` named by a Library path: the path rules above, then the real location (links
+/// resolved) must still be inside `base`. None for anything else (absolute, UNC, drive letters, "..", links out).
+pub fn resolve(base: &Path, rel: &str) -> Option<PathBuf> {
+    let p = std::fs::canonicalize(safe(base, rel)?).ok()?;
+    let b = std::fs::canonicalize(base).ok()?;
+    (p.starts_with(&b) && p.is_file()).then_some(p)
 }
 pub fn delete(dir: &Path, rel: &str) -> Result<(), String> {
     use std::io::Write;
@@ -368,6 +379,23 @@ mod tests {
         while q < m.len() { let il = id_len(&m, q).unwrap(); ids.push(m[q..q + il].to_vec()); let (l, w) = vint(&m, q + il).unwrap(); q += il + w + l as usize; }
         assert_eq!(q, m.len());
         assert_eq!(ids, vec![vec![0x11, 0x4D, 0x9B, 0x74], vec![0xEC], vec![0x1F, 0x43, 0xB6, 0x75], vec![0x12, 0x54, 0xC3, 0x67]]);
+        // damaged files are left alone, never a panic or a huge allocation: a Void claiming 2^40 bytes, sizes past the end
+        let mut bad = webm.clone(); let v = seg + seekhead.len(); bad[v + 1] = 0x01; bad.splice(v + 2..v + 2, [0, 0, 1, 0, 0, 0, 0]);
+        bad.splice(seg - 8..seg, vint_bytes(seg_body.len() as u64 + 7, 8).unwrap());  // the Segment size still matches: the Void check is reached
+        assert!(webm_tags(&bad, &[("A", "b")]).map(|m| m.len() < bad.len() + 4096).unwrap_or(true));
+        for cut in [5, 12, 20, webm.len() - 3] { let _ = mark_ai(&webm[..cut], "webm", "", "", false); }
+        assert_eq!(mark_ai(b"\x1a\x45\xdf\xa3\x01", "webm", "", "", false), b"\x1a\x45\xdf\xa3\x01");
+        // multipart: a part without headers before the next boundary is skipped (no panic); the audio part is found
+        let mp = b"--X\r\nno headers here\r\n--X\r\nContent-Type: audio/mpeg\r\n\r\nSONG\r\n--X--";
+        assert_eq!(audio_in_multipart(mp, "multipart/mixed; boundary=X").map(|x| x.0), Some(b"SONG".to_vec()));
+        assert!(audio_in_multipart(b"--X\r\nContent-Type: audio/mpeg\r\n--X--", "multipart/mixed; boundary=X").is_none());
+        // Library paths: no absolute, UNC, drive, "." or ".." paths; links out of the folder are refused
+        let lib = std::env::temp_dir().join(format!("sushila-resolve-{}", std::process::id())); std::fs::create_dir_all(lib.join("images")).unwrap();
+        std::fs::write(lib.join("images/a.png"), b"x").unwrap();
+        assert!(resolve(&lib, "images/a.png").is_some());
+        for bad in ["/etc/passwd", "\\\\host\\share\\x", "\\Users\\me", "C:\\x", "images/../images/a.png", "./images/a.png", "images//a.png", ""] { assert!(resolve(&lib, bad).is_none(), "{bad}"); }
+        #[cfg(unix)] { std::os::unix::fs::symlink("/etc/hostname", lib.join("images/out.png")).unwrap(); assert!(resolve(&lib, "images/out.png").is_none()); }
+        let _ = std::fs::remove_dir_all(&lib);
         // a real video (SUSHILA_WEBM_SAMPLE=<file>): writes <file>.marked.webm for ffprobe and players
         if let Ok(f) = std::env::var("SUSHILA_WEBM_SAMPLE") { let v = std::fs::read(&f).unwrap(); let m = mark_ai(&v, "webm", "wan2.2", "two bears", false); assert!(m.len() > v.len()); std::fs::write(format!("{f}.marked.webm"), m).unwrap(); }
         assert_eq!(m.len() - webm.len(), m.len() - m.windows(4).rposition(|w| w == [0x12, 0x54, 0xC3, 0x67]).unwrap());  // the Void absorbed the Seek entry

@@ -1,7 +1,7 @@
 // Temporary internet URL ("Get temporary internet URL" on every tab of this computer's page): a Cloudflare quick tunnel
 // from the internet to this Sushila Engine, shown as https://sushila.ai/localhost/<id>/.
-//   1. cloudflared (Cloudflare's own program, Apache-2.0) is fetched once from files.sushila.ai, where Sushila keeps an
-//      exact copy of release CLOUDFLARED_VERSION; its SHA-256 is checked against the value below before it is used.
+//   1. cloudflared (Cloudflare's own program, Apache-2.0) is fetched once through sushila.ai/install (an exact copy of
+//      release CLOUDFLARED_VERSION); its SHA-256 is checked against the value below before it is used.
 //   2. `cloudflared tunnel --url http://127.0.0.1:<port>` prints a random https://<words>.trycloudflare.com address.
 //   3. That host name is allowed on this engine (share.hosts) and a new access key is made for the link: visitors
 //      from the internet are remote callers, so they use the Inference page with that key; Admin, Library and this
@@ -34,9 +34,17 @@ async fn cloudflared(dir: &Path) -> Result<PathBuf, String> {
     let exe = tdir.join(if cfg!(windows) { "cloudflared.exe" } else { "cloudflared" });
     if exe.is_file() { return Ok(exe); }
     std::fs::create_dir_all(&tdir).map_err(|e| e.to_string())?;
-    let url = format!("https://files.sushila.ai/public/tools/cloudflared/{CLOUDFLARED_VERSION}/{file}");
+    // through sushila.ai/install (counted; GitHub or files.sushila.ai behind it), files.sushila.ai directly if that fails;
+    // either way the SHA-256 above decides
     let dl = tdir.join(file);
-    crate::util::download(&url, &dl, Some(sha), None, "cloudflared (Cloudflare tunnel)", true).await?;
+    let mut last = String::new();
+    for base in ["https://sushila.ai/install/get", "https://files.sushila.ai/public"] {
+        match crate::util::download(&format!("{base}/tools/cloudflared/{CLOUDFLARED_VERSION}/{file}"), &dl, Some(sha), None, "cloudflared (Cloudflare tunnel)", true).await {
+            Ok(_) => { last.clear(); break; }
+            Err(e) => last = e,
+        }
+    }
+    if !last.is_empty() { return Err(last); }
     if file.ends_with(".tgz") {
         crate::util::extract_archive(&dl, &tdir).await?;
         let _ = std::fs::remove_file(&dl);
@@ -54,8 +62,7 @@ fn save(dir: &Path, v: &Value) { let _ = std::fs::write(dir.join("tunnel.json"),
 /// A change for the engine's owner loop (it owns state.json): allowed host names and access keys.
 fn control(dir: &Path, values: Value) -> Result<(), String> {
     let id = format!("task-tunnel-{}", crate::util::random_token().chars().take(12).collect::<String>());
-    let cdir = dir.join("control-in"); std::fs::create_dir_all(&cdir).map_err(|e| e.to_string())?;
-    std::fs::write(cdir.join(format!("{id}.json")), json!({ "id": id, "action": "share", "values": values, "source": "temporary internet URL" }).to_string()).map_err(|e| e.to_string())
+    crate::util::post_request(dir, "control-in", &id, &json!({ "id": id, "action": "share", "values": values, "source": "temporary internet URL" }))
 }
 
 pub async fn status() -> Value {
@@ -100,7 +107,7 @@ pub async fn start(dir: &Path, port: u16) -> Result<Value, String> {
     let key_name = format!("internet-link-{}", &crate::util::now_iso()[..16].replace([':', 'T'], "-"));
     use sha2::{Digest, Sha256};
     // one link at a time: keys of earlier links (e.g. before a crash) are removed with this one's arrival
-    control(dir, json!({ "enabled": true, "addHost": host, "removeKeyPrefix": "internet-link-", "addKey": { "name": key_name, "sha256": hex::encode(Sha256::digest(key.as_bytes())) } }))?;
+    control(dir, json!({ "enabled": true, "removeHostSuffix": ".trycloudflare.com", "addHost": host, "removeKeyPrefix": "internet-link-", "addKey": { "name": key_name, "sha256": hex::encode(Sha256::digest(key.as_bytes())) } }))?;
     let reg = match crate::share::tunnel_register(dir, &target, keep["id"].as_str().unwrap_or("")).await { Ok(v) => v, Err(e) => { let _ = child.kill().await; let _ = control(dir, json!({ "removeHost": host, "removeKey": key_name })); return Err(e); } };
     let link = reg["link"].as_str().unwrap_or("").to_string();
     save(dir, &json!({ "id": reg["id"], "key": key }));
@@ -112,8 +119,15 @@ pub async fn start(dir: &Path, port: u16) -> Result<Value, String> {
 
 /// At every start (settings.internetUrlAtStart, on unless switched off): once the engine answers, and when this
 /// computer is signed in to sushila.ai, a new link is made and printed under the localhost addresses.
-pub async fn at_start(dir: PathBuf, port: u16, setting: Value) {
-    if setting != true { return; }  // chosen at the first start (or in the 🌐 dialog)
+pub async fn at_start(dir: PathBuf, port: u16) {
+    // the answer may still come (the first-start question in the window): waited for, up to an hour
+    let mut chosen = Value::Null;
+    for _ in 0..720 {
+        chosen = crate::webserver::read_state(&dir)["settings"]["internetUrlAtStart"].clone();
+        if !chosen.is_null() { break; }
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    }
+    if chosen != true { return; }
     for _ in 0..120 {  // wait for the engine to answer
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
         if crate::util::http_text(&format!("http://127.0.0.1:{port}/health"), 2).await.is_ok() { break; }

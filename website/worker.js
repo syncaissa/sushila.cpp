@@ -1934,12 +1934,12 @@ ${m.kind === 'image' ? `<meta property="og:image" content="${esc(origin)}${src}"
 <div class="stage">${media}</div>
 <a class="brand" href="/">Sushila</a>
 <div class="ctl"><button id="ib" title="Information" aria-label="Information" aria-expanded="false">ⓘ</button><button id="fb" title="Full screen (Esc to return)" aria-label="Full screen">⛶</button></div>
-<div class="views" title="Visitors who opened this page (one per visitor per 24 hours)">👁 ${vtext}</div>
+<div class="views" id="vw" title="Visitors who opened this page (one per visitor per 24 hours)">👁 ${vtext}</div>
 <aside class="info" id="info" aria-label="Information"><button class="x" id="ix" aria-label="Close">×</button>
 <div class="sub"><a href="/" style="font-weight:800;text-decoration:none">Sushila</a></div>
 <h1>${t}</h1><span class="ai">AI-generated</span>
 <dl><dt>Made with</dt><dd>Sushila${m.model ? ' · ' + esc(m.model) : ''}</dd><dt>Kind</dt><dd>${m.kind === 'image' ? 'Picture' : m.kind === 'video' ? 'Video' : 'Song'}</dd><dt>Generated on</dt><dd>${m.local === false ? 'a remote Sushila Engine' : 'the user\'s own computer'}</dd>
-<dt>Shared</dt><dd>${esc((m.created || '').slice(0, 10))}</dd><dt>Views</dt><dd>${vtext}</dd>${m.bytes ? `<dt>Size</dt><dd>${(m.bytes / 1e6).toFixed(1)} MB</dd>` : ''}<dt>Link</dt><dd><a href="${esc(viewKey(id))}">${esc(origin.replace(/^https?:\/\//, ''))}${esc(viewKey(id))}</a></dd></dl>
+<dt>Shared</dt><dd>${esc((m.created || '').slice(0, 10))}</dd><dt>Views</dt><dd id="vd">${vtext}</dd>${m.bytes ? `<dt>Size</dt><dd>${(m.bytes / 1e6).toFixed(1)} MB</dd>` : ''}<dt>Link</dt><dd><a href="${esc(viewKey(id))}">${esc(origin.replace(/^https?:\/\//, ''))}${esc(viewKey(id))}</a></dd></dl>
 <p><a class="btn" href="${esc(viewKey(id))}/download">Download</a></p>
 <p class="sub">${esc(DISCLAIMER(m.local !== false))}. ${esc(MAKE_YOUR_OWN).replace('sushila.ai/install', '<a href="/install">sushila.ai/install</a>')}</p>
 <p class="sub" style="margin-top:28px;border-top:1px solid var(--line);padding-top:12px"><a href="${esc(report)}">Report abuse</a></p></aside>
@@ -1949,6 +1949,9 @@ function wake(){document.body.classList.remove('idle');clearTimeout(idle);idle=s
 function show(on){info.classList.toggle('open',on);ib.setAttribute('aria-expanded',String(on));wake();}
 ib.onclick=function(){show(!info.classList.contains('open'));};document.getElementById('ix').onclick=function(){show(false);};
 document.addEventListener('keydown',function(e){if(e.key==='Escape')show(false);if(e.key==='i')show(!info.classList.contains('open'));});
+// the view count is refreshed when the visitor comes back to this tab (and when the information opens): no polling
+var lastV=0;function views(){if(Date.now()-lastV<30000)return;lastV=Date.now();fetch(location.pathname.replace(/\/$/,'')+'/views',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(!j)return;var t=j.views.toLocaleString('en-US')+' view'+(j.views===1?'':'s');document.getElementById('vw').textContent='👁 '+t;var d=document.getElementById('vd');if(d)d.textContent=t;}).catch(function(){});}
+document.addEventListener('visibilitychange',function(){if(!document.hidden)views();});ib.addEventListener('click',views);
 document.getElementById('fb').onclick=function(){var d=document.documentElement;if(document.fullscreenElement)document.exitFullscreen();else if(d.requestFullscreen)d.requestFullscreen().catch(function(){});else if(d.webkitRequestFullscreen)d.webkitRequestFullscreen();};
 ${m.kind === 'music' ? 'show(false);' : ''}})();</script></body></html>`;
 }
@@ -2068,8 +2071,10 @@ const ENGINE_LABEL = { 'windows-x86_64': 'Windows x64, CPU', 'windows-x86_64-vul
   'macos-aarch64': 'macOS, Apple silicon (Metal)', 'macos-x86_64': 'macOS, Intel' };
 const INSTALL = (cat) => () => {
   const size = (b) => !b ? '' : b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(0) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
+  // every link is sushila.ai/install/... (counted; served from GitHub Releases or files.sushila.ai, whichever the file has)
+  const inst = (u) => String(u || '').replace('/hoststation/get/', '/install/get/').replace('/hoststation/pack/', '/install/pack/');
   const row = (name, what, f) => `<tr><td><code>${esc(name)}</code><div class="sub">${esc(what)}</div></td><td class="num">${size(f.bytes)}</td>
-<td class="sha"><code title="SHA-256">${esc((f.sha256 || '').slice(0, 16))}${f.sha256 ? '…' : ''}</code></td><td>${f.url ? `<a href="${esc(f.url)}">Download</a>` : ''}</td></tr>`;
+<td class="sha"><code title="SHA-256">${esc((f.sha256 || '').slice(0, 16))}${f.sha256 ? '…' : ''}</code></td><td>${f.url ? `<a href="${esc(inst(f.url))}">Download</a>` : ''}</td></tr>`;
   const table = (rows) => `<div class="tablewrap"><table class="files"><thead><tr><th>File</th><th class="num">Size</th><th>SHA-256</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
   const eng = (cat.engine && cat.engine.builds) || {};
   const engineRows = Object.keys(ENGINE_LABEL).filter((k) => eng[k]).map((k) => row(eng[k].file, ENGINE_LABEL[k], eng[k])).join('');
@@ -2079,7 +2084,7 @@ const INSTALL = (cat) => () => {
   }).join('')).join('');
   const packs = (cat.packs || []).map((p) => `<details><summary><b>${esc(p.name)}</b> <span class="sub">(${esc(p.id)}; ${(p.files || []).length} file${(p.files || []).length === 1 ? '' : 's'}, ${size((p.files || []).reduce((n, f) => n + (f.bytes || 0), 0))}${p.license ? ', ' + esc(p.license) : ''})</span></summary>
 <p class="sub">${esc(p.description || '')}</p>${table((p.files || []).map((f) => row(f.path, f.role || '', f)).join(''))}
-${p.packUrl ? `<p class="sub">Or the whole pack as one file: <a href="${esc(p.packUrl)}">${esc(p.id)}.sushilapack</a> (${size(p.packBytes)}), then <code>sushila install &lt;file&gt;</code>.</p>` : ''}</details>`).join('');
+${p.packUrl ? `<p class="sub">Or the whole pack as one file: <a href="${esc(inst(p.packUrl))}">${esc(p.id)}.sushilapack</a> (${size(p.packBytes)}), then <code>sushila install &lt;file&gt;</code>.</p>` : ''}</details>`).join('');
   return `<style>.files{width:100%;border-collapse:collapse;font-size:14px}.files td,.files th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .files .num{text-align:right;white-space:nowrap}.files code{font-size:13px;overflow-wrap:anywhere}.sha code{color:var(--mut)}details{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
 summary{cursor:pointer}.sub{color:var(--mut);font-size:14px}.steps li{margin:6px 0}</style>
@@ -2095,7 +2100,10 @@ This page lists every file that installing Sushila downloads, with its size and 
 <h2>2. Engine (sushila.cpp), one of these, chosen automatically</h2>
 ${engineRows ? table(engineRows) : '<p class="note">The file list is unavailable right now. Please try again shortly.</p>'}
 ${rt ? `<h2>3. Image runtime for NVIDIA GPUs</h2><p class="sub">Only for the Z-Image-Turbo packs for NVIDIA GPUs (Accelerated pictures); downloaded once, with the first of those packs.</p>${rt}` : ''}
-<h2>${rt ? '4' : '3'}. Model packs: only the ones you choose</h2>
+<h2>${rt ? '4' : '3'}. Temporary internet URL (optional)</h2>
+<p class="sub">Only when you press 🌐 Get temporary internet URL: Cloudflare's own <code>cloudflared</code> (Apache-2.0), an exact copy of release 2026.10.0; Sushila checks its SHA-256.</p>
+${table(Object.entries(TOOLS).map(([k, t]) => row(t.file, 'cloudflared · ' + t.what, { ...t, url: '/install/get/' + k })).join(''))}
+<h2>${rt ? '5' : '4'}. Model packs: only the ones you choose</h2>
 <p class="sub">Each pack is a model and Sushila's precomputed files for it. Open a pack to see its files.</p>
 ${packs || '<p class="note">The pack list is unavailable right now. Please try again shortly.</p>'}
 <p class="sub">Version ${esc(cat.version || '')} · the same list as <a href="/hoststation/catalog.json">catalog.json</a>, which Sushila reads · <a href="/docs">documentation</a>.</p>`;
@@ -2978,6 +2986,16 @@ async function buildHostCatalog(env, b2, origin) {
 // While the repository is private, the asset is fetched through the API with GITHUB_RELEASE_TOKEN (a fine-grained,
 // read-only token for syncaissa/sushila.cpp); once it is public, the plain release link works. null: use the B2 copy.
 const RELEASES = 'https://github.com/syncaissa/sushila.cpp/releases/download/';
+// Tools the app fetches through sushila.ai/install/get/tools/... (counted like every download). Each file is an exact
+// copy of the official release on files.sushila.ai; set github (a Releases link) to serve it from GitHub instead.
+const TOOLS = {
+  'tools/cloudflared/2026.10.0/cloudflared-windows-amd64.exe': { file: 'cloudflared-windows-amd64.exe', what: 'Windows x64', sha256: '86aee4017b26625cee8484c113558f48effa4cd47f7aa05fcf425604e5d2b23c', bytes: 55365048 },
+  'tools/cloudflared/2026.10.0/cloudflared-linux-amd64': { file: 'cloudflared-linux-amd64', what: 'Linux x64', sha256: 'd33ff2d14475178d2012c2c56beba87389ac5ded27649519f198a7d3134a99db', bytes: 40129756 },
+  'tools/cloudflared/2026.10.0/cloudflared-linux-arm64': { file: 'cloudflared-linux-arm64', what: 'Linux ARM64', sha256: 'e6422b9d4f72d3194bc5a38676f13667c06666523217b842a877d72a80b5ac08', bytes: 37687584 },
+  'tools/cloudflared/2026.10.0/cloudflared-darwin-amd64.tgz': { file: 'cloudflared-darwin-amd64.tgz', what: 'macOS Intel', sha256: '903845b81828c8cb3c5d13d816a2de71c06a3da5785469df8eb0e1b736d92f9f', bytes: 21741581 },
+  'tools/cloudflared/2026.10.0/cloudflared-darwin-arm64.tgz': { file: 'cloudflared-darwin-arm64.tgz', what: 'macOS Apple silicon', sha256: 'a2f79ff7b9420aa537d74af239f376da170bbabeb529aec416002adac6a72e70', bytes: 19809074 },
+};
+for (const [k, v] of Object.entries(TOOLS)) v.url = `https://files.sushila.ai/public/${k}`;
 const RELEASE_API = 'https://api.github.com/repos/syncaissa/sushila.cpp/releases/assets/';
 async function fromGithub(env, entry, request, file, sha256) {
   const link = String(entry.github || ''), api = String(entry.githubAsset || '');
@@ -3555,18 +3573,21 @@ export default {
         try { if (b2.configured) [packs, app] = await Promise.all([hostCatalog(env, b2, url.origin).then((c) => c.packs), hostApp(env, b2)]); } catch (e) { console.error('packs', e.message); }
         return html(page(env, user, await visibleModels(db), packs, app));
       }
-      if (p.startsWith('/hoststation/pack/') && p.endsWith('.sushilapack')) {
+      if ((p.startsWith('/hoststation/pack/') || p.startsWith('/install/pack/')) && p.endsWith('.sushilapack')) {
         if (!b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
-        return await servePack(request, env, b2, db, ctx, url.origin, decodeURIComponent(p.slice('/hoststation/pack/'.length, -'.sushilapack'.length)));
+        return await servePack(request, env, b2, db, ctx, url.origin, decodeURIComponent(p.slice(p.indexOf('/pack/') + '/pack/'.length, -'.sushilapack'.length)));
       }
-      if (p.startsWith('/hoststation/get/')) {  // a pack file, engine build or runtime file: count it, then hand over to files.sushila.ai/public/
-        if (!b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
-        await hostCatalog(env, b2, url.origin);
-        const key = decodeURIComponent(p.slice('/hoststation/get/'.length));
-        const d = hostCatalogCache && hostCatalogCache.direct[key];
+      // a pack file, engine build, runtime file or tool: count it, then serve it from GitHub Releases (when the entry has
+      // a github link) or stream it from files.sushila.ai/public/. sushila.ai/install/get/... is the public address
+      // (the /install page and the app use it); /hoststation/get/... stays for earlier app versions.
+      if (p.startsWith('/hoststation/get/') || p.startsWith('/install/get/')) {
+        const key = decodeURIComponent(p.slice(p.startsWith('/install/') ? '/install/get/'.length : '/hoststation/get/'.length));
+        if (!TOOLS[key] && !b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
+        if (!TOOLS[key]) await hostCatalog(env, b2, url.origin);
+        const d = TOOLS[key] || (hostCatalogCache && hostCatalogCache.direct[key]);
         if (!d) return new Response('Not found', { status: 404, headers: SEC });
         const [first] = key.split('/');
-        ctx.waitUntil(logDownload(db, request, { file: d.file, kind: first === 'engine' || first === 'runtime' ? first : 'pack', packId: first === 'engine' || first === 'runtime' ? '' : first, bytes: d.bytes }));
+        ctx.waitUntil(logDownload(db, request, { file: d.file, kind: ['engine', 'runtime', 'tools'].includes(first) ? first : 'pack', packId: ['engine', 'runtime', 'tools'].includes(first) ? '' : first, bytes: d.bytes }));
         if (d.github && url.searchParams.get('from') !== 'b2') {  // released files: served from GitHub Releases (counted there), B2 if GitHub fails
           const r = await fromGithub(env, d, request, d.file);
           if (r) return r;
@@ -3654,6 +3675,13 @@ function down(){document.getElementById('t').textContent='Sushila is not running
 document.getElementById('b').innerHTML='<a class="btn" href="sushila://start">▶ Start Sushila</a><a class="btn" href="'+home+'">Open '+home+'</a><p class="sub">The Start button works on Windows once Sushila has run there; otherwise double-click sushila.exe, or run <code>sushila serve</code>. This page opens Sushila by itself as soon as it runs.</p>';
 if(++tries<200)setTimeout(up,3000);}
 up();})();</script></body></html>`);
+      // the count only (no view added): the link page asks when the visitor comes back to its tab; cached 30 s at the edge
+      if (/^\/c\/[0-9a-f]{12}\/views$/.test(p)) {
+        const id = p.split('/')[2];
+        const row = db.configured ? await db.get(TABLES.fileViews, { url: S(viewKey(id)) }).catch(() => null) : null;
+        if (!row || str(row, 'trashedAt')) return json({ error: 'not found' }, 404);
+        return json({ views: num(row, 'views') }, 200, { 'cache-control': 'public, max-age=30' });
+      }
       if (/^\/c\/[0-9a-f]{12}\/(file|download)$/.test(p)) {  // the shared file itself, streamed through sushila.ai
         const [, , id, what] = p.split('/');
         const r = await shareFile(request, db, id, what === 'download');

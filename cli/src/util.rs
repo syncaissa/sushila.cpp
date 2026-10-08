@@ -36,6 +36,76 @@ pub fn safe_rel_path(p: &str) -> bool {
 }
 pub fn join_rel(dir: &Path, rel: &str) -> PathBuf { rel.split('/').fold(dir.to_path_buf(), |p, x| p.join(x)) }
 
+/// The bytes of a file after `since` (at most the last `max`), read from the end: (file length, text). A `since`
+/// beyond the end (the file was rotated) reads from the start.
+pub fn read_tail(p: &Path, since: u64, max: u64) -> (u64, String) {
+    use std::io::{Read, Seek, SeekFrom};
+    let Ok(mut f) = std::fs::File::open(p) else { return (0, String::new()) };
+    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+    let since = if since > len { 0 } else { since };
+    let start = since.max(len.saturating_sub(max));
+    let mut buf = Vec::with_capacity((len - start) as usize);
+    if f.seek(SeekFrom::Start(start)).is_err() || f.take(len - start).read_to_end(&mut buf).is_err() { return (len, String::new()); }
+    (len, String::from_utf8_lossy(&buf).into_owned())
+}
+/// Writes a file so that a reader sees either the old content or the complete new one, never a part, also after a
+/// crash: a unique temporary file next to it, flushed to disk, then renamed over it.
+pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let name = path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+    let tmp = path.with_file_name(format!(".{name}.{}-{n}.tmp", std::process::id()));
+    let r = (|| -> std::io::Result<()> {
+        let mut f = std::fs::File::create(&tmp)?; f.write_all(bytes)?; f.sync_all()?; drop(f);
+        std::fs::rename(&tmp, path)?;
+        #[cfg(unix)] if let Some(d) = path.parent() { if let Ok(d) = std::fs::File::open(d) { let _ = d.sync_all(); } }
+        Ok(())
+    })();
+    if r.is_err() { let _ = std::fs::remove_file(&tmp); }
+    r.map_err(|e| format!("could not write {}: {e}", path.display()))
+}
+/// A request for the engine's owner (control-in/ or queue-in/): written whole (atomic), named so that the owner reads
+/// them oldest first.
+pub fn post_request(dir: &Path, inbox: &str, id: &str, v: &serde_json::Value) -> Result<(), String> {
+    let d = dir.join(inbox); std::fs::create_dir_all(&d).map_err(err)?;
+    let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    write_atomic(&d.join(format!("{t:020}-{id}.json")), v.to_string().as_bytes())
+}
+/// The requests waiting in an inbox, oldest first. A file that cannot be read yet stays (it may be in transit); one
+/// unreadable for 30 s is set aside as .bad (kept for a look, never applied).
+pub fn take_requests(dir: &Path, inbox: &str) -> Vec<serde_json::Value> {
+    let d = dir.join(inbox);
+    let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(&d).map(|r| r.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().map(|x| x == "json").unwrap_or(false)).collect()).unwrap_or_default();
+    files.sort();
+    let mut out = vec![];
+    for f in files {
+        match std::fs::read_to_string(&f).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()) {
+            Some(v) => { let _ = std::fs::remove_file(&f); out.push(v); }
+            None => {
+                let old = std::fs::metadata(&f).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map(|e| e.as_secs() > 30).unwrap_or(true);
+                if old { let _ = std::fs::rename(&f, f.with_extension("bad")); }
+            }
+        }
+    }
+    out
+}
+/// Runs a program and returns its standard output if it succeeds within `secs` (it is ended otherwise): for quick
+/// questions such as nvidia-smi from code that cannot wait (a hung driver must not freeze anything).
+pub fn output_within(program: &str, args: &[&str], secs: u64) -> Option<String> {
+    use std::io::Read;
+    let mut child = std::process::Command::new(program).args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null()).spawn().ok()?;
+    let mut out = child.stdout.take()?;
+    let reader = std::thread::spawn(move || { let mut s = String::new(); let _ = out.read_to_string(&mut s); s });
+    let t0 = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(st)) => { let s = reader.join().unwrap_or_default(); return st.success().then_some(s); }
+            Ok(None) if t0.elapsed() < Duration::from_secs(secs) => std::thread::sleep(Duration::from_millis(20)),
+            _ => { let _ = child.kill(); let _ = child.wait(); return None; }
+        }
+    }
+}
 pub fn human(b: u64) -> String {
     let b = b as f64;
     if b >= 1e9 { format!("{:.1} GB", b / 1e9) } else if b >= 1e6 { format!("{:.0} MB", b / 1e6) } else { format!("{:.0} KB", b / 1e3) }
@@ -134,8 +204,11 @@ async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opti
     let again = |e: String| (e, true);
     let url = check_url(url, cfg!(test)).map_err(fatal)?.to_string();  // tests: a local flaky server
     if let Some(d) = dest.parent() { tokio::fs::create_dir_all(d).await.map_err(|e| fatal(e.to_string()))?; }
-    let part = PathBuf::from(format!("{}.part", dest.display()));
+    // the partial file carries the expected hash in its name: a part of another version of the file is never continued
+    let part = match sha256.filter(|h| h.len() >= 12) { Some(h) => PathBuf::from(format!("{}.{}.part", dest.display(), &h[..12])), None => PathBuf::from(format!("{}.part", dest.display())) };
+    if part != PathBuf::from(format!("{}.part", dest.display())) { let _ = tokio::fs::remove_file(format!("{}.part", dest.display())).await; }  // left by older versions
     let mut start = tokio::fs::metadata(&part).await.map(|m| m.len()).unwrap_or(0);
+    let resumed = start > 0;
     let mut hasher = Sha256::new();
     if start > 0 {
         let p = part.clone();
@@ -145,17 +218,37 @@ async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opti
     }
     let mut req = client().map_err(fatal)?.get(&url);
     if start > 0 { req = req.header(reqwest::header::RANGE, format!("bytes={start}-")); }
-    let resp = req.send().await.map_err(|e| again(format!("download failed: {e}")))?;
+    // the server must answer within a minute (a connection that never answers is retried, not waited on forever)
+    let resp = match tokio::time::timeout(Duration::from_secs(60), req.send()).await {
+        Err(_) => return Err(again("download failed: the server did not answer within a minute".into())),
+        Ok(r) => r.map_err(|e| again(format!("download failed: {e}")))?,
+    };
     let code = resp.status().as_u16();
-    if code == 416 { let _ = tokio::fs::remove_file(&part).await; return Err(again("download failed: the partial file did not match; starting over".into())); }
+    if code == 416 {
+        // nothing after `start`: the part may already be the whole file (a crash just before it was renamed)
+        let whole = hex::encode(hasher.clone().finalize());
+        if sha256.map(|w| w.eq_ignore_ascii_case(&whole)).unwrap_or(false) && bytes.map(|b| b == start).unwrap_or(true) {
+            tokio::fs::rename(&part, dest).await.map_err(|e| fatal(e.to_string()))?;
+            return Ok(whole);
+        }
+        let _ = tokio::fs::remove_file(&part).await;
+        return Err(again("download failed: the partial file did not match; starting over".into()));
+    }
     if !resp.status().is_success() { return Err((format!("download failed: HTTP {}", resp.status()), code >= 500 || code == 408 || code == 429)); }
-    if start > 0 && resp.status().as_u16() != 206 { start = 0; hasher = Sha256::new(); }
+    // a resumed download continues only where the server really continues (Content-Range starts at `start`)
+    let range_start = resp.headers().get(reqwest::header::CONTENT_RANGE).and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("bytes ")).and_then(|v| v.split('-').next()).and_then(|v| v.trim().parse::<u64>().ok());
+    if start > 0 && (code != 206 || range_start != Some(start)) { start = 0; hasher = Sha256::new(); }
     let total = bytes.or_else(|| resp.content_length().map(|n| n + start)).unwrap_or(0);
     let mut file = tokio::fs::OpenOptions::new().create(true).write(true).append(start > 0).truncate(start == 0).open(&part).await.map_err(|e| fatal(e.to_string()))?;
     let (mut done, t0, mut last) = (start, std::time::Instant::now(), std::time::Instant::now());
     let mut stream = resp.bytes_stream();
     let tty = !quiet && progress_tty();
     let id = job.map(|j| j.id.clone()).unwrap_or_else(|| format!("dl-{}-{label}", std::process::id()));
+    // a single download's progress line goes away however this ends (a job's line belongs to the job)
+    struct HideOnDrop(Option<(String, bool)>);
+    impl Drop for HideOnDrop { fn drop(&mut self) { if let Some((id, tty)) = self.0.take() { progress_hide(&id, tty); } } }
+    let _hide = HideOnDrop(job.is_none().then(|| (id.clone(), tty)));
     loop {
         let chunk = match tokio::time::timeout(Duration::from_secs(60), stream.next()).await {
             Err(_) => { let _ = file.flush().await; return Err(again(format!("download stalled at {}", human(done)))); }
@@ -190,12 +283,12 @@ async fn download_once(url: &str, dest: &Path, sha256: Option<&str>, bytes: Opti
     file.flush().await.map_err(|e| fatal(e.to_string()))?;
     drop(file);
     if total > 0 && done < total { return Err(again(format!("download ended early at {} of {}", human(done), human(total)))); }
-    if job.is_none() { progress_hide(&id, tty); }
     let got = hex::encode(hasher.finalize());
     if let Some(want) = sha256.filter(|s| !s.is_empty()) {
         if !got.eq_ignore_ascii_case(want) {
             let _ = tokio::fs::remove_file(&part).await;
-            return Err(fatal(format!("{label}: sha256 mismatch (expected {want}, got {got}); the file was deleted")));
+            // a resumed file may have been spoiled by its earlier part: once more from zero; a fresh one is really wrong
+            return Err((format!("{label}: sha256 mismatch (expected {want}, got {got}); the file was deleted"), resumed));
         }
     }
     tokio::fs::rename(&part, dest).await.map_err(|e| fatal(e.to_string()))?;
@@ -212,10 +305,18 @@ pub async fn extract_archive(archive: &Path, dest: &Path) -> Result<(), String> 
         std::fs::create_dir_all(&dest).map_err(err)?;
         let f = std::fs::File::open(&archive).map_err(err)?;
         let name = archive.to_string_lossy().to_lowercase();
+        // limits against damaged or hostile archives: entries and unpacked bytes
+        const MAX_ENTRIES: usize = 200_000; const MAX_BYTES: u64 = 1 << 40;
+        let (mut entries, mut total) = (0usize, 0u64);
+        let mut count = |bytes: u64| -> Result<(), String> {
+            entries += 1; total = total.saturating_add(bytes);
+            if entries > MAX_ENTRIES || total > MAX_BYTES { Err("the archive is too large or damaged; nothing was installed".to_string()) } else { Ok(()) }
+        };
         if name.ends_with(".zip") {
             let mut z = zip::ZipArchive::new(f).map_err(err)?;
             for i in 0..z.len() {
                 let mut e = z.by_index(i).map_err(err)?;
+                count(e.size())?;
                 let Some(rel) = e.enclosed_name() else { continue };
                 let out = dest.join(rel);
                 if e.is_dir() { std::fs::create_dir_all(&out).map_err(err)?; continue; }
@@ -225,20 +326,24 @@ pub async fn extract_archive(archive: &Path, dest: &Path) -> Result<(), String> 
                 #[cfg(unix)]
                 if let Some(mode) = e.unix_mode() {
                     use std::os::unix::fs::PermissionsExt;
-                    std::fs::set_permissions(&out, std::fs::Permissions::from_mode(mode)).map_err(err)?;
+                    std::fs::set_permissions(&out, std::fs::Permissions::from_mode(mode & 0o755)).map_err(err)?;  // never setuid/setgid
                 }
             }
         } else if name.ends_with(".sushilapack") || name.ends_with(".tar") {
             let mut t = tar::Archive::new(f);
             for e in t.entries().map_err(err)? {
                 let mut e = e.map_err(err)?;
-                if !matches!(e.header().entry_type(), tar::EntryType::Regular | tar::EntryType::Directory) { continue; }
+                count(e.header().size().unwrap_or(0))?;
+                if !matches!(e.header().entry_type(), tar::EntryType::Regular | tar::EntryType::Directory) { continue; }  // packs: no links
                 e.unpack_in(&dest).map_err(err)?;
             }
         } else {
+            // engine builds (.tar.gz): executable bits and library links are kept; setuid/setgid/sticky and group/other
+            // write bits never are; unpack_in refuses paths that leave the folder
             let mut t = tar::Archive::new(flate2::read::GzDecoder::new(f));
             t.set_preserve_permissions(true);
-            for e in t.entries().map_err(err)? { e.map_err(err)?.unpack_in(&dest).map_err(err)?; }
+            t.set_mask(0o7022);
+            for e in t.entries().map_err(err)? { let mut e = e.map_err(err)?; count(e.header().size().unwrap_or(0))?; e.unpack_in(&dest).map_err(err)?; }
         }
         Ok(())
     }).await.map_err(err)?
@@ -264,7 +369,8 @@ pub fn command(program: &str, args: &[String]) -> tokio::process::Command {
 /// Runs a program and returns {code, stdout, stderr}; None when it cannot start (not installed).
 pub async fn run_capture(program: &str, args: &[&str], timeout_s: u64) -> Option<Value> {
     let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
-    let out = tokio::time::timeout(Duration::from_secs(timeout_s), command(program, &args).output()).await.ok()?.ok()?;
+    let mut c = command(program, &args); c.kill_on_drop(true);  // a program that does not answer in time is ended, not left behind
+    let out = tokio::time::timeout(Duration::from_secs(timeout_s), c.output()).await.ok()?.ok()?;
     Some(json!({ "code": out.status.code(), "stdout": String::from_utf8_lossy(&out.stdout), "stderr": String::from_utf8_lossy(&out.stderr) }))
 }
 

@@ -25,6 +25,8 @@ r = await call(`/c/${up.id}`, { headers: IP_A }); let t = await r.text();
 ok(r.status === 200 && t.includes('1 view') && t.includes('reportabuse') && t.includes('on their own computer'), 'link page: 1 view, disclaimer, Report abuse');
 r = await call(`/c/${up.id}`, { headers: IP_A }); t = await r.text(); ok(t.includes('1 view<') || /👁 1 view\b/.test(t), 'same IP again within 24 hours: still 1 view');
 r = await call(`/c/${up.id}`, { headers: IP_B }); t = await r.text(); ok(t.includes('2 views'), 'another IP: 2 views');
+r = await call(`/c/${up.id}/views`); let vj = await r.json(); r = await call(`/c/${up.id}/views`); let vj2 = await r.json();
+ok(vj.views === 2 && vj2.views === 2, 'the count endpoint (tab comes back): 2, and asking does not add views');
 const day = new Date().toISOString().slice(0, 10);
 const logRows = await auditRows(up.id, day);
 ok(logRows.length === 2 && logRows.some((x) => x.ip.S === '203.0.113.7' && x.hits.N === '2' && x.counted) && logRows.every((x) => x.url.S === `https://sushila.ai/c/${up.id}` && x.event.S === 'view'),

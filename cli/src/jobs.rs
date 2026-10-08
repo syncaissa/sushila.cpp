@@ -70,10 +70,16 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
             for src in [accel.unwrap_or(json!({})), p.clone()] { if let Some(o) = src.as_object() { for (k, v) in o { body[k] = v.clone(); } } }
             let j: Value = post(&base, "/sdcpp/v1/vid_gen", &body).await?.json().await.map_err(err)?;
             let id = j["id"].as_str().ok_or("the video server returned no job")?.to_string();
+            let t0 = std::time::Instant::now();
             loop {
                 tokio::time::sleep(Duration::from_secs(2)).await;
                 tick("filming");
-                let st: Value = http().get(format!("{base}/sdcpp/v1/jobs/{id}")).send().await.map_err(err)?.json().await.map_err(err)?;
+                // a video that is not done in 3 hours is cancelled on the engine and reported, never waited on forever
+                if t0.elapsed() > Duration::from_secs(3 * 3600) {
+                    let _ = http().post(format!("{base}/sdcpp/v1/jobs/{id}/cancel")).timeout(Duration::from_secs(10)).send().await;
+                    return Err("the video was not done after 3 hours; it was cancelled".into());
+                }
+                let st: Value = http().get(format!("{base}/sdcpp/v1/jobs/{id}")).timeout(Duration::from_secs(30)).send().await.map_err(err)?.json().await.map_err(err)?;
                 match st["status"].as_str() {
                     Some("completed") => { let r = &st["result"]; let ext = r["output_format"].as_str().unwrap_or("webm").to_string();
                         return Ok(Output { mime: r["mime_type"].as_str().map(String::from).unwrap_or(format!("video/{ext}")), ext, bytes: b64(r["b64_json"].as_str().unwrap_or(""))? }); }
@@ -85,10 +91,12 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
         "music" => {
             async fn job(base: &str, path: &str, body: &Value, label: &str, tick: &mut impl FnMut(&str)) -> Result<reqwest::Response, String> {
                 let id = post(base, path, body).await?.json::<Value>().await.map_err(err)?["id"].as_str().map(String::from).ok_or("the music server returned no job")?;
+                let t0 = std::time::Instant::now();
                 loop {
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     tick(label);
-                    let st: Value = http().get(format!("{base}/job?id={id}")).send().await.map_err(err)?.json().await.map_err(err)?;
+                    if t0.elapsed() > Duration::from_secs(3600) { return Err(format!("{label}: not done after an hour")); }
+                    let st: Value = http().get(format!("{base}/job?id={id}")).timeout(Duration::from_secs(30)).send().await.map_err(err)?.json().await.map_err(err)?;
                     match st["status"].as_str() {
                         Some("done") => return http().get(format!("{base}/job?id={id}&result=1")).send().await.map_err(err),
                         Some("failed") | Some("cancelled") => return Err(format!("{label}: {}", st["status"])),

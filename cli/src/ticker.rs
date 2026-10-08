@@ -259,8 +259,8 @@ fn live(dir: &std::path::Path, last_jobs: &mut std::collections::HashMap<String,
     let waiting = jobs.iter().filter(|j| j["status"] == "queued").count();
     if waiting > 0 { v.push((format!("{waiting} job{} waiting", if waiting == 1 { "" } else { "s" }), true)); }
     if q["paused"] == true { v.push(("queue paused (sushila queue resume)".into(), true)); }
-    if let Ok(o) = std::process::Command::new("nvidia-smi").args(["--query-gpu=name,memory.used,memory.total", "--format=csv,noheader,nounits"]).stderr(std::process::Stdio::null()).output() {
-        if let Some(l) = String::from_utf8_lossy(&o.stdout).lines().next() {
+    if let Some(o) = crate::util::output_within("nvidia-smi", &["--query-gpu=name,memory.used,memory.total", "--format=csv,noheader,nounits"], 5) {
+        if let Some(l) = o.lines().next() {
             let f: Vec<&str> = l.split(',').map(str::trim).collect();
             if f.len() == 3 { if let (Ok(u), Ok(t)) = (f[1].parse::<f64>(), f[2].parse::<f64>()) { v.push((format!("GPU {}: {:.0} of {:.0} GB used", f[0], u / 1024.0, t / 1024.0), true)); } }
         }

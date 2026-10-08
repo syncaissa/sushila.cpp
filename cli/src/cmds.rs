@@ -31,7 +31,7 @@ pub fn iso_secs(s: &str) -> Option<u64> {
     let days = era * 146097 + doe - 719468;
     u64::try_from(days * 86400 + hh * 3600 + mm * 60 + ss).ok()
 }
-fn now_secs() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) }
+pub fn now_secs() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) }
 fn ago(secs: u64) -> String { if secs < 120 { format!("{secs} s") } else if secs < 7200 { format!("{} min", secs / 60) } else if secs < 172800 { format!("{:.1} h", secs as f64 / 3600.0) } else { format!("{} days", secs / 86400) } }
 
 /// Bytes in a folder (links not followed).
@@ -123,6 +123,10 @@ async fn set_share(ctx: &mut Ctx, values: Value) -> Result<(), String> {
 pub fn apply_share(state: &mut Value, v: &Value) -> Result<(), String> {
     for k in ["enabled", "listen", "open"] { if let Some(b) = v[k].as_bool() { state["share"][k] = json!(b); } }
     if !state["share"]["hosts"].is_array() { state["share"]["hosts"] = json!([]); }
+    // tunnel host names of earlier runs (an unclean end leaves one behind): removed before the new one is added
+    if let Some(sfx) = v["removeHostSuffix"].as_str().filter(|x| *x == ".trycloudflare.com") {
+        if let Some(a) = state["share"]["hosts"].as_array_mut() { a.retain(|x| !x.as_str().unwrap_or("").ends_with(sfx)); }
+    }
     if let Some(h) = v["addHost"].as_str() {
         let h = h.trim().to_ascii_lowercase();
         if h.is_empty() || h.len() > 253 || !h.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') { return Err(format!("not a host name: {h}")); }
@@ -641,6 +645,8 @@ async fn queue(ctx: &mut Ctx, act: Option<&crate::QueueCmd>, j: bool) -> Result<
 // 8 clean
 async fn clean(ctx: &mut Ctx, dry: bool, j: bool) -> Result<(), String> {
     let serving = owner_port(ctx).await.is_some();
+    // without a server, the owner lock: no install can start while this runs
+    let _lock = if serving || dry { None } else { Some(local_lock(ctx)?) };
     let mut items: Vec<(PathBuf, u64, String)> = vec![];
     // unfinished pack installs and copies (while a server runs they may be in progress: left alone)
     if !serving {
@@ -650,16 +656,21 @@ async fn clean(ctx: &mut Ctx, dry: bool, j: bool) -> Result<(), String> {
         }
         for d in ["staging", "downloads"] { let p = ctx.data.join(d); if p.exists() && dir_size(&p) > 0 { items.push((p, 0, "unfinished downloads".into())); } }
     }
-    // engine versions other than the one in use
-    let cur = ctx.state["engine"]["dir"].as_str().map(PathBuf::from);
-    for e in std::fs::read_dir(ctx.data.join("engine")).into_iter().flatten().flatten() {
-        if Some(e.path()) != cur && e.path().is_dir() { items.push((e.path(), 0, "old engine version".into())); }
+    // engine builds other than the one in use (compared by their real paths); while a server runs, none (a fallback
+    // build may be the one its models use)
+    if !serving {
+        let cur = ctx.state["engine"]["dir"].as_str().and_then(|d| std::fs::canonicalize(d).ok());
+        for e in std::fs::read_dir(ctx.data.join("engine")).into_iter().flatten().flatten() {
+            if e.path().is_dir() && std::fs::canonicalize(e.path()).ok() != cur { items.push((e.path(), 0, "old engine version".into())); }
+        }
     }
-    // outputs no queue job refers to
+    // queue outputs (outputs/job-*.<ext>, files at the top only) that no queue job refers to; the Library (images/,
+    // music/, video/, its index, shared links and the trash) is never touched here
     let q = read_json(&ctx.data.join("queue.json")).unwrap_or(json!({}));
     let used: std::collections::HashSet<String> = q["jobs"].as_array().map(|a| a.iter().filter_map(|x| x["output"]["file"].as_str().map(String::from)).collect()).unwrap_or_default();
     for e in std::fs::read_dir(ctx.data.join("outputs")).into_iter().flatten().flatten() {
-        if !used.contains(&e.file_name().to_string_lossy().to_string()) { items.push((e.path(), 0, "output of a removed queue job".into())); }
+        let n = e.file_name().to_string_lossy().to_string();
+        if e.file_type().map(|t| t.is_file()).unwrap_or(false) && n.starts_with("job-") && !used.contains(&n) { items.push((e.path(), 0, "output of a removed queue job".into())); }
     }
     for it in items.iter_mut() { if it.1 == 0 { it.1 = dir_size(&it.0); } }
     // the sha256 cache: entries of files that no longer exist

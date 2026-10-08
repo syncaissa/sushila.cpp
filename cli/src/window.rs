@@ -331,9 +331,47 @@ impl Window {
 /// Tells the screen (tui.rs) where the window loop is: "idle" = ready for the next line, "ask" = waits for an answer.
 pub fn signal(state: &str) { if crate::tui::in_screen() { eprint!("\x1b]7771;{state}\x07"); let _ = std::io::stderr().flush(); } }
 
+/// The first start: "Create a link to your app?" Yes: the sushila.ai sign-in here (the e-mail from last time is offered;
+/// a code is e-mailed, no password), then the engine opens the link (tunnel::at_start). The answer is kept
+/// (settings.internetUrlAtStart, sent to the engine as a settings request); 🌐 on the page changes it later.
+fn first_start_link(w: &Window, lines: &mut dyn Iterator<Item = std::io::Result<String>>) {
+    if !crate::webserver::read_state(&w.data)["settings"]["internetUrlAtStart"].is_null() { return; }
+    let set = |yes: bool| { let id = crate::webserver::new_id().replacen("job-", "task-", 1);
+        let _ = crate::util::post_request(&w.data, "control-in", &id, &serde_json::json!({ "id": id, "action": "settings", "values": { "internetUrlAtStart": yes }, "source": "first start" })); };
+    eprintln!("\nA link to your app (https://sushila.ai/localhost/...) reaches this Sushila Engine from your phone or anywhere, while it runs.\nVisitors need its access key and see only the Inference page; Admin, Library and your files stay on this computer.");
+    let a = w.ask(lines, "Create a link to your app? [y/N]: ").to_lowercase();
+    if a != "y" && a != "yes" { set(false); eprintln!("No link. Make one at any time with 🌐 Get temporary internet URL on the page."); return; }
+    let me = crate::share::me(&w.data);
+    if me["signedIn"] == true { set(true); eprintln!("Signed in to sushila.ai as {}; the link appears below once the engine is ready.", me["email"].as_str().unwrap_or("")); return; }
+    eprintln!("The link is made with a sushila.ai account. No password to remember: we e-mail you a one-time code (OTP) to sign in.");
+    let last = crate::share::last_email(&w.data);
+    for _ in 0..3 {
+        let typed = if last.is_empty() { w.ask(lines, "Your e-mail address: ") } else { w.ask(lines, &format!("Sign in as {last}? Press Enter for the code (not you? type your e-mail address): ")) };
+        let email = if typed.is_empty() && !last.is_empty() { last.clone() } else { typed };
+        if !email.contains('@') { eprintln!("That does not look like an e-mail address."); continue; }
+        let mut first = String::new();
+        let sent = match w.rt.block_on(crate::share::send_code(&w.data, &email, "SIGN_IN")) {
+            Ok(_) => Ok(()),
+            Err(e) if e.to_lowercase().contains("no account") => { first = w.ask(lines, "New sushila.ai account: your first name: "); w.rt.block_on(crate::share::send_code(&w.data, &email, "SIGN_UP")).map(|_| ()) }
+            Err(e) => Err(e),
+        };
+        if let Err(e) = sent { eprintln!("Could not send the code: {e}"); continue; }
+        for _ in 0..3 {
+            let code = w.ask(lines, &format!("The 6-digit code e-mailed to {email}: "));
+            match w.rt.block_on(crate::share::verify(&w.data, &email, &code, &first)) {
+                Ok(_) => { set(true); eprintln!("Signed in to sushila.ai as {email}. The link to your app appears below once the engine is ready."); return; }
+                Err(e) => eprintln!("{e}"),
+            }
+        }
+    }
+    // no answer stored: the question comes again at the next start
+    eprintln!("Not signed in, so no link this time (asked again at the next start). 🌐 Get temporary internet URL on the page signs in and makes one.");
+}
+
 pub fn read_loop(w: Window, banner: String) {
     let stdin = std::io::stdin();
     let mut lines = stdin.lock().lines();
+    first_start_link(&w, &mut lines);
     crate::ticker::prompt();
     let cancel = w.data.join("window-cancel");
     let _ = std::fs::remove_file(&cancel);

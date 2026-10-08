@@ -104,7 +104,11 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
         o.actions ? el('div', { class: 'tacts' }, ...o.actions.map((a) => el('button', { class: a.primary ? '' : a.danger ? 'danger' : 'ghost', onclick: () => { close(); if (a.onclick) a.onclick(); } }, a.label))) : null),
       el('button', { class: 'tclose', title: 'Close', 'aria-label': 'Close', onclick: () => { close(); if (o.onclose) o.onclose(); } }, '×'));
     toastBox.append(t);
-    while (toastBox.children.length > 4) toastBox.firstChild.remove();
+    // at most 5 cards: the oldest notice goes first; a question is never dropped unanswered (closing it answers "no")
+    while (toastBox.children.length > 5) {
+      const old = [...toastBox.children].find((c) => !c.classList.contains('ask'));
+      if (old) old.remove(); else { const q = toastBox.firstChild; const x = q.querySelector('.tclose'); if (x) x.click(); else q.remove(); }
+    }
     if (!o.actions) setTimeout(close, o.ms || (kind === 'err' ? 14000 : 7000));
     const b = t.querySelector('.tacts button'); if (b && b.focus) b.focus();
     return close;
@@ -128,6 +132,12 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
     document.addEventListener('keydown', esc); document.body.append(box);
   }
   const infoBtn = (onclick) => el('button', { class: 'ghost infobtn', title: 'Information about this file', 'aria-label': 'Information', onclick }, 'ⓘ');
+  // Copies text; true when the browser really did. When it refuses (no permission, a sandboxed page), the text is shown
+  // in a notice to copy by hand, unless quiet.
+  async function copyText(text, quiet = false) {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch (_) { if (!quiet) toast(text, { kind: 'warn', title: 'Copy this by hand (the browser did not allow copying)', ms: 20000 }); return false; }
+  }
   // the Library's "Upload and get link", reachable from the Inference page (set by the Library on this computer)
   let shareFromInference = null;
 
@@ -224,10 +234,10 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
         const box = el('div', { class: 'lbox infobox', onclick: (e) => { if (e.target === box) box.remove(); } }, el('div', { class: 'lboxin', style: 'width:min(640px,94vw)' },
           el('div', { class: 'row', style: 'margin:0 0 8px' }, el('h2', { style: 'margin:0;font-size:18px' }, '🌐 Temporary internet URL'), el('span', { style: 'flex:1' }), el('button', { class: 'ghost', onclick: () => box.remove() }, 'Close')),
           el('div', { class: 'tunlink' }, el('a', { href: t.link, target: '_blank', rel: 'noopener' }, t.link)),
-          el('div', { class: 'row' }, el('button', { onclick: () => { try { navigator.clipboard.writeText(t.link); toast(t.link, { kind: 'ok', title: 'Link copied' }); } catch (_) {} } }, 'Copy link'),
+          el('div', { class: 'row' }, el('button', { onclick: () => { try { copyText(t.link); toast(t.link, { kind: 'ok', title: 'Link copied' }); } catch (_) {} } }, 'Copy link'),
             el('button', { class: 'ghost', onclick: async () => { if (!await ask('Visitors with the old key can no longer use the link; give them the new one.', 'New key', { title: 'Make a new access key?' })) return;
               try { const k = await (await api('/api/tunnel/new-key', { method: 'POST' })).json(); box.remove(); show(Object.assign({}, t), k.key); toast('The old key stopped working.', { kind: 'ok', title: 'New access key' }); } catch (e) { toast(String(e.message || e), { kind: 'err', title: 'Could not change the key' }); } } }, '🔑 New access key'),
-            el('button', { class: 'danger', onclick: async () => { const r = await (await api('/api/tunnel/stop', { method: 'POST' })).json().catch(() => ({})); box.remove(); toast('The link stops answering until Sushila makes it again (same address, same key).', { kind: 'ok', title: 'Internet URL closed' }); } }, 'Stop')),
+            el('button', { class: 'danger', onclick: async () => { try { const r = await api('/api/tunnel/stop', { method: 'POST' }); if (!r.ok) throw new Error(await r.text()); } catch (e) { toast(String(e.message || e), { kind: 'err', title: 'Could not stop the link' }); return; } box.remove(); toast('The link stops answering until Sushila makes it again (same address, same key).', { kind: 'ok', title: 'Internet URL closed' }); } }, 'Stop')),
           key ? el('div', { class: 'warnnote' }, el('b', {}, 'Access key for visitors: '), el('code', { style: 'user-select:all;word-break:break-all' }, key),
             el('div', { class: 'sub' }, 'People who open the link use the Inference page of this Sushila Engine; it asks them for this key. Give the key only to people you trust. Admin, Library and the files on this computer stay on this computer.')) : null,
           el('label', { class: 'row', style: 'gap:8px;cursor:pointer' }, el('input', { type: 'checkbox', checked: !(st.settings && st.settings.internetUrlAtStart === false),
@@ -260,14 +270,21 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
       el('a', { class: 'dlbtn', href: 'sushila://start' }, '▶ Start Sushila'),
       el('span', { class: 'sub' }, ' or double-click sushila.exe (Windows), or run sushila serve in a terminal. Not installed? Get it at ', el('a', { href: 'https://sushila.ai/install', target: '_blank', rel: 'noopener' }, 'sushila.ai/install'), '. This page reconnects by itself.'));
     document.body.prepend(down);
-    let wasDown = false, serverUp = true;
+    // the server's health every 3 s (one check at a time, at most 5 s each): two failures in a row show the banner;
+    // when it answers again the page fetches fresh data (no reload: chats and results on the page stay)
+    let wasDown = false, serverUp = true, fails = 0, checking = false;
     setInterval(async () => {
-      if (document.hidden) return;
-      let ok = false; try { ok = (await fetch('/health', { cache: 'no-store' })).ok; } catch (_) {}
-      down.classList.toggle('hidden', ok); serverUp = ok;
-      if (!ok && view === 'admin') render();
-      if (ok && wasDown) location.reload();
-      wasDown = !ok;
+      if (document.hidden || checking) return;
+      checking = true;
+      let ok = false;
+      try { const c = new AbortController(), t = setTimeout(() => c.abort(), 5000); ok = (await fetch('/health', { cache: 'no-store', signal: c.signal })).ok; clearTimeout(t); } catch (_) {}
+      checking = false;
+      fails = ok ? 0 : fails + 1;
+      const isDown = fails >= 2;
+      down.classList.toggle('hidden', !isDown); serverUp = !isDown;
+      if (isDown && !wasDown && view === 'admin') render();
+      if (!isDown && wasDown) { poll(); window.dispatchEvent(new Event('sushila-up')); }
+      wasDown = isDown;
     }, 3000);
     let st = {}, catalog = null, logNext = 0, logText = '', view = '', note = '';
     const human = (b) => (b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(0) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB');
@@ -322,7 +339,7 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
       const norm = (f) => String(f || '').replace(/\\/g, '/');
       const x = (lib.items || []).find((i) => path ? norm(i.path) === norm(path) : i.kind === kind && Date.parse(i.created) >= since - 5000);
       if (!x) { toast('It is not in the Library yet; try again in a moment.', { kind: 'warn', title: 'Upload and get link' }); return; }
-      if (x.link) { try { await navigator.clipboard.writeText(x.link); } catch (_) {} toast(x.link, { kind: 'ok', title: 'Already uploaded. The link is copied.' }); return; }
+      if (x.link) { try { await copyText(x.link); } catch (_) {} toast(x.link, { kind: 'ok', title: 'Already uploaded. The link is copied.' }); return; }
       if (!lib.acct.signedIn) {
         lib.signin = { step: 'email', email: lib.acct.lastEmail || '', pending: x, purpose: 'SIGN_IN' };
         toast('Sign in with your e-mail (a code, no password) on the Library tab; the upload continues after that.', { kind: 'info', title: 'Sign in to sushila.ai first' });
@@ -339,17 +356,24 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
     const SHARE_NOTICE = 'All uploaded files are visible to everyone who has the link. You may delete them at any time at sushila.ai/mycontent. Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported.';
     const shareCall = async (act, body) => { const r = await api('/api/share/' + act, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; };
     // Share link: asks once per file, signs in by e-mail code when needed, uploads, copies the link
+    // one upload at a time (a double click must not make two links)
+    let sharing = false;
     async function libShare(x) {
+      if (sharing) return;
+      sharing = true;
+      try { await libShareNow(x); } finally { sharing = false; }
+    }
+    async function libShareNow(x) {
       if (!lib.acct.signedIn) { lib.signin = { step: 'email', email: lib.acct.lastEmail || '', pending: x, purpose: 'SIGN_IN' }; libRender(); return; }
       if (!await ask('Anyone with the link can open it. It is labelled AI-generated, and you can delete it at any time (Shared links, or sushila.ai/mycontent).\n\n' + SHARE_NOTICE,
         'Upload and get link', { title: 'Upload "' + x.name + '" to sushila.ai?' })) return;
       lib.msg = 'Uploading ' + x.name + '…'; libRender();
       try {
         const m = await shareCall('upload', { rel: x.rel }); let copied = false;
-        try { await navigator.clipboard.writeText(m.link); copied = true; } catch (_) {}
+        copied = await copyText(m.link, true);
         lib.msg = 'Link' + (copied ? ' (copied)' : '') + ': ' + m.link;
         toast(m.link, { kind: 'ok', title: copied ? 'Uploaded. The link is copied.' : 'Uploaded. Here is the link:', ms: 15000,
-          actions: [{ label: 'Copy link', primary: true, onclick: () => { try { navigator.clipboard.writeText(m.link); } catch (_) {} } }, { label: 'Open', onclick: () => window.open(m.link, '_blank', 'noopener') }] });
+          actions: [{ label: 'Copy link', primary: true, onclick: () => { try { copyText(m.link); } catch (_) {} } }, { label: 'Open', onclick: () => window.open(m.link, '_blank', 'noopener') }] });
       }
       catch (e) { lib.msg = 'Could not upload: ' + e.message; toast(e.message, { kind: 'err', title: 'Could not upload' }); if (/sign in/i.test(e.message)) lib.acct.signedIn = false; }
       await libLoad(); libRender();
@@ -357,7 +381,10 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
     function signinPanel() {
       const si = lib.signin; if (!si) return null;
       const err = el('div', { class: 'msg err', id: 'simsg' });
+      const say2 = (t) => { const m = $('simsg'); if (m) m.textContent = t; };
       const go = async () => {
+        if (si.busy) return;  // Enter and a click at once: one request
+        si.busy = true;
         try {
           if (si.step === 'email') {
             si.email = $('siemail').value.trim(); if (si.purpose === 'SIGN_UP') si.first = ($('sifirst') || {}).value || '';
@@ -368,7 +395,8 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
             const x = si.pending; lib.signin = null; libRender(); if (x) await libShare(x); return;
           }
           libRender();
-        } catch (e) { $('simsg').textContent = e.message; }
+        } catch (e) { say2(e.message); }
+        finally { si.busy = false; }
       };
       return el('div', { class: 'card signin' }, el('b', {}, 'Sign in to sushila.ai to share'),
         el('div', { class: 'sub' }, 'No password: a 6-digit code is e-mailed to you each time you sign in. Shared files are stored on sushila.ai (public/usercontent/<your account id>/) and anyone with the link can open them; nothing else leaves your computer.'),
@@ -392,7 +420,7 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
           mediaBox(m.kind === 'image' ? el('img', { src: m.link + '/file', loading: 'lazy' }) : m.kind === 'video' ? el('video', { src: m.link + '/file', controls: true, preload: 'metadata' }) : el('audio', { src: m.link + '/file', controls: true, preload: 'none' }), m.views || 0),
           el('div', { class: 'libbody' }, el('b', {}, (m.title || m.id).slice(0, 120)), el('div', { class: 'sub' }, [m.model, human(m.bytes || 0), 'shared ' + when(m.created), (m.views || 0) + ' view' + (m.views === 1 ? '' : 's')].filter(Boolean).join(' · ')),
             el('a', { href: m.link, target: '_blank', rel: 'noopener', style: 'word-break:break-all' }, m.link),
-            el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(m.link); lib.msg = 'Copied: ' + m.link; } catch (_) {} libRender(); } }, 'Copy link'),
+            el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: () => { try { copyText(m.link); lib.msg = 'Copied: ' + m.link; } catch (_) {} libRender(); } }, 'Copy link'),
               el('button', { class: 'danger', onclick: async () => { if (!await ask('The link stops working for everyone at once. The file goes to the trash on sushila.ai/mycontent, where you can restore it; it is deleted automatically after 30 days. Your copy stays on this computer.', 'Delete link', { title: 'Delete this link?', danger: true })) return; try { const r = await shareCall('delete', { id: m.id }); lib.msg = 'Link deleted.'; toast(r.note || 'The link stopped working.', { kind: 'ok', title: 'Link deleted' }); } catch (e) { lib.msg = e.message; toast(e.message, { kind: 'err', title: 'Could not delete the link' }); } await libLoad(); libRender(); } }, 'Delete link'))))))
           : el('div', { class: 'sub', style: 'margin:20px 0' }, 'No shared links yet: 🔗 Share link on any file makes one.')];
     }
@@ -431,14 +459,14 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
         ? [el('button', { onclick: () => libAct('restore', x.rel, 'Restored ' + x.name) }, '↩ Restore'),
            el('button', { class: 'danger', onclick: async () => { if (await ask('This cannot be undone.', 'Delete permanently', { title: 'Delete "' + x.name + '" permanently?', danger: true })) libAct('purge', x.rel, 'Deleted permanently: ' + x.name); } }, 'Delete permanently')]
         : [el('button', { class: 'ghost', onclick: () => libReveal(x.path) }, '📁 Show in folder'), el('a', { class: 'dlbtn', href: fileUrl(x, true) }, '⬇ Download'),
-           el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(x.path); lib.msg = 'Copied: ' + x.path; } catch (_) { lib.msg = x.path; } libRender(); } }, 'Copy path'),
+           el('button', { class: 'ghost', onclick: () => { try { copyText(x.path); lib.msg = 'Copied: ' + x.path; } catch (_) { lib.msg = x.path; } libRender(); } }, 'Copy path'),
            x.link ? null : el('button', { class: 'ghost', onclick: () => libShare(x) }, '⬆ Upload and get link'),
            el('button', { class: 'danger', onclick: () => libAct('delete', x.rel, 'Moved to the trash: ' + x.name + ' (Trash: restore or delete permanently)') }, '🗑 Delete')];
       return el('div', { class: 'libcard' }, mediaBox(preview, x.link && lib.views && x.link in lib.views ? lib.views[x.link] : null), el('div', { class: 'libbody' }, el('b', {}, title(x).slice(0, 160)),
         el('div', { class: 'sub' }, facts), x.lyrics && x.lyrics !== '[Instrumental]' ? el('details', {}, el('summary', { class: 'sub' }, 'Lyrics'), el('pre', { class: 'lyr' }, x.lyrics)) : null,
         el('div', { class: 'sub', style: 'word-break:break-all' }, x.path),
         x.link ? el('div', { class: 'sub' }, '🔗 ', el('a', { href: x.link, target: '_blank', rel: 'noopener', style: 'word-break:break-all' }, x.link), ' ',
-          el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(x.link); lib.msg = 'Copied: ' + x.link; } catch (_) {} libRender(); } }, 'Copy link')) : null,
+          el('button', { class: 'ghost', onclick: () => { try { copyText(x.link); lib.msg = 'Copied: ' + x.link; } catch (_) {} libRender(); } }, 'Copy link')) : null,
         el('div', { class: 'row' }, infoBtn(() => fileInfo(x)), ...acts.filter(Boolean))));
     }
     // Details: one file per line, with a small preview, what it is, model, size, date, link and views, and the actions
@@ -459,7 +487,7 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
             ? [el('button', { class: 'ghost', onclick: () => libAct('restore', x.rel, 'Restored ' + x.name) }, '↩ Restore'),
                el('button', { class: 'danger', onclick: async () => { if (await ask('This cannot be undone.', 'Delete permanently', { title: 'Delete "' + x.name + '" permanently?', danger: true })) libAct('purge', x.rel, 'Deleted permanently: ' + x.name); } }, 'Delete permanently')]
             : [el('button', { class: 'ghost', title: 'Show in folder', onclick: () => libReveal(x.path) }, '📁'), el('a', { class: 'dlbtn', title: 'Download', href: fileUrl(x, true) }, '⬇'),
-               x.link ? el('button', { class: 'ghost', title: 'Copy link', onclick: () => { try { navigator.clipboard.writeText(x.link); } catch (_) {} toast(x.link, { kind: 'ok', title: 'Link copied' }); } }, '🔗 Copy link')
+               x.link ? el('button', { class: 'ghost', title: 'Copy link', onclick: () => { try { copyText(x.link); } catch (_) {} toast(x.link, { kind: 'ok', title: 'Link copied' }); } }, '🔗 Copy link')
                  : el('button', { class: 'ghost', onclick: () => libShare(x) }, '⬆ Upload and get link'),
                el('button', { class: 'danger', title: 'Delete (to the trash)', onclick: () => libAct('delete', x.rel, 'Moved to the trash: ' + x.name + ' (Trash: restore or delete permanently)') }, '🗑')])))))));
     }
@@ -489,14 +517,20 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
           : el('div', { class: 'sub', style: 'margin:30px 0;text-align:center' }, lib.inTrash ? 'The trash is empty.' : (lib.items.length ? 'Nothing matches the search.' : 'Nothing made yet: pictures, songs and videos from the Inference page appear here.')));
       if (focus === 'libq') { const q = $('libq'); q.focus(); if (caret != null) q.setSelectionRange(caret, caret); }
     }
-    async function poll() {
-      if (view === 'admin') { try { admin = await (await api('/api/admin')).json(); } catch (_) {} }
-      const lo = $('logout'); if (lo) lo.classList.toggle('hidden', !(view === 'admin' && admin.loggedIn));
-      if (view === 'admin' && !admin.loggedIn) { render(); return; }
-      try { st = await (await fetch('/api/state')).json(); } catch (_) { st = {}; }
-      if (view === 'admin' && openSecs.has('packs') && !catalog) { try { catalog = await (await api('/api/catalog')).json(); } catch (_) { catalog = { packs: [] }; } }
-      if (view === 'admin' && (openSecs.has('health') || openSecs.has('now'))) { try { sys = await (await api('/api/system')).json(); } catch (_) {} }
-      render();
+    // one poll at a time: a call while one runs gets that one (slow answers never overlap, the log never doubles)
+    let polling = null;
+    function poll() {
+      if (polling) return polling;
+      polling = (async () => {
+        if (view === 'admin') { try { admin = await (await api('/api/admin')).json(); } catch (_) {} }
+        const lo = $('logout'); if (lo) lo.classList.toggle('hidden', !(view === 'admin' && admin.loggedIn));
+        if (view === 'admin' && !admin.loggedIn) { await render(); return; }
+        try { st = await (await fetch('/api/state')).json(); } catch (_) { /* keep the last state; the banner says the server is down */ }
+        if (view === 'admin' && openSecs.has('packs') && !catalog) { try { catalog = await (await api('/api/catalog')).json(); } catch (_) { catalog = { packs: [] }; } }
+        if (view === 'admin' && (openSecs.has('health') || openSecs.has('now'))) { try { sys = await (await api('/api/system')).json(); } catch (_) {} }
+        await render();
+      })().finally(() => { polling = null; });
+      return polling;
     }
     const ago = (sec) => (sec < 120 ? sec + ' s' : sec < 7200 ? Math.round(sec / 60) + ' min' : (sec / 3600).toFixed(1) + ' h');
     // health in one line: green, amber or red, with the reasons
@@ -618,7 +652,8 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
         rows.length ? el('table', {}, el('tbody', {}, rows)) : el('p', { class: 'sub' }, 'The queue is empty.')];
     }
     async function logsView() {
-      try { const j = await (await api('/api/logs?since=' + logNext)).json(); if (j.next < logNext) logText = ''; logText += j.text; logNext = j.next; } catch (_) {}
+      try { const j = await (await api('/api/logs?since=' + logNext)).json(); if (j.next < logNext) logText = ''; logText += j.text; logNext = j.next;
+        if (logText.length > 512 * 1024) logText = logText.slice(logText.indexOf('\n', logText.length - 384 * 1024) + 1); } catch (_) {}  // the page keeps the last ~400 KB
       const f = (($('logf') || {}).value || '').toLowerCase();
       const pre = el('div', { class: 'logbox', id: 'logbox' }, f ? logText.split('\n').filter((l) => l.toLowerCase().includes(f)).join('\n') : logText);
       const old = $('logbox'), atEnd = !old || old.scrollTop + old.clientHeight >= old.scrollHeight - 30, keep = old ? old.scrollTop : 0;
@@ -631,7 +666,7 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
           el('div', { class: 'sub' }, 'Last log lines:'), el('pre', {}, c.logTail || '')))] : [];
       return [el('div', { class: 'sub' }, 'Everything the server did, in full (every downloaded file, every start and stop, from this page, the terminal, the sushila commands and the queue): logs/sushila.log in the home folder. Each model also writes logs/<pack>.log.'),
         el('div', { class: 'row' }, el('input', { id: 'logf', placeholder: 'filter (e.g. downloaded, error, z-image)', value: f, oninput: () => render() }),
-          el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(logText); } catch (_) {} } }, 'Copy all')), pre, ...crashBox];
+          el('button', { class: 'ghost', onclick: () => { try { copyText(logText); } catch (_) {} } }, 'Copy all')), pre, ...crashBox];
     }
     function settingsView() {
       const s = st.settings || {}, sh = st.share || {};
@@ -760,7 +795,8 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
           })))));
       };
       draw();
-      const tick = setInterval(() => { if (!spaceBox || !document.body.contains(spaceBox)) { clearInterval(tick); return; } poll().then(draw).catch(() => {}); }, 3000);
+      const mine = spaceBox;
+      const tick = setInterval(() => { if (!document.body.contains(mine)) { clearInterval(tick); return; } if (!document.hidden) poll().then(draw).catch(() => {}); }, 3000);
     }
     function setKeepPopular(v) {
       control({ action: 'settings', values: { keepPopular: v } }, v ? 'Keep popular model packs ready' : 'Stop keeping popular packs ready');
@@ -768,11 +804,12 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
         { kind: 'ok', title: v ? 'Popular model packs: downloading in the background' : 'Popular model packs: switched off' });
     }
     function askPopular() {  // once per browser, after the admin login, while the choice was never made
+      if (askPopular.done) return;
       let asked = false; try { asked = !!localStorage.getItem('sushila-asked-popular'); } catch (_) {}
       if (asked || !admin.loggedIn || !st.settings || st.settings.keepPopular != null || !catalog) return;
       const pop = (catalog.packs || []).filter((p) => p.popular && p.fits !== false), have = new Set((st.packs || []).map((p) => p.id));
       const left = pop.filter((p) => !have.has(p.id)); if (!left.length) return;
-      try { localStorage.setItem('sushila-asked-popular', '1'); } catch (_) {}
+      askPopular.done = true; try { localStorage.setItem('sushila-asked-popular', '1'); } catch (_) {}
       ask('Chat, code, pictures, songs and video: ' + left.map((p) => p.name).join(', ') + ' (about ' + human(left.reduce((n, p) => n + (p.bytes || 0), 0)) + '). They download one at a time while you work, and stay ready. You can switch this off at the top of Admin.',
         'Yes, download and keep ready', { title: 'Download all the popular model packs in the background?', cancel: 'Not now' }).then((y) => { if (y) setKeepPopular(true); });
     }
@@ -837,7 +874,7 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
       app.classList.add('hidden'); box.classList.remove('hidden');
       if (view === 'assistant') { const p = assistantPanel(); if (box.firstChild !== p || box.childNodes.length !== 1) box.replaceChildren(p); return; }
       if (view === 'library') { if (lib.items === null) { libRender(); await libLoad(); } if (!box.querySelector('.libbar') || libFresh) { libFresh = false; libRender(); } return; }  // drawn once; Refresh or an action redraws
-      if (document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && sub !== 'logs' && admin.loggedIn) return;  // do not redraw while typing
+      if (document.activeElement && box.contains(document.activeElement) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) && document.activeElement.id !== 'logf' && admin.loggedIn) return;  // do not redraw while typing
       if (!admin.loggedIn) { if (!(document.activeElement && box.contains(document.activeElement))) box.replaceChildren(serverBar(), note ? el('div', { class: 'msg err' }, note) : '', ...[].concat(loginView()).flat().filter(Boolean)); else if (note && !box.querySelector('.msg')) box.prepend(el('div', { class: 'msg err' }, note)); return; }
       const h = healthLine(), live = (st.now || []).length + (st.tasks || []).filter((t) => t.status === 'running').length;
       if (!catalog) { catalog = {}; api('/api/catalog').then((r) => r.json()).then((c) => { catalog = c; render(); askPopular(); }).catch(() => { catalog = { packs: [] }; }); }
@@ -1054,7 +1091,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         if (i % 2 === 0) { if (part) out.push(document.createTextNode(part)); return; }
         const nl = part.indexOf('\n'), lang = nl > 0 && /^[\w+#.-]{1,20}$/.test(part.slice(0, nl).trim()) ? part.slice(0, nl).trim() : '';
         const code = (lang ? part.slice(nl + 1) : part).replace(/\n$/, '');
-        const btn = el('button', { class: 'ghost copy', onclick: () => { try { navigator.clipboard.writeText(code); btn.textContent = 'Copied'; } catch (_) {} } }, 'Copy');
+        const btn = el('button', { class: 'ghost copy', onclick: () => { try { copyText(code); btn.textContent = 'Copied'; } catch (_) {} } }, 'Copy');
         out.push(el('pre', {}, lang ? el('div', { class: 'lang' }, lang) : null, btn, el('code', {}, code)));
       });
       return out;
@@ -1087,12 +1124,15 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     }
     function setStatus(text, kind) { const st = $('status'); st.textContent = text; st.className = 'pill ' + (kind || ''); }
 
+    let loadSeq = 0;
     async function loadModels() {
+      const seq = ++loadSeq, srv = server;  // an answer that arrives after a newer request (or another server) is dropped
       setStatus('connecting…');
       try {
         const r = await fetch(base() + '/api/state');
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const s = await r.json();
+        if (seq !== loadSeq || srv !== server) return;
         models = s.running || [];
         packs = server ? [] : (s.packs || []);
         // this computer: every installed pack, per mode, with what it does and whether it runs; another server: what runs there
@@ -1131,6 +1171,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     modelSel.addEventListener('change', () => pickModel(true));
     // start, stop: the same requests as the Admin page (one source of truth: the server's state, read by both pages)
     async function usePack(action, id, md) {
+      if (busyPack) { toast('A model is still starting or stopping; this waits until it is done.', { kind: 'warn', title: 'One at a time' }); return; }
       const p = packs.find((x) => x.id === id) || {};
       const wait = $('modewait'), wtext = $('modewaittext'), t0 = Date.now();
       const label = action === 'stop' ? 'Stopping ' + (p.name || id) : 'Starting ' + (p.name || id) + ' (' + modeName(md) + ')';
@@ -1144,7 +1185,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         const { id: task } = await r.json().catch(() => ({}));
         for (let i = 0; i < 600; i++) {
           await new Promise((res) => setTimeout(res, 1000));
-          const st = await (await fetch(base() + '/api/state')).json();
+          let st; try { st = await (await fetch(base() + '/api/state')).json(); } catch (_) { continue; }  // a moment without an answer: ask again
           const m = (st.running || []).find((x) => x.packId === id);
           if (action === 'stop' ? !m : m && m.ready && (!md || m.mode === md)) break;
           const t = task && (st.tasks || []).find((x) => x.id === task);
@@ -1167,6 +1208,17 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       b.disabled = !m || !!server || busyPack;
       b.title = !m ? '' : server ? 'Only the computer running the model can stop it.' : 'Stop ' + m.name + '. ' + (m.turbo && m.kind === 'image' ? 'Accelerated: 768x768 in 6 steps on Nunchaku 4-bit kernels. The speed depends on the GPU: about a second on a large server or desktop GPU, much longer on a PC or laptop GPU with less than 18 GB, because parts of the model are moved between system and GPU memory for each image. Standard: the published 1024x1024, 8 steps. sushila bench measures your computer.' : m.turbo ? 'Accelerated uses this model\'s precomputed Sushila files (landscape, draft model); Standard runs the plain model, as Ollama does.' : '');
     }
+    const modelNow = () => model;
+    // a gallery keeps the newest items (the Library keeps everything): older ones leave the page and their blob: URLs
+    // are released, so a page left open for days does not grow without end
+    function capGallery(g, n = 24) {
+      if (!g) return;
+      while (g.children.length > n) {
+        const last = g.lastElementChild;
+        for (const e of last.querySelectorAll('[src^="blob:"],[href^="blob:"]')) { try { URL.revokeObjectURL(e.getAttribute('src') || e.getAttribute('href')); } catch (_) {} }
+        last.remove();
+      }
+    }  // the generators capture it (their own `model` then shadows the page's)
     const kept = {};  // pack id -> {nodes, msgs}: switching models (or tabs in the app) keeps each one's conversation and results
     function pickModel(asked) {
       const [pid, pmode] = (modelSel.value || '').split('|');
@@ -1209,14 +1261,30 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     }
     const qAct = (id, a) => async () => { await fetch(base() + '/api/queue/' + encodeURIComponent(id) + '/' + a, { method: 'POST', headers: auth() }).catch(() => {}); setTimeout(refreshQueue, 1600); };
     let qShown = {};
+    // rows are reused while their job is unchanged, and the list is left alone when nothing changed: a song or video
+    // playing in the Queue keeps playing; one refresh at a time
+    const qRows = new Map(); let qBusy = false;
     async function refreshQueue() {
-      const list = $('qlist'); if (!list) return;
+      const list = $('qlist'); if (!list || qBusy) return;
+      qBusy = true; try { await refreshQueueNow(list); } finally { qBusy = false; }
+    }
+    async function refreshQueueNow(list) {
       let q; try { const r = await fetch(base() + '/api/queue', { headers: auth() }); if (!r.ok) throw new Error(explain(r, await r.text())); q = await r.json(); }
       catch (e) { $('qsum').textContent = 'Queue'; list.textContent = String(e.message || e); return; }
       const jobs = [...(q.jobs || [])].reverse(), busy = jobs.filter((j) => ['queued', 'running'].includes(j.status)).length, ready = jobs.filter((j) => j.status === 'ready').length;
       $('qsum').textContent = `Queue: ${busy} working, ${ready} ready` + (q.paused ? ' (paused)' : '');
-      if (!jobs.length) { list.textContent = 'Nothing queued yet. "Add to queue" lets a job run in the background while you do something else.'; return; }
-      list.replaceChildren(...jobs.map((j) => {
+      if (!jobs.length) { qRows.clear(); list.textContent = 'Nothing queued yet. "Add to queue" lets a job run in the background while you do something else.'; return; }
+      const nodes = jobs.map((j) => {
+        const sig = JSON.stringify([j.status, j.progress, j.error, j.title, j.output && j.output.file]);
+        const had = qRows.get(j.id); if (had && had.sig === sig) return had.node;
+        const node = qRow(j); qRows.set(j.id, { sig, node }); return node;
+      });
+      for (const id of [...qRows.keys()]) if (!jobs.some((j) => j.id === id)) qRows.delete(id);
+      const same = list.children.length === nodes.length && nodes.every((n, i) => list.children[i] === n);
+      if (!same) list.replaceChildren(...nodes);
+    }
+    function qRow(j) {
+      {
         const out = j.status === 'ready' && j.output ? (/^image\//.test(j.output.mime) ? el('img', { src: outUrl(j.id), alt: j.title || '' })
           : /^video\//.test(j.output.mime) ? el('video', { src: outUrl(j.id), controls: true, loop: true, muted: true })
           : /^audio\//.test(j.output.mime) ? el('audio', { src: outUrl(j.id), controls: true })
@@ -1232,7 +1300,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
               const r = await fetch(base() + '/api/reveal', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, auth()), body: JSON.stringify({ path: j.output.file }) });
               e.target.textContent = r.ok ? '📁 Opened' : '📁 ' + (await r.text()); } }, '📁 Show in folder') : null,
             j.status !== 'running' ? el('button', { class: 'ghost', onclick: qAct(j.id, 'remove') }, 'Remove') : null));
-      }));
+      }
     }
     setInterval(() => { if (!document.hidden && $('qpanel') && $('qpanel').open) refreshQueue(); }, 3000);
     const explain = (r, body) => r.status === 401 ? 'This server needs an access key (Server → Add a remote server…).' : r.status === 429 ? 'Too many requests for this key; wait a minute.' : (body || 'HTTP ' + r.status);
@@ -1253,6 +1321,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       if (autoPrompt) { $('q').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; send(); } }
     }
     async function send() {
+      const scr = main.firstElementChild, $ = (id) => (scr && scr.querySelector('#' + id)) || null, model = modelNow();  // this job's screen and model (they stay its own if the page switches models)
       const q = $('q').value.trim();
       if (!q || ctrl || !model) return;
       $('q').value = '';
@@ -1298,7 +1367,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     // ---------- video (video packs: stable-diffusion.cpp's server, native async API behind /v1/video/ -> /sdcpp/v1/)
     // POST /v1/video/vid_gen returns a job; GET /v1/video/jobs/{id} until it completes with the whole WebM file (base64).
     const WAN_NEGATIVE = WAN_NEGATIVE_PROMPT;
-    let videoJob = null, startImage = null;
+    let videoJob = null, videoModel = '', startImage = null;
     function videoScreen() {
       startImage = null;
       main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create a video'),
@@ -1321,6 +1390,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       const r = new FileReader(); r.onload = () => { startImage = String(r.result); }; r.readAsDataURL(f);
     }
     async function makeVideo() {
+      const scr = main.firstElementChild, $ = (id) => (scr && scr.querySelector('#' + id)) || null, model = modelNow();  // this job's screen and model (they stay its own if the page switches models)
       const prompt = $('vprompt').value.trim();
       if (!prompt || !model) { $('vmsg').className = 'msg err'; $('vmsg').textContent = 'Describe the video first.'; return; }
       const [w, h] = $('vsize').value.split('x').map(Number), frames = +$('vlen').value, fps = 24, seed = $('vseed').value.trim();
@@ -1334,7 +1404,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
           init_image: startImage, sample_params: { sample_method: 'euler', sample_steps: 50, guidance: { txt_cfg: 5.0 }, flow_shift: 5.0 }, output_format: 'webm',  // Wan 2.2's own settings (fewer steps or 6 / 3 gave poor video)
           ...(model.request || {}) }) });
         if (!r.ok) throw new Error(explain(r, await r.text()));
-        videoJob = (await r.json()).id;
+        videoJob = (await r.json()).id; videoModel = model.packId;
         for (;;) {
           await new Promise((res) => setTimeout(res, 2000)); tick();
           const j = await (await fetch(base() + '/v1/video/jobs/' + encodeURIComponent(videoJob), { headers: hdr })).json();
@@ -1347,6 +1417,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
               infoBtn(() => showInfo('Video', [['Prompt', prompt, 'pre'], ['Model', mi[0]], ['Mode', mi[1]], ['Size', w + '×' + h], ['Frames', res.frame_count || frames],
                 ['Seed', seed || 'random'], ['Made in', secs + ' s'], ['Made', new Date(started).toISOString(), 'date'], ['Generated on', server ? server.replace(/^https?:\/\//, '') : 'this computer'],
                 ['Saved at', server ? '' : 'the Library (outputs/video)']])))));
+            capGallery($('vgallery'));
             $('vmsg').textContent = `Done in ${secs} s.`;
             break;
           }
@@ -1357,7 +1428,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     }
     async function cancelVideo() {
       if (!videoJob) return;
-      await fetch(base() + '/v1/video/jobs/' + encodeURIComponent(videoJob) + '/cancel', { method: 'POST', headers: Object.assign({ 'x-sushila-model': model.packId }, auth()) }).catch(() => {});
+      await fetch(base() + '/v1/video/jobs/' + encodeURIComponent(videoJob) + '/cancel', { method: 'POST', headers: Object.assign({ 'x-sushila-model': videoModel }, auth()) }).catch(() => {});
     }
 
     // ---------- music (music packs, acestep.cpp ace-server behind /v1/music/): 1. Lyrics, 2. Style, Generate.
@@ -1378,18 +1449,19 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       showAutoLength();
       if (autoPrompt) { $('mstyle').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeMusic(); } }
     }
-    const musicCall = async (path, opt = {}) => {
-      const r = await fetch(base() + '/v1/music' + path, Object.assign({}, opt, { headers: Object.assign({ 'x-sushila-model': model.packId }, opt.body ? { 'content-type': 'application/json' } : {}, auth()) }));
+    // a job keeps the model it was started on (switching the model on the page does not move it)
+    const musicCall = async (path, opt = {}, m = model) => {
+      const r = await fetch(base() + '/v1/music' + path, Object.assign({}, opt, { headers: Object.assign({ 'x-sushila-model': m.packId }, opt.body ? { 'content-type': 'application/json' } : {}, auth()) }));
       if (!r.ok) throw new Error(explain(r, await r.text()));
       return r;
     };
-    async function musicJob(path, body, label) {
-      const { id } = await (await musicCall(path, { method: 'POST', body: JSON.stringify(body) })).json();
+    async function musicJob(path, body, label, m = model, msgEl = $('mmsg')) {
+      const { id } = await (await musicCall(path, { method: 'POST', body: JSON.stringify(body) }, m)).json();
       for (let i = 0; i < 1800; i++) {
-        const st = await (await musicCall('/job?id=' + encodeURIComponent(id))).json();
-        if (st.status === 'done') return musicCall('/job?id=' + encodeURIComponent(id) + '&result=1');
+        const st = await (await musicCall('/job?id=' + encodeURIComponent(id), {}, m)).json();
+        if (st.status === 'done') return musicCall('/job?id=' + encodeURIComponent(id) + '&result=1', {}, m);
         if (st.status === 'failed' || st.status === 'cancelled') throw new Error(label + ' ' + st.status + (st.error ? ': ' + st.error : ''));
-        $('mmsg').textContent = `${label}… ${i}s`;
+        if (msgEl) msgEl.textContent = `${label}… ${i}s`;
         await new Promise((r) => setTimeout(r, 1000));
       }
       throw new Error(label + ' took too long.');
@@ -1437,6 +1509,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     function songLength() { const v = $('mdur').value; return v === 'auto' ? autoLength($('mlyrics').value) : +v; }
     function showAutoLength() { const x = $('mautolen'); if (x) x.textContent = $('mdur').value === 'auto' ? 'about ' + fmtLen(autoLength($('mlyrics').value)) + ' for these lyrics' : ''; }
     async function makeMusic() {
+      const scr = main.firstElementChild, $ = (id) => (scr && scr.querySelector('#' + id)) || null, model = modelNow();  // this job's screen and model (they stay its own if the page switches models)
       const style = $('mstyle').value.trim(); let lyrics = $('mlyrics').value.trim();
       if (!style || !model) { $('mmsg').className = 'msg err'; $('mmsg').textContent = 'Describe the style first (2. Style).'; return; }
       if (!lyrics) lyrics = '[Instrumental]'; else if (lyrics === '[auto]') lyrics = '';
@@ -1444,9 +1517,9 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       const t0 = performance.now(), started = Date.now();
       try {
         const req = { caption: style, lyrics, duration: songLength(), seed: -1, output_format: 'mp3' };
-        const planned = await (await musicJob('/lm', req, 'Writing the song (step 1 of 2)')).json();
+        const planned = await (await musicJob('/lm', req, 'Writing the song (step 1 of 2)', model, $('mmsg'))).json();
         const songs = (Array.isArray(planned) ? planned : [planned]).map((x) => Object.assign({}, x, { output_format: 'mp3' }));
-        const r = await musicJob('/synth', songs, 'Singing it (step 2 of 2)');
+        const r = await musicJob('/synth', songs, 'Singing it (step 2 of 2)', model, $('mmsg'));
         const ct = r.headers.get('content-type') || '';
         const blob = /^audio\//.test(ct) ? await r.blob() : audioFromMultipart(await r.arrayBuffer(), ct);
         if (!blob) throw new Error('The server returned no audio.');
@@ -1457,6 +1530,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
           infoBtn(() => showInfo('Song', [['Style', style, 'pre'], ['Lyrics', lyrics === '[Instrumental]' ? 'Instrumental' : lyrics || 'written by the model', 'pre'], ['Length', req.duration > 0 ? req.duration + ' s' : 'automatic'],
             ['Model', mi[0]], ['Mode', mi[1]], ['Made in', secs + ' s'], ['Made', new Date(started).toISOString(), 'date'],
             ['Generated on', server ? server.replace(/^https?:\/\//, '') : 'this computer'], ['Saved at', server ? '' : 'the Library (outputs/music)']]))));
+        capGallery($('tracks'));
         $('mmsg').textContent = `Done in ${secs} s.`;
       } catch (e) { await showProblem($('mmsg'), e, 'making your song'); }
       finally { $('mgo').disabled = false; }
@@ -1492,12 +1566,13 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       return el('span', { class: 'saved' }, el('button', { class: 'ghost', title: file, onclick: async () => {
           try { const r = await fetch(base() + '/api/reveal', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, auth()), body: JSON.stringify({ path: file }) });
             msg.textContent = r.ok ? ' opened' : ' ' + (await r.text()); } catch (e) { msg.textContent = ' ' + (e.message || e); } } }, '📁 Show in folder'), ' ',
-        el('button', { class: 'ghost', onclick: () => { try { navigator.clipboard.writeText(file); msg.textContent = ' copied'; } catch (_) { msg.textContent = ' ' + file; } } }, 'Copy path'),
+        el('button', { class: 'ghost', onclick: () => { try { copyText(file); msg.textContent = ' copied'; } catch (_) { msg.textContent = ' ' + file; } } }, 'Copy path'),
         el('div', { class: 'sub path', style: 'word-break:break-all;user-select:all' }, 'Saved: ' + file), msg);
     }
     // stable-diffusion.cpp's OpenAI endpoint takes engine options inside the prompt: <sd_cpp_extra_args>{...}</sd_cpp_extra_args>
     const extraArgs = (o) => (Object.keys(o).length ? ` <sd_cpp_extra_args>${JSON.stringify(o)}</sd_cpp_extra_args>` : '');
     async function makeImage() {
+      const scr = main.firstElementChild, $ = (id) => (scr && scr.querySelector('#' + id)) || null, model = modelNow();  // this job's screen and model (they stay its own if the page switches models)
       const prompt = $('iprompt').value.trim();
       if (!prompt || !model) { $('imsg').className = 'msg err'; $('imsg').textContent = 'Describe the image first.'; return; }
       $('igo').disabled = true; $('imsg').className = 'msg'; $('imsg').textContent = 'Creating… the first image after starting takes longer while the model loads.';
@@ -1509,7 +1584,8 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
             size: $('isize').value, n: +$('in').value, output_format: 'png' }) });
         if (!r.ok) throw new Error(explain(r, await r.text()));
         const j = await r.json(), secs = ((performance.now() - t0) / 1000).toFixed(1);
-        const imgs = (j.data || []).map((d) => ({ src: d.b64_json ? 'data:image/png;base64,' + d.b64_json : d.url, file: d.sushila_file })).filter((x) => x.src);
+        const safeUrl = (u) => (typeof u === 'string' && /^(https?:|data:image\/|blob:)/i.test(u) ? u : '');  // never javascript: from a server
+        const imgs = (j.data || []).map((d) => ({ src: d.b64_json ? 'data:image/png;base64,' + d.b64_json : safeUrl(d.url), file: d.sushila_file })).filter((x) => x.src);
         if (!imgs.length) throw new Error('The server returned no image.');
         const mi = [model && model.name, model && modeName(model.mode)];  // the model that made it (ⓘ)
         for (const { src, file } of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
@@ -1517,6 +1593,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
           infoBtn(() => showInfo('Picture', [['Prompt', prompt, 'pre'], ['Model', mi[0]], ['Mode', mi[1]], ['Size', $('isize').value], ['Seed', seed || 'random'],
             ['Made in', secs + ' s'], ['Made', new Date(started).toISOString(), 'date'], ['Generated on', server ? server.replace(/^https?:\/\//, '') : 'this computer'], ['Saved at', file, 'pre']])),
           file ? ' ' : null, file ? savedAt(file) : null)));
+        capGallery($('gallery'));
         $('imsg').textContent = `${imgs.length} image${imgs.length > 1 ? 's' : ''} in ${secs} s`;
       } catch (e) { await showProblem($('imsg'), e, 'making your picture'); }
       finally { $('igo').disabled = false; }
@@ -1524,6 +1601,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
 
     fillServers();
     loadModels();
+    window.addEventListener('sushila-up', () => loadModels());  // the server answers again: its models, fresh
     qpanel.addEventListener('toggle', () => { if (qpanel.open) refreshQueue(); });
     refreshQueue();
     // the app's inference tabs show one model at a time on this page

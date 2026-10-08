@@ -402,18 +402,24 @@ fn run(s: &mut Screen, data: &Path, exe: &Path, args: &[String]) -> ExitCode {
         drop(c);  // the parent's copies of the pipe's write end: the reader sees the end when the server's are closed
         { let tx = s.tx.clone(); let mut r = reader; std::thread::spawn(move || { let mut b = [0u8; 8192]; loop { match r.read(&mut b) { Ok(0) | Err(_) => { let _ = tx.send(Ev::OutEnd); return; } Ok(n) => { if tx.send(Ev::Out(b[..n].to_vec())).is_err() { return; } } } } }); }
         let mut stop_at: Option<Instant> = None;
+        let mut forced = false;
         let status = loop {
             match s.pump(Duration::from_millis(30), Some(&mut child)) {
                 Some(Got::Stop) => {
-                    if stop_at.is_some() { s.note("stopping now"); let _ = child.kill(); }
+                    if stop_at.is_some() { s.note("stopping now"); let _ = child.kill(); forced = true; }
                     else { s.stopping = true; stop_at = Some(Instant::now()); s.note("stopping... (Ctrl+C again stops at once)"); let _ = std::fs::write(data.join("shutdown-request.json"), "{}"); }
                 }
                 Some(Got::Line(l)) if ["stop", "quit", "exit", "q"].contains(&l.to_lowercase().as_str()) => { s.stopping = true; stop_at.get_or_insert(Instant::now()); }
                 _ => {}
             }
-            if stop_at.map(|t| t.elapsed() > Duration::from_secs(20)).unwrap_or(false) { let _ = child.kill(); }
+            if stop_at.map(|t| t.elapsed() > Duration::from_secs(20)).unwrap_or(false) { let _ = child.kill(); forced = true; }
             if let Ok(Some(st)) = child.try_wait() { break st; }
         };
+        // a server that was killed or crashed could not stop its engines (and cloudflared): ended here, so nothing keeps
+        // GPU memory or a port (Windows does this through the job object already; this covers Linux and macOS too)
+        if forced || !status.success() {
+            for k in crate::core::kill_strays(data) { s.note(&format!("ended a leftover process: {k}")); }
+        }
         // the rest of its output (the pipe ends when the server and the commands it started are gone)
         let until = Instant::now() + Duration::from_millis(400);
         while Instant::now() < until { s.pump(Duration::from_millis(20), None); }
