@@ -25,7 +25,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
     if (u.includes('/api/tunnel')) return { ok: true, status: 200, json: async () => ({ running: false }), text: async () => '{}' };
     if (u.includes('/api/share/me')) return { ok: true, status: 200, json: async () => Object.assign({ signedIn: false, site: 'https://sushila.ai' }, me), text: async () => '{}' };
     if (u.includes('/api/share/verify')) return { ok: true, status: 200, json: async () => ({ signedIn: true, email: 'me@example.com', userId: 'u1' }), text: async () => '{}' };
-    if (u.includes('/api/share/upload')) return { ok: true, status: 200, json: async () => ({ id: '0a1b2c3d4e5f', link: 'https://sushila.ai/c/0a1b2c3d4e5f' }), text: async () => '{}' };
+    if (u.includes('/api/share/upload')) return await sleep(300), { ok: true, status: 200, json: async () => ({ id: '0a1b2c3d4e5f', link: 'https://sushila.ai/c/0a1b2c3d4e5f' }), text: async () => '{}' };
     if (u.includes('/api/share/')) return { ok: true, status: 200, json: async () => ({ ok: true }), text: async () => '{}' };
     if (u.includes('/api/system')) { const sy = { gpu: { name: 'NVIDIA GeForce RTX 3070 Laptop GPU', memTotalGB: 8, memUsedGB: 3.1, utilPct: 4, driver: '581.29', tempC: 51 }, cpu: { name: 'Intel Core i7', cores: 16 }, ram: { totalGB: 16, freeGB: 7.5 }, disk: { mount: 'C:\\', freeGB: 210, totalGB: 950 }, home: 'C:\\Users\\me\\AppData\\Roaming\\ai.sushila.hoststation', os: 'windows x86_64', engine: { version: '0.1.1', key: 'windows-x86_64-cuda', gpuBuild: true }, uptimeS: 3600, requests: 12, crashesToday: 0, crashesTotal: 0, app: '0.1.1' }; return { ok: true, status: 200, json: async () => sy, text: async () => JSON.stringify(sy) }; }
     const j = u.includes('/api/admin') ? A : u.includes('/api/state') ? state : u.includes('/api/catalog') ? catalog : u.includes('/api/logs') ? { next: 20, text: '2026 [server] hello log\n' } : u.includes('/api/queue') ? { paused: false, jobs: [{ id: 'job-1', kind: 'text', model: 'qwen', status: 'ready', title: 'poem' }] } : u.includes('/api/control') ? { id: 'task-x' } : {};
@@ -110,7 +110,11 @@ p.w.location.hash = '#library'; await sleep(500);
   ok(p.d.body.textContent.includes('may be deleted at any time') && p.d.body.textContent.includes('sushila.ai/mycontent'), 'Share link: the free-account notice and sushila.ai/mycontent are shown');
   p.d.getElementById('siemail').value = 'me@example.com'; [...p.d.querySelectorAll('#manage .signin button')].find((b) => b.textContent.includes('Send code')).click(); await sleep(300);
   ok(p.sent.some((x) => x.u.includes('/api/share/code') && JSON.parse(x.body).email === 'me@example.com') && p.d.getElementById('sicode'), 'Share link: the code is sent, then asked for');
-  p.d.getElementById('sicode').value = '123456'; [...p.d.querySelectorAll('#manage .signin button')].find((b) => b.textContent === 'Sign in').click(); await sleep(600);
+  p.d.getElementById('sicode').value = '123456'; [...p.d.querySelectorAll('#manage .signin button')].find((b) => b.textContent === 'Sign in').click();
+  await sleep(1); { const hg = () => [...p.d.querySelectorAll('.toast')].some((t) => t.textContent.includes('Uploading') && t.querySelector('.hgspin')); let seen = false;
+    for (let k = 0; k < 40 && !seen; k++) { if (hg()) seen = true; else await sleep(10); }
+    ok(seen, 'Upload and get link: an hourglass while it uploads'); await sleep(500);
+    ok(!hg() && p.d.body.textContent.includes('sushila.ai/c/0a1b2c3d4e5f'), 'the hourglass goes when the link is there'); }
   ok(p.sent.some((x) => x.u.includes('/api/share/verify')) && p.sent.some((x) => x.u.includes('/api/share/upload') && JSON.parse(x.body).rel.includes('summer-pop')) && p.d.body.textContent.includes('https://sushila.ai/c/0a1b2c3d4e5f'),
     'Share link: after signing in, the file is uploaded and its link shown'); }
 { const tb = p.d.querySelector('nav.snav .tunbtn');
@@ -171,6 +175,10 @@ p = await page('tok123', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) =
   const m = pl.d.querySelector('details.smenu'); m.open = true; pl.d.body.dispatchEvent(new pl.w.Event('pointerdown', { bubbles: true }));
   ok(!m.open, '☰ closes when something else on the page is clicked');
   m.open = true; pl.d.dispatchEvent(new pl.w.KeyboardEvent('keydown', { key: 'Escape' })); ok(!m.open, '☰ closes with Esc');
+  { const opened = []; pl2.w.open = (u, t) => { opened.push(u + ' ' + t); return null; };
+    const hb = pl2.d.querySelector('.homebtn'); ok(hb && !pl.d.querySelector('.homebtn'), 'Home button: on the internet link only');
+    hb.click(); await sleep(150);
+    ok(pl2.asked.some((a) => a.includes('Open sushila.ai?') && a.includes('new tab')) && opened.includes('https://sushila.ai/ _blank'), 'Home: asks first, then opens sushila.ai in a new tab'); }
 }
 p = await page('', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Documentation,Ask Sushila,API' && !p.d.querySelector('#shome') && !p.d.querySelector('.swhere').textContent.includes('/admin'), 'remote visitor: ☰ menu without Admin or the home folder');
 // Ask Sushila: the ☰ item opens the panel; a question goes to /api/assistant (with the token here, a key elsewhere); answer and sources shown

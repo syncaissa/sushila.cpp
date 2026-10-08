@@ -205,6 +205,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
 .pill.on{color:var(--ok);border-color:currentColor}
 .hero h2{font-weight:500;font-size:24px;letter-spacing:-.015em}
 .downbar{top:64px}
+.hgspin{display:inline-block;font-size:20px;line-height:1;vertical-align:-3px;animation:mwflip 1.6s ease-in-out infinite}
 .snav .homebtn .hico{display:inline-flex}.snav .homebtn{display:inline-flex;align-items:center;gap:6px;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:7px 12px;margin-right:12px;border-radius:99px;border:1px solid rgba(255,255,255,.3)}.snav .homebtn:hover{background:rgba(255,255,255,.1);border-color:#fff}
 @media (max-width:520px){.snav .homebtn{font-size:0;padding:7px 9px;margin-right:6px;gap:0}}
 .switch{display:flex!important;align-items:center;gap:12px}.switch .slider{display:inline-block!important;flex:none}
@@ -336,7 +337,8 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       catch (e) { wait(); toast(String(e.message || e), { kind: 'err', title: 'Could not get a temporary internet URL' }); }
     }
     // on the internet link (sushila.ai/localhost/<id>/) a Home button leads back to sushila.ai, so its home is never lost
-    const home = PFX ? el('a', { class: 'homebtn', href: 'https://sushila.ai/', target: '_top', title: 'sushila.ai home', 'aria-label': 'sushila.ai home' },
+    const home = PFX ? el('a', { class: 'homebtn', href: 'https://sushila.ai/', target: '_blank', rel: 'noopener', title: 'sushila.ai home', 'aria-label': 'sushila.ai home',
+      onclick: async (e) => { e.preventDefault(); if (await ask('The sushila.ai home page opens in a new tab; this page stays open.', 'OK', { title: 'Open sushila.ai?' })) window.open('https://sushila.ai/', '_blank', 'noopener'); } },
       el('span', { class: 'hico', 'aria-hidden': 'true' }), 'Home') : null;
     // (an SVG made by createElement would be in the HTML namespace and not drawn: parsed from markup instead)
     if (home) home.firstChild.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h5v-5.5h3V20h5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -439,8 +441,11 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       if (!await ask('It is labelled AI-generated. ' + SHARE_NOTICE,
         'Upload and get link', { title: 'Upload "' + x.name + '" to sushila.ai?' })) return;
       lib.msg = 'Uploading ' + x.name + '…'; libRender();
+      // an hourglass until the link is there (a big file takes a while): it closes when the link (or an error) shows
+      const wait = toast(el('span', {}, el('span', { class: 'hgspin', 'aria-hidden': 'true' }, '⏳'), ' Uploading to sushila.ai… the link appears here when it is ready.'),
+        { kind: 'info', title: 'Uploading "' + x.name + '"', ms: 30 * 60 * 1000 });
       try {
-        const m = await shareCall('upload', { rel: x.rel }); let copied = false;
+        const m = await shareCall('upload', { rel: x.rel }).finally(wait); let copied = false;
         copied = await copyText(m.link, true);
         lib.msg = 'Link' + (copied ? ' (copied)' : '') + ': ' + m.link;
         toast(m.link, { kind: 'ok', title: copied ? 'Uploaded. The link is copied.' : 'Uploaded. Here is the link:', ms: 15000,
