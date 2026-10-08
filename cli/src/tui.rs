@@ -373,18 +373,6 @@ pub fn supervise(data: PathBuf, exe: PathBuf, args: Vec<String>) -> Option<ExitC
 }
 
 fn run(s: &mut Screen, data: &Path, exe: &Path, args: &[String]) -> ExitCode {
-    // the Admin password, asked here (the server under the screen has no terminal to ask in)
-    if !crate::webserver::password_set(data) {
-        s.note(&format!("First start: choose the admin password for the Admin tab of the web page (at least 8 characters; Esc = later, on the Admin page). Lost it later? Delete {} and restart: it is asked again.", data.join("adminpassword").display()));
-        for _ in 0..3 {
-            let Some(a) = s.ask_secret("Admin password: ") else { return ExitCode::SUCCESS };
-            let Some(a) = a else { s.note("no password yet: set it on the Admin page (this computer only)"); break };
-            let Some(b) = s.ask_secret("Again: ") else { return ExitCode::SUCCESS };
-            let Some(b) = b else { s.note("no password yet: set it on the Admin page (this computer only)"); break };
-            if a != b { s.note("The two do not match; try again."); continue; }
-            match crate::webserver::set_password(data, &a) { Ok(()) => { s.note("Admin password saved."); break; } Err(e) => s.note(&e) }
-        }
-    }
     let mut recent: Vec<Instant> = vec![];
     let mut restarts = 0u32;
     loop {

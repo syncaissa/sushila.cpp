@@ -33,7 +33,7 @@ td code{white-space:nowrap}.os{display:grid;grid-template-columns:repeat(auto-fi
 <div class="wrap">
 <nav class="toc">
   <a href="#start">Getting started</a><a href="#commands">All commands</a><a href="#os">Windows, macOS, Linux</a><a href="#serve">Serving and the web page</a>
-  <a href="#library">Library and sharing</a><a href="#space">Status and space</a><a href="#internet">Internet URL</a><a href="#network">Other machines and the internet</a><a href="#admin">Admin password</a><a href="#api">API</a><a href="#packs">Model packs folder</a><a href="#files">Files and folders</a>
+  <a href="#library">Library and sharing</a><a href="#space">Status and space</a><a href="#internet">Internet URL</a><a href="#network">Other machines and the internet</a><a href="#admin">Admin</a><a href="#api">API</a><a href="#packs">Model packs folder</a><a href="#files">Files and folders</a>
   <a href="#service">Start automatically</a><a href="#trouble">Troubleshooting</a>
 </nav>
 <main>
@@ -46,8 +46,8 @@ Windows, macOS and Linux.</p>
 <ol>
   <li>Download <code>sushila.exe</code> (Windows) or <code>sushila</code> (macOS, Linux) for your system.</li>
   <li>Run it: double-click it, or in a terminal type <code>sushila serve</code>. The first time it installs the engine for your
-      GPU (NVIDIA: CUDA; AMD and Intel: Vulkan; Apple: Metal; otherwise the CPU) and a first model, and asks you to choose an
-      admin password. The first model depends on the computer: Qwen3 4B (about 2.5 GB) with a GPU of 8 GB or more, a Mac with
+      GPU (NVIDIA: CUDA; AMD and Intel: Vulkan; Apple: Metal; otherwise the CPU) and a first model.
+      The first model depends on the computer: Qwen3 4B (about 2.5 GB) with a GPU of 8 GB or more, a Mac with
       Apple silicon and 16 GB or more, or 16 GB of memory without a GPU (if the disk has room); otherwise Qwen2.5 0.5B (about 535 MB).
       The log says which one and why.</li>
   <li>Open <a href="http://localhost:7874/">http://localhost:7874/</a> in a browser (double-clicking opens it for you).</li>
@@ -62,7 +62,7 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><th>Command</th><th>What it does</th></tr>
 <tr><td><code>sushila</code> (no command, or double-click)</td><td>Starts the server and opens the web page in the browser.</td></tr>
 <tr><td><code>sushila selftest</code></td><td>End-to-end check: engine, the small default model (or the 4B one if installed; <code>--pack</code> picks another), one answer. Exit code 0 = everything works.</td></tr>
-<tr><td><code>sushila doctor</code></td><td>Checks this computer: GPU, driver, engine build, free disk, the port, the home folder, every pack file's SHA-256, the admin password. Each line says OK, WARN or FAIL, with the command that fixes it.</td></tr>
+<tr><td><code>sushila doctor</code></td><td>Checks this computer: GPU, driver, engine build, free disk, the port, the home folder, every pack file's SHA-256. Each line says OK, WARN or FAIL, with the command that fixes it.</td></tr>
 <tr><td><code>sushila assistant ["&lt;question&gt;"]</code></td><td>Ask Sushila how Sushila works: answers from this documentation and live facts about this computer, by the largest installed text model (no question: keeps asking; <code>/exit</code> ends). Also in the ☰ menu (Ask Sushila) and in the server window. With a model under 3B parameters it quotes the matching sections and their commands instead of writing an answer (small models invent steps); install a 3B+ chat model, e.g. <code>sushila install qwen3-4b-instruct-2507</code>, for answers in its own words.</td></tr>
 <tr><th colspan="2">Engine and model packs</th></tr>
 <tr><td><code>sushila engine install</code></td><td>Installs Sushila.cpp for this computer's GPU (CPU only when there is no usable GPU).</td></tr>
@@ -121,15 +121,13 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila bench &lt;pack&gt; [--prompt ..] [--runs 3]</code></td><td>Speed on this computer in Standard and Accelerated (tokens/s for text, seconds for images, music and video), the speedup, saved in <code>bench/</code> in the home folder.</td></tr>
 <tr><td><code>sushila eval &lt;pack&gt; [--n 20]</code></td><td>Accuracy on 20 built-in grade-school math questions, in Standard and Accelerated.</td></tr>
 <tr><th colspan="2">Security and logs</th></tr>
-<tr><td><code>sushila password</code></td><td>Sets the admin password, or changes it (asks the current one first).</td></tr>
-<tr><td><code>sushila password --reset</code></td><td>Lost the password: sets a new one without the old one. Only on this computer.</td></tr>
 <tr><td><code>sushila keys add &lt;name&gt;</code></td><td>An access key for another machine or program (shown once; only its hash is kept).</td></tr>
 <tr><td><code>sushila keys list</code> / <code>sushila keys remove &lt;name&gt;</code></td><td>Lists or revokes keys.</td></tr>
 <tr><td><code>sushila logs [-f] [-n 40]</code></td><td>The log of every action, from the web page, the commands and the queue (<code>-f</code> follows it).</td></tr>
 <tr><td><code>sushila service install [--packs a,b] [--public] [--port N]</code></td><td>Starts the server automatically (at boot or login).</td></tr>
 <tr><td><code>sushila service remove</code></td><td>Stops starting it automatically.</td></tr>
-<tr><td><code>sushila backup &lt;file.zip&gt; / sushila restore &lt;file.zip&gt;</code></td><td>Settings, access keys (their hashes), queue history and the admin password hash; never the model packs. Restore with the server stopped.</td></tr>
-<tr><td><code>sushila report [&lt;file&gt;]</code></td><td>A zip for bug reports: versions, GPU, settings, the last 300 log lines, crashes. Access keys, tokens and the password hash are removed.</td></tr>
+<tr><td><code>sushila backup &lt;file.zip&gt; / sushila restore &lt;file.zip&gt;</code></td><td>Settings, access keys (their hashes), queue history; never the model packs. Restore with the server stopped.</td></tr>
+<tr><td><code>sushila report [&lt;file&gt;]</code></td><td>A zip for bug reports: versions, GPU, settings, the last 300 log lines, crashes. Access keys and tokens are removed.</td></tr>
 <tr><td><code>sushila version [--verify]</code></td><td>Versions of sushila and the engine; <code>--verify</code> prints this program's SHA-256 and checks it against Sushila's signed list of builds when one is published.</td></tr>
 <tr><td><code>sushila completion bash|zsh|fish|powershell</code></td><td>Tab completion for your shell.</td></tr>
 <tr><td><code>sushila reproduce [&lt;name&gt;]</code></td><td>The commands that reproduce the paper's results (e.g. <code>yue</code>, <code>zimage</code>, <code>wan</code>, <code>llama3.3-70b</code>) and the link to the full guide.</td></tr>
@@ -162,7 +160,7 @@ NVIDIA: a recent driver is enough (the CUDA runtime comes with the engine).</div
 <p><code>sushila serve</code> runs one web server on one port (default 7874). The page has two tabs:</p>
 <ul>
   <li><b>Use</b>: chat, code, images, music and video with the running models; a background queue for long jobs.</li>
-  <li><b>Admin</b> (this computer only, with the admin password): Packs (install, start, stop, verify, remove), Engine, Queue, Logs, Settings.</li>
+  <li><b>Admin</b> (this computer, and you through your internet link; no password): Packs (install, start, stop, verify, remove), Engine, Queue, Logs, Settings.</li>
 </ul>
 <p>Every page has the ☰ menu with Inference, Admin (this computer only), this documentation and the API, followed by the four addresses and, on this computer, the home folder: the same lines the server prints when it starts. Each running model's engine listens on an internal port
 (7875, 7876, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
@@ -173,7 +171,7 @@ as Ollama or stock llama.cpp would run it. Choose the mode in the Inference page
 <p>The window where <code>sushila serve</code> runs (it opens when you double-click <code>sushila</code>) takes typed lines:</p>
 <ul>
   <li><b>A command</b>, with or without the word <code>sushila</code> (<code>ps</code>, <code>status</code>, <code>install qwen3-4b-instruct-2507</code>), runs right there. Commands that
-      delete or change things (remove, uninstall, clean, update, restore, import, share on, keys remove, password --reset, home &lt;folder&gt;) ask
+      delete or change things (remove, uninstall, clean, update, restore, import, share on, keys remove, home &lt;folder&gt;) ask
       <code>Run this? [y/N]</code> first. Commands that run until Ctrl+C (top, logs -f, watch) belong in another terminal: Ctrl+C here stops the server.</li>
   <li><b>A question</b> (<code>how do I add a coding model?</code>) is answered by the Sushila assistant, with the sections it used.</li>
   <li><b>A mistyped command</b> (<code>instal qwen</code>) gets a suggestion (with a small model, found by spelling and by matching words to commands and pack ids) (<code>Did you mean `sushila install qwen`? Run it? [y/N]</code>); nothing runs without a yes.</li>
@@ -233,14 +231,12 @@ sushila keys add alice                  # prints a key once, e.g. sk-sushila-…
 <div class="note warn">Plain <code>http://</code> sends keys unencrypted. For use over the internet, put HTTPS in front: Cloudflare Tunnel,
 Caddy or nginx (any reverse proxy that forwards to the port works).</div>
 
-<h2 id="admin">Admin password</h2>
+<h2 id="admin">Admin: no password</h2>
 <ul>
-  <li><b>First start</b>: asked in the terminal (typed twice, not shown); without a terminal (double-click, service), the Admin tab asks
-      for it the first time, and only on this computer.</li>
-  <li><b>Stored</b> as a one-way hash (Argon2id) in the file <code>adminpassword</code> in the data folder; it cannot be read back.</li>
-  <li><b>Change it</b>: Admin → Settings, or <code>sushila password</code>. Both ask for the current password first. Other browsers are logged out.</li>
-  <li><b>Lost it</b>: on this computer, <code>sushila password --reset</code> sets a new one without the old one. Every old login ends.</li>
-  <li>The commands themselves never need the password: they run as you, on this computer.</li>
+  <li>The Admin tab has <b>no password</b>. It opens only on <b>this computer</b> (http://localhost:7874, checked against the real
+      connection) and for <b>you through your internet link</b> (signed in to sushila.ai as the account that made the link).</li>
+  <li>Other machines (sharing on the network, access keys) get the Inference page and the API only, never Admin.</li>
+  <li>The commands run as you, on this computer, and need nothing more.</li>
 </ul>
 
 <h2 id="api">API (OpenAI-compatible)</h2>
@@ -322,7 +318,7 @@ sushila install C:\Users\me\Downloads\my-model.gguf                             
 <tr><td><code>logs/&lt;pack&gt;.log</code></td><td>The engine output of each model</td></tr>
 <tr><td><code>outputs/</code>, <code>queue.json</code></td><td>Finished queue jobs (images, songs, videos, texts) and the queue</td></tr>
 <tr><td><code>state.json</code></td><td>Settings, installed packs, what runs (written only by the server)</td></tr>
-<tr><td><code>adminpassword</code>, <code>admin-cli.token</code></td><td>The admin password's hash; the commands' private token</td></tr>
+<tr><td><code>admin-cli.token</code></td><td>The commands' private token</td></tr>
 <tr><td><code>downloads/</code></td><td>Partial downloads (resumed automatically)</td></tr>
 </table>
 
@@ -345,7 +341,6 @@ sushila install C:\Users\me\Downloads\my-model.gguf                             
   <li><b>Slow</b>: <code>sushila engine info</code> shows whether the GPU is used; the model's log shows how many layers are on the GPU.</li>
   <li><b>A download stopped</b>: run the same command again; it resumes.</li>
   <li><b>A pack seems damaged</b>: <code>sushila verify &lt;pack&gt;</code>; reinstall it if a file is listed.</li>
-  <li><b>Lost the admin password</b>: <code>sushila password --reset</code> on this computer.</li>
   <li><b>It crashed</b>: Sushila restarts itself; Admin → Logs → Crashes shows why (exit code or signal, the error, the last log lines).</li>
 </ul>
 </main>

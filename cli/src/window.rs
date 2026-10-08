@@ -33,7 +33,7 @@ fn valid(args: &[String]) -> bool { !args.is_empty() && parse(args).map(|c| c.cm
 /// Commands that delete or change things: asked before they run.
 pub fn changes_things(c: &Cmd) -> bool {
     matches!(c, Cmd::Remove { .. } | Cmd::Uninstall { .. } | Cmd::Restore { .. } | Cmd::Import { .. } | Cmd::Keys { act: KeysCmd::Remove { .. } } | Cmd::Share { act: ShareCmd::On { .. } })
-        || matches!(c, Cmd::Clean { dry_run: false }) || matches!(c, Cmd::Password { reset: true }) || matches!(c, Cmd::Update { check: false })
+        || matches!(c, Cmd::Clean { dry_run: false }) || matches!(c, Cmd::Update { check: false })
         || matches!(c, Cmd::Home { folder: Some(_), .. } | Cmd::Home { reset: true, .. })
 }
 /// Commands that cannot run inside the server's window: serve itself, and those that run until Ctrl+C (which would stop the server too).
@@ -42,7 +42,6 @@ fn refused(c: &Cmd) -> Option<&'static str> {
         match c {
             Cmd::Chat { .. } => return Some("this window takes one line at a time: chat on the Inference page, or run sushila chat in another terminal"),
             Cmd::Assistant { question: None } => return Some("just type your question here, it is answered right away"),
-            Cmd::Password { .. } => return Some("change it on the Admin page, or run sushila password in another terminal"),
             _ => {}
         }
     }
@@ -101,13 +100,12 @@ pub fn keyword_candidates(args: &[String], packs: &[String], mine: Option<&str>)
     }
     // 2. everyday words for what a command does
     let pack = mine.unwrap_or(crate::core::DEFAULT_MODEL);
-    let table: [(&[&str], &[&str]); 11] = [
+    let table: [(&[&str], &[&str]); 10] = [
         (&["fast", "faster", "speed", "quick", "quicker", "slow", "benchmark"], &["bench {pack}", "mode {pack} accelerated"]),
         (&["check", "broken", "problem", "driver", "fix", "wrong", "gpu"], &["doctor"]),
         (&["running", "loaded"], &["ps"]),
         (&["find", "available", "download", "catalog"], &["search"]),
         (&["phone", "tablet", "network", "share", "qr"], &["share qr"]),
-        (&["password"], &["password"]),
         (&["log", "logs", "error", "errors"], &["logs"]),
         (&["update", "upgrade", "newer"], &["update --check"]),
         (&["space", "disk", "size"], &["du"]),
@@ -407,7 +405,7 @@ mod tests {
         assert!(valid(&a("ps")) && valid(&a("sushila install qwen3-4b-instruct-2507")) && !valid(&a("instal qwen")) && !valid(&a("banana")));
         let c = |s: &str| parse(&a(s)).unwrap().cmd.unwrap();
         assert!(changes_things(&c("remove x")) && changes_things(&c("clean")) && !changes_things(&c("clean --dry-run")) && changes_things(&c("update")) && !changes_things(&c("update --check")));
-        assert!(changes_things(&c("password --reset")) && !changes_things(&c("password")) && changes_things(&c("home /tmp/x")) && !changes_things(&c("home")) && changes_things(&c("share on")) && !changes_things(&c("share qr")) && changes_things(&c("keys remove a")));
+        assert!(changes_things(&c("home /tmp/x")) && !changes_things(&c("home")) && changes_things(&c("share on")) && !changes_things(&c("share qr")) && changes_things(&c("keys remove a")));
         assert!(refused(&c("serve")).is_some() && refused(&c("top")).is_some() && refused(&c("top --once")).is_none() && refused(&c("logs -f")).is_some());
         assert!(is_question("what does accelerated do?") && is_question("how do I add a model") && is_question("make my videos look better please") && !is_question("instal qwen") && !is_question("banana"));
     }

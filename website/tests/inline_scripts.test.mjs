@@ -3,7 +3,7 @@
 // the static pages, and syntax-checks each script with node.
 import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'; import { execFileSync } from 'node:child_process';
 const here = path.dirname(new URL(import.meta.url).pathname);
-const src = fs.readFileSync(path.join(here, '..', 'worker.js'), 'utf8') + '\nexport { sharePage as __sharePage, tunnelDown as __tunnelDown };\n';
+const src = fs.readFileSync(path.join(here, '..', 'worker.js'), 'utf8') + '\nexport { sharePage as __sharePage, tunnelDown as __tunnelDown, CONNECT as __connect, MYCONTENT as __mycontent };\n';
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wk-')); const mod = path.join(tmp, 'w.mjs'); fs.writeFileSync(mod, src);
 const W = await import(mod);
 let bad = 0, n = 0;
@@ -25,6 +25,12 @@ for (const kind of ['image', 'video', 'music']) {
   if (!html) { bad++; console.log(`FAIL share ${kind}: no page`); } else check(`share page (${kind})`, html);
 }
 globalThis.fetch = realFetch;
+{ const S = (v) => ({ S: v }); const rows = [{ id: S('0123456789abcdef0123'), status: S('online'), createdAt: S('2026-10-08T10:00:00Z'), updatedAt: S('2026-10-08T16:00:00Z'), ip: S('1.2.3.4'), country: S('US') },
+  { id: S('fedcba98765432100123'), status: S('stopped'), createdAt: S('2026-10-07T10:00:00Z'), stoppedAt: S('2026-10-07T12:00:00Z'), ip: S('1.2.3.4'), country: S('US') }];
+  const c = W.__connect(rows)(); check('connect page (2 links)', c);
+  if (!/0123456789abcdef0123/.test(c) || !/● online/.test(c)) { bad++; console.log('FAIL connect page: links missing'); }
+  check('connect page (no links)', W.__connect([])());
+  check('my content page (with links)', W.__mycontent([], 0, rows)()); }
 for (const why of ['gone', 'down']) check(`tunnel ${why}`, await W.__tunnelDown(why).text());
 for (const p of ['/', '/mycontent', '/install', '/reportabuse', '/signin', '/localhost/0123456789abcdef0123/']) {
   try {

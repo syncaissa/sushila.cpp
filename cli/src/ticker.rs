@@ -149,7 +149,7 @@ const SEP: &str = " • ";
 
 /// One task-first sentence per command (several for commands with subcommands), grouped like the commands document;
 /// {u} is this server's address. A unit test fails if a clap command has no sentence here.
-pub const SENTENCES: [(&str, &str, &str); 71] = [
+pub const SENTENCES: [(&str, &str, &str); 70] = [
     ("Getting started", "url", "To see this server's addresses again: type urls here, or sushila url"),
     ("Getting started", "open", "To open the Admin page: go to {u}/admin in your browser (or sushila open admin)"),
     ("Getting started", "open", "To read the documentation: {u}/docs (or sushila open docs)"),
@@ -198,7 +198,6 @@ pub const SENTENCES: [(&str, &str, &str); 71] = [
     ("Speed and quality", "reproduce", "To rerun the paper's results: sushila reproduce"),
     ("Speed and quality", "limit", "To set threads, parallel requests, context or GPU layers: sushila limit"),
     ("Settings, sharing and security", "config", "To see or change settings: sushila config list, sushila config set <key> <value>"),
-    ("Settings, sharing and security", "password", "To set or change the Admin password: sushila password (lost it? --reset)"),
     ("Settings, sharing and security", "share", "To let other machines use this server: sushila share on, then restart it"),
     ("Settings, sharing and security", "share", "To open it on a phone: sushila share qr (same network, with an access key)"),
     ("Settings, sharing and security", "keys", "To give a machine or program access: sushila keys add <name>"),

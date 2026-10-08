@@ -8,7 +8,7 @@
 //      forwards /localhost/<id>/ to the tunnel. Opening the link needs a sushila.ai sign-in (e-mail and one-time code).
 //   5. The owner (signed in as the account that made the link) gets an owner pass in the page: "owner.<link id>.<expiry
 //      ms>.<nonce>.<HMAC-SHA256 of the rest with the owner secret>", valid 12 hours, checked here (owner_ok). With it the
-//      page is this computer's own page: every tab, Admin (with its password, as here), the Library and the packs.
+//      page is this computer's own page: every tab, Admin, the Library and the packs.
 //      Other signed-in visitors use the Inference page with the access key.
 // The owner secret (32 random bytes) stays in <home>/tunnel.json and at sushila.ai; it only works while the tunnel runs.
 // Stop (or quitting Sushila) ends the tunnel; the link then answers "not online". The key and host are removed.

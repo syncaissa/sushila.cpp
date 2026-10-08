@@ -116,8 +116,6 @@ enum Cmd {
     Keys { #[command(subcommand)] act: KeysCmd },
     /// Start `sushila serve` when the computer starts: `service install [--packs a,b] [--host 0.0.0.0]`, `service remove`
     Service { #[command(subcommand)] act: ServiceCmd },
-    /// The Admin tab's password: `sushila password` sets it, or changes it (asks the current one first); lost it? `--reset` (this computer only)
-    Password { #[arg(long)] reset: bool },
     /// Sushila's home folder (model-packs, settings, logs, engine): `home` shows it and any other homes found,
     /// `home <folder>` makes that folder the home (replaces the remembered one), `home --reset` forgets it (search again)
     #[command(alias = "location")]
@@ -125,7 +123,7 @@ enum Cmd {
     /// End-to-end check: engine, the smallest model, one answer (exit code 0 = everything works)
     Selftest { /// default: the small default model (fast), or the 4B default model if it is already installed
         #[arg(long)] pack: Option<String> },
-    /// Checks this computer: GPU, driver, engine build, disk, port, home folder, pack checksums, admin password (with the fix for each)
+    /// Checks this computer: GPU, driver, engine build, disk, port, home folder, pack checksums (with the fix for each)
     Doctor,
     /// Speed on this computer, Standard vs Accelerated (tokens/s, or seconds per image/song/video); saved under <home>/bench/
     Bench { pack: String, #[arg(long)] prompt: Option<String>, #[arg(long, default_value_t = 3)] runs: usize,
@@ -190,11 +188,11 @@ enum Cmd {
     Export { pack: String, file: PathBuf },
     /// Installs an exported pack file (every file's sha256 is checked before anything is adopted)
     Import { file: PathBuf },
-    /// Settings, access keys (hashes only), queue history and the admin password hash in one zip (never the packs)
+    /// Settings, access keys (hashes only) and queue history in one zip (never the packs)
     Backup { file: PathBuf },
     /// Restores a backup made with `sushila backup` (stop the server first)
     Restore { file: PathBuf },
-    /// A zip for bug reports: versions, GPU, settings, recent log lines, crashes (no keys, tokens or password hashes)
+    /// A zip for bug reports: versions, GPU, settings, recent log lines, crashes (no keys or tokens)
     Report { file: Option<PathBuf> },
     /// Versions of sushila and the engine; `--verify` prints this program's sha256 and checks it against a signed list
     Version { #[arg(long)] verify: bool },
@@ -561,26 +559,6 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
                 || format!("home: {}\nmodel packs: {}\nremembered in: {}{}", locate::describe(&ctx.data), ctx.packs_dir.display(), locate::pointer_file().map(|f| f.display().to_string()).unwrap_or_default(),
                     if others.is_empty() { String::new() } else { format!("\nother Sushila folders found:\n  {}\nmake one of them the home: `sushila home <folder>`", others.join("\n  ")) }));
         }
-        Cmd::Password { reset } => {
-            let f = ctx.data.join("adminpassword");
-            if *reset {
-                // the way back for an owner who lost the password: only on this computer, as the user who owns the data folder
-                let _ = std::fs::remove_file(&f);
-                ctx.log("admin password reset from the command line");
-                if std::io::IsTerminal::is_terminal(&std::io::stdin()) { ask_password(ctx, true)?; out(j, json!({ "ok": true }), || "admin password reset and a new one saved".into()); }
-                else { out(j, json!({ "ok": true }), || format!("admin password removed ({}); set a new one with `sushila password` or on the Admin tab of this computer", f.display())); }
-            } else {
-                if webserver::password_set(&ctx.data) {
-                    // changing it needs the current one (lost it? `sushila password --reset`)
-                    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) { return Err("run this in a terminal".into()); }
-                    let cur = rpassword::prompt_password("Current admin password: ").map_err(err)?;
-                    if !webserver::check_password(&ctx.data, &cur) { std::thread::sleep(Duration::from_secs(1)); ctx.log("admin password change refused: wrong current password"); return Err("wrong current password (lost it? `sushila password --reset`)".into()); }
-                }
-                ask_password(ctx, true)?;
-                ctx.log("admin password changed from the command line");
-                out(j, json!({ "ok": true }), || "admin password saved (as an Argon2 hash in the adminpassword file)".into());
-            }
-        }
         Cmd::Service { act } => service(ctx, act, j)?,
         Cmd::Run { pack, prompt, out: file, standard, size, seed, lyrics, duration, frames, max_tokens } => {
             let p = ctx.packs().get(pack).cloned().ok_or(format!("{pack} is not installed: sushila install {pack}"))?;
@@ -737,19 +715,6 @@ fn service(ctx: &mut Ctx, act: &ServiceCmd, j: bool) -> Result<(), String> {
 
 // ---------- serve: the owner. One per computer: it alone changes state.json, runs models, downloads and the queue;
 // Host Station and the sushila commands ask it through /api/control. Every step goes to logs/sushila.log.
-/// Asks for the Admin tab's password in the terminal (twice, not shown) and saves its hash.
-fn ask_password(ctx: &Ctx, change: bool) -> Result<(), String> {
-    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) { return Err("no terminal to ask in: set it on the Admin tab of http://localhost:7874/ instead".into()); }
-    eprintln!("{} the admin password for the Admin tab of the web page (at least 8 characters).\nLost it later? Delete {} and restart: it is asked again.",
-        if change { "Choose" } else { "First start: choose" }, ctx.data.join("adminpassword").display());
-    for _ in 0..3 {
-        let a = rpassword::prompt_password("Admin password: ").map_err(err)?;
-        let b = rpassword::prompt_password("Again: ").map_err(err)?;
-        if a != b { eprintln!("The two do not match; try again."); continue; }
-        match webserver::set_password(&ctx.data, &a) { Ok(()) => return Ok(()), Err(e) => eprintln!("{e}") }
-    }
-    Err("no admin password set".into())
-}
 fn open_browser(url: &str) {
     let _ = if cfg!(windows) { std::process::Command::new("cmd").args(["/c", "start", "", url]).spawn() }
             else if cfg!(target_os = "macos") { std::process::Command::new("open").arg(url).spawn() }
@@ -778,7 +743,6 @@ fn quick_help() -> &'static str {
   sushila doctor                    check GPU, driver, engine, disk, port (with fixes)
   sushila share on | qr             let other machines (a phone) use it
   sushila logs -f                   follow the log (in another terminal)
-  sushila password                  set or change the Admin password (sushila password --reset if lost)
   sushila stop                      stop the server
 Typed in the server window: any of these commands (without \"sushila\" if you like; changes ask first), or a question for the assistant (e.g. how do I add a coding model?).
   ?  this list    urls  the addresses again    stop  stop the server    clear  empty the window
@@ -1112,12 +1076,9 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     // the link to the app (settings.internetUrlAtStart): asked at the first start by the window (window.rs, its own
     // input thread, so nothing waits for the answer); made once the engine answers and the answer is yes
     tokio::spawn(tunnel::at_start(ctx.data.clone(), port));
-    if !webserver::password_set(&ctx.data) {
-        if std::io::IsTerminal::is_terminal(&std::io::stdin()) { if let Err(e) = ask_password(ctx, false) { ctx.log(&format!("admin password: {e}")); } }
-        else { ctx.log(&format!("no admin password yet: open http://localhost:{port}/admin on this computer to set it")); }
-    }
+    // there is no admin password any more: a hash left by an older Sushila is removed (once)
+    if ctx.data.join("adminpassword").exists() && std::fs::remove_file(ctx.data.join("adminpassword")).is_ok() { ctx.log("the Admin tab has no password any more: the old adminpassword file was removed"); }
     // the server's own window: typed commands run, questions go to the assistant, near-misses are suggested (window.rs);
-    // started after the password question above, which reads the same input
     if !j && (std::io::IsTerminal::is_terminal(&std::io::stdin()) || tui::in_screen()) {
         let w = window::Window { exe: std::env::current_exe().map_err(err)?, data: ctx.data.clone(), port, rt: tokio::runtime::Handle::current(), last: Default::default() };
         let banner = url_banner(&u);

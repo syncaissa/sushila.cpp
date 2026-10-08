@@ -426,7 +426,7 @@ mod tests {
     #[test] fn notes_and_docs_split() {
         let s = sections();
         assert!(s.iter().any(|x| x.title == "Standard and Accelerated" && x.source == "notes"));
-        assert!(s.iter().any(|x| x.source == "documentation" && x.title.starts_with("Admin password")));
+        assert!(s.iter().any(|x| x.source == "documentation" && x.title.starts_with("Admin: no password")));
         assert!(s.iter().all(|x| x.text.len() <= 1500 || x.source == "notes"));
     }
     #[test] fn retrieval_finds_the_right_section() {
@@ -442,13 +442,13 @@ mod tests {
         assert!(small_model(&json!({ "id": "my-model", "bytes": 900000000u64 })) && !small_model(&json!({ "id": "my-model", "bytes": 5000000000u64 })));
     }
     #[test] fn quotes() {
-        assert_eq!(commands_in("run `sushila password --reset` or `ls` then `sushila password --reset`"), vec!["sushila password --reset"]);
-        let notes = retrieve("I forgot the admin password", 6000);
+        assert_eq!(commands_in("run `sushila keys add phone` or `ls` then `sushila keys add phone`"), vec!["sushila keys add phone"]);
+        let notes = retrieve("how do I use it from my phone", 6000);
         let cat = json!({ "packs": [{ "id": "qwen3-4b-instruct-2507", "kind": "text", "bytes": 2500000000u64, "fits": true }, { "id": "z-image-turbo-nvidia", "kind": "image", "bytes": 12e9 as u64, "fits": false }, { "id": "z-image-turbo", "kind": "image", "bytes": 6.7e9 as u64, "fits": true }] });
         let st = json!({ "packs": { "qwen2.5-0.5b-q4km": { "bytes": 534772932u64 } } });
-        let v = quote_answer("I forgot the admin password", &notes, &st, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km");
+        let v = quote_answer("how do I use it from my phone", &notes, &st, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km");
         let a = v["answer"].as_str().unwrap();
-        assert!(v["commands"].as_array().unwrap().iter().any(|c| c == "sushila password --reset") && a.contains("Commands from these notes:") && a.contains("install a chat model: `sushila install qwen3-4b-instruct-2507` (about 3 GB)"), "{a}");
+        assert!(v["commands"].as_array().unwrap().iter().any(|c| c == "sushila keys add phone") && a.contains("Commands from these notes:") && a.contains("install a chat model: `sushila install qwen3-4b-instruct-2507` (about 3 GB)"), "{a}");
         let f = quote_answer("which image model fits my GPU?", &notes, &st, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km");
         let fa = f["answer"].as_str().unwrap(); assert!(fa.contains("z-image-turbo (image") && !fa.contains("z-image-turbo-nvidia") && !fa.contains("- qwen3"), "{fa}");
         let w = quote_answer("where are my models stored?", &notes, &st, &cat, "GPU", false, "/secret/home", "qwen2.5-0.5b-q4km");

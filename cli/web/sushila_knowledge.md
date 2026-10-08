@@ -14,16 +14,14 @@ downloads of the engine and model packs from files.sushila.ai.
 ## First start
 Double-click `sushila` (or run `sushila serve`). A terminal window opens and prints the addresses:
 Inference http://localhost:7874/, Admin http://localhost:7874/admin (this computer only), Documentation
-http://localhost:7874/docs, API http://localhost:7874/v1, and the home folder. On the first start it asks for an Admin
-password, downloads the engine for your GPU, installs a default chat model and opens your browser. The default model
+http://localhost:7874/docs, API http://localhost:7874/v1, and the home folder. On the first start it downloads the engine for your GPU, installs a default chat model and opens your browser. The default model
 depends on the computer: Qwen3 4B (`qwen3-4b-instruct-2507`, about 2.5 GB) with an NVIDIA GPU of 8 GB or more, another
 GPU reporting 8 GB or more, a Mac with Apple silicon and 16 GB or more, or no GPU but 16 GB of memory or more (and
 enough free disk); otherwise Qwen2.5 0.5B (`qwen2.5-0.5b-q4km`, about 535 MB). The log says which and why.
 `sushila selftest` uses the small model (fast), or the 4B model if it is already installed. Type `?` in that window for the important commands; type `stop` or press Ctrl+C to stop.
 
 ## The home folder
-Everything Sushila keeps is in one home folder: model-packs/, the engine, settings (state.json), logs, the queue and
-the Admin password hash. The program remembers where it is in one small file in your settings folder
+Everything Sushila keeps is in one home folder: model-packs/, the engine, settings (state.json), logs and the queue. The program remembers where it is in one small file in your settings folder
 (Windows %APPDATA%\sushila\home, macOS ~/Library/Application Support/sushila/home, Linux ~/.config/sushila/home).
 `sushila home` shows it; `sushila home <folder>` changes it; `sushila home --reset` searches again. If several homes
 exist, Sushila asks which one to use. Deleting the home folder removes all models and settings.
@@ -57,7 +55,7 @@ be on the same network, and enter the key once. If the phone cannot connect, a f
 The window where `sushila serve` runs (it opens when you double-click `sushila`) takes typed lines. A sushila command,
 with or without the word sushila (for example `ps`, `status`, `install qwen3-4b-instruct-2507`), runs right there;
 commands that delete or change things (remove, uninstall, clean, update, restore, import, share on, keys remove,
-password --reset, home <folder>) ask for a yes first. A question (for example "how do I add a coding model?")
+home <folder>) ask for a yes first. A question (for example "how do I add a coding model?")
 is answered by the Sushila assistant. A mistyped command gets a suggestion ("Did you mean `sushila install ...`?")
 that runs only if you answer y. `?` lists the important commands, `urls` the addresses, `stop` stops the server.
 The window is one screen: the output scrolls in the top part, the `sushila>` input line stays fixed above the last
@@ -129,9 +127,8 @@ fit. `sushila selftest` checks the whole chain and fails if a GPU is present but
 
 ## The Admin tab and security
 The Admin page (http://localhost:7874/admin) installs and removes packs, updates the engine, shows the queue, logs and
-crashes, and changes settings. It works only on this computer and needs the Admin password, stored as a hash. Change
-it with `sushila password` (asks the current one); lost it? run `sushila password --reset` in a terminal on this
-computer. Other machines can use the Inference page and API only when you share the server (`sushila serve --public`
+crashes, and changes settings. It has no password: it opens on this computer (http://localhost:7874) and for you
+through your internet link (signed in to sushila.ai as the account that made the link), and nowhere else. Other machines can use the Inference page and API only when you share the server (`sushila serve --public`
 or `sushila share on`) and give them an access key (`sushila keys add <name>`).
 
 ## Using the API

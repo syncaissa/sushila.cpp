@@ -448,7 +448,6 @@ async fn doctor(ctx: &mut Ctx, j: bool) -> Result<(), String> {
         if bad.is_empty() { add("OK", "pack", format!("{id}: every file matches its sha256{}", if signed { " (signed by Sushila)" } else { " (your own model, not signed)" }), ""); }
         else { add("FAIL", "pack", format!("{id}: {}", bad.join(", ")), &format!("sushila remove {id}; sushila install {id}")); }
     }
-    if crate::webserver::password_set(&ctx.data) { add("OK", "admin password", "set".into(), ""); } else { add("WARN", "admin password", "not set: the Admin tab asks for it the first time".into(), "sushila password"); }
     let fails = rows.iter().filter(|r| r["status"] == "FAIL").count();
     out(j, json!({ "ok": fails == 0, "checks": rows }), || rows.iter().map(|r| format!("{:<5} {:<15} {}{}", r["status"].as_str().unwrap_or(""), r["check"].as_str().unwrap_or(""), r["detail"].as_str().unwrap_or(""),
         r["fix"].as_str().filter(|f| !f.is_empty()).map(|f| format!("\n      fix: {f}")).unwrap_or_default())).collect::<Vec<_>>().join("\n"));
@@ -805,7 +804,7 @@ fn backup(ctx: &Ctx, file: &Path, j: bool) -> Result<(), String> {
     let opt = zip::write::SimpleFileOptions::default();
     z.start_file("backup.json", opt).map_err(err)?; z.write_all(serde_json::to_string_pretty(&b).unwrap().as_bytes()).map_err(err)?;
     let mut parts = vec!["backup.json"];
-    for f in ["queue.json", "adminpassword"] { if let Ok(d) = std::fs::read(ctx.data.join(f)) { z.start_file(f, opt).map_err(err)?; z.write_all(&d).map_err(err)?; parts.push(f); } }
+    for f in ["queue.json"] { if let Ok(d) = std::fs::read(ctx.data.join(f)) { z.start_file(f, opt).map_err(err)?; z.write_all(&d).map_err(err)?; parts.push(f); } }
     z.finish().map_err(err)?;
     #[cfg(unix)] { use std::os::unix::fs::PermissionsExt; let _ = std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o600)); }
     out(j, json!({ "ok": true, "file": file.to_string_lossy(), "contains": parts }), || format!("backup written to {} ({}); keys are stored as hashes; no model packs (reinstall them)", file.display(), parts.join(", ")));
@@ -824,7 +823,6 @@ async fn restore(ctx: &mut Ctx, file: &Path, j: bool) -> Result<(), String> {
     if let Some(m) = b["preferredModes"].as_object() { for (k, v) in m { if ctx.state["packs"][k].is_object() { ctx.state["packs"][k]["preferredMode"] = v.clone(); } } }
     ctx.save()?;
     if let Some(q) = read("queue.json") { serde_json::from_slice::<Value>(&q).map_err(err)?; std::fs::write(ctx.data.join("queue.json"), q).map_err(err)?; done.push("queue history"); }
-    if let Some(p) = read("adminpassword") { crate::webserver::write_private(&ctx.data.join("adminpassword"), &String::from_utf8_lossy(&p))?; done.push("admin password"); }
     ctx.log(&format!("restored from {}: {}", file.display(), done.join(", ")));
     out(j, json!({ "ok": true, "restored": done }), || format!("restored: {}", done.join(", ")));
     Ok(())
@@ -941,7 +939,7 @@ async fn report(ctx: &mut Ctx, file: Option<PathBuf>, j: bool) -> Result<(), Str
     let packs: Vec<Value> = st["packs"].as_object().map(|m| m.values().map(|p| json!({ "id": p["id"], "kind": p["kind"], "bytes": p["bytes"], "custom": p["custom"], "installedAt": p["installedAt"] })).collect()).unwrap_or_default();
     let info = json!({ "created": now_iso(), "sushila": env!("CARGO_PKG_VERSION"), "platform": ctx.platform_key(), "host": ctx.info, "engine": st["engine"]["version"], "engineBuild": st["engine"]["key"], "engineFallback": st["engineFallback"],
         "nvidia": gpu, "otherGpu": other, "settings": st["settings"], "share": { "enabled": st["share"]["enabled"], "listen": st["share"]["listen"], "open": st["share"]["open"], "hosts": st["share"]["hosts"], "keys": st["share"]["keys"].as_array().map(|a| a.len()) },
-        "adminPasswordSet": crate::webserver::password_set(&ctx.data), "packs": packs, "running": st["running"].as_object().map(|m| m.keys().cloned().collect::<Vec<_>>()) });
+        "packs": packs, "running": st["running"].as_object().map(|m| m.keys().cloned().collect::<Vec<_>>()) });
     let mut z = zip::ZipWriter::new(std::fs::File::create(&file).map_err(err)?);
     let opt = zip::write::SimpleFileOptions::default();
     let mut put = |n: &str, d: String| -> Result<(), String> { z.start_file(n, opt).map_err(err)?; z.write_all(scrub(d).as_bytes()).map_err(err) };

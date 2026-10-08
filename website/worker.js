@@ -640,7 +640,7 @@ footer.site .fbottom a{display:inline;padding:0}
 @media (prefers-reduced-motion:reduce){.hx-slide,.fcard,.btn{transition:none}}
 `;
 
-const accountLink = (user) => user ? `${user.isAdmin ? '<a href="/admin">Admin</a>' : ''}<a href="/mycontent">My content</a><a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
+const accountLink = (user) => user ? `${user.isAdmin ? '<a href="/admin">Admin</a>' : ''}<a href="/connect">Connect to your laptop</a><a href="/mycontent">myContent</a><a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
 const brand = () => `<a class="brand" href="/"><img src="/logo.png" width="32" height="32" alt=""> Sushila.cpp</a>`;
 // The top bar: the brand and the links; on a phone the links fold into ☰ (a checkbox, so it works without scripts;
 // choosing a link closes it)
@@ -649,7 +649,10 @@ const NAV = (links) => `<header><div class="wrap"><nav>
   <input type="checkbox" id="navt" class="navt" aria-label="Menu" aria-controls="navlinks"><label for="navt" class="burger" title="Menu"><span></span><span></span><span></span></label>
   <div class="links" id="navlinks">${links}</div>
 </nav></div></header>
-<script>document.querySelectorAll('#navlinks a').forEach(function(a){a.addEventListener('click',function(){document.getElementById('navt').checked=false;});});</script>`;
+<script>(function(){var t=document.getElementById('navt'),n=t&&t.closest('nav');if(!t)return;
+document.querySelectorAll('#navlinks a').forEach(function(a){a.addEventListener('click',function(){t.checked=false;});});
+document.addEventListener('pointerdown',function(e){if(t.checked&&n&&!n.contains(e.target))t.checked=false;});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')t.checked=false;});})();</script>`;
 
 const footer = (contact) => `<footer class="site"><div class="wrap">
   <div class="fgrid">
@@ -657,7 +660,7 @@ const footer = (contact) => `<footer class="site"><div class="wrap">
       <p style="margin:0 0 14px;max-width:340px;line-height:1.6">Faster AI on your own computer. Chat, code, images, music and video, with the same model files and the same answers.</p>
       <a href="/install" style="display:inline-block;color:#fff;font-weight:600">Get Sushila →</a></div>
     <div><h4>Product</h4><a href="/install">Install</a><a href="/#packs">Model packs</a><a href="/manual">Manual install</a><a href="/docs">Documentation</a><a href="/#api">Serverless API</a></div>
-    <div><h4>Research</h4><a href="/#how">How it works</a><a href="/#results">Results</a><a href="/#retest">Retest it yourself</a><a href="/mycontent">My content</a></div>
+    <div><h4>Research</h4><a href="/#how">How it works</a><a href="/#results">Results</a><a href="/#retest">Retest it yourself</a><a href="/connect">Connect to your laptop</a><a href="/mycontent">myContent</a></div>
     <div><h4>Support</h4><a href="/bugs/new">Report a bug</a><a href="/reportabuse">Report abuse</a><a href="mailto:${esc(contact)}">Contact</a><a href="/#disclaimer">Disclaimer</a></div>
   </div>
   <div class="fbottom"><span>© ${new Date().getUTCFullYear()} Sushila, an open-source research project</span><span><a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a></span></div>
@@ -2277,7 +2280,7 @@ async function tunnelProxy(request, env, db, p, url) {
   if (!m) return tunnelDown('gone');
   const [, id, rest] = m, prefix = `/localhost/${id}`;
   if (!rest) return Response.redirect(`${url.origin}${prefix}/${url.search}`, 301);
-  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type, authorization, x-sushila-visitor, x-sushila-token, x-sushila-admin', 'access-control-max-age': '600' };
+  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type, authorization, x-sushila-visitor, x-sushila-token, x-sushila-admin, x-sushila-model, x-request-id', 'access-control-max-age': '600' };
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });  // the sandboxed page's own requests
   if (!db.configured) return tunnelDown('down');
   const row = await tunnelRow(db, id);
@@ -2412,6 +2415,43 @@ async function reportAbuse(request, env, db) {
 }
 
 // --- My content (sushila.ai/mycontent): the signed-in account's shared files, with views; delete any of them ---
+
+// sushila.ai/connect: "Connect to your laptop": the account's internet links (sushila.ai/localhost/<id>/) to its own
+// Sushila, with Open, Copy and Delete, and how it is kept secure
+const CONNECT = (links) => () => {
+  const rows = links.map((r) => ({ id: str(r, 'id'), status: str(r, 'status'), createdAt: str(r, 'createdAt'), updatedAt: str(r, 'updatedAt'), stoppedAt: str(r, 'stoppedAt'), ip: str(r, 'ip'), country: str(r, 'country') }))
+    .sort((a, b) => (b.status === 'online') - (a.status === 'online') || (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt));
+  const when = (t) => esc((t || '').slice(0, 16).replace('T', ' ')) + (t ? ' UTC' : '');
+  const list = rows.length ? `<div class="tablewrap"><table><thead><tr><th>Your link</th><th>Status</th><th>Last started</th><th>From</th><th></th></tr></thead><tbody>${rows.map((k) => `
+    <tr id="l-${k.id}"><td><b>sushila.ai/localhost/${k.id}/</b></td>
+      <td>${k.status === 'online' ? '<b style="color:var(--ok)">● online</b>' : `<span class="sub">stopped${k.stoppedAt ? '<br>' + when(k.stoppedAt) : ''}</span>`}</td>
+      <td class="sub">${when(k.updatedAt || k.createdAt)}</td><td class="sub">${esc(k.ip)} ${esc(k.country)}</td>
+      <td class="act"><a class="btn small" href="/localhost/${k.id}/" target="_blank" rel="noopener">Open</a> <button class="btn small ghost" data-copy="${k.id}">Copy</button> <button class="btn small ghost" data-del="${k.id}" style="color:#b42318">Delete</button></td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="card"><p style="margin:0">No link yet. Start Sushila on your laptop and press <b>🌐 Get temporary internet URL</b> (or answer yes when it asks at the start). Your link then appears here.</p></div>';
+  return `<div class="eyebrow">Your computers</div><h1>Connect to your laptop</h1>
+<p class="lead">Use the Sushila on your own laptop or PC from anywhere: your phone, another computer, at work. Sign in here and open your link: every tab works as at home (Inference, Library, Admin), on your own GPU.</p>
+<ol class="steps3" style="margin:8px 0 36px">
+ <li style="background:var(--card);border-color:var(--line);color:var(--mut)"><b style="color:var(--fg)">Start Sushila</b> on your laptop (double-click <code>sushila.exe</code>, or <code>sushila serve</code>) and keep it running.</li>
+ <li style="background:var(--card);border-color:var(--line);color:var(--mut)"><b style="color:var(--fg)">Make your link</b>: press 🌐 Get temporary internet URL on its page (http://localhost:7874), signed in with this account. The link stays the same from start to start.</li>
+ <li style="background:var(--card);border-color:var(--line);color:var(--mut)"><b style="color:var(--fg)">Open it</b> below from any device, signed in to sushila.ai as you. Others can use the Inference page only with the access key you give them.</li>
+</ol>
+<h2 style="font-size:24px">Your links</h2>
+${list}
+<details class="card" style="margin-top:28px"><summary>How this is kept secure</summary><ul style="margin:0;padding-left:20px;color:var(--mut);font-size:15px;line-height:1.65">
+<li><b>Only you can make a link:</b> Sushila on your computer asks for it with your account (signed in with your e-mail and a one-time code). Each link is stored with your account, the time and the address it came from.</li>
+<li><b>A link cannot be guessed:</b> 20 random characters (80 bits).</li>
+<li><b>Opening a link needs a sushila.ai sign-in.</b> Signed in as you, your page gets an owner pass, signed with a secret only your computer and sushila.ai know; your Sushila checks the signature, the link and the time (12 hours) on every request.</li>
+<li><b>Anyone else</b>, even signed in, gets only the Inference page, and only with the access key shown on your computer.</li>
+<li><b>sushila.ai forwards a link only to the Cloudflare tunnel your Sushila registered.</b> Pages from your computer run sandboxed: they never see anyone's sushila.ai sign-in, and your computer never receives visitors' sushila.ai cookies.</li>
+<li><b>Stop it at any time:</b> Delete here, or Stop in 🌐 on your computer. A link you did not delete leads to your newest working one.</li></ul></details>
+${CLIENT}<script>
+document.addEventListener('click',async function(e){var c=e.target.closest('[data-copy]'),d=e.target.closest('[data-del]');
+ if(c){var u=location.origin+'/localhost/'+c.dataset.copy+'/';try{await navigator.clipboard.writeText(u);toast('Link copied',u)}catch(_){toast('Your link',u)}}
+ if(d){if(!await toast('Delete this link?','It stops working at once, for everyone. Sushila makes a new one when you press 🌐 again.',{ask:'Delete',danger:true}))return;
+  try{await api('/api/mycontent/link-delete',{id:d.dataset.del});var r=document.getElementById('l-'+d.dataset.del);if(r)r.remove();toast('Deleted','The link stopped working.')}catch(x){toast('Could not delete',x.message,{err:true})}}});
+</script>`;
+};
+
 const MYCONTENT = (items, used, links = []) => () => {
   // the list is rendered in the browser from this JSON (search, filters, sort, layout without a reload)
   const L2 = links.map((r) => ({ id: str(r, 'id'), status: str(r, 'status'), createdAt: str(r, 'createdAt'), stoppedAt: str(r, 'stoppedAt'), ip: str(r, 'ip'), country: str(r, 'country') }));
@@ -2446,7 +2486,7 @@ function render(){var q=document.getElementById('q').value.trim().toLowerCase(),
  var all=D.filter(function(m){return !!m.trashedAt===inTrash}),L=all.filter(function(m){return(!k||m.kind===k)&&(!q||(m.title+' '+m.model+' '+m.created.slice(0,10)+' '+m.id).toLowerCase().indexOf(q)>=0)});
  L.sort(function(a,b){return so==='old'?a.created.localeCompare(b.created):so==='views'?b.views-a.views:so==='big'?b.bytes-a.bytes:so==='az'?a.title.localeCompare(b.title):b.created.localeCompare(a.created)});
  var nf=D.filter(function(m){return!m.trashedAt}).length,nt=D.length-nf;
- document.getElementById('tabs').innerHTML='<button class="'+(inTrash||inLinks?'':'on')+'" onclick="tab(false)">My files ('+nf+')</button><button class="'+(inTrash&&!inLinks?'on':'')+'" onclick="tab(true)">🗑 Trash ('+nt+')</button><button class="'+(inLinks?'on':'')+'" onclick="links()">🌐 Internet links ('+LK.length+')</button>';
+ document.getElementById('tabs').innerHTML='<button class="'+(inTrash||inLinks?'':'on')+'" onclick="tab(false)">My files ('+nf+')</button><button class="'+(inTrash&&!inLinks?'on':'')+'" onclick="tab(true)">🗑 Trash ('+nt+')</button><a href="/connect" style="display:inline-block;padding:7px 14px;border:1px solid var(--line);border-radius:99px;text-decoration:none;font-weight:600;margin-left:6px">🌐 Connect to your laptop ('+LK.length+') →</a>';
  if(inLinks){renderLinks();return}
  document.getElementById('sum').textContent=nf+' file'+(nf===1?'':'s')+(nt?' · '+nt+' in the trash':'');document.getElementById('trashnote').hidden=!inTrash;
  [].forEach.call(document.querySelectorAll('#lay button'),function(b){b.className=b.dataset.l===lay?'on':''});
@@ -3930,6 +3970,11 @@ export default {
         let links = []; try { links = await myLinks(db, user.userId); } catch (e) { console.error('links', e.message); }
         const used = files.filter((f) => !f.fileName.endsWith('.json')).reduce((n, f) => n + (f.contentLength || 0), 0);
         return html(docPage(env, 'My content', 'Your files shared from Sushila: views, links, delete.', MYCONTENT(items, used, links), user));
+      }
+      if (p === '/connect' || p === '/connect/') {
+        if (!user) return html(docPage(env, 'Connect to your laptop', 'Use the Sushila on your own computer from anywhere.', SIGNIN(new URL(url.origin + '/signin?next=/connect'), '<h1>Connect to your laptop</h1><p>Use the Sushila on your own laptop from anywhere. Sign in to see your links.</p><h2 style="font-size:18px">Sign in</h2>'), user));
+        let links = []; try { links = await myLinks(db, user.userId); } catch (e) { console.error('links', e.message); }
+        return html(docPage(env, 'Connect to your laptop', 'Your internet links to the Sushila on your own computers.', CONNECT(links), user));
       }
       // a bookmark for Sushila on this computer: opens http://localhost:7874/ when it runs, else offers to start it
       if (p === '/start') return html(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Start Sushila</title>${ICON_LINKS}

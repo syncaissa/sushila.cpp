@@ -52,5 +52,8 @@ for (const [n, want] of [['/localhost/x/', '/localhost/x/'], ['//evil.com', '/ac
 }
 { const html = W.__signin(new URL('https://sushila.ai/signin?next=' + encodeURIComponent('/x</script><script>alert(1)</script>')))();
   ok(!html.includes('</script><script>alert(1)'), 'next= cannot close the script (no injection)'); }
+{ const r = await W.__tp(new Request(`https://sushila.ai/localhost/${ID}/v1/images/generations`, { method: 'OPTIONS', headers: { origin: 'null', 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type,x-sushila-model,x-sushila-token,x-sushila-visitor' } }), env, db, `/localhost/${ID}/v1/images/generations`, new URL(`https://sushila.ai/localhost/${ID}/v1/images/generations`));
+  const allow = (r.headers.get('access-control-allow-headers') || '').split(/,\s*/);
+  ok(r.status === 204 && ['content-type', 'x-sushila-model', 'x-sushila-token', 'x-sushila-visitor'].every((h) => allow.includes(h)), 'pictures, songs, videos: the browser may send x-sushila-model through the link (CORS)'); }
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(bad ? `${bad} FAILED` : 'all owner-link checks pass'); process.exit(bad ? 1 : 0);

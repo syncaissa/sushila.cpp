@@ -6,9 +6,9 @@ const state = { app: 'sushila', appVersion: '0.1.1', engine: { version: '0.1.1' 
   packs: [{ id: 'qwen2.5-0.5b-q4km', name: 'Qwen 0.5B', kind: 'text', turbo: true, bytes: 535e6 }], tasks: [{ id: 'task-1', action: 'install', target: 'qwen3-4b', source: 'cli', status: 'running', label: 'file 1 of 1', done: 1e9, total: 2.5e9, started: '2026-10-06T23:00:00Z' }],
   settings: { port: 7874, threads: 0, contextSize: 4096, gpuLayers: -1, parallel: 1 }, share: { enabled: false, keys: 0 }, owner: { since: '2026-10-06T22:00:00Z' } };
 const catalog = { packs: [{ id: 'qwen2.5-0.5b-q4km', name: 'Qwen 0.5B', kind: 'text', bytes: 535e6, fits: true }, { id: 'qwen3-4b', name: 'Qwen3 4B', kind: 'text', bytes: 2.5e9, fits: true, popular: true }, { id: 'ace-step-15', name: 'ACE-Step 1.5', kind: 'music', bytes: 8.1e9, fits: true }, { id: 'z-nv', name: 'Z NVIDIA', kind: 'image', bytes: 9e9, fits: false }] };
-async function page(token, hash, search = '', adm = { passwordSet: true, loggedIn: true, allowed: true }, me = {}) {
+async function page(token, hash, search = '', adm = { passwordSet: true, loggedIn: true, allowed: true }, me = {}, where = 'http://localhost:7874/') {
   const sent = []; const A = Object.assign({}, adm);
-  const w = new JSDOM('<!doctype html><div id="app"></div>', { url: 'http://localhost:7874/' + search + hash, runScripts: 'outside-only', pretendToBeVisual: true }).window;
+  const w = new JSDOM('<!doctype html><div id="app"></div>', { url: where + search + hash, runScripts: 'outside-only', pretendToBeVisual: true }).window;
   if (token && token.startsWith('owner.')) w.SUSHILA_OWNER = token; else if (token) w.SUSHILA_TOKEN = token;
   w.confirm = () => { throw new Error('window.confirm must not be used (toasts)'); };
   const hdrs = []; w.fetch = async (u, o = {}) => { u = String(u); hdrs.push(Object.assign({ _u: u }, o.headers || {})); if (o.method === 'POST') sent.push({ u, body: o.body, h: o.headers });
@@ -39,7 +39,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
   return { w, d: w.document, sent, asked, answerer, hdrs };
 }
 let p = await page('tok123', '#admin/packs');
-ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].map((a) => a.textContent).join(',') === 'Inference,Library,Admin' && p.d.querySelectorAll('nav.snav .brand').length === 1 && !p.d.querySelector('#app .top h1'), 'local page: Inference, Library and Admin, Sushila named once');
+ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].map((a) => a.textContent).join(',') === 'Inference,myContent,Admin' && p.d.querySelectorAll('nav.snav .brand').length === 1 && !p.d.querySelector('#app .top h1'), 'local page: Inference, Library and Admin, Sushila named once');
 ok([...p.d.querySelectorAll('#manage details.sec > summary .sectitle')].map((x) => x.textContent).join(',') === 'What is happening now,System health,Model packs,Queue,Recent actions,Full log,Engine,Settings', 'Admin: one page of sections (now, health, packs, queue, actions, log, engine, settings)');
 ok(p.d.body.textContent.includes('All good') && p.d.body.textContent.includes('RTX 3070 Laptop GPU') && p.d.body.textContent.includes('GB free'), 'Admin: system health (GPU, memory, disk) with a one-line verdict');
 { const bar = p.d.querySelector('#manage .srvstat');
@@ -148,33 +148,29 @@ p = await page('', '#admin/packs');
 ok([...p.d.querySelectorAll('nav.snav a[data-tab]')].length === 1 && p.d.getElementById('manage').classList.contains('hidden'), 'remote visitor: only Use, no management');
 p = await page('tok123', '#admin/packs', '?install=qwen3-4b'); await sleep(300);
 ok(p.sent.some((s) => JSON.parse(s.body || '{}').action === 'install' && JSON.parse(s.body).pack === 'qwen3-4b'), '/install/<pack> link: asks, then installs');
-// first start: no password yet -> create it; then the Admin tabs; a wrong login is refused
-p = await page('tok123', '#admin', '', { passwordSet: false, loggedIn: false, allowed: true });
-ok(p.d.body.textContent.includes('Create the admin password') && !p.d.body.textContent.includes('Installed'), 'first start: Admin asks to create the password, nothing else shown');
-p.d.getElementById('apw').value = 'correct horse'; p.d.getElementById('apw2').value = 'correct horse';
-[...p.d.querySelectorAll('#manage button')].find((b) => b.textContent === 'Save the password').click(); await sleep(500);
-ok(p.sent.some((s) => s.u === '/api/admin/setup') && p.d.body.textContent.includes('Installed'), 'after setting it: the Admin tabs open');
-p = await page('tok123', '#admin', '', { passwordSet: true, loggedIn: false, allowed: true });
-ok(p.d.body.textContent.includes('Admin login'), 'password set: login form');
-ok(p.d.querySelector('#manage .srvstat') && !p.d.getElementById('keeppop') && p.d.body.textContent.includes('Log in below'), 'before login: server status, no switch (it needs the admin login)');
-p.d.getElementById('apw').value = 'wrong one'; [...p.d.querySelectorAll('#manage button')].find((b) => b.textContent === 'Log in').click(); await sleep(400);
-ok(p.d.body.textContent.includes('wrong password') && !p.d.body.textContent.includes('Installed'), 'wrong password: refused, nothing shown');
+// no admin password: this computer's page opens Admin at once; elsewhere it is explained; no password anywhere
+p = await page('tok123', '#admin', '', { passwordSet: true, loggedIn: true, allowed: true });
+await sleep(400);
+ok(p.d.querySelector('#manage').textContent.includes('Installed') && !p.d.querySelector('#manage input[type=password]') && !/Log in|Admin login|Create the admin password/.test(p.d.body.textContent), 'Admin opens at once: no password, no login form');
 p = await page('tok123', '#admin', '', { passwordSet: true, loggedIn: false, allowed: false });
-ok(p.d.body.textContent.includes('only on the computer'), 'not allowed from this address: explained');
+await sleep(300);
+ok(p.d.querySelector('#manage').textContent.includes('not available') && !p.d.querySelector('#manage input[type=password]'), 'Admin from elsewhere: explained, no password form');
 p = await page('tok123', '#admin/settings'); await sleep(300);
-const chg = async (cur) => { p.d.getElementById('pwcur').value = cur; p.d.getElementById('pwnew').value = 'brand new pw'; p.d.getElementById('pwnew2').value = 'brand new pw';
-  [...p.d.querySelectorAll('#manage button')].find((b) => b.textContent === 'Change password').click(); await sleep(400); };
-await chg('guess'); ok(p.d.body.textContent.includes('wrong current password'), 'change: a wrong current password is refused');
-await chg('correct horse'); ok(p.d.body.textContent.includes('Admin password changed'), 'change: with the current password it works');
+ok(!p.d.getElementById('pwcur') && !/Change password|Admin password/.test(p.d.body.textContent) && !p.d.getElementById('logout'), 'Settings: no password section, no Log out');
 p = await page('tok123', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Admin,Documentation,Ask Sushila,API' && p.d.querySelector('.smenu a[href="/docs"]') && p.d.querySelector('.swhere').textContent.includes('/admin') && p.d.querySelector('.swhere').textContent.includes('/v1'), 'the ☰ menu: Inference, Admin, Documentation, API + the addresses');
 { // the link's owner on sushila.ai/localhost/<id>/ (an owner pass instead of the local token): the same page as at home
   const pl = await page('tok-local', ''), po = await page('owner.0123456789abcdef0123.9999999999999.n.' + 'a'.repeat(64), '');
   const tabs = (x) => [...x.d.querySelectorAll('nav.snav a[data-tab]')].map((a) => a.textContent).join(',');
-  ok(tabs(po) === tabs(pl) && tabs(po).includes('Admin') && tabs(po).includes('Library'), 'owner through the internet link: every tab, Admin included (' + tabs(po) + ')');
+  ok(tabs(po) === tabs(pl) && tabs(po).includes('Admin') && tabs(po).includes('myContent'), 'owner through the internet link: every tab, Admin included (' + tabs(po) + ')');
   po.w.location.hash = '#admin'; await sleep(300);
   ok(po.hdrs.length > 2 && po.hdrs.filter((h) => h['x-sushila-token']).every((h) => h['x-sushila-token'].startsWith('owner.')) && po.hdrs.some((h) => h['x-sushila-token']), 'owner page: every API call carries the owner pass (' + po.hdrs.length + ' calls)');
   const bare = po.hdrs.filter((h) => /\/api\/(state|queue|admin|library)/.test(h._u) && !h['x-sushila-token']);
   ok(bare.length === 0, 'owner page: no state/queue/admin/library request without the pass (' + bare.map((h) => h._u).join(', ') + ')');
+  const pl2 = await page('owner.0123456789abcdef0123.9999999999999.n.' + 'a'.repeat(64), '', '', undefined, {}, 'https://sushila.ai/localhost/0123456789abcdef0123/');
+  ok(!pl2.d.querySelector('.tunbtn') && pl.d.querySelector('.tunbtn'), 'the 🌐 internet URL button: on this computer\'s page, not on the internet link');
+  const m = pl.d.querySelector('details.smenu'); m.open = true; pl.d.body.dispatchEvent(new pl.w.Event('pointerdown', { bubbles: true }));
+  ok(!m.open, '☰ closes when something else on the page is clicked');
+  m.open = true; pl.d.dispatchEvent(new pl.w.KeyboardEvent('keydown', { key: 'Escape' })); ok(!m.open, '☰ closes with Esc');
 }
 p = await page('', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Documentation,Ask Sushila,API' && !p.d.querySelector('#shome') && !p.d.querySelector('.swhere').textContent.includes('/admin'), 'remote visitor: ☰ menu without Admin or the home folder');
 // Ask Sushila: the ☰ item opens the panel; a question goes to /api/assistant (with the token here, a key elsewhere); answer and sources shown

@@ -210,7 +210,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
 
   // ================================================================== 1. managing this computer's Sushila
   // Tabs above the page: Use (the inference page below) and, on this computer only, Admin (Packs, Engine, Queue, Logs,
-  // Settings) behind the admin password (set the first time; lost it? delete the adminpassword file and restart).
+  // Settings); no password: the server lets only this computer's page and the owner's internet-link page manage it.
   // Every button sends a request to the server (POST /api/control) and the view follows /api/state: the server is the
   // one source of truth, and every step it takes is in logs/sushila.log (the Logs tab).
   function manager() {
@@ -220,7 +220,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
     const local = !!token;
     let session = ''; try { session = sessionStorage.getItem('sushila-admin') || ''; } catch (_) {}
     const api = (path, opts = {}) => fetch(path, Object.assign({}, opts, { headers: Object.assign({ 'x-sushila-token': token, 'x-sushila-admin': session, 'content-type': 'application/json' }, opts.headers || {}) }));
-    const TABS = [['', 'Inference'], ['library', 'Library'], ['admin', 'Admin']];
+    const TABS = [['', 'Inference'], ['library', 'myContent'], ['admin', 'Admin']];
     // the Admin page: one page of sections that open and close (remembered in this browser); #admin/<section> opens one
     const SUB = [['now', 'What is happening now'], ['health', 'System health'], ['packs', 'Model packs'], ['queue', 'Queue'], ['actions', 'Recent actions'],
       ['logs', 'Full log'], ['engine', 'Engine'], ['settings', 'Settings']];
@@ -326,7 +326,11 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       catch (e) { wait(); toast(String(e.message || e), { kind: 'err', title: 'Could not get a temporary internet URL' }); }
     }
     const nav = el('nav', { class: 'snav' }, menu, el('b', { class: 'brand' }, mark, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
-      el('span', { style: 'flex:1' }), local ? el('button', { class: 'ghost tunbtn', title: 'A link that reaches this Sushila Engine from the internet', onclick: () => internetUrl() }, '🌐 Get temporary internet URL') : null, local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
+      el('span', { style: 'flex:1' }), local && !PFX ? el('button', { class: 'ghost tunbtn', title: 'A link that reaches this Sushila Engine from the internet', onclick: () => internetUrl() }, '🌐 Get temporary internet URL') : null);
+    // ☰ closes when anything else is clicked or touched, a link in it is chosen, or Esc is pressed
+    document.addEventListener('pointerdown', (e) => { if (menu.open && !menu.contains(e.target)) menu.open = false; });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && menu.open) menu.open = false; });
+    menu.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a')) menu.open = false; });
     const box = el('div', { id: 'manage', class: 'manage hidden' });
     // the band under the bar: which page this is, in a sentence (set by route)
     const band = el('div', { class: 'appband', id: 'appband' });
@@ -364,24 +368,9 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       } catch (e) { say('Could not send: ' + e.message); }
       setTimeout(poll, 600);
     }
+    // no admin password: Admin opens on this computer and for its owner through the internet link; anyone else is told so
     function loginView() {
-      if (!admin.allowed) return [el('h2', {}, 'Admin'), el('p', { class: 'sub' }, 'Admin is available only on the computer that runs Sushila (http://localhost:<port>/).')];
-      const first = !admin.passwordSet;
-      const go = async () => {
-        const pw = $('apw').value, again = first ? $('apw2').value : pw;
-        if (first && pw !== again) { say('The two passwords do not match.'); return; }
-        const r = await api('/api/admin/' + (first ? 'setup' : 'login'), { method: 'POST', body: JSON.stringify({ password: pw }) }).catch(() => null);
-        if (!r || !r.ok) { say(r ? await r.text() : 'The server did not answer.'); return; }
-        session = (await r.json()).session; try { sessionStorage.setItem('sushila-admin', session); } catch (_) {}
-        note = ''; poll();
-      };
-      const key = (e) => { if (e.key === 'Enter') go(); };
-      return [el('h2', {}, first ? 'Create the admin password' : 'Admin login'),
-        el('p', { class: 'sub' }, first ? 'The first time: choose a password (at least 8 characters) for managing Sushila from this page. It is stored only as a one-way hash in the file adminpassword in the data folder. Lost it later? On this computer, in a terminal: sushila password --reset'
-          : 'Managing Sushila (packs, engine, queue, logs, settings) needs the admin password. Lost it? On this computer, in a terminal: sushila password --reset'),
-        el('label', { for: 'apw' }, 'Password'), el('input', { id: 'apw', type: 'password', autocomplete: first ? 'new-password' : 'current-password', onkeydown: key }),
-        first ? [el('label', { for: 'apw2' }, 'Again'), el('input', { id: 'apw2', type: 'password', autocomplete: 'new-password', onkeydown: key })] : null,
-        el('div', { class: 'row' }, el('button', { onclick: go }, first ? 'Save the password' : 'Log in'))];
+      return [el('h2', {}, 'Admin'), el('p', { class: 'sub' }, 'Admin opens on the computer that runs Sushila (http://localhost:7874/), and for its owner through the internet link (signed in to sushila.ai). From here it is not available.')];
     }
     // ---------- the Library: every picture, song and video made here (outputs/ in the home folder), searchable by any
     // field, sortable, with Show in folder, Download, Copy path and Delete (to the Library's trash: Restore or Delete permanently)
@@ -432,7 +421,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
     }
     async function libShareNow(x) {
       if (!lib.acct.signedIn) { lib.signin = { step: 'email', email: lib.acct.lastEmail || '', pending: x, purpose: 'SIGN_IN' }; libRender(); return; }
-      if (!await ask('Anyone with the link can open it. It is labelled AI-generated, and you can delete it at any time (Shared links, or sushila.ai/mycontent).\n\n' + SHARE_NOTICE,
+      if (!await ask('It is labelled AI-generated. ' + SHARE_NOTICE,
         'Upload and get link', { title: 'Upload "' + x.name + '" to sushila.ai?' })) return;
       lib.msg = 'Uploading ' + x.name + '…'; libRender();
       try {
@@ -590,7 +579,6 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       if (polling) return polling;
       polling = (async () => {
         if (view === 'admin') { try { admin = await (await api('/api/admin')).json(); } catch (_) {} }
-        const lo = $('logout'); if (lo) lo.classList.toggle('hidden', !(view === 'admin' && admin.loggedIn));
         if (view === 'admin' && !admin.loggedIn) { await render(); return; }
         try { st = await (await api('/api/state')).json(); } catch (_) { /* keep the last state; the banner says the server is down */ }
         if (view === 'admin' && openSecs.has('packs') && !catalog) { try { catalog = await (await api('/api/catalog')).json(); } catch (_) { catalog = { packs: [] }; } }
@@ -742,16 +730,6 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       return [el('h2', {}, 'Settings'), ...field('gpuLayers', 'Layers on the GPU', '-1 = automatic: as many as fit (recommended)'), ...field('contextSize', 'Context size (tokens)'),
         ...field('threads', 'CPU threads', '0 = automatic'), ...field('parallel', 'Parallel requests per model', '0 = automatic: as many as the GPU memory allows (1-16)'),
         el('div', { class: 'row' }, el('button', { onclick: save }, 'Save'), el('span', { class: 'sub' }, 'Applies to models started after saving.')),
-        el('h2', {}, 'Admin password'),
-        el('label', { for: 'pwcur' }, 'Current password'), el('input', { id: 'pwcur', type: 'password', autocomplete: 'current-password' }),
-        el('label', { for: 'pwnew' }, 'New password (at least 8 characters)'), el('input', { id: 'pwnew', type: 'password', autocomplete: 'new-password' }),
-        el('label', { for: 'pwnew2' }, 'New password again'), el('input', { id: 'pwnew2', type: 'password', autocomplete: 'new-password' }),
-        el('div', { class: 'row' }, el('button', { onclick: async () => {
-          if ($('pwnew').value !== $('pwnew2').value) { say('The two new passwords do not match.'); return; }
-          const r = await api('/api/admin/change', { method: 'POST', body: JSON.stringify({ current: $('pwcur').value, password: $('pwnew').value }) }).catch(() => null);
-          for (const id of ['pwcur', 'pwnew', 'pwnew2']) $(id).value = '';
-          say(r && r.ok ? 'Admin password changed.' : 'Not changed: ' + (r ? await r.text() : 'the server did not answer'));
-        } }, 'Change password'), el('span', { class: 'sub' }, 'Lost it? On this computer: sushila password --reset')),
         el('h2', {}, 'Access from other machines'),
         el('p', { class: 'sub' }, sh.enabled ? ('On' + (sh.open ? ', open to anyone who can reach the port (no key)' : ', ' + sh.keys + ' access key(s)')) : 'Off: only this computer can use it.'),
         el('pre', {}, 'sushila serve --public --port ' + (s.port || 7874) + '     # reachable at http://<this machine>:' + (s.port || 7874) + '/\nsushila keys add <name>                  # an access key for another machine or app')];
@@ -971,7 +949,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       const h = location.hash.slice(1).split('/');
       view = h[0] === 'assistant' ? 'assistant' : local && h[0] === 'admin' ? 'admin' : local && h[0] === 'library' ? 'library' : ''; note = '';
       const B = { '': ['Create', ['What will you ', el('b', {}, 'make'), ' today?'], local ? 'Chat, code, pictures, songs and videos, made on this computer: private, and free.' : 'Chat, code, pictures, songs and videos, made on this Sushila Engine.'],
-        library: ['Library', ['Everything you ', el('b', {}, 'made')], 'Pictures, songs and videos made here, with the prompt and settings of each. Share any of them with one link.'],
+        library: ['myContent', ['Everything you ', el('b', {}, 'made')], 'Pictures, songs and videos made here, with the prompt and settings of each. Share any of them with one link.'],
         admin: ['Admin', ['This computer\'s ', el('b', {}, 'Sushila')], 'Model packs, the engine, the queue, logs and settings: everything that runs here.'],
         assistant: ['Help', ['Ask ', el('b', {}, 'Sushila')], 'Answers from Sushila\'s own documentation, with the commands to run.'] }[view] || [];
       band.replaceChildren(el('div', {}, el('div', { class: 'eb' }, B[0]), el('h1', {}, ...B[1]), el('p', {}, B[2])));
@@ -1562,6 +1540,13 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       let r = null, d = null;
       try { const st = await (await fetch(base() + '/api/state', { headers: auth() })).json(); r = (st.running || []).find((x) => x.packId === model.packId); } catch (_) {}
       if (!server) { try { const x = await fetch(base() + '/api/diagnose?pack=' + encodeURIComponent(model.packId), { headers: auth() }); if (x.ok) d = await x.json(); } catch (_) {} }
+      // the request never got an answer (the browser said "Failed to fetch") while the model runs, ready: the model did not
+      // stop; the connection did (the network, or a request the browser refused to send through the internet link)
+      if (/Failed to fetch|NetworkError|Load failed/.test(m) && r && r.ready) {
+        box.replaceChildren(el('div', {}, el('b', {}, 'The connection broke while ' + what + '. ')),
+          el('div', {}, model.name + ' is running and fine' + (PFX ? '; the request did not get through the internet link.' : '; the request did not reach it.') + ' Try again.'));
+        return;
+      }
       const now = !r ? 'It is not running now: start it again at the top of this page.' : !r.ready ? 'Sushila is restarting it now; try again when it shows as running.' : 'It runs again now; you can try again.';
       box.replaceChildren(el('div', {}, el('b', {}, model.name + ' stopped while ' + what + ', so this result was lost. ')), el('div', {}, now),
         d ? el('div', { class: 'diag' }, el('div', {}, el('b', {}, 'Why: '), d.verdict + '.'),

@@ -37,7 +37,6 @@ const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="u
 
 // ---------- local web server ----------
 pub struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>>,
-                 sessions: std::sync::Mutex<HashMap<String, (std::time::Instant, String)>>,  // session -> (since, which password)
                  metrics: std::sync::Mutex<Metrics>, started: std::time::Instant }
 
 /// Counters for /metrics (Prometheus text format), per model.
@@ -101,29 +100,10 @@ fn who_name(who: &str, st: &Value) -> String {
         .and_then(|k| k.get("name").and_then(|n| n.as_str())).map(|n| format!("key:{n}")).unwrap_or_else(|| "key".into())
 }
 
-// ---------- the Admin tab: one password per computer
-// <data>/adminpassword holds an Argon2id hash of the admin password (not the password; it cannot be read back). It is
-// created the first time (in the terminal, or on the Admin tab from this computer only). Changing it needs the current
-// password (Admin tab or `sushila password`). Lost it? On this computer: `sushila password --reset` (as the user who owns
-// the data folder), so the owner is never locked out and nobody else can reset it. The sushila commands do not need the
-// password: they run as the same user and prove it with <data>/admin-cli.token, a random file only that user can read.
-pub fn password_set(dir: &Path) -> bool { dir.join("adminpassword").exists() }
-/// Which password a session was made with: a login ends when the password is changed or reset.
-fn password_id(dir: &Path) -> String { std::fs::read(dir.join("adminpassword")).map(|b| hex::encode(Sha256::digest(&b))).unwrap_or_default() }
-pub fn set_password(dir: &Path, pw: &str) -> Result<(), String> {
-    use argon2::{password_hash::{PasswordHasher, SaltString}, Argon2};
-    if pw.chars().count() < 8 { return Err("the admin password needs at least 8 characters".into()); }
-    let mut salt = [0u8; 16]; getrandom::getrandom(&mut salt).map_err(|e| e.to_string())?;
-    let salt = SaltString::encode_b64(&salt).map_err(|e| e.to_string())?;
-    let hash = Argon2::default().hash_password(pw.as_bytes(), &salt).map_err(|e| e.to_string())?.to_string();
-    write_private(&dir.join("adminpassword"), &hash)
-}
-pub fn check_password(dir: &Path, pw: &str) -> bool {
-    use argon2::{password_hash::{PasswordHash, PasswordVerifier}, Argon2};
-    let Ok(h) = std::fs::read_to_string(dir.join("adminpassword")) else { return false };
-    let Ok(parsed) = PasswordHash::new(h.trim()) else { return false };
-    Argon2::default().verify_password(pw.as_bytes(), &parsed).is_ok()
-}
+// ---------- the Admin tab: no password. Who may manage Sushila is decided by where a request comes from: this computer's
+// own page (http://localhost:<port>, its token, checked against the real connection) or the computer's owner through
+// the internet link (an owner pass from sushila.ai, tunnel::owner_ok). The sushila commands run as the same user and
+// also send <data>/admin-cli.token, a random file only that user can read.
 /// A file only this user can read (Unix mode 600; on Windows the user's own AppData folder).
 pub fn write_private(p: &Path, content: &str) -> Result<(), String> {
     std::fs::write(p, content).map_err(|e| e.to_string())?;
@@ -218,19 +198,14 @@ async fn mark_peer(axum::extract::ConnectInfo(peer): axum::extract::ConnectInfo<
     if let Ok(v) = axum::http::HeaderValue::from_str(&peer.ip().to_string()) { h.insert(PEER_IP, v); }
     next.run(req).await
 }
-/// Admin requests: from this computer (or from anywhere when share.remoteAdmin is on), with an Admin-tab session or
-/// the sushila commands' token.
+/// Admin requests: this computer's own page or its owner through the internet link (the local token or the owner pass,
+/// which also keeps other web sites from sending admin requests: a custom header they cannot add without asking), or
+/// the sushila commands with their token.
 fn admin_ok(s: &Srv, headers: &axum::http::HeaderMap, st: &Value) -> bool {
-    if !host_ok(headers, s.port, st) { return false; }
-    let remote_ok = share(st).and_then(|sh| sh.get("remoteAdmin")).and_then(|v| v.as_bool()).unwrap_or(false);
-    if !local_host(headers, s.port) && !remote_ok { return false; }
+    if !host_ok(headers, s.port, st) || !local_host(headers, s.port) { return false; }
+    if caller(headers, st).as_deref() == Some("local") { return true; }
     let given = headers.get("x-sushila-admin").and_then(|h| h.to_str().ok()).unwrap_or("");
-    if given.len() < 32 { return false; }
-    if given == cli_token(&s.data_dir) { return true; }
-    let mut ss = s.sessions.lock().unwrap();
-    let pid = password_id(&s.data_dir);  // changed or reset: sessions of the old password end
-    ss.retain(|_, (t, p)| t.elapsed() < Duration::from_secs(12 * 3600) && !pid.is_empty() && *p == pid);
-    ss.contains_key(given)
+    given.len() >= 32 && given == cli_token(&s.data_dir)
 }
 
 // Sharing (Settings -> Share on the network), read from state.json on every request:
@@ -1004,86 +979,15 @@ async fn srv_docs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, heade
     ([("content-type", "text/html; charset=utf-8"), ("cache-control", "no-store")], DOCS_HTML).into_response()
 }
 
-/// GET /api/admin: {passwordSet, loggedIn, local}: what the Admin tab should show.
+/// GET /api/admin: {loggedIn, allowed, home}: what the Admin tab should show (no password: allowed is logged in).
 async fn srv_admin(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
     let st = read_state(&s.data_dir);
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    let remote_ok = share(&st).and_then(|sh| sh.get("remoteAdmin")).and_then(|v| v.as_bool()).unwrap_or(false);
     // the home folder only for the computer itself (the ☰ menu shows it there; other machines never see local paths)
-    let home = if local_host(&headers, s.port) { Some(s.data_dir.to_string_lossy().to_string()) } else { None };
-    axum::Json(json!({ "passwordSet": password_set(&s.data_dir), "loggedIn": admin_ok(&s, &headers, &st), "allowed": local_host(&headers, s.port) || remote_ok, "home": home })).into_response()
-}
-/// POST /api/login {password} -> {session}; POST /api/setup {password}: the first password, only from this computer
-/// and only while none is set; POST /api/admin/change {current, password} (logged in + the current password); POST /api/admin/logout.
-/// Password checks (Argon2, ~19 MB each): at most two at a time, and an address that gave 5 wrong passwords waits
-/// 15 minutes. Old entries are dropped as the map is used, so it stays small.
-static LOGIN_GATE: std::sync::LazyLock<tokio::sync::Semaphore> = std::sync::LazyLock::new(|| tokio::sync::Semaphore::new(2));
-static LOGIN_FAILS: std::sync::LazyLock<std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>>> = std::sync::LazyLock::new(Default::default);
-const LOCKOUT: Duration = Duration::from_secs(15 * 60);
-fn login_locked(ip: &str) -> bool {
-    let mut m = LOGIN_FAILS.lock().unwrap();
-    m.retain(|_, (_, t)| t.elapsed() < LOCKOUT);
-    m.get(ip).map(|(n, _)| *n >= 5).unwrap_or(false)
-}
-fn login_failed(ip: &str) {
-    let mut m = LOGIN_FAILS.lock().unwrap();
-    if m.len() > 10_000 { m.clear(); }
-    let e = m.entry(ip.to_string()).or_insert((0, std::time::Instant::now()));
-    e.0 += 1; e.1 = std::time::Instant::now();
-}
-async fn check_pw_gated(dir: PathBuf, ip: &str, pw: String) -> Result<bool, &'static str> {
-    if login_locked(ip) { return Err("too many wrong passwords from this address; try again in 15 minutes"); }
-    let _permit = LOGIN_GATE.acquire().await.map_err(|_| "busy")?;
-    let ok = tokio::task::spawn_blocking(move || check_password(&dir, &pw)).await.unwrap_or(false);
-    if !ok { login_failed(ip); tokio::time::sleep(Duration::from_secs(1)).await; }
-    Ok(ok)
-}
-async fn srv_login(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(what): axum::extract::Path<String>, req: axum::extract::Request) -> axum::response::Response {
-    use axum::response::IntoResponse;
-    let (parts, body) = req.into_parts();
-    let st = read_state(&s.data_dir);
-    let remote_ok = share(&st).and_then(|sh| sh.get("remoteAdmin")).and_then(|v| v.as_bool()).unwrap_or(false);
-    if !host_ok(&parts.headers, s.port, &st) || !(local_host(&parts.headers, s.port) || remote_ok) { return (axum::http::StatusCode::FORBIDDEN, "admin is available on this computer only").into_response(); }
-    let Ok(bytes) = axum::body::to_bytes(body, 4096).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
-    let pw = serde_json::from_slice::<Value>(&bytes).ok().and_then(|v| v.get("password").and_then(|p| p.as_str()).map(String::from)).unwrap_or_default();
-    let new_session = |s: &Srv| { let mut b = [0u8; 24]; let _ = getrandom::getrandom(&mut b); let id = hex::encode(b); s.sessions.lock().unwrap().insert(id.clone(), (std::time::Instant::now(), password_id(&s.data_dir))); id };
-    match what.as_str() {
-        "setup" => {
-            if password_set(&s.data_dir) { return (axum::http::StatusCode::CONFLICT, "a password is already set (delete the adminpassword file to start over)").into_response(); }
-            if !local_host(&parts.headers, s.port) { return (axum::http::StatusCode::FORBIDDEN, "the first password can only be set on this computer").into_response(); }
-            if let Err(e) = set_password(&s.data_dir, &pw) { return (axum::http::StatusCode::BAD_REQUEST, e).into_response(); }
-            axum::Json(json!({ "session": new_session(&s) })).into_response()
-        }
-        "login" => {
-            match check_pw_gated(s.data_dir.clone(), &peer_ip(&parts.headers), pw.clone()).await {
-                Err(e) => return (axum::http::StatusCode::TOO_MANY_REQUESTS, e).into_response(),
-                Ok(false) => return (axum::http::StatusCode::UNAUTHORIZED, "wrong password").into_response(),
-                Ok(true) => {}
-            }
-            axum::Json(json!({ "session": new_session(&s) })).into_response()
-        }
-        "change" => {
-            // changing needs a logged-in session AND the current password; a lost password is reset only with
-            // `sushila password --reset` on this computer
-            if !admin_ok(&s, &parts.headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "log in first").into_response(); }
-            let v = serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null);
-            let (cur, new) = (v.get("current").and_then(|p| p.as_str()).unwrap_or("").to_string(), v.get("password").and_then(|p| p.as_str()).unwrap_or("").to_string());
-            if !check_pw_gated(s.data_dir.clone(), &peer_ip(&parts.headers), cur.clone()).await.unwrap_or(false) { return (axum::http::StatusCode::UNAUTHORIZED, "wrong current password").into_response(); }
-            if let Err(e) = set_password(&s.data_dir, &new) { return (axum::http::StatusCode::BAD_REQUEST, e).into_response(); }
-            let keep = parts.headers.get("x-sushila-admin").and_then(|h| h.to_str().ok()).unwrap_or("").to_string();
-            let pid = password_id(&s.data_dir);
-            let mut ss = s.sessions.lock().unwrap();
-            ss.retain(|k, _| *k == keep);  // other browsers log in again with the new password
-            if let Some(v) = ss.get_mut(&keep) { v.1 = pid; }
-            axum::Json(json!({ "ok": true })).into_response()
-        }
-        "logout" => {
-            if let Some(t) = parts.headers.get("x-sushila-admin").and_then(|h| h.to_str().ok()) { s.sessions.lock().unwrap().remove(t); }
-            axum::Json(json!({ "ok": true })).into_response()
-        }
-        _ => (axum::http::StatusCode::NOT_FOUND, "not found").into_response(),
-    }
+    let home = if this_computer(&headers, s.port) { Some(s.data_dir.to_string_lossy().to_string()) } else { None };
+    let ok = admin_ok(&s, &headers, &st);
+    axum::Json(json!({ "passwordSet": true, "loggedIn": ok, "allowed": ok, "home": home })).into_response()
 }
 
 /// POST /api/assistant {question, history?} -> {answer, sources, model}: "Ask Sushila", answered by the largest installed
@@ -1118,7 +1022,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
     let ip: std::net::IpAddr = bind.parse().map_err(|_| format!("not an IP address: {bind}"))?;
     let listener = tokio::net::TcpListener::bind((ip, port)).await.map_err(|e| format!("port {port} is busy: {e}"))?;
     let _ = cli_token(&data_dir);
-    let srv = Arc::new(Srv { port, data_dir, http: client()?, hits: std::sync::Mutex::new(HashMap::new()), sessions: std::sync::Mutex::new(HashMap::new()), metrics: Default::default(), started: std::time::Instant::now() });
+    let srv = Arc::new(Srv { port, data_dir, http: client()?, hits: std::sync::Mutex::new(HashMap::new()), metrics: Default::default(), started: std::time::Instant::now() });
     let app = axum::Router::new()
         .route("/", axum::routing::get(srv_page))
         .route("/docs", axum::routing::get(srv_docs))
@@ -1142,7 +1046,6 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/logs", axum::routing::get(srv_logs))
         .route("/api/catalog", axum::routing::get(srv_catalog))
         .route("/api/admin", axum::routing::get(srv_admin))
-        .route("/api/admin/:what", axum::routing::post(srv_login))
         .route("/install/:pack", axum::routing::get(srv_install_link))
         .route("/admin", axum::routing::get(|| async { axum::response::Redirect::to("/#admin") }))
         .route("/api/assistant", axum::routing::post(srv_assistant).options(srv_assistant))
@@ -1200,12 +1103,5 @@ mod robustness_tests {
             let h = tunnel(&bad);
             assert!(!local_host(&h, 7874) && caller(&h, &st).is_none(), "{why}: refused");
         }
-    }
-    #[test] fn login_lockout() {
-        let ip = "203.0.113.99";
-        for _ in 0..4 { login_failed(ip); }
-        assert!(!login_locked(ip));
-        login_failed(ip);
-        assert!(login_locked(ip));
     }
 }
