@@ -1,0 +1,5 @@
+ACE-Step 1.5 music pack, 30 s instrumental song through the server (the page's two steps: /lm then /synth), RTX 3090 24 GB, 2026-10-08:
+  with --keep-loaded (all models stay on the GPU): 8 s, peak GPU memory 15,980 MiB (16,128 MiB in a second run)
+  without --keep-loaded (each model loads for its step): 9 s, peak GPU memory 7,070 MiB
+Cause of the user's "Failed to fetch" / "Job not found" on an RTX 3070 Laptop GPU (8 GB): the engine ran out of GPU memory
+(plus 6 engines left from earlier sessions holding memory). Build 11: keep-loaded only with about 20 GB or more; strays stopped.

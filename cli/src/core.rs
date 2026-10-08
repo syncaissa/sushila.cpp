@@ -648,6 +648,10 @@ impl Ctx {
             pack_args.retain(|a| a != "--offload-to-cpu");
             self.log(&format!("{id}: the GPU has room for the whole model, so it stays on the GPU"));
         }
+        // music: keeping every ACE-Step model on the GPU between songs needs about 16 GB (measured on an RTX 3090: 16.0 GB
+        // with --keep-loaded, 7.1 GB without, the same 9 s for a 30 s song); only GPUs of about 20 GB or more keep them
+        let keep_loaded: Vec<String> = if engine == "music" && self.gpu_room_for(&json!({ "bytes": 13e9 })).await { vec!["--keep-loaded".into()] } else { vec![] };
+        if engine == "music" && keep_loaded.is_empty() { self.log(&format!("{id}: each ACE-Step model loads for its own step (this GPU has less than about 20 GB)")); }
         let rt = self.state["runtimes"]["image-nunchaku"].clone();
         let servers = self.state["engine"]["servers"].clone();
         let cpu = self.cpu_only.contains(id);  // a pack asked to run on the CPU (none by default)
@@ -658,7 +662,7 @@ impl Ctx {
                 (rt["python"].as_str().unwrap_or("").into(), [vec![rt["script"].as_str().unwrap_or("").into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string(), "--name".into(), id.into()], pack_args].concat())
             }
             "music" => (servers["music"].as_str().ok_or("this Sushila.cpp has no music engine: run `sushila engine install` to update it")?.into(),
-                        [vec!["--models".into(), dir.to_string_lossy().into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string(), "--keep-loaded".into()], pack_args].concat()),
+                        [vec!["--models".into(), dir.to_string_lossy().into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string()], keep_loaded, pack_args].concat()),
             "image" => (servers["image"].as_str().ok_or("this Sushila.cpp has no image engine: run `sushila engine install` to update it")?.into(),
                         [vec!["--listen-ip".into(), "127.0.0.1".into(), "--listen-port".into(), port.to_string(), "-t".into(), threads.to_string()], pack_args].concat()),
             _ => {
@@ -682,6 +686,7 @@ impl Ctx {
         // each start begins a section of the engine's log, so a failure shows only this run's lines
         { use std::io::Write; if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(logs.join(format!("{id}.log"))) { let _ = writeln!(f, "----- start {} ({})", now_iso(), if mode == "turbo" { "Accelerated" } else { "Standard" }); } }
         let mut child = c.spawn().map_err(|e| format!("could not start {program}: {e}"))?;
+        tie_to_us(&child);
         for pipe in [child.stdout.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>), child.stderr.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>)].into_iter().flatten() {
             let (path, quiet, id2) = (logs.join(format!("{id}.log")), self.quiet, id.to_string());
             tokio::spawn(async move {
@@ -709,6 +714,8 @@ impl Ctx {
     pub async fn stop_all(&mut self) {
         let ids: Vec<String> = self.procs.lock().await.keys().cloned().collect();
         for id in ids { self.stop_model(&id).await; }
+        let strays = kill_strays(&self.data);
+        if !strays.is_empty() { self.log(&format!("stopped engines left running: {}", strays.join(", "))); }
         self.state["running"] = json!({});
         let _ = self.save();
     }
@@ -1053,6 +1060,44 @@ pub fn tail_lines(p: &Path, n: usize) -> String {
     l[l.len().saturating_sub(n)..].join("\n")
 }
 /// After the server died: stop the model engines it had started (they would keep their ports and GPU memory).
+/// Engines of this home folder that run although no server owns them (left by a closed window, a crash or an older
+/// version): every process whose program lives in <home>/engine/ or <home>/runtime/ (the chat, image and music engines,
+/// the image runtime's Python), except this process. Nothing else is touched. Returns what was stopped.
+pub fn kill_strays(data: &Path) -> Vec<String> {
+    let home = std::fs::canonicalize(data).unwrap_or(data.to_path_buf());
+    let dirs = [home.join("engine"), home.join("runtime")];
+    let me = std::process::id();
+    let mut sys = sysinfo::System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    let mut killed = vec![];
+    for (pid, pr) in sys.processes() {
+        if pid.as_u32() == me || pr.thread_kind().is_some() { continue; }  // Linux lists threads too: processes only
+        let Some(exe) = pr.exe() else { continue };
+        let exe = std::fs::canonicalize(exe).unwrap_or(exe.to_path_buf());
+        if dirs.iter().any(|d| exe.starts_with(d)) && pr.kill() { killed.push(format!("{} (pid {})", pr.name().to_string_lossy(), pid.as_u32())); }
+    }
+    killed
+}
+
+/// Windows: every engine joins one job object that closes with this process, so Windows ends the engines when Sushila
+/// ends, even when its window is closed with X or it is killed (no engine is left holding GPU memory).
+#[cfg(windows)]
+pub fn tie_to_us(child: &tokio::process::Child) {
+    use windows_sys::Win32::System::JobObjects::*;
+    static JOB: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    let job = *JOB.get_or_init(|| unsafe {
+        let h = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+        if h.is_null() { return 0; }
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        SetInformationJobObject(h, JobObjectExtendedLimitInformation, &info as *const _ as *const core::ffi::c_void, std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32);
+        h as usize
+    });
+    if let (true, Some(ph)) = (job != 0, child.raw_handle()) { unsafe { AssignProcessToJobObject(job as _, ph as _); } }
+}
+#[cfg(not(windows))]
+pub fn tie_to_us(_child: &tokio::process::Child) {}
+
 pub fn kill_orphans(data: &Path) -> Vec<String> {
     let st: Value = std::fs::read_to_string(data.join("state.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(Value::Null);
     let mut sys = sysinfo::System::new();

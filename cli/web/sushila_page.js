@@ -875,6 +875,15 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       }
       return null;
     }
+    // a broken connection or a lost job means the model's engine stopped or restarted: say that, in words
+    async function whatHappened(e, what) {
+      const m = String((e && e.message) || e);
+      if (!/Failed to fetch|NetworkError|Load failed|Job not found|not running|did not answer|503/.test(m) || !model) return m;
+      let r = null; try { const st = await (await fetch(base() + '/api/state')).json(); r = (st.running || []).find((x) => x.packId === model.packId); } catch (_) {}
+      const state = !r ? 'It is not running now: start it again at the top of this page.' : !r.ready ? 'Sushila is restarting it now; try again when it shows as running.' : 'It runs again now; try again.';
+      return model.name + ' stopped while ' + what + ', so this result was lost. ' + state
+        + ' Often the reason is GPU memory (another program, or a shorter or smaller request helps); the reason is in Admin, Full log.';
+    }
     async function makeMusic() {
       const style = $('mstyle').value.trim(); let lyrics = $('mlyrics').value.trim();
       if (!style || !model) { $('mmsg').className = 'msg err'; $('mmsg').textContent = 'Describe the style first (2. Style).'; return; }
@@ -893,7 +902,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         $('tracks').prepend(el('div', { class: 'track' }, el('b', {}, style), el('div', { class: 'meta' }, `made in ${secs} s` + (lyrics && lyrics !== '[Instrumental]' ? ' · with your lyrics' : '')),
           el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-song.mp3', class: 'dlbtn' }, '⬇ Download')));
         $('mmsg').textContent = `Done in ${secs} s.`;
-      } catch (e) { $('mmsg').className = 'msg err'; $('mmsg').textContent = String(e.message || e); }
+      } catch (e) { $('mmsg').className = 'msg err'; $('mmsg').textContent = await whatHappened(e, 'making your song'); }
       finally { $('mgo').disabled = false; }
     }
 
@@ -949,7 +958,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         for (const { src, file } of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
           el('a', { href: src, download: file ? file.split(/[\\/]/).pop() : 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'), file ? ' ' : null, file ? savedAt(file) : null)));
         $('imsg').textContent = `${imgs.length} image${imgs.length > 1 ? 's' : ''} in ${secs} s`;
-      } catch (e) { $('imsg').className = 'msg err'; $('imsg').textContent = String(e.message || e); }
+      } catch (e) { $('imsg').className = 'msg err'; $('imsg').textContent = await whatHappened(e, 'making your picture'); }
       finally { $('igo').disabled = false; }
     }
 

@@ -190,7 +190,12 @@ fn example(cmd: &str, port: u16) -> Option<String> {
 /// Runs a line in the system shell (cmd on Windows, sh elsewhere), in the background under the screen.
 fn shell(cmd: &str, dir: &Path) {
     if cmd.is_empty() { eprintln!("!<command> runs a command of the system shell, e.g. !dir or !ls, !nvidia-smi"); return; }
-    let mut c = if cfg!(windows) { let mut c = std::process::Command::new("cmd"); c.args(["/C", cmd]); c } else { let mut c = std::process::Command::new("sh"); c.args(["-c", cmd]); c };
+    // Windows: the line goes to cmd exactly as typed (quoted as one argument, cmd would garble inner quotes, e.g. in
+    // !powershell -c "Get-Content logs\x.log -Tail 40")
+    #[cfg(windows)]
+    let mut c = { use std::os::windows::process::CommandExt; let mut c = std::process::Command::new("cmd"); c.arg("/C").raw_arg(cmd); c };
+    #[cfg(not(windows))]
+    let mut c = { let mut c = std::process::Command::new("sh"); c.args(["-c", cmd]); c };
     c.current_dir(dir).stdin(std::process::Stdio::null());
     if crate::tui::in_screen() {
         match wait_or_cancel(c) { Ok(None) => eprintln!("(cancelled)"), Err(e) => eprintln!("could not run it: {e}"), _ => {} }

@@ -929,6 +929,9 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         if ctx.state["share"]["hosts"].as_array().map(|a| a.is_empty()).unwrap_or(true) { ctx.state["share"]["hosts"] = json!(["*"]); }
         if !open && ctx.state["share"]["keys"].as_array().map(|a| a.is_empty()).unwrap_or(true) { eprintln!("Other machines need an access key: `sushila keys add <name>` (or serve with --open on a trusted network)."); }
     }
+    // engines from an earlier session (closed window, crash, older version) still hold GPU memory: stopped first
+    let strays = core::kill_strays(&ctx.data);
+    if !strays.is_empty() { ctx.log(&format!("stopped engines left running from an earlier session (they held GPU memory): {}", strays.join(", "))); }
     ctx.state["running"] = json!({});
     ctx.state["tasks"] = json!([]);
     ctx.state["owner"] = json!({ "pid": std::process::id(), "since": now_iso(), "by": "sushila serve", "port": port });
