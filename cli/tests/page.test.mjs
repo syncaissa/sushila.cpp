@@ -11,7 +11,7 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
   const w = new JSDOM('<!doctype html><div id="app"></div>', { url: 'http://localhost:7874/' + search + hash, runScripts: 'outside-only', pretendToBeVisual: true }).window;
   if (token && token.startsWith('owner.')) w.SUSHILA_OWNER = token; else if (token) w.SUSHILA_TOKEN = token;
   w.confirm = () => { throw new Error('window.confirm must not be used (toasts)'); };
-  const hdrs = []; w.fetch = async (u, o = {}) => { u = String(u); hdrs.push(Object.assign({}, o.headers || {})); if (o.method === 'POST') sent.push({ u, body: o.body, h: o.headers });
+  const hdrs = []; w.fetch = async (u, o = {}) => { u = String(u); hdrs.push(Object.assign({ _u: u }, o.headers || {})); if (o.method === 'POST') sent.push({ u, body: o.body, h: o.headers });
     if (u.includes('/api/admin/change')) { const b = JSON.parse(o.body); const good = b.current === 'correct horse'; return { ok: good, status: good ? 200 : 401, json: async () => ({ ok: good }), text: async () => good ? '' : 'wrong current password' }; }
     if (u.includes('/api/admin/setup') || u.includes('/api/admin/login')) { const pw = JSON.parse(o.body).password; if (pw !== 'correct horse') return { ok: false, status: 401, json: async () => ({}), text: async () => 'wrong password' }; A.passwordSet = true; A.loggedIn = true; return { ok: true, status: 200, json: async () => ({ session: 's'.repeat(48) }), text: async () => '' }; }
     if (u.includes('/api/assistant') && JSON.parse(o.body).question === 'quote me') return { ok: true, status: 200, json: async () => ({ mode: 'quote', model: 'qwen2.5-0.5b-q4km', answer: '…', quotes: [{ title: 'The Admin tab and security', source: 'notes', text: 'lost it? run sushila password --reset' }], commands: ['sushila password --reset'], hint: 'For fuller answers install a bigger chat model, e.g. `sushila install qwen3-4b-instruct-2507` (needs about 3 GB).', sources: [] }), text: async () => '' };
@@ -173,6 +173,8 @@ p = await page('tok123', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) =
   ok(tabs(po) === tabs(pl) && tabs(po).includes('Admin') && tabs(po).includes('Library'), 'owner through the internet link: every tab, Admin included (' + tabs(po) + ')');
   po.w.location.hash = '#admin'; await sleep(300);
   ok(po.hdrs.length > 2 && po.hdrs.filter((h) => h['x-sushila-token']).every((h) => h['x-sushila-token'].startsWith('owner.')) && po.hdrs.some((h) => h['x-sushila-token']), 'owner page: every API call carries the owner pass (' + po.hdrs.length + ' calls)');
+  const bare = po.hdrs.filter((h) => /\/api\/(state|queue|admin|library)/.test(h._u) && !h['x-sushila-token']);
+  ok(bare.length === 0, 'owner page: no state/queue/admin/library request without the pass (' + bare.map((h) => h._u).join(', ') + ')');
 }
 p = await page('', ''); ok([...p.d.querySelectorAll('.smenu a')].map((a) => a.textContent).join(',') === 'Inference,Documentation,Ask Sushila,API' && !p.d.querySelector('#shome') && !p.d.querySelector('.swhere').textContent.includes('/admin'), 'remote visitor: ☰ menu without Admin or the home folder');
 // Ask Sushila: the ☰ item opens the panel; a question goes to /api/assistant (with the token here, a key elsewhere); answer and sources shown

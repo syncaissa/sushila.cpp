@@ -527,7 +527,7 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
         if (view === 'admin') { try { admin = await (await api('/api/admin')).json(); } catch (_) {} }
         const lo = $('logout'); if (lo) lo.classList.toggle('hidden', !(view === 'admin' && admin.loggedIn));
         if (view === 'admin' && !admin.loggedIn) { await render(); return; }
-        try { st = await (await fetch('/api/state')).json(); } catch (_) { /* keep the last state; the banner says the server is down */ }
+        try { st = await (await api('/api/state')).json(); } catch (_) { /* keep the last state; the banner says the server is down */ }
         if (view === 'admin' && openSecs.has('packs') && !catalog) { try { catalog = await (await api('/api/catalog')).json(); } catch (_) { catalog = { packs: [] }; } }
         if (view === 'admin' && (openSecs.has('health') || openSecs.has('now'))) { try { sys = await (await api('/api/system')).json(); } catch (_) {} }
         await render();
@@ -1131,7 +1131,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       const seq = ++loadSeq, srv = server;  // an answer that arrives after a newer request (or another server) is dropped
       setStatus('connecting…');
       try {
-        const r = await fetch(base() + '/api/state');
+        const r = await fetch(base() + '/api/state', { headers: auth() });
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const s = await r.json();
         if (seq !== loadSeq || srv !== server) return;
@@ -1187,7 +1187,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         const { id: task } = await r.json().catch(() => ({}));
         for (let i = 0; i < 600; i++) {
           await new Promise((res) => setTimeout(res, 1000));
-          let st; try { st = await (await fetch(base() + '/api/state')).json(); } catch (_) { continue; }  // a moment without an answer: ask again
+          let st; try { st = await (await fetch(base() + '/api/state', { headers: auth() })).json(); } catch (_) { continue; }  // a moment without an answer: ask again
           const m = (st.running || []).find((x) => x.packId === id);
           if (action === 'stop' ? !m : m && m.ready && (!md || m.mode === md)) break;
           const t = task && (st.tasks || []).find((x) => x.id === task);
@@ -1489,7 +1489,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       box.className = 'msg err';
       if (!/Failed to fetch|NetworkError|Load failed|Job not found|not running|did not answer|stopped|503|500/.test(m) || !model) { box.textContent = m; return; }
       let r = null, d = null;
-      try { const st = await (await fetch(base() + '/api/state')).json(); r = (st.running || []).find((x) => x.packId === model.packId); } catch (_) {}
+      try { const st = await (await fetch(base() + '/api/state', { headers: auth() })).json(); r = (st.running || []).find((x) => x.packId === model.packId); } catch (_) {}
       if (!server) { try { const x = await fetch(base() + '/api/diagnose?pack=' + encodeURIComponent(model.packId), { headers: auth() }); if (x.ok) d = await x.json(); } catch (_) {} }
       const now = !r ? 'It is not running now: start it again at the top of this page.' : !r.ready ? 'Sushila is restarting it now; try again when it shows as running.' : 'It runs again now; you can try again.';
       box.replaceChildren(el('div', {}, el('b', {}, model.name + ' stopped while ' + what + ', so this result was lost. ')), el('div', {}, now),
