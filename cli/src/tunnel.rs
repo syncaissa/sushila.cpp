@@ -31,7 +31,7 @@ fn asset() -> Option<(&'static str, &'static str)> {
 /// The running link's id and owner secret, for owner_ok (cleared when the tunnel stops).
 static OWNER: std::sync::RwLock<Option<(String, String)>> = std::sync::RwLock::new(None);
 
-fn hmac_sha256(key: &[u8], msg: &[u8]) -> [u8; 32] {
+pub(crate) fn hmac_sha256(key: &[u8], msg: &[u8]) -> [u8; 32] {
     use sha2::{Digest, Sha256};
     let mut k = [0u8; 64];
     if key.len() > 64 { k[..32].copy_from_slice(&Sha256::digest(key)); } else { k[..key.len()].copy_from_slice(key); }
@@ -89,7 +89,7 @@ async fn cloudflared(dir: &Path) -> Result<PathBuf, String> {
 /// The link and its access key stay the same from start to start (until deleted at sushila.ai/mycontent or a new key
 /// is chosen): <home>/tunnel.json {id, key}. Only this computer has the key itself; the engine stores its SHA-256.
 fn saved(dir: &Path) -> Value { std::fs::read_to_string(dir.join("tunnel.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(json!({})) }
-fn save(dir: &Path, v: &Value) { let _ = std::fs::write(dir.join("tunnel.json"), v.to_string()); }
+fn save(dir: &Path, v: &Value) { let _ = crate::webserver::write_private(&dir.join("tunnel.json"), &v.to_string()); }  // only this user can read it
 
 /// A change for the engine's owner loop (it owns state.json): allowed host names and access keys.
 fn control(dir: &Path, values: Value) -> Result<(), String> {
@@ -140,8 +140,8 @@ pub async fn start(dir: &Path, port: u16) -> Result<Value, String> {
     use sha2::{Digest, Sha256};
     // one link at a time: keys of earlier links (e.g. before a crash) are removed with this one's arrival
     control(dir, json!({ "enabled": true, "removeHostSuffix": ".trycloudflare.com", "addHost": host, "removeKeyPrefix": "internet-link-", "addKey": { "name": key_name, "sha256": hex::encode(Sha256::digest(key.as_bytes())) } }))?;
-    let secret = keep["ownerSecret"].as_str().filter(|s| s.len() == 64 && s.bytes().all(|c| c.is_ascii_hexdigit())).map(String::from)
-        .unwrap_or_else(|| { let mut b = [0u8; 32]; let _ = getrandom::getrandom(&mut b); hex::encode(b) });
+    // a new owner secret at every start: passes from before (the last run) stop working when the link is stopped and started
+    let secret = { let mut b = [0u8; 32]; getrandom::getrandom(&mut b).map_err(|e| e.to_string())?; hex::encode(b) };
     let reg = match crate::share::tunnel_register(dir, &target, keep["id"].as_str().unwrap_or(""), &secret).await { Ok(v) => v, Err(e) => { let _ = child.kill().await; let _ = control(dir, json!({ "removeHost": host, "removeKey": key_name })); return Err(e); } };
     let link = reg["link"].as_str().unwrap_or("").to_string();
     save(dir, &json!({ "id": reg["id"], "key": key, "ownerSecret": secret }));
@@ -172,8 +172,7 @@ pub async fn at_start(dir: PathBuf, port: u16) {
         return;
     }
     match start(&dir, port).await {
-        Ok(v) => crate::core::log(false, &format!("Internet:  {}   (you: sign in to sushila.ai and open it, everything as here; others: the access key {} ; switch off: 🌐 on the page)",
-            v["link"].as_str().unwrap_or(""), v["key"].as_str().unwrap_or(""))),
+        Ok(v) => crate::core::log(false, &format!("Internet:  {}   (only you: signed in to sushila.ai as its owner; switch off: 🌐 on the page)", v["link"].as_str().unwrap_or(""))),
         Err(e) => crate::core::log(false, &format!("Internet link: not made ({e})")),
     }
 }

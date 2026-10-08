@@ -77,6 +77,14 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
       m.addedNodes.forEach((n) => { if (n.nodeType === 1) { fixEl(n); if (n.querySelectorAll) n.querySelectorAll('[src],[href]').forEach(fixEl); } }); }))
       .observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['src', 'href'] });
   }
+  // the owner's page on the internet link: picture, song and video addresses (?t=) carry a media token (read-only, one
+  // hour, refreshed), never the owner pass, which would end up in the browser's history
+  let MEDIA = '';
+  const urlTok = (tok) => (tok && String(tok).startsWith('owner.') ? MEDIA : tok);
+  if (window.SUSHILA_OWNER) {
+    const getMedia = () => window.fetch((PFX || '') + '/api/media-token', { headers: { 'x-sushila-token': window.SUSHILA_OWNER } }).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.token) MEDIA = j.token; }).catch(() => {});
+    getMedia(); setInterval(getMedia, 45 * 60 * 1000);
+  }
   const el = (tag, attrs = {}, ...kids) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -197,6 +205,8 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
 .pill.on{color:var(--ok);border-color:currentColor}
 .hero h2{font-weight:500;font-size:24px;letter-spacing:-.015em}
 .downbar{top:64px}
+.snav .homebtn .hico{display:inline-flex}.snav .homebtn{display:inline-flex;align-items:center;gap:6px;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:7px 12px;margin-right:12px;border-radius:99px;border:1px solid rgba(255,255,255,.3)}.snav .homebtn:hover{background:rgba(255,255,255,.1);border-color:#fff}
+@media (max-width:520px){.snav .homebtn{font-size:0;padding:7px 9px;margin-right:6px;gap:0}}
 .switch{display:flex!important;align-items:center;gap:12px}.switch .slider{display:inline-block!important;flex:none}
 .snav>a:not([data-tab]),.snav>button.ghost:not(.tunbtn){color:#c5cbe0!important;background:transparent!important;border-color:rgba(255,255,255,.25)!important}
 @media (max-width:760px){.snav{padding:0 12px;height:58px}.snav a[data-tab]{height:58px;padding:0 10px}.snav .brand{margin-right:8px}.snav .tunbtn{padding:6px 10px!important;font-size:12px}
@@ -304,7 +314,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
               try { const k = await (await api('/api/tunnel/new-key', { method: 'POST' })).json(); box.remove(); show(Object.assign({}, t), k.key); toast('The old key stopped working.', { kind: 'ok', title: 'New access key' }); } catch (e) { toast(String(e.message || e), { kind: 'err', title: 'Could not change the key' }); } } }, '🔑 New access key'),
             el('button', { class: 'danger', onclick: async () => { try { const r = await api('/api/tunnel/stop', { method: 'POST' }); if (!r.ok) throw new Error(await r.text()); } catch (e) { toast(String(e.message || e), { kind: 'err', title: 'Could not stop the link' }); return; } box.remove(); toast('The link stops answering until Sushila makes it again (same address, same key).', { kind: 'ok', title: 'Internet URL closed' }); } }, 'Stop')),
           key ? el('div', { class: 'warnnote' }, el('b', {}, 'Access key for visitors: '), el('code', { style: 'user-select:all;word-break:break-all' }, key),
-            el('div', { class: 'sub' }, 'People who open the link use the Inference page of this Sushila Engine; it asks them for this key. Give the key only to people you trust. Admin, Library and the files on this computer stay on this computer.')) : null,
+            el('div', { class: 'sub' }, 'Only you can open the link (signed in to sushila.ai as its owner): everything works as here. This key is for programs that use the API through the link; give it only to people you trust.')) : null,
           el('label', { class: 'row', style: 'gap:8px;cursor:pointer' }, el('input', { type: 'checkbox', checked: !(st.settings && st.settings.internetUrlAtStart === false),
             onchange: async (e) => { const on = e.target.checked; await api('/api/tunnel/' + (on ? 'at-start-on' : 'at-start-off'), { method: 'POST' }).catch(() => {});
               toast(on ? 'Every start of Sushila opens your link (same address, same key), shown in its window and here.' : 'Sushila no longer opens the link when it starts; this button still does.', { kind: 'ok', title: on ? 'Link at every start' : 'No link at start' }); } }),
@@ -319,13 +329,18 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
           actions: [{ label: 'Sign in', primary: true, onclick: () => { lib.signin = { step: 'email', email: lib.acct.lastEmail || '', pending: null, purpose: 'SIGN_IN' }; location.hash = '#library'; } }, { label: 'Not now' }] });
         return;
       }
-      if (!await ask('A link like https://sushila.ai/localhost/… reaches this Sushila Engine from anywhere, through a Cloudflare tunnel (cloudflared is downloaded once, about 40 MB). Visitors need the access key made for the link and see only the Inference page. It stays open while Sushila runs; Stop closes it.',
+      if (!await ask('A link like https://sushila.ai/localhost/… reaches this Sushila Engine from anywhere, through a Cloudflare tunnel (cloudflared is downloaded once, about 40 MB). Only you can open it, signed in to sushila.ai with this account. It stays open while Sushila runs; Stop closes it.',
         'Get the link', { title: 'Open this Sushila Engine to the internet?' })) return;
       const wait = toast('Starting the tunnel… (the first time it also downloads cloudflared)', { kind: 'info', title: 'Getting a temporary internet URL', ms: 120000 });
       try { const r = await api('/api/tunnel/start', { method: 'POST' }); const t = r.ok ? await r.json() : null; wait(); if (!t) throw new Error(await r.text()); show(t, t.key); }
       catch (e) { wait(); toast(String(e.message || e), { kind: 'err', title: 'Could not get a temporary internet URL' }); }
     }
-    const nav = el('nav', { class: 'snav' }, menu, el('b', { class: 'brand' }, mark, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
+    // on the internet link (sushila.ai/localhost/<id>/) a Home button leads back to sushila.ai, so its home is never lost
+    const home = PFX ? el('a', { class: 'homebtn', href: 'https://sushila.ai/', target: '_top', title: 'sushila.ai home', 'aria-label': 'sushila.ai home' },
+      el('span', { class: 'hico', 'aria-hidden': 'true' }), 'Home') : null;
+    // (an SVG made by createElement would be in the HTML namespace and not drawn: parsed from markup instead)
+    if (home) home.firstChild.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h5v-5.5h3V20h5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const nav = el('nav', { class: 'snav' }, menu, home, el('b', { class: 'brand' }, mark, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
       el('span', { style: 'flex:1' }), local && !PFX ? el('button', { class: 'ghost tunbtn', title: 'A link that reaches this Sushila Engine from the internet', onclick: () => internetUrl() }, '🌐 Get temporary internet URL') : null);
     // ☰ closes when anything else is clicked or touched, a link in it is chosen, or Esc is pressed
     document.addEventListener('pointerdown', (e) => { if (menu.open && !menu.contains(e.target)) menu.open = false; });
@@ -376,7 +391,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
     // field, sortable, with Show in folder, Download, Copy path and Delete (to the Library's trash: Restore or Delete permanently)
     const lib = { items: null, trash: [], folder: '', q: '', kind: '', pack: '', sort: 'new', inTrash: false, msg: '',
       acct: { signedIn: false }, signin: null, shared: null, showShared: false, layout: (() => { try { return localStorage.getItem('sushila-lib-layout') || 'grid'; } catch (_) { return 'grid'; } })() };  // share links: the sushila.ai account (e-mail code, no password)
-    const fileUrl = (x, dl) => '/api/library/file?rel=' + encodeURIComponent(x.rel) + (x.trash ? '&trash=1' : '') + (dl ? '&download=1' : '') + '&t=' + encodeURIComponent(token);
+    const fileUrl = (x, dl) => '/api/library/file?rel=' + encodeURIComponent(x.rel) + (x.trash ? '&trash=1' : '') + (dl ? '&download=1' : '') + '&t=' + encodeURIComponent(urlTok(token));
     // on every picture, song and video: ⛶ shows it full screen (Esc returns); shared ones show their views on sushila.ai
     const viewsText = (n) => (n || 0).toLocaleString() + ' view' + (n === 1 ? '' : 's');
     function mediaBox(media, views) {
@@ -650,7 +665,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       control({ action: 'start', pack: p.id, mode });
     }
     function packsView() {
-      const want = new URLSearchParams(location.search).get('install');
+      const want = PFX ? null : new URLSearchParams(location.search).get('install');  // never from a link someone sent to the internet link
       const installed = st.packs || [], ids = new Set(installed.map((p) => p.id));
       const rows = installed.map((p) => {
         const r = running(p.id);
@@ -698,7 +713,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       const act = (id, a) => async () => { await api('/api/queue/' + encodeURIComponent(id) + '/' + a, { method: 'POST' }); setTimeout(render, 700); };
       const rows = (q.jobs || []).slice().reverse().map((j) => el('tr', {}, el('td', {}, el('b', {}, j.title || j.kind), el('div', { class: 'sub' }, j.model + ' · ' + (j.created || '').replace('T', ' ').slice(0, 16))),
         el('td', {}, el('span', { class: 'pill ' + (j.status === 'ready' ? 'on' : j.status === 'failed' ? 'off' : '') }, j.status), el('div', { class: 'sub' }, j.error || j.progress || '')),
-        el('td', { class: 'acts' }, j.status === 'ready' ? el('a', { class: 'dlbtn', href: '/api/queue/' + encodeURIComponent(j.id) + '/output?t=' + encodeURIComponent(token), target: '_blank' }, 'Open') : null,
+        el('td', { class: 'acts' }, j.status === 'ready' ? el('a', { class: 'dlbtn', href: '/api/queue/' + encodeURIComponent(j.id) + '/output?t=' + encodeURIComponent(urlTok(token)), target: '_blank' }, 'Open') : null,
           ['queued', 'running'].includes(j.status) ? el('button', { class: 'ghost', onclick: act(j.id, 'pause') }, 'Pause') : null,
           ['paused', 'failed', 'cancelled'].includes(j.status) ? el('button', { class: 'ghost', onclick: act(j.id, 'resume') }, 'Continue') : null,
           ['queued', 'paused', 'running'].includes(j.status) ? el('button', { class: 'ghost', onclick: act(j.id, 'cancel') }, 'Cancel') : el('button', { class: 'danger', onclick: act(j.id, 'remove') }, 'Remove'))));
@@ -1038,6 +1053,9 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     if (!embedded) document.title = 'Sushila Inference';
     const qs = embedded ? new URLSearchParams() : new URLSearchParams(location.search);
     const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
+    // through the internet link a link's own parameters never act: no token from the address, no prompt that runs by
+    // itself (a link someone sends could otherwise make this computer generate something)
+    if (PFX) for (const k of ['t', 'run', 'prompt', 'lyrics']) qs.delete(k);
     if (qs.get('t')) { try { sessionStorage.setItem('sushila-token', qs.get('t')); } catch (_) {} }
     let token = opts.token || ''; if (!embedded) try { token = window.SUSHILA_TOKEN || window.SUSHILA_OWNER || sessionStorage.getItem('sushila-token') || ''; } catch (_) { token = window.SUSHILA_TOKEN || window.SUSHILA_OWNER || ''; }
     let want = opts.model || qs.get('model') || '';
@@ -1300,7 +1318,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       : el('button', { class: 'ghost sharebtn', onclick: () => shareFromInference(kind, since, path) }, '⬆ Upload and get link'));
     const keyHint = () => (server && !keys[server] ? el('div', { class: 'sub' }, 'This server needs an access key: choose "Add a remote server…" again with the key.') : null);
     // ---------- the background queue (Host Station runs it; the same queue for the app window and every page)
-    const outUrl = (id, dl) => base() + '/api/queue/' + encodeURIComponent(id) + '/output?' + (server ? 'key=' + encodeURIComponent(keys[server] || '') : 't=' + encodeURIComponent(token)) + (dl ? '&download=1' : '');
+    const outUrl = (id, dl) => base() + '/api/queue/' + encodeURIComponent(id) + '/output?' + (server ? 'key=' + encodeURIComponent(keys[server] || '') : 't=' + encodeURIComponent(urlTok(token))) + (dl ? '&download=1' : '');
     async function addToQueue(kind, title, params, msgEl) {
       if (!model) return;
       try {

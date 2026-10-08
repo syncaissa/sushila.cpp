@@ -155,7 +155,7 @@ async fn file_response(p: &Path, mime: &str, disp: String, cache: &str, range: O
     let Ok(len) = f.metadata().await.map(|m| m.len()) else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response() };
     let want = range.and_then(|r| r.to_str().ok()).and_then(|r| parse_range(r, len));
     let mut h = axum::http::HeaderMap::new();
-    for (k, v) in [("content-type", mime), ("content-disposition", disp.as_str()), ("cache-control", cache), ("accept-ranges", "bytes")] {
+    for (k, v) in [("content-type", mime), ("content-disposition", disp.as_str()), ("cache-control", cache), ("accept-ranges", "bytes"), ("x-content-type-options", "nosniff"), ("content-security-policy", "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self'")] {
         if let Ok(v) = axum::http::HeaderValue::from_str(v) { h.insert(k, v); }
     }
     let (status, start, n) = match want {
@@ -186,6 +186,32 @@ fn proxy_path_ok(path: &str) -> bool {
     let low = path.to_ascii_lowercase();
     !path.split('/').any(|seg| seg == "." || seg == "..") && !path.contains('\\') && !["%2e", "%2f", "%5c"].iter().any(|e| low.contains(e))
 }
+/// The model server path for an API path, or None: only these are forwarded (OpenAI-style text, embeddings and images;
+/// ACE-Step's /lm, /synth, /job; stable-diffusion.cpp's video jobs). The prefix must end at a "/".
+fn upstream_path(path: &str) -> Option<String> {
+    const OPENAI: [&str; 6] = ["/v1/chat/completions", "/v1/completions", "/v1/embeddings", "/v1/models", "/v1/images/generations", "/v1/rerank"];
+    if OPENAI.contains(&path) { return Some(path.to_string()); }
+    if let Some(r) = path.strip_prefix("/v1/music/") { return ["lm", "synth", "job"].contains(&r).then(|| format!("/{r}")); }
+    if let Some(r) = path.strip_prefix("/v1/video/") {
+        if r == "vid_gen" { return Some("/sdcpp/v1/vid_gen".into()); }
+        let mut seg = r.splitn(3, '/');
+        if let (Some("jobs"), Some(id)) = (seg.next(), seg.next()) {
+            let tail = seg.next();
+            if !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') && matches!(tail, None | Some("cancel")) {
+                return Some(format!("/sdcpp/v1/jobs/{id}{}", if tail.is_some() { "/cancel" } else { "" }));
+            }
+        }
+    }
+    None
+}
+/// http://127.0.0.1:<port><path>?<query>, made by the URL parser and checked: host 127.0.0.1, that port, that path.
+fn upstream_url(port: u16, path: &str, query: Option<&str>) -> Option<reqwest::Url> {
+    let mut u = reqwest::Url::parse("http://127.0.0.1/").ok()?;
+    u.set_port(Some(port)).ok()?;
+    u.set_path(path);
+    u.set_query(query);
+    (u.host_str() == Some("127.0.0.1") && u.port() == Some(port) && u.path() == path).then_some(u)
+}
 /// The peer's IP address (from the socket), for rate limits.
 fn peer_ip(headers: &axum::http::HeaderMap) -> String { headers.get(PEER_IP).and_then(|v| v.to_str().ok()).unwrap_or("?").to_string() }
 /// Every request passes here first: what the request says about its own origin is removed, and the socket's truth is
@@ -194,7 +220,11 @@ async fn mark_peer(axum::extract::ConnectInfo(peer): axum::extract::ConnectInfo<
     let h = req.headers_mut();
     h.remove(PEER_LOCAL); h.remove(PEER_IP);
     let proxied = ["cf-connecting-ip", "cf-ray", "cdn-loop", "x-forwarded-for", "x-forwarded-host", "forwarded", "x-real-ip"].iter().any(|k| h.contains_key(*k));
-    if peer.ip().is_loopback() && !proxied { h.insert(PEER_LOCAL, axum::http::HeaderValue::from_static("1")); }
+    // and it names this computer: a request through cloudflared names the tunnel's host (even if a proxy header were missing)
+    let host = h.get("host").and_then(|v| v.to_str().ok()).unwrap_or("").to_ascii_lowercase();
+    let host_name = host.rsplit_once(':').map(|(n, p)| if p.chars().all(|c| c.is_ascii_digit()) { n } else { host.as_str() }).unwrap_or(host.as_str());
+    let names_local = matches!(host_name, "localhost" | "127.0.0.1" | "[::1]");
+    if peer.ip().is_loopback() && !proxied && names_local { h.insert(PEER_LOCAL, axum::http::HeaderValue::from_static("1")); }
     if let Ok(v) = axum::http::HeaderValue::from_str(&peer.ip().to_string()) { h.insert(PEER_IP, v); }
     next.run(req).await
 }
@@ -254,7 +284,13 @@ fn caller(headers: &axum::http::HeaderMap, st: &Value) -> Option<String> {
     // key (one shared rate-limit bucket); managing Sushila stays this computer's only
     // in open mode each browser is its own anonymous user (x-sushila-visitor, a random id the page keeps), so visitors
     // never see each other's queue jobs
-    keyed.or_else(|| sh.get("open").and_then(|o| o.as_bool()).filter(|o| *o).map(|_| {
+    // open mode is for a trusted local network: never through the internet link (cloudflared, sushila.ai)
+    let through_tunnel = headers.contains_key("cf-connecting-ip") || headers.contains_key("cf-ray")
+        || headers.get("host").and_then(|h| h.to_str().ok()).map(|h| h.to_ascii_lowercase().contains(".trycloudflare.com")).unwrap_or(false);
+    // ... and only for this server's own pages: a request another web site's page makes (its Origin names another host) is refused
+    let host = headers.get("host").and_then(|h| h.to_str().ok()).unwrap_or("").to_ascii_lowercase();
+    let foreign_page = headers.get("origin").and_then(|o| o.to_str().ok()).map(|o| { let o = o.to_ascii_lowercase(); o != format!("http://{host}") && o != format!("https://{host}") }).unwrap_or(false);
+    keyed.or_else(|| sh.get("open").and_then(|o| o.as_bool()).filter(|o| *o && !through_tunnel && !foreign_page).map(|_| {
         headers.get("x-sushila-visitor").and_then(|h| h.to_str().ok()).filter(|v| v.len() >= 16 && v.len() <= 64 && v.chars().all(|c| c.is_ascii_alphanumeric()))
             .map(|v| format!("open-{v}")).unwrap_or_else(|| "open".to_string())
     }))
@@ -308,6 +344,8 @@ async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
     if v.get("appVersion").and_then(|x| x.as_str()).map(|x| x.is_empty()).unwrap_or(true) { v["appVersion"] = json!(env!("CARGO_PKG_VERSION")); }  // this program's version, always
     if local_host(&headers, s.port) {  // the page on this computer (http://localhost:<port>/)
         v["now"] = crate::util::progress_now();  // downloads in progress (for the Admin page)
+        // this computer's full state: never with CORS (other web sites open in this browser must not read it)
+        if this_computer(&headers, s.port) { return axum::Json(v).into_response(); }
     } else {
         // another device (the network, or a temporary internet URL): only what the Inference page needs - which
         // models run - never this computer's packs, settings, recent actions or downloads
@@ -321,11 +359,44 @@ async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
 /// The Library (this computer only): GET /api/library -> {folder, items, trash: [...]}, GET /api/library/file?rel=&trash=1
 /// (the file itself, for previews; ?t= carries the token for <img>/<audio>/<video>), POST /api/library/<delete|restore|purge|empty>
 /// {"rel": ...}.
+// Picture, song and video addresses (<img>/<audio>/<video> cannot send headers) carry ?t=. On the owner's internet-link
+// page that is a media token, never the owner pass: "media.<expiry ms>.<HMAC of it with this computer's token>", good
+// for one hour and only for reading the Library's files and queue outputs, so an address that ends up in a browser's
+// history or a log cannot manage this computer.
+const MEDIA_MS: u64 = 3_600_000;
+pub(crate) fn media_token(local_token: &str, now_ms: u64) -> String {
+    let exp = now_ms + MEDIA_MS;
+    format!("media.{exp}.{}", hex::encode(crate::tunnel::hmac_sha256(local_token.as_bytes(), format!("sushila-media|{exp}").as_bytes())))
+}
+pub(crate) fn media_ok(t: &str, local_token: &str, now_ms: u64) -> bool {
+    let parts: Vec<&str> = t.split('.').collect();
+    let ["media", exp, sig] = parts[..] else { return false };
+    let Ok(e) = exp.parse::<u64>() else { return false };
+    if local_token.is_empty() || e <= now_ms || e > now_ms + MEDIA_MS + 60_000 || sig.len() != 64 { return false; }
+    let want = hex::encode(crate::tunnel::hmac_sha256(local_token.as_bytes(), format!("sushila-media|{exp}").as_bytes()));
+    want.bytes().zip(sig.bytes()).fold(0u8, |d, (a, b)| d | (a ^ b)) == 0
+}
+fn media_q(q: &HashMap<String, String>, st: &Value) -> bool {
+    q.get("t").map(|t| t.starts_with("media.") && media_ok(t, st.get("token").and_then(|x| x.as_str()).unwrap_or(""), crate::cmds::now_secs() * 1000)).unwrap_or(false)
+}
+/// GET /api/media-token -> {token}: for this computer's page or its owner (a media token, above).
+async fn srv_media_token(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) || caller(&headers, &st).as_deref() != Some("local") { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    axum::Json(json!({ "token": media_token(st.get("token").and_then(|x| x.as_str()).unwrap_or(""), crate::cmds::now_secs() * 1000), "seconds": MEDIA_MS / 1000 })).into_response()
+}
 fn lib_local(s: &Srv, headers: &axum::http::HeaderMap, q: &HashMap<String, String>) -> bool {
     let st = read_state(&s.data_dir);
     let mut h = headers.clone();
-    if let Some(t) = q.get("t") { if let Ok(v) = axum::http::HeaderValue::from_str(t) { h.insert("x-sushila-token", v); } }
+    if let Some(t) = q.get("t").filter(|t| !t.starts_with("media.")) { if let Ok(v) = axum::http::HeaderValue::from_str(t) { h.insert("x-sushila-token", v); } }
     host_ok(&h, s.port, &st) && caller(&h, &st).as_deref() == Some("local")
+}
+/// A Library file: this computer's page or its owner, or a media token (files only, never the Library's list).
+fn lib_file_ok(s: &Srv, headers: &axum::http::HeaderMap, q: &HashMap<String, String>) -> bool {
+    let st = read_state(&s.data_dir);
+    if media_q(q, &st) { return host_ok(headers, s.port, &st); }
+    lib_local(s, headers, q)
 }
 async fn srv_library(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
@@ -341,7 +412,7 @@ async fn srv_library(axum::extract::State(s): axum::extract::State<Arc<Srv>>, ax
 }
 async fn srv_library_file(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
-    if !lib_local(&s, &headers, &q) { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
+    if !lib_file_ok(&s, &headers, &q) { return (axum::http::StatusCode::FORBIDDEN, "this computer only").into_response(); }
     let rel = q.get("rel").cloned().unwrap_or_default();
     let base = if q.contains_key("trash") { s.data_dir.join("outputs").join(".trash") } else { s.data_dir.join("outputs") };
     let Some(p) = crate::library::resolve(&base, &rel) else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response() };
@@ -529,11 +600,11 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         touch(&model, 1);
         InFlight { s: s.clone(), model: model.clone(), rid: rid.clone(), who: who_s.clone(), what: format!("{} {}", parts.method, path), t0: std::time::Instant::now(), status: 0 }
     };
-    let pq = parts.uri.path_and_query().map(|p| p.as_str().to_string()).unwrap_or(path.clone());
-    // music servers have their own paths; video uses stable-diffusion.cpp's native async API (/sdcpp/v1/vid_gen, /sdcpp/v1/jobs/..)
-    let upstream_path = if let Some(r) = pq.strip_prefix("/v1/video") { format!("/sdcpp/v1{r}") }
-        else { pq.strip_prefix("/v1/music").map(|r| r.to_string()).unwrap_or(pq) };
-    let url = format!("http://127.0.0.1:{up}{upstream_path}");
+    // music servers have their own paths; video uses stable-diffusion.cpp's native async API (/sdcpp/v1/vid_gen, /sdcpp/v1/jobs/..).
+    // Only the model APIs Sushila uses are forwarded, and the address is built by a URL parser and checked to be the
+    // model's own port on this computer: a path like /v1/music@127.0.0.1:7874/ must never reach anything else.
+    let Some(upstream_path) = upstream_path(&path) else { return deny(axum::http::StatusCode::NOT_FOUND, "not a model API path"); };
+    let Some(url) = upstream_url(up as u16, &upstream_path, parts.uri.query()) else { return deny(axum::http::StatusCode::BAD_REQUEST, "bad path"); };
     let method = reqwest::Method::from_bytes(parts.method.as_str().as_bytes()).unwrap_or(reqwest::Method::GET);
     let mut r = s.http.request(method, url).body(bytes.to_vec()).header("x-request-id", &rid);
     for h in ["content-type", "accept"] {
@@ -887,13 +958,15 @@ async fn srv_queue_output(axum::extract::State(s): axum::extract::State<Arc<Srv>
     let mut h = headers.clone();
     if let Some(t) = q.get("t") { if let Ok(v) = axum::http::HeaderValue::from_str(t) { h.insert("x-sushila-token", v); } }
     if let Some(k) = q.get("key") { if let Ok(v) = axum::http::HeaderValue::from_str(&format!("Bearer {k}")) { h.insert("authorization", v); } }
-    let Some(who) = caller(&h, &st) else { return (axum::http::StatusCode::UNAUTHORIZED, "unauthorized").into_response() };
+    let Some(who) = (if media_q(&q, &st) { Some("local".to_string()) } else { caller(&h, &st) }) else { return (axum::http::StatusCode::UNAUTHORIZED, "unauthorized").into_response() };
     let Some(job) = queue_job(&s.data_dir, &id).filter(|j| safe_id(&id) && owns(&who, j)) else { return (axum::http::StatusCode::NOT_FOUND, "no such job").into_response() };
     let out = job.get("output").cloned().unwrap_or(Value::Null);
     let file = out.get("file").and_then(|f| f.as_str()).unwrap_or("");
     if file.is_empty() || file.contains('/') || file.contains('\\') || file.starts_with('.') { return (axum::http::StatusCode::NOT_FOUND, "no output yet").into_response(); }
     if who != "local" && !rate_ok(&s, &who, &h, &st) { return (axum::http::StatusCode::TOO_MANY_REQUESTS, "too many requests; try again in a minute").into_response(); }
-    let mime = out.get("mime").and_then(|m| m.as_str()).unwrap_or("application/octet-stream").to_string();
+    // the type as the engine reported it, only if it is a picture, a song, a video or plain text: never a web page
+    let mime = out.get("mime").and_then(|m| m.as_str()).filter(|m| ["image/png", "image/jpeg", "image/webp", "audio/mpeg", "audio/wav", "audio/flac", "audio/ogg", "video/webm", "video/mp4", "text/plain", "text/markdown"].contains(m))
+        .unwrap_or("application/octet-stream").to_string();
     let disp = format!("{}; filename=\"{}\"", if q.contains_key("download") { "attachment" } else { "inline" }, file.replace(['"', '\r', '\n'], ""));
     with_cors_for(file_response(&s.data_dir.join("outputs").join(file), &mime, disp, "no-store", headers.get("range")).await, &st, origin.as_deref())
 }
@@ -1032,7 +1105,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
         .route("/api/reveal", axum::routing::post(srv_reveal))
         .route("/api/use", axum::routing::post(srv_use))
-        .route("/api/tunnel", axum::routing::get(srv_tunnel)).route("/api/tunnel/:act", axum::routing::post(srv_tunnel_act))
+        .route("/api/media-token", axum::routing::get(srv_media_token)).route("/api/tunnel", axum::routing::get(srv_tunnel)).route("/api/tunnel/:act", axum::routing::post(srv_tunnel_act))
         .route("/api/system", axum::routing::get(srv_system))
         .route("/favicon.ico", axum::routing::get(srv_brand)).route("/favicon.png", axum::routing::get(srv_brand)).route("/favicon-32.png", axum::routing::get(srv_brand))
         .route("/apple-touch-icon.png", axum::routing::get(srv_brand)).route("/brand/:file", axum::routing::get(srv_brand))
@@ -1084,6 +1157,31 @@ mod robustness_tests {
         h.insert("host", axum::http::HeaderValue::from_static("abc.trycloudflare.com"));
         assert!(!local_host(&h, 7874));
     }
+    #[test] fn only_model_apis_are_forwarded() {
+        assert_eq!(upstream_path("/v1/chat/completions").as_deref(), Some("/v1/chat/completions"));
+        assert_eq!(upstream_path("/v1/music/synth").as_deref(), Some("/synth"));
+        assert_eq!(upstream_path("/v1/video/vid_gen").as_deref(), Some("/sdcpp/v1/vid_gen"));
+        assert_eq!(upstream_path("/v1/video/jobs/abc-1").as_deref(), Some("/sdcpp/v1/jobs/abc-1"));
+        assert_eq!(upstream_path("/v1/video/jobs/abc-1/cancel").as_deref(), Some("/sdcpp/v1/jobs/abc-1/cancel"));
+        for bad in ["/v1/music@127.0.0.1:7874/", "/v1/music@169.254.169.254/latest", "/v1/musicx", "/v1/music/../api", "/v1/music/slots",
+                    "/v1/video@evil/x", "/v1/video/jobs/a@b", "/v1/video/jobs/a/b/c", "/slots/0", "/props", "/v1/music", "/api/state"] {
+            assert!(upstream_path(bad).is_none(), "{bad}");
+        }
+        let u = upstream_url(8080, "/synth", Some("a=1")).unwrap();
+        assert_eq!(u.as_str(), "http://127.0.0.1:8080/synth?a=1");
+        assert!(upstream_url(8080, "/x@evil.com/", None).map(|u| u.host_str() == Some("127.0.0.1")).unwrap_or(true));
+    }
+    #[test] fn media_tokens() {
+        let now = 1_800_000_000_000u64; let t = media_token("local-tok", now);
+        assert!(media_ok(&t, "local-tok", now + 1000), "fresh: ok");
+        assert!(!media_ok(&t, "local-tok", now + MEDIA_MS + 1), "an hour later: expired");
+        assert!(!media_ok(&t, "other-tok", now), "another computer's token: refused");
+        assert!(!media_ok(&t.replace("media.", "owner."), "local-tok", now) && !media_ok("media.1.x", "local-tok", now) && !media_ok(&t, "", now));
+        let mut q = HashMap::new(); q.insert("t".to_string(), t.clone());
+        // a media token is no caller: it never opens anything but the two file routes
+        let mut h = axum::http::HeaderMap::new(); h.insert("x-sushila-token", axum::http::HeaderValue::from_str(&t).unwrap());
+        assert!(caller(&h, &json!({ "token": "local-tok" })).is_none());
+    }
     #[test] fn owner_pass_through_the_internet_link() {
         let (id, sec) = ("aaaaaaaaaaaaaaaaaaaa", "12".repeat(32));
         crate::tunnel::set_owner_for_test(id, &sec);
@@ -1096,6 +1194,14 @@ mod robustness_tests {
         let good = tunnel(&crate::tunnel::pass_for_test(id, &sec, now + 3_600_000));
         assert!(local_host(&good, 7874) && caller(&good, &st).as_deref() == Some("local") && host_ok(&good, 7874, &st), "the owner: everything this computer has");
         assert!(!this_computer(&good, 7874), "but never this computer's own token in the page");
+        let open = json!({ "token": "t", "share": { "enabled": true, "open": true, "hosts": ["*"], "keys": [] } });
+        assert!(caller(&tunnel(""), &open).is_none(), "open mode: never through the internet link");
+        let mut lan = axum::http::HeaderMap::new(); lan.insert("host", axum::http::HeaderValue::from_static("192.168.1.5:7874"));
+        assert!(caller(&lan, &open).is_some(), "open mode: still for the local network");
+        lan.insert("origin", axum::http::HeaderValue::from_static("https://evil.example"));
+        assert!(caller(&lan, &open).is_none(), "open mode: not for another web site's page");
+        lan.insert("origin", axum::http::HeaderValue::from_static("http://192.168.1.5:7874"));
+        assert!(caller(&lan, &open).is_some(), "open mode: this server's own page");
         for (bad, why) in [(crate::tunnel::pass_for_test(id, &"34".repeat(32), now + 3_600_000), "forged (another secret)"),
                            (crate::tunnel::pass_for_test(id, &sec, now - 1), "expired"),
                            (crate::tunnel::pass_for_test("bbbbbbbbbbbbbbbbbbbb", &sec, now + 3_600_000), "another link"),

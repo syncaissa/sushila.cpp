@@ -75,7 +75,7 @@ pub fn console_setup() {
     if enable_vt() { emit("\x1b[?25h\x1b[1 q"); }
 }
 /// The prompt of the server window, so it is always clear where typing goes.
-pub fn prompt() { if std::io::IsTerminal::is_terminal(&std::io::stderr()) { emit(if enable_vt() { "\x1b[1;36msushila>\x1b[0m " } else { "sushila> " }); } }
+pub fn prompt() { if std::io::IsTerminal::is_terminal(&std::io::stderr()) { emit(if enable_vt() { "\x1b[1;36msushila-engine>\x1b[0m " } else { "sushila-engine> " }); } }
 
 /// A bar that fills as the download goes ("[#######.............]"); without a known size, stars that come and go.
 pub fn bar(frac: Option<f64>, width: usize) -> String {

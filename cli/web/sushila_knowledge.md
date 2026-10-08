@@ -58,7 +58,7 @@ commands that delete or change things (remove, uninstall, clean, update, restore
 home <folder>) ask for a yes first. A question (for example "how do I add a coding model?")
 is answered by the Sushila assistant. A mistyped command gets a suggestion ("Did you mean `sushila install ...`?")
 that runs only if you answer y. `?` lists the important commands, `urls` the addresses, `stop` stops the server.
-The window is one screen: the output scrolls in the top part, the `sushila>` input line stays fixed above the last
+The window is one screen: the output scrolls in the top part, the `sushila-engine>` input line stays fixed above the last
 line, with a blinking block cursor, and typing is never mixed with output. Everything printed stays in the terminal:
 scroll up with the mouse wheel or the scroll bar, select and copy. Up/Down bring back earlier lines, Esc clears the
 line, `clear` empties the window, `!<command>` runs a command of the system shell (`!dir`, `!ls`). Commands typed here

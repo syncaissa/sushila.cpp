@@ -47,8 +47,8 @@ pub async fn verify(dir: &Path, email: &str, code: &str, first_name: &str) -> Re
     let v = call(dir, reqwest::Method::POST, "/api/app/verify-code",
         Some((serde_json::to_vec(&json!({ "email": email, "code": code, "firstName": first_name })).unwrap(), "application/json".into())), false).await?;
     let t = v["token"].as_str().ok_or("sushila.ai did not return a sign-in")?;
-    let _ = std::fs::write(dir.join("share-email.txt"), v["email"].as_str().unwrap_or(email));
-    std::fs::write(dir.join("share.json"), json!({ "token": t, "userId": v["userId"], "email": v["email"].as_str().unwrap_or(email), "since": crate::util::now_iso() }).to_string())
+    let _ = crate::webserver::write_private(&dir.join("share-email.txt"), v["email"].as_str().unwrap_or(email));
+    crate::webserver::write_private(&dir.join("share.json"), &json!({ "token": t, "userId": v["userId"], "email": v["email"].as_str().unwrap_or(email), "since": crate::util::now_iso() }).to_string())
         .map_err(|e| e.to_string())?;
     Ok(me(dir))
 }

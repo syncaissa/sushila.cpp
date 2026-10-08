@@ -1,0 +1,46 @@
+ok   not signed in: the sign-in page (e-mail + one-time code), then back to the link
+ok   owner: the page carries a valid owner pass for this link
+ok   owner page: not cached, still sandboxed
+ok   the sushila.ai cookie never reaches the computer
+ok   another account: a sushila.ai "private link" page, never the link's content
+ok   the page's own requests (no cookies, sandboxed) pass through to the engine
+ok   the pass the page sends reaches the engine (which checks it)
+ok   old link: newest tunnel, pass signed for the newest link
+ok   older engine (no owner secret): no pass, the access key as before
+ok   next=/localhost/x/ -> /localhost/x/
+ok   next=//evil.com -> /account
+ok   next=//evil.com never redirects off sushila.ai
+ok   next=/\evil.com -> /account
+ok   next=/\evil.com never redirects off sushila.ai
+ok   next=https://evil.com -> /account
+ok   next=https://evil.com never redirects off sushila.ai
+ok   next= cannot close the script (no injection)
+ok   pictures, songs, videos: the browser may send x-sushila-model through the link (CORS)
+ok   a form sent from another site (POST navigation) needs a sign-in too
+ok   in a frame: counted as opening the page (sign-in)
+ok   no other site may frame a link page
+ok   the owner's own page opens normally
+ok   anything not opened by the owner: never shown as a page (attachment); CORS only for the sandboxed page
+ok   the owner pass goes into the app page only, never another page
+ok   a redirect to another site is dropped (no open redirect)
+ok   a redirect inside the link stays inside it
+ok   only content headers pass (no NEL, HSTS, Clear-Site-Data, Refresh, cookies, Link)
+ok   a request body over 50 MB is refused
+ok   next="/.//evil.com" never leads off sushila.ai (goes to https://sushila.ai/account)
+ok   next="/a/..//evil.com" never leads off sushila.ai (goes to https://sushila.ai/account)
+ok   next="/%2e//evil.com" never leads off sushila.ai (goes to https://sushila.ai/account)
+ok   next="/\t/evil.com" never leads off sushila.ai (goes to https://sushila.ai/account)
+ok   next="/%09/evil.com" never leads off sushila.ai (goes to https://sushila.ai/%09/evil.com)
+ok   next="//evil.com" never leads off sushila.ai (goes to https://sushila.ai/account)
+ok   next="/\\evil.com" never leads off sushila.ai (goes to https://sushila.ai/account)
+ok   next="https://evil.com" never leads off sushila.ai (goes to https://sushila.ai/account)
+ok   next="/\n/evil.com" never leads off sushila.ai (goes to https://sushila.ai/account)
+ok   sign-out: only a form on sushila.ai (other sites cannot sign people out)
+ok   only what a Sushila Engine serves goes through (no file host for other things)
+ok   its API needs credentials (a script without them gets nothing)
+ok   a picture address with its media token goes through
+ok   the page's own script and icons need nothing
+ok   the owner secret is stored encrypted and read back
+ok   without the Worker's key the stored secret is useless
+ok   with the encrypted secret the owner still gets a valid pass
+all owner-link checks pass

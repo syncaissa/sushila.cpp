@@ -1,7 +1,7 @@
 // The server window (`sushila serve` in a terminal, or a double-click), in the terminal's normal flow: everything the
 // server and the commands typed here print becomes ordinary lines of the terminal, so its own scroll bar, mouse wheel,
 // selection and copy work on every system and nothing is lost. Only the last rows are kept live and redrawn: the
-// progress bars, the input line "sushila> " and the ticker. The server runs as this process's child with its output
+// progress bars, the input line "sushila-engine> " and the ticker. The server runs as this process's child with its output
 // in a pipe, so nothing else writes to the terminal and a log line can never land in the middle of the typing; keys
 // are read one at a time (raw mode).
 use std::io::{Read, Write};
@@ -21,7 +21,7 @@ pub fn wanted(quiet: bool) -> bool {
 /// This process writes into the screen's pipe (the server under the screen, or a command typed in it).
 pub fn in_screen() -> bool { std::env::var("SUSHILA_UI").is_ok() }
 
-const PROMPT: &str = "sushila> ";
+const PROMPT: &str = "sushila-engine> ";
 /// The ticker's pace: one character every 0.44 s (about 2 a second).
 const TICK: Duration = Duration::from_millis(440);
 
@@ -444,10 +444,10 @@ mod tests {
         assert_eq!(texts(&p).last().unwrap(), "  file: [###.] 70%");
         p.feed(b"\r     \r"); p.feed(b"  file: done\n");
         assert_eq!(texts(&p), vec!["hello", "world", "  file: done"], "a progress line is replaced, not stacked");
-        p.feed(b"Run this? [y/N] "); p.add("sushila> y", Kind::Typed); p.feed(b"not run.\n");
-        assert_eq!(texts(&p), vec!["hello", "world", "  file: done", "Run this? [y/N]", "sushila> y", "not run."], "the answer goes below its question");
-        p.feed(b"\r  bar 10%"); p.add("sushila> ps", Kind::Typed);
-        assert_eq!(texts(&p)[6..], ["sushila> ps", "  bar 10%"], "typed during a progress bar: before the bar, which keeps going");
+        p.feed(b"Run this? [y/N] "); p.add("sushila-engine> y", Kind::Typed); p.feed(b"not run.\n");
+        assert_eq!(texts(&p), vec!["hello", "world", "  file: done", "Run this? [y/N]", "sushila-engine> y", "not run."], "the answer goes below its question");
+        p.feed(b"\r  bar 10%"); p.add("sushila-engine> ps", Kind::Typed);
+        assert_eq!(texts(&p)[6..], ["sushila-engine> ps", "  bar 10%"], "typed during a progress bar: before the bar, which keeps going");
         p.feed(b"\r  bar done\n");
         p.feed("caf\u{e9}".as_bytes().split_at(4).0); p.feed(&"caf\u{e9}".as_bytes()[4..]); p.feed(b"\n");
         assert_eq!(texts(&p).last().unwrap(), "caf\u{e9}", "a character cut by the pipe is joined");

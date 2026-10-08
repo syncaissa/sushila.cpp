@@ -1331,8 +1331,16 @@ async function api(path, data){
 function say(id, text, ok){ const m=document.getElementById(id); m.textContent=text||''; m.className='msg '+(ok?'ok':'err'); }
 </script>`;
 
+// next= (where to go after signing in or out): a path on this site only. Parsed as a URL (as browsers do, which drop
+// tabs and newlines: "/\t/evil.com" would become "//evil.com"), so control characters and anything off-site are refused
+function safeNext(n, origin, dflt) {
+  n = String(n || '');
+  if (!n || /[\x00-\x1f\x7f\\]/.test(n) || !/^\/(?!\/)/.test(n)) return dflt;
+  // after parsing too: "/.//evil.com" or "/a/..//evil.com" become the path "//evil.com", which a browser reads as another site
+  try { const u = new URL(n, origin); return u.origin === origin && !/^\/[\/\\]/.test(u.pathname) ? u.pathname + u.search + u.hash : dflt; } catch (_) { return dflt; }
+}
 const SIGNIN = (url, intro) => () => {
-  const next = /^\/(?![\/\\])[^\\]*$/.test(url.searchParams.get('next') || '') ? url.searchParams.get('next') : '/account';
+  const next = safeNext(url.searchParams.get('next'), url.origin, '/account');
   return `${FORM_CSS}
 ${intro || '<h1>Sign in</h1>'}
 <p class="meta"><b>No password to remember:</b> enter your e-mail address and we e-mail you a one-time code (OTP) to sign in, every time. Any e-mail linked to your account works.</p>
@@ -2203,7 +2211,7 @@ async function tunnelRow(db, id, fresh = false) {
   const c = tunnelCache.get(id);
   if (!fresh && c && c.until > Date.now()) return c.row;
   const row = await db.get(TABLES.localhostLinks, { id: S(id) });
-  tunnelCache.set(id, { row, until: Date.now() + 15000 }); if (tunnelCache.size > 2000) tunnelCache.clear();
+  tunnelCache.set(id, { row, until: Date.now() + 3000 }); if (tunnelCache.size > 2000) tunnelCache.clear();
   return row;
 }
 async function tunnelApi(request, env, db, p, url) {
@@ -2217,13 +2225,14 @@ async function tunnelApi(request, env, db, p, url) {
     if (!TUNNEL_TARGET.test(target)) return json({ error: 'Only a Cloudflare quick tunnel (https://….trycloudflare.com) can be linked.' }, 400);
     // the engine's owner secret (64 hex, made on that computer): sushila.ai signs the owner's passes with it (tunnelProxy)
     const secret = /^[0-9a-f]{64}$/.test(String(d.ownerSecret || '')) ? String(d.ownerSecret) : '';
+    const sealed = secret && env.SESSION_SECRET ? await sealSecret(env, secret) : '';
     // the same link as last time (this computer remembers its id): it now leads to the new tunnel
     const prev = String(d.id || '');
     if (TUNNEL_ID.test(prev)) {
       try {
         await db.request('UpdateItem', { TableName: TABLES.localhostLinks, Key: { id: S(prev) }, ConditionExpression: 'userId = :u',
-          UpdateExpression: `SET target = :t, #s = :on, updatedAt = :n, ip = :ip${secret ? ', ownerSecret = :o' : ''} REMOVE stoppedAt`, ExpressionAttributeNames: { '#s': 'status' },
-          ExpressionAttributeValues: { ':u': S(app.userId), ':t': S(target), ':on': S('online'), ':n': S(new Date().toISOString()), ':ip': S(request.headers.get('cf-connecting-ip') || '-'), ...(secret ? { ':o': S(secret) } : {}) } });
+          UpdateExpression: `SET target = :t, #s = :on, updatedAt = :n, ip = :ip${sealed ? ', ownerSecretEnc = :o' : ''} REMOVE stoppedAt, ownerSecret`, ExpressionAttributeNames: { '#s': 'status' },
+          ExpressionAttributeValues: { ':u': S(app.userId), ':t': S(target), ':on': S('online'), ':n': S(new Date().toISOString()), ':ip': S(request.headers.get('cf-connecting-ip') || '-'), ...(sealed ? { ':o': S(sealed) } : {}) } });
         tunnelCache.delete(prev);
         return json({ id: prev, link: `${url.origin}/localhost/${prev}/`, same: true });
       } catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) throw e; }  // deleted (or not this account's): a new link
@@ -2232,7 +2241,7 @@ async function tunnelApi(request, env, db, p, url) {
     for (let i = 0; i < 5 && !id; i++) {
       const c = hex(crypto.getRandomValues(new Uint8Array(10)));
       try { await db.put(TABLES.localhostLinks, { id: S(c), target: S(target), userId: S(app.userId), status: S('online'), createdAt: S(new Date().toISOString()), updatedAt: S(new Date().toISOString()),
-        ip: S(request.headers.get('cf-connecting-ip') || '-'), country: S((request.cf && request.cf.country) || '-'), userAgent: S(clean(request.headers.get('user-agent'), 200) || '-'), ...(secret ? { ownerSecret: S(secret) } : {}) }, 'attribute_not_exists(id)'); id = c; }
+        ip: S(request.headers.get('cf-connecting-ip') || '-'), country: S((request.cf && request.cf.country) || '-'), userAgent: S(clean(request.headers.get('user-agent'), 200) || '-'), ...(sealed ? { ownerSecretEnc: S(sealed) } : {}) }, 'attribute_not_exists(id)'); id = c; }
       catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) throw e; }
     }
     if (!id) return json({ error: 'Could not make a link.' }, 500);
@@ -2251,7 +2260,16 @@ async function tunnelSetStatus(db, uid, id, status) {  // only the account's own
     ExpressionAttributeNames: { '#s': 'status' }, ExpressionAttributeValues: { ':u': S(uid), ':s': S(status), ':t': S(new Date().toISOString()) } }); tunnelCache.delete(id); return true; }
   catch (e) { if (/ConditionalCheckFailed/.test(e.message)) return false; throw e; }
 }
-const TUNNEL_CSP = 'sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads';
+const TUNNEL_CSP = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads; frame-ancestors 'none'";
+// A link's pages come from someone's own computer (any signed-in account can make a link, to any server it runs), so
+// they are shown only to the account that made the link: to anyone else sushila.ai/localhost/... must never look like
+// a sushila.ai page (no phishing on this domain). Every way a browser can show a response counts as opening it.
+const PRIVATE_LINK = (who, url, prefix) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Private link · Sushila</title>
+<style>body{font:17px/1.6 system-ui,sans-serif;max-width:640px;margin:10vh auto;padding:20px;color:#16202c}h1{font-size:24px}.s{color:#5b6876;font-size:15px}button{font:inherit;font-weight:600;padding:10px 20px;border-radius:99px;border:0;background:#080a12;color:#fff;cursor:pointer}</style>
+<h1>This link is private</h1><p>Only the sushila.ai account that made this link can open it.${who ? ' You are signed in as <b>' + esc(who) + '</b>.' : ''}</p>
+<p>Is it yours? Sign in with the account that made it.</p>
+<form method="post" action="/api/auth/sign-out"><input type="hidden" name="next" value="${esc('/signin?next=' + encodeURIComponent(prefix + '/'))}"><button>Sign in with another account</button></form>
+<p class="s">sushila.ai never asks for your sign-in code on a link page. Make free pictures, music and videos on your own computer: <a href="${esc(url.origin)}/install">sushila.ai/install</a>.</p>`;
 function tunnelDown(why) {
   const gone = why === 'gone';
   return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${gone ? 'Link closed' : 'Not answering'} · Sushila</title>
@@ -2262,16 +2280,36 @@ ${gone ? `<h1>This link was closed</h1><p>Its owner deleted it at sushila.ai/myc
 <li>Go to that computer and make sure it is on and connected to the internet.</li>
 <li>Start Sushila: on Windows double-click <b>sushila.exe</b> (or press <b>Start Sushila</b> at <a href="https://sushila.ai/start">sushila.ai/start</a> on that computer); on macOS or Linux run <code>sushila serve</code> in a terminal.</li>
 <li>Keep the Sushila window open. Within about a minute this same link works again: reload this page.</li></ol>
-<p class="s">The link stays the same from start to start. Its owner, signed in to sushila.ai, gets everything; other visitors need the access key shown in the Sushila window on that computer.</p>`}
+<p class="s">The link stays the same from start to start. Only its owner, signed in to sushila.ai, can open it.</p>`}
 <p class="s">Make free pictures, music and videos on your own computer: <a href="https://sushila.ai/install">sushila.ai/install</a>.</p>`, { status: gone ? 404 : 502, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...SEC } });
 }
 // The link's owner (signed in to sushila.ai as the account that made it) gets everything this computer's own page has
 // (all tabs, Admin, Library, packs) without the access key: sushila.ai gives the page an owner pass, signed with the
 // secret the engine registered for its link; the engine checks the signature, the link id and the time (12 hours).
-// Other visitors sign in too and then need the access key, as before.
+// Anyone else gets a sushila.ai "private link" page (tunnelProxy).
 const OWNER_PASS_MS = 12 * 3600 * 1000;
-async function ownerPass(row) {
-  const secret = str(row, 'ownerSecret'); if (!/^[0-9a-f]{64}$/.test(secret)) return '';
+// The owner secret is kept encrypted (AES-GCM, key derived from the Worker's SESSION_SECRET), so the table alone (a
+// leak or a backup) cannot make owner passes: ownerSecretEnc = "v1:" + base64(iv | ciphertext).
+async function secretKey(env) {
+  const raw = await crypto.subtle.digest('SHA-256', enc.encode('sushila-link-secret|' + (env.SESSION_SECRET || '')));
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+async function sealSecret(env, hexSecret) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await secretKey(env), enc.encode(hexSecret)));
+  const all = new Uint8Array(12 + ct.length); all.set(iv); all.set(ct, 12);
+  return 'v1:' + btoa(String.fromCharCode(...all));
+}
+async function openSecret(env, row) {
+  const sealed = str(row, 'ownerSecretEnc');
+  if (sealed.startsWith('v1:')) {
+    try { const all = Uint8Array.from(atob(sealed.slice(3)), (c) => c.charCodeAt(0));
+      return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, await secretKey(env), all.slice(12))); } catch (_) { return ''; }
+  }
+  return str(row, 'ownerSecret');  // a row saved before encryption (re-saved encrypted at the link's next start)
+}
+async function ownerPass(env, row) {
+  const secret = await openSecret(env, row); if (!/^[0-9a-f]{64}$/.test(secret)) return '';
   const id = str(row, 'id'), exp = Date.now() + OWNER_PASS_MS, nonce = hex(crypto.getRandomValues(new Uint8Array(8)));
   return `owner.${id}.${exp}.${nonce}.${await hmacHex(secret, `sushila-owner|${id}|${exp}|${nonce}`)}`;
 }
@@ -2280,17 +2318,32 @@ async function tunnelProxy(request, env, db, p, url) {
   if (!m) return tunnelDown('gone');
   const [, id, rest] = m, prefix = `/localhost/${id}`;
   if (!rest) return Response.redirect(`${url.origin}${prefix}/${url.search}`, 301);
-  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type, authorization, x-sushila-visitor, x-sushila-token, x-sushila-admin, x-sushila-model, x-request-id', 'access-control-max-age': '600' };
+  // CORS for the sandboxed link page only (its origin is the opaque "null"), not for other sites
+  const cors = { 'access-control-allow-origin': 'null', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type, authorization, x-sushila-visitor, x-sushila-token, x-sushila-admin, x-sushila-model, x-request-id', 'access-control-max-age': '600' };
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });  // the sandboxed page's own requests
+  // only what a Sushila Engine serves goes through a link (no file host for anything else a tunnel might hold), and
+  // anything but its page assets needs credentials (an owner pass, an access key, or a media token for a file)
+  const asset = rest === '/' || rest === '/sushila.js' || rest === '/health' || rest === '/docs' || /^\/(brand\/[\w.-]+|favicon[\w.-]*\.png|apple-touch-icon\.png)$/.test(rest);
+  if (!asset && !/^\/(api|v1)\/[\w./-]*$/.test(rest)) return new Response('not found', { status: 404, headers: { 'cache-control': 'no-store' } });
   if (!db.configured) return tunnelDown('down');
   const row = await tunnelRow(db, id);
   if (!row) return tunnelDown('gone');
   // opening the link in a browser needs a sushila.ai sign-in (e-mail and a one-time code); the page's own requests
   // carry no cookies (it is sandboxed) and are checked by the engine (owner pass or access key)
-  const nav = request.method === 'GET' && (request.headers.get('sec-fetch-dest') === 'document' || (!request.headers.get('sec-fetch-dest') && (request.headers.get('accept') || '').includes('text/html')));
+  // shown by the browser (a page, a frame, an embed, a form sent): by the Sec-Fetch headers, or, in browsers that send
+  // none, by asking for HTML
+  const dest = request.headers.get('sec-fetch-dest'), mode = request.headers.get('sec-fetch-mode');
+  const nav = mode === 'navigate' || ['document', 'iframe', 'frame', 'embed', 'object'].includes(dest) || (!dest && !mode && (request.headers.get('accept') || '').includes('text/html'));
   const user = nav ? await readSession(request, env) : null;
-  if (nav && !user) return new Response(null, { status: 302, headers: { location: `${url.origin}/signin?next=${encodeURIComponent(prefix + '/')}`, 'cache-control': 'no-store' } });
+  if (nav && !user) return new Response(null, { status: 303, headers: { location: `${url.origin}/signin?next=${encodeURIComponent(prefix + '/')}`, 'cache-control': 'no-store' } });
   const owner = !!user && user.userId === str(row, 'userId');
+  // a request that is not a page opened in a browser: credentials or nothing (page openings are the owner's only, below)
+  const credentials = request.headers.get('authorization') || request.headers.get('x-sushila-token') || /(?:^|&)t=media\./.test(url.search.slice(1));
+  if (!nav && !asset && !credentials) return new Response('unauthorized', { status: 401, headers: { 'cache-control': 'no-store' } });
+  if (nav && !owner) {
+    let who = ''; try { const u = await db.get(TABLES.users, { userId: S(user.userId) }); const em = u && (u.emails && u.emails.L ? u.emails.L.map((x) => x.S) : u.emails && u.emails.SS) || []; who = em[0] || ''; } catch (_) {}
+    return new Response(PRIVATE_LINK(who, url, prefix), { status: 403, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...SEC } });
+  }
   // the targets to try: this link's tunnel, then the same account's newest working one (an old link that was not
   // deleted leads to the latest)
   const first = str(row, 'status') === 'online' ? row : null;
@@ -2299,31 +2352,35 @@ async function tunnelProxy(request, env, db, p, url) {
     return (r.Items || []).sort((a, b) => (str(b, 'updatedAt') || str(b, 'createdAt')).localeCompare(str(a, 'updatedAt') || str(a, 'createdAt'))); } catch { return []; } };
   const h = new Headers();
   for (const [k, v] of request.headers) if (!/^(host|cookie|cf-|x-forwarded-|x-real-ip|origin|referer)/i.test(k)) h.set(k, v);
+  if (+(request.headers.get('content-length') || 0) > 50e6) return new Response('request too large', { status: 413 });
   const buf = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer();  // may be sent twice
+  if (buf && buf.byteLength > 50e6) return new Response('request too large', { status: 413 });
   const tryOne = async (t) => { try { const x = await fetch(t + rest + url.search, { method: request.method, headers: h, body: buf, redirect: 'manual' }); return (x.status === 530 || x.status === 1033 || x.status === 502) ? null : x; } catch { return null; } };
   // the row that answers signs the owner pass: an old link leads to the newest one, whose engine knows its own id
   let served = first, r = first ? await tryOne(str(first, 'target')) : null;
   if (!r) { for (const x of (await newest()).filter((x) => !first || str(x, 'target') !== str(first, 'target')).slice(0, 2)) { r = await tryOne(str(x, 'target')); if (r) { served = x; break; } } }
   if (!r) return tunnelDown('down');
+  // from someone's computer only the headers that describe the content pass (no cookies, HSTS, NEL, Clear-Site-Data,
+  // Refresh, Link, ... that would act for sushila.ai); caches keep nothing shared
   const out = new Headers();
-  for (const [k, v] of r.headers) if (!/^(set-cookie|content-security-policy|x-frame-options|access-control-|content-length|content-encoding)$/i.test(k)) out.set(k, v);
-  const loc = r.headers.get('location'); if (loc && loc.startsWith('/') && !loc.startsWith('//')) out.set('location', prefix + loc);
-  out.set('content-security-policy', TUNNEL_CSP); out.set('x-content-type-options', 'nosniff'); out.set('referrer-policy', 'no-referrer');
+  for (const k of ['content-type', 'content-disposition', 'etag', 'last-modified', 'accept-ranges', 'content-range', 'x-request-id']) { const v = r.headers.get(k); if (v) out.set(k, v); }
+  out.set('cache-control', 'private, no-store');
+  // redirects stay inside the link (no open redirect from sushila.ai to anywhere)
+  const loc = r.headers.get('location'); out.delete('location');
+  if (loc && /^\/(?![\/\\])/.test(loc)) out.set('location', prefix + loc);
+  out.set('content-security-policy', TUNNEL_CSP); out.set('x-content-type-options', 'nosniff'); out.set('referrer-policy', 'no-referrer'); out.set('x-frame-options', 'DENY');
+  // what was not opened by the owner is never shown as a page on sushila.ai (even if a browser misreports the request)
+  if (!(nav && owner)) out.set('content-disposition', 'attachment');
   for (const [k, v] of Object.entries(cors)) out.set(k, v);
   if ((r.headers.get('content-type') || '').includes('text/html')) {  // the page shell's own absolute paths (script, icons)
     let t = (await r.text()).replace(/(\s(?:src|href)=")\/(?!\/)/g, `$1${prefix}/`);
-    const pass = nav && owner ? await ownerPass(served) : '';
+    const pass = nav && owner && rest === '/' ? await ownerPass(env, served) : '';  // only the app page itself, never another page
     let tag = pass ? `<script>window.SUSHILA_OWNER=${JSON.stringify(pass)};</script>` : '';  // the owner's pass: only in this page (never cached)
-    if (nav && !pass) {  // why there is no pass, and what to do (instead of only the engine's "needs an access key")
-      let who = ''; try { const u = await db.get(TABLES.users, { userId: S(user.userId) }); const em = u && (u.emails && u.emails.L ? u.emails.L.map((x) => x.S) : u.emails && u.emails.SS) || []; who = em[0] || ''; } catch (_) {}
-      const msg = owner ? 'The Sushila on that computer is older: update it (sushila.ai/install) and start it again to use this link without a key.'
-        : `You are signed in to sushila.ai${who ? ' as <b>' + esc(who) + '</b>' : ''}, but this link belongs to another account. Sign in with the account that made the link to use everything here without a key; anyone else needs the access key from its owner.`;
+    if (nav && owner && rest === '/' && !pass) {  // the owner, with a Sushila from before owner passes
       tag = `<div id="linknote" role="status" style="position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2000;width:min(680px,calc(100vw - 24px));background:#080a12;color:#e8ebf4;border-left:5px solid #ff9800;border-radius:14px;padding:16px 18px;box-shadow:0 18px 40px rgba(0,0,0,.35);font:15px/1.5 system-ui,sans-serif">`
-        + `<div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:1">${msg}</div><button onclick="this.closest('#linknote').remove()" aria-label="Close" style="all:unset;cursor:pointer;font-size:22px;line-height:1;color:#9aa3b8">×</button></div>`
-        + (owner ? '' : `<div style="margin-top:12px"><a href="${url.origin}/signin?switch=1&amp;next=${encodeURIComponent(prefix + '/')}" target="_top" style="display:inline-block;background:#fff;color:#080a12;padding:9px 18px;border-radius:99px;font-weight:600;text-decoration:none">Switch account</a></div>`)
-        + `</div>`;
+        + `<div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:1">The Sushila on that computer is older: update it (sushila.ai/install) and start it again to use this link.</div><button onclick="this.closest('#linknote').remove()" aria-label="Close" style="all:unset;cursor:pointer;font-size:22px;line-height:1;color:#9aa3b8">×</button></div></div>`;
     }
-    if (tag) t = t.includes('<div id="app"></div>') ? t.replace('<div id="app"></div>', '<div id="app"></div>' + tag) : tag + t;
+    if (tag && t.includes('<div id="app"></div>')) t = t.replace('<div id="app"></div>', '<div id="app"></div>' + tag);  // the Sushila page only
     if (nav) out.set('cache-control', 'no-store');
     return new Response(t, { status: r.status, headers: out });
   }
@@ -2643,8 +2700,8 @@ async function sendCode(request, env, db, session, app = false) {
     ttl: N(Math.floor((now + OTP_TTL_MS) / 1000) + 3600) });
   const what = purpose === 'SIGN_UP' ? 'create your sushila.ai account' : purpose === 'ADD_EMAIL' ? 'add this e-mail to your sushila.ai account' : 'sign in to sushila.ai';
   await sendEmail(env, email, `Your sushila.ai code: ${code}`,
-    `Your code to ${what} is ${code}.\n\nIt expires in 5 minutes. If you did not ask for it, ignore this e-mail.\n\nsushila.ai`,
-    `<p>Your code to ${what} is</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>It expires in 5 minutes. If you did not ask for it, ignore this e-mail.</p><p>sushila.ai</p>`);
+    `Your code to ${what} is ${code}.\n\nIt expires in 5 minutes. Enter it only on https://sushila.ai/signin or in the Sushila program on your own computer; sushila.ai never asks for it anywhere else (not on a sushila.ai/localhost/... link page). If you did not ask for it, ignore this e-mail.\n\nsushila.ai`,
+    `<p>Your code to ${what} is</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>It expires in 5 minutes. Enter it only on <b>https://sushila.ai/signin</b> or in the Sushila program on your own computer; sushila.ai never asks for it anywhere else (not on a sushila.ai/localhost/… link page). If you did not ask for it, ignore this e-mail.</p><p>sushila.ai</p>`);
   return json({ ok: true });
 }
 
@@ -3847,7 +3904,11 @@ export default {
         }
         if (/^\/api\/mycontent\/(trash|restore|delete)$/.test(p)) return await myContentDelete(request, env, db, b2, session, p.split('/').pop());
         if (p === '/api/auth/verify-code') return await verifyCode(request, env, db, session);
-        if (p === '/api/auth/sign-out') return new Response(null, { status: 303, headers: { location: '/', 'set-cookie': clearCookie() } });
+        if (p === '/api/auth/sign-out') {  // a form on this site only (no sign-out from other sites), then to next (a path here)
+          if (request.headers.get('origin') !== url.origin) return json({ error: 'Bad request.' }, 400);
+          let next = '/'; try { const f = await request.formData(); next = safeNext(f.get('next'), url.origin, '/'); } catch (_) {}
+          return new Response(null, { status: 303, headers: { location: next, 'set-cookie': clearCookie() } });
+        }
         if (p === '/api/account') return await account(request, env, db, session);
         if (p === '/api/download') return await createDownload(request, env, db, b2, session);
       if (p.startsWith('/api/admin/')) return await adminApi(request, env, db, await loadUser(db, session), p);
@@ -3937,8 +3998,6 @@ export default {
       if (p === '/terms' || p === '/terms/') return html(docPage(env, 'Terms of Service', 'Terms of Service for sushila.ai, Sushila.cpp and the Sushila serverless API.', TERMS(env), user));
       if (p === '/privacy' || p === '/privacy/') return html(docPage(env, 'Privacy Policy', 'How the Sushila project handles personal data on sushila.ai and the Sushila serverless API.', PRIVACY(env), user));
       // ?switch=1 (from a link that belongs to another account): signed out here, then the same sign-in, back to next
-      if ((p === '/signin' || p === '/signin/') && url.searchParams.get('switch') === '1') return html(docPage(env, 'Sign in', 'Sign in to sushila.ai with a one-time code sent to your e-mail.',
-        SIGNIN(url, '<h1>Sign in with another account</h1><p class="meta">You are signed out. Sign in with the e-mail of the account that made the link.</p>'), null), { 'set-cookie': clearCookie(), 'cache-control': 'no-store' });
       if (p === '/signin' || p === '/signin/') return html(docPage(env, 'Sign in', 'Sign in to sushila.ai with a one-time code sent to your e-mail.', SIGNIN(url), user));
       if (p === '/account' || p === '/account/') {
         if (!user) return Response.redirect(`${url.origin}/signin?next=/account`, 302);
