@@ -1,0 +1,115 @@
+/* Sushila Station, iPad feel: grouped backgrounds, frosted sidebar, colourful icon tiles, capsule buttons, large titles */
+:root{
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable Text","Segoe UI","Inter",system-ui,sans-serif;
+  --bg:#f2f2f7; --side:rgba(246,246,250,.82); --bar:rgba(242,242,247,.86); --card:#ffffff; --fg:#000; --mut:#6e6e73; --line:rgba(60,60,67,.14);
+  --acc:#007aff; --accfg:#fff; --accsoft:rgba(0,122,255,.12); --ok:#34c759; --warn:#ff9500; --err:#ff3b30; --field:#fff; --fieldline:rgba(60,60,67,.18);
+  --hover:rgba(0,0,0,.04); --sel:rgba(0,122,255,.12); --r:12px; --r2:16px;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 18px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#000; --side:rgba(28,28,30,.85); --bar:rgba(0,0,0,.8); --card:#1c1c1e; --fg:#fff; --mut:#98989f; --line:rgba(84,84,88,.5);
+  --acc:#0a84ff; --accsoft:rgba(10,132,255,.2); --ok:#30d158; --warn:#ff9f0a; --err:#ff453a; --field:#1c1c1e; --fieldline:rgba(84,84,88,.65);
+  --hover:rgba(255,255,255,.05); --sel:rgba(10,132,255,.22); --shadow:0 1px 2px rgba(0,0,0,.5),0 6px 18px rgba(0,0,0,.4) }}
+body,body.mac,body.win,body.linux{--font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable Text","Segoe UI","Inter",system-ui,sans-serif}
+html,body{font-size:15px;letter-spacing:-.01em;background:var(--bg)}
+#app{grid-template-columns:270px 1fr;background:var(--bg)}
+/* sidebar: frosted, roomy, colourful icon tiles */
+#side{background:var(--side);-webkit-backdrop-filter:saturate(1.8) blur(24px);backdrop-filter:saturate(1.8) blur(24px);border-right:1px solid var(--line)}
+.sidetop{padding:22px 18px 14px}.sidetop .logo{width:38px;height:38px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.sidetop b{font-size:17px;font-weight:700;letter-spacing:-.02em}
+#nav{padding:4px 12px 14px}
+.navgroup{font-size:13px;font-weight:600;color:var(--mut);padding:18px 12px 6px;letter-spacing:0;text-transform:none}
+.navitem,body.mac .navitem{padding:7px 10px;margin:2px 0;border-radius:11px;gap:12px;font-size:15px;font-weight:500;transition:background .15s}
+.navitem:hover{background:var(--hover)}
+.navitem.on,body.mac .navitem.on,body.win .navitem.on{background:var(--acc);color:#fff;font-weight:600}
+body.win .navitem.on::before{display:none}
+.navitem .ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff!important;flex:none;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.08)}
+.navitem.on .ico{box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.c-pictures{background:linear-gradient(135deg,#ff6482,#ff2d55)}.c-music{background:linear-gradient(135deg,#ffb340,#ff7a00)}.c-video{background:linear-gradient(135deg,#c86bff,#9b30d9)}
+.c-code{background:linear-gradient(135deg,#7d7aff,#4f4ad6)}.c-chat{background:linear-gradient(135deg,#4cd964,#28a745)}.c-mycontent{background:linear-gradient(135deg,#40a0ff,#0068e0)}
+.c-queue{background:linear-gradient(135deg,#ffcc00,#ff9500)}.c-packs{background:linear-gradient(135deg,#5ac8fa,#1d9bd1)}.c-engine{background:linear-gradient(135deg,#a0a0a8,#6e6e76)}
+.c-link{background:linear-gradient(135deg,#64d2ff,#0a84ff)}.c-logs{background:linear-gradient(135deg,#c69c6d,#9a7148)}.c-settings{background:linear-gradient(135deg,#9a9aa2,#5f5f66)}.c-help{background:linear-gradient(135deg,#34c7b5,#119d8c)}
+.navitem .badge{background:var(--err);color:#fff;border-radius:10px;padding:1px 7px}
+.navitem.on .badge{background:#fff;color:var(--acc)}
+.sidefoot{border-top:1px solid var(--line);padding:12px 16px}
+/* the engine button: a glowing status card */
+.engbig{margin:4px 14px 10px;width:calc(100% - 28px);border-radius:16px;padding:14px 16px;transition:transform .15s,box-shadow .2s}
+.engbig:hover{transform:translateY(-1px)}
+.engbig.on{background:linear-gradient(135deg,#34c759,#1f9d47);box-shadow:0 8px 22px rgba(52,199,89,.35)}
+.engbig.busy{background:linear-gradient(135deg,#ffb340,#ff8c00);box-shadow:0 8px 22px rgba(255,149,0,.35)}
+.engbig.off{background:linear-gradient(135deg,#ff6b5f,#ff3b30);box-shadow:0 8px 22px rgba(255,59,48,.35)}
+.engbig.none{background:linear-gradient(135deg,#a0a0a8,#6e6e76);box-shadow:0 8px 22px rgba(0,0,0,.18)}
+/* large title bar */
+#bar,body.mac #bar{height:64px;padding:0 26px;background:var(--bar);-webkit-backdrop-filter:saturate(1.8) blur(20px);backdrop-filter:saturate(1.8) blur(20px);border-bottom:1px solid var(--line)}
+.bartitle h1{font-size:26px;font-weight:800;letter-spacing:-.025em}
+#subtitle{font-size:13.5px}
+#view{padding:24px 28px}
+#status{height:30px;background:var(--bar);border-top:1px solid var(--line);font-size:12px}
+/* capsule buttons: filled, tinted, plain */
+.btn,body.mac .btn{height:34px;padding:0 16px;border-radius:999px;border:0;background:var(--accsoft);color:var(--acc);font-weight:600;box-shadow:none;transition:filter .15s,transform .1s,background .15s}
+.btn:hover{filter:brightness(1.05);background:var(--accsoft)}.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--acc);color:#fff;box-shadow:0 4px 12px rgba(0,122,255,.28)}
+.btn.danger{background:rgba(255,59,48,.12);color:var(--err)}
+.btn.small,body.mac .btn.small{height:30px;padding:0 13px;font-size:13.5px}
+.btn.icon{width:34px}
+/* fields and segmented controls */
+.field,select.field,textarea.field{height:40px;border-radius:12px;border:1px solid var(--fieldline);background:var(--field);padding:0 12px;font-size:15px;transition:border-color .15s,box-shadow .15s}
+textarea.field{padding:10px 12px;border-radius:14px}
+.field:focus,body.win .field:focus{border-color:var(--acc);box-shadow:0 0 0 4px var(--accsoft)}
+label.lbl{font-size:13px;font-weight:600;color:var(--mut);margin:14px 2px 6px}
+.seg{background:rgba(118,118,128,.12);border-radius:10px;padding:2px}
+.seg button{border-radius:8px;padding:5px 14px;font-weight:500;color:var(--fg)}
+.seg button.on{background:var(--card);box-shadow:0 3px 8px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04);font-weight:600}
+.switch{width:51px;height:31px}.switch span{border-radius:16px;background:rgba(120,120,128,.25)}
+.switch span::after{width:27px;height:27px;left:2px;top:2px;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16)}
+.switch input:checked+span{background:var(--ok)}.switch input:checked+span::after{transform:translateX(20px)}
+/* grouped inset lists and cards */
+.group{border:0;border-radius:var(--r2);box-shadow:var(--shadow);background:var(--card);margin:0 0 22px}
+.group>h3{font-size:13px;font-weight:600;color:var(--mut);text-transform:none;padding:14px 18px 6px}
+.item{padding:12px 18px;min-height:58px;border-top:.5px solid var(--line);transition:background .12s}
+.item:hover{background:var(--hover)}
+.item .kicon{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#40a0ff,#0068e0);color:#fff}
+.tag{border:0;background:rgba(118,118,128,.14);color:var(--mut);border-radius:999px;padding:2px 10px;font-weight:600;font-size:12px}
+.tag.on{background:rgba(52,199,89,.16);color:#1f9d47}.tag.acc{background:var(--accsoft);color:var(--acc)}
+.panel{border:0;border-radius:var(--r2);box-shadow:var(--shadow);padding:20px}
+.pagehead h2{font-size:22px;font-weight:700}
+.empty{color:var(--mut);font-size:15px}
+/* galleries: rounded tiles that lift */
+.gallery{gap:16px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.tile{border:0;border-radius:18px;box-shadow:var(--shadow);transition:transform .18s,box-shadow .18s}
+.tile:hover{transform:translateY(-3px);box-shadow:0 2px 4px rgba(0,0,0,.05),0 14px 30px rgba(0,0,0,.12)}
+.tile .thumb{background:linear-gradient(135deg,rgba(0,122,255,.08),rgba(175,82,222,.08))}
+.tile .cap{padding:10px 12px 6px}.tile .acts{padding:0 10px 12px;gap:6px}
+/* chat bubbles, iMessage-like */
+.msgs{padding:28px 0}
+.msg{gap:10px}.msg .who{width:30px;height:30px;font-size:12px}
+.msg.user{flex-direction:row-reverse}
+.msg.user .msgtext{background:var(--acc);color:#fff;border-radius:20px 20px 6px 20px;padding:10px 15px;flex:0 1 auto;max-width:76%}
+.msg.assistant .msgtext{background:var(--card);border-radius:20px 20px 20px 6px;padding:12px 16px;box-shadow:var(--shadow)}
+.msg.user .msgmeta{text-align:right}
+.composer{background:var(--bar);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-top:1px solid var(--line);padding:14px 28px 16px}
+.composer textarea{border-radius:22px;padding:11px 16px;min-height:46px}
+.hello .big{font-size:56px}.hello h2{font-size:26px;font-weight:800;letter-spacing:-.02em}
+/* sheets and toasts: iPad cards */
+#sheet{background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.dlg{border-radius:22px;padding:24px;box-shadow:0 30px 80px rgba(0,0,0,.35);animation:pop .22s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(8px)}}
+.dlg h3{font-size:20px;font-weight:700}
+.toast{border-left:0;border-radius:16px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.18);background:var(--card)}
+.toast.ok{box-shadow:0 10px 30px rgba(0,0,0,.18),inset 4px 0 0 var(--ok)}.toast.err{box-shadow:0 10px 30px rgba(0,0,0,.18),inset 4px 0 0 var(--err)}
+.logbox{border:0;border-radius:var(--r2);box-shadow:var(--shadow)}
+.table th{font-weight:600;color:var(--mut)}
+::-webkit-scrollbar-thumb{background:rgba(120,120,128,.35)}
+/* refinements */
+#app{grid-template-columns:286px 1fr}
+.navitem{font-size:14.5px;white-space:nowrap}
+.sidefoot{display:none}
+.msg.user .grow{display:flex;flex-direction:column;align-items:flex-end}
+.msg.user .msgtext{flex:0 1 auto}
+.composer textarea{resize:none}
+.engbig b{font-size:15px}
+textarea.field{height:auto;min-height:120px;line-height:1.5}
+.composer textarea.field{min-height:46px}
+.dlg.wide{width:min(1120px,95vw)}
+.engpanel{grid-template-columns:270px 1fr}
+.engpanel .item .txt b{white-space:normal}

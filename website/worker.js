@@ -2127,7 +2127,7 @@ async function sharePage(env, db, id, origin, request) {
   const vtext = `${views.toLocaleString('en-US')} view${views === 1 ? '' : 's'}`;
   // the picture or video fills the window; ⓘ opens everything about it (title, label, model, date, Download, Report abuse,
   // the disclaimer, how to make your own); ⛶ is the browser's full screen; the views stay in the corner
-  const media = m.kind === 'image' ? `<img class="media" src="${src}" alt="${t}">`
+  const media = m.kind === 'image' ? `<img class="media zoomable" id="zimg" src="${src}" alt="${t}" draggable="false"><div class="zoomtag" id="ztag"></div>`
     : m.kind === 'video' ? `<video class="media" src="${src}" controls playsinline autoplay muted loop></video>`
     : `<div class="song" id="song"><div class="disc" aria-hidden="true"><div class="discin">🎵</div></div><div class="stitle">${t}</div>
 <div class="ssub">AI-generated song${m.model ? ' · ' + esc(m.model) : ''}</div><audio id="au" src="${src}" preload="metadata"></audio>
@@ -2139,6 +2139,8 @@ async function sharePage(env, db, id, origin, request) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t} · Sushila</title>
 ${ICON_LINKS.replace('<meta property="og:image" content="https://sushila.ai/logo.png">', '')}<meta property="og:title" content="${t}"><meta property="og:description" content="AI-generated with Sushila${m.model ? ' (' + esc(m.model) + ')' : ''}">
 ${m.kind === 'image' ? `<meta property="og:image" content="${esc(origin)}${src}">` : ''}<style>${STYLE}html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.5 system-ui,sans-serif;overflow:hidden}
+.zoomable{transform-origin:0 0;will-change:transform;cursor:zoom-in;touch-action:none;user-select:none;-webkit-user-drag:none}.zoomable.zoomed{cursor:grab}.zoomable.dragging{cursor:grabbing}
+.zoomtag{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:6;padding:5px 12px;border-radius:99px;background:rgba(0,0,0,.6);color:#fff;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}.zoomtag.show{opacity:1}
 .stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}.media{max-width:100vw;max-height:100vh;width:100%;height:100%;object-fit:contain}
 .song{text-align:center;padding:24px 18px;max-width:620px;width:100%;box-sizing:border-box}
 .stage:has(.song){background:radial-gradient(circle at 50% 30%,#123a36 0%,#0b1416 55%,#000 100%)}
@@ -2164,7 +2166,7 @@ ${m.kind === 'image' ? `<meta property="og:image" content="${esc(origin)}${src}"
 .brand,.ctl,.views{transition:opacity .4s}body.idle .brand,body.idle .ctl,body.idle .views{opacity:0;pointer-events:none}body.idle{cursor:none}body.idle:has(.song){cursor:auto}
 .info .btn{display:inline-block;margin:8px 8px 0 0;padding:8px 14px;border-radius:10px;background:var(--acc);color:#fff;text-decoration:none;font-weight:700}</style></head><body>
 <div class="stage">${media}</div>
-<a class="brand" href="/">Sushila</a>
+<a class="brand" href="/">sushila.ai</a>
 <div class="ctl"><button id="ib" title="Information" aria-label="Information" aria-expanded="false">ⓘ</button><button id="fb" title="Full screen (Esc to return)" aria-label="Full screen">⛶</button></div>
 <div class="views" id="vw" title="Visitors who opened this page (one per visitor per 24 hours)">👁 ${vtext}</div>
 <aside class="info" id="info" aria-label="Information"><button class="x" id="ix" aria-label="Close">×</button>
@@ -2185,7 +2187,23 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')show(false);
 var lastV=0;function views(){if(Date.now()-lastV<30000)return;lastV=Date.now();fetch(location.pathname.replace(/\\/$/,'')+'/views',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(!j)return;var t=j.views.toLocaleString('en-US')+' view'+(j.views===1?'':'s');document.getElementById('vw').textContent='👁 '+t;var d=document.getElementById('vd');if(d)d.textContent=t;}).catch(function(){});}
 document.addEventListener('visibilitychange',function(){if(!document.hidden)views();});ib.addEventListener('click',views);
 document.getElementById('fb').onclick=function(){var d=document.documentElement;if(document.fullscreenElement)document.exitFullscreen();else if(d.requestFullscreen)d.requestFullscreen().catch(function(){});else if(d.webkitRequestFullscreen)d.webkitRequestFullscreen();};
-${m.kind === 'music' ? `var au=document.getElementById('au'),pp=document.getElementById('pp'),ppi=document.getElementById('ppi'),sk=document.getElementById('sk'),vo=document.getElementById('vo'),mu=document.getElementById('mu'),mui=document.getElementById('mui'),song=document.getElementById('song'),drag=false;
+${m.kind === 'image' ? `(function(){var im=document.getElementById('zimg'),tag=document.getElementById('ztag');if(!im)return;
+var z=1,x=0,y=0,MAX=10,tt;
+function apply(){im.style.transform='translate('+x+'px,'+y+'px) scale('+z+')';im.classList.toggle('zoomed',z>1.001);}
+function show(){tag.textContent=Math.round(z*100)+'%';tag.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){tag.classList.remove('show');},900);}
+function clamp(){if(z<=1){z=1;x=0;y=0;return;}var r=im.parentElement.getBoundingClientRect(),w=im.offsetWidth*z,h=im.offsetHeight*z,ox=im.offsetLeft,oy=im.offsetTop;
+ var minx=r.width-w-ox,maxx=-ox,miny=r.height-h-oy,maxy=-oy;if(w<r.width){x=(r.width-w)/2-ox;}else{x=Math.min(maxx,Math.max(minx,x));}if(h<r.height){y=(r.height-h)/2-oy;}else{y=Math.min(maxy,Math.max(miny,y));}}
+function zoomAt(nz,cx,cy){nz=Math.min(MAX,Math.max(1,nz));var ox=im.offsetLeft,oy=im.offsetTop;var px=(cx-ox-x)/z,py=(cy-oy-y)/z;z=nz;x=cx-ox-px*z;y=cy-oy-py*z;clamp();apply();show();}
+im.parentElement.addEventListener('wheel',function(e){e.preventDefault();zoomAt(z*Math.exp(-e.deltaY*0.0015),e.clientX,e.clientY);},{passive:false});
+im.addEventListener('dblclick',function(e){zoomAt(z>1.01?1:2.5,e.clientX,e.clientY);});
+var drag=null;im.addEventListener('pointerdown',function(e){if(z<=1||e.pointerType==='touch')return;drag={sx:e.clientX,sy:e.clientY,x:x,y:y};im.setPointerCapture(e.pointerId);im.classList.add('dragging');});
+im.addEventListener('pointermove',function(e){if(!drag)return;x=drag.x+e.clientX-drag.sx;y=drag.y+e.clientY-drag.sy;clamp();apply();});
+im.addEventListener('pointerup',function(){drag=null;im.classList.remove('dragging');});
+var pts={},pinch=null;im.addEventListener('touchstart',function(e){if(e.touches.length===2){var a=e.touches[0],b=e.touches[1];pinch={d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),z:z};}else if(e.touches.length===1&&z>1){var t=e.touches[0];drag={sx:t.clientX,sy:t.clientY,x:x,y:y};}},{passive:true});
+im.addEventListener('touchmove',function(e){if(pinch&&e.touches.length===2){e.preventDefault();var a=e.touches[0],b=e.touches[1],d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);zoomAt(pinch.z*d/pinch.d,(a.clientX+b.clientX)/2,(a.clientY+b.clientY)/2);}else if(drag&&e.touches.length===1){e.preventDefault();var t=e.touches[0];x=drag.x+t.clientX-drag.sx;y=drag.y+t.clientY-drag.sy;clamp();apply();}},{passive:false});
+im.addEventListener('touchend',function(){pinch=null;drag=null;});
+document.addEventListener('keydown',function(e){var r=im.parentElement.getBoundingClientRect(),cx=r.width/2,cy=r.height/2;if(e.key==='+'||e.key==='=')zoomAt(z*1.25,cx,cy);else if(e.key==='-')zoomAt(z/1.25,cx,cy);else if(e.key==='0')zoomAt(1,cx,cy);});
+window.addEventListener('resize',function(){clamp();apply();});})();` : ''}${m.kind === 'music' ? `var au=document.getElementById('au'),pp=document.getElementById('pp'),ppi=document.getElementById('ppi'),sk=document.getElementById('sk'),vo=document.getElementById('vo'),mu=document.getElementById('mu'),mui=document.getElementById('mui'),song=document.getElementById('song'),drag=false;
 function f(x){if(!isFinite(x))return'0:00';x=Math.floor(x);return Math.floor(x/60)+':'+String(x%60).padStart(2,'0');}
 function fill(r){r.style.setProperty('--p',(r.value/r.max*100)+'%');}
 function tick(){if(!drag&&au.duration){sk.value=Math.round(au.currentTime/au.duration*1000);fill(sk);}document.getElementById('tc').textContent=f(au.currentTime);document.getElementById('td').textContent=f(au.duration);}

@@ -88,7 +88,7 @@ function modeName(m) { return m === 'turbo' ? 'Accelerated' : 'Standard'; }
 function renderNav() {
   const qn = S.queue ? S.queue.jobs.filter((j) => j.status === 'running' || j.status === 'queued').length : 0;
   put($('nav'), ...NAV.map(([g, items]) => [g ? h('div', { class: 'navgroup' }, g) : h('div', { style: 'height:6px' }), ...items.map(([k, t]) =>
-    h('div', { class: 'navitem' + (S.view === k ? ' on' : ''), onclick: () => go(k), role: 'button', tabindex: 0 }, h('span', { class: 'ico' }, icon(k)), t,
+    h('div', { class: 'navitem' + (S.view === k ? ' on' : ''), onclick: () => go(k), role: 'button', tabindex: 0 }, h('span', { class: 'ico c-' + k }, icon(k, 16)), t,
       k === 'queue' && qn ? h('span', { class: 'badge' }, qn) : null))]));
 }
 // the big Sushila Engine button under the logo: its state, always visible; a click opens the engine and model packs panel
