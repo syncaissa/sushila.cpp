@@ -28,7 +28,7 @@ jobs:
         with: { targets: "${{ matrix.key == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}" }
       - uses: Swatinem/rust-cache@v2
         if: steps.want.outputs.go == 'yes'
-        with: { workspaces: "cli -> target\nstation -> target", key: station-${{ matrix.key }} }
+        with: { workspaces: "cli -> target\nstation -> target", key: "station-${{ matrix.key }}" }
       - uses: actions/setup-node@v4
         if: steps.want.outputs.go == 'yes'
         with: { node-version: 20 }
