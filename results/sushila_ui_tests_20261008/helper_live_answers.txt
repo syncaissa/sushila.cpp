@@ -1,0 +1,51 @@
+===== NO MODEL RUNNING
+[facts / sushila helper]
+Installed model packs (1):
+- Qwen3 4B Instruct 2507 (chat, 4-bit) (qwen3-4b-instruct-2507): chat, 2.5 GB
+Start one: pick it on the Inference page, or `sushila start <pack>` (one pack runs at a time).
+
+[facts / sushila helper]
+No model pack is running. Start one on the Inference page (pick it at the top) or with `sushila start <pack>`; `sushila list` shows the installed ones.
+
+[quote / sushila helper]
+To make a picture you need a image pack first: `sushila install z-image-turbo` (or `sushila search --kind image --fits`).
+
+From "The Inference page and running models" (notes):
+… does (Chat, Code, Image, Music, Video) and whether it runs. Choosing one that is stopped asks first and starts it; ■ Stop stops it. Chips by kind (Chat, Image, ...) jump to that kind. One model pack runs at a time: starting one stops the … pictures are saved, which packs fit, the GPU) from the live state, turns "how do I make a picture / song / video" into … 2048x2048 for every image model (34 s at 2048 on an RTX 3090 with the NVIDIA 4-bit pack, Accelerated); 4K (3840x2160) for the standard image engine only (about 
+
+[quote / sushila helper]
+From "Crashes and logs" (notes):
+If the server crashes, Sushila restarts it within a second and records why (Admin tab, Logs, Crashes). `sushila logs -f` follows the log. `sushila report` collects versions, GPU information and recent logs, without secrets, for a bug report.
+
+Commands from these notes:
+  sushila logs -f
+  sushila report
+
+For a fuller answer in plain words, start the chat model: `sushila start qwen3-4b-instruct-2507` (Qwen3 4B Instruct 2507 (chat, 4-bit)).
+
+===== CHAT MODEL RUNNING
+[facts / sushila helper]
+Installed model packs (1):
+- Qwen3 4B Instruct 2507 (chat, 4-bit) (qwen3-4b-instruct-2507): chat, 2.5 GB, running (Standard)
+Start one: pick it on the Inference page, or `sushila start <pack>` (one pack runs at a time).
+
+[generate / qwen3-4b-instruct-2507]
+The sky appears blue because molecules in the atmosphere scatter blue light more than other colors due to its shorter wavelength.  
+
+Sources: First start, Live facts about this computer (now)
+
+[quote] Without a chat model running, the Sushila helper answers questions about Sushila and this computer (what is installed or running, how to make pictures, songs and videos, settings, problems). For this question you need a chat model.
+
+For a fuller answer in plain words, start the chat model: `sushila start qwen3-4b-instruct-2507` (Qwen3 4B Instruct 2507 (chat, 4-bit)).
+   hint: For a fuller answer in plain words, start the chat model: `sushila start qwen3-4b-instruct-2507` (Qwen3 4B Instruct 2507 (chat, 4-bit)).
+
+[quote] To make a picture you need an image pack first: `sushila install z-image-turbo` (or `sushila search --kind image --fits`).
+
+From "The Inference page and running models" (notes):
+… does (Chat, Code, Image, Music, Video) and whether it runs. Choosing one that is stopped asks first and starts it; ■ Stop stops it. Chips by kind (Chat, Image, ...) jump to that kind. One model pack runs at a time: start
+   hint: For a fuller answer in plain words, start the chat model: `sushila start qwen3-4b-instruct-2507` (Qwen3 4B Instruct 2507 (chat, 4-bit)).
+
+[quote] From "The Admin tab and security" (notes):
+The Admin page (http://localhost:8765/admin) installs and removes packs, updates the engine, shows the queue, logs and crashes, and changes settings. It works only on this computer and needs the Admin password, stored as a hash. Change it with `sushila password` (asks the current one); lost it? run `sushila password --reset` in a terminal on this computer
+   hint: For a fuller answer in plain words, start the chat model: `sushila start qwen3-4b-instruct-2507` (Qwen3 4B Instruct 2507 (chat, 4-bit)).
+

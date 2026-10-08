@@ -187,7 +187,7 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       for (const m of run) rows.push(el('div', { class: 'task' }, el('b', {}, (m.ready ? '● ' : '◌ ') + m.name), ' ',
         el('span', { class: 'pill ' + (m.ready ? 'on' : '') }, m.ready ? 'running' : 'loading'),
         el('span', { class: 'sub' }, ' · ' + (m.mode === 'turbo' ? 'Accelerated' : 'Standard') + ' · on the ' + (m.cpu ? 'CPU' : (sys && sys.gpu ? 'GPU' : 'CPU')) + ' · since ' + (m.startedAt || '').replace('T', ' ').slice(11, 19) + ' UTC'
-          + ((st.packs || []).find((p) => p.id === m.packId && p.assistant) ? ' · the assistant (stays running)' : ''))));
+)));
       if (!rows.length) rows.push(el('div', { class: 'sub' }, 'Nothing is running or downloading.'));
       return [el('div', { class: 'sub' }, 'Live: what the server and the terminal are doing (updates every second or two).'), ...rows];
     }
@@ -221,11 +221,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}.hidden{d
       return [el('h2', {}, 'Recent actions'), list.length ? null : el('div', { class: 'sub' }, 'Nothing yet: installs, starts, stops and updates appear here, from this page, the terminal or the API.'), ...list.map(taskRow)];
     }
     const running = (id) => (st.running || []).find((r) => r.packId === id);
-    // the same rule as the inference page: one model pack at a time (the assistant's chat model stays), asked first
+    // the same rule as the inference page: one model pack at a time, asked first
     function startAsk(p, mode) {
-      const a = (st.packs || []).find((x) => x.assistant);
-      const others = (st.running || []).filter((r) => r.packId !== p.id && !(a && r.packId === a.id));
-      if (others.length && !window.confirm('Start ' + p.name + (p.turbo ? (mode === 'turbo' ? ' (Accelerated)' : ' (Standard)') : '') + '?\n\nThis stops ' + others.map((r) => r.name).join(', ') + ': one model pack runs at a time.' + (a && a.id !== p.id ? '\n' + a.name + ' (the assistant) keeps running.' : ''))) return;
+      const others = (st.running || []).filter((r) => r.packId !== p.id);
+      if (others.length && !window.confirm('Start ' + p.name + (p.turbo ? (mode === 'turbo' ? ' (Accelerated)' : ' (Standard)') : '') + '?\n\nThis stops ' + others.map((r) => r.name).join(', ') + ': one model pack runs at a time.')) return;
       control({ action: 'start', pack: p.id, mode });
     }
     function packsView() {
@@ -564,16 +563,15 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         const items = packs.length ? packs.flatMap((p) => (p.turbo ? ['turbo', 'regular'] : ['regular']).map((md) => {
             const r = models.find((x) => x.packId === p.id && (x.mode || 'regular') === md);
             const st = r ? (r.ready ? (r.cpu ? '  ● running on the CPU' : '  ● running') : '  ◌ loading…') : '';
-            return { value: p.id + '|' + md, run: !!r, text: (KIND[kindOf(p)] || '💬 Chat') + ' · ' + p.name + ' (' + modeName(md) + ')' + st + (p.assistant ? '  · assistant' : '') };
+            return { value: p.id + '|' + md, run: !!r, text: (KIND[kindOf(p)] || '💬 Chat') + ' · ' + p.name + ' (' + modeName(md) + ')' + st };
           }))
           : models.map((m) => ({ value: m.packId + '|' + (m.mode || 'regular'), run: true, text: (KIND[kindOf(m)] || '💬 Chat') + ' · ' + m.name + ' (' + modeName(m.mode) + ')' }));
         items.sort((a, b) => b.run - a.run);
         modelSel.replaceChildren(...(items.length ? items.map((x) => el('option', { value: x.value }, x.text)) : [el('option', { value: '' }, packs.length ? 'No model running' : 'No model installed')]));
-        // keep the choice: the one asked for, else the one shown, else a running pack that is not the assistant, else any running one
+        // keep the choice: the one asked for, else the one shown, else a running one
         const runVals = items.filter((x) => x.run).map((x) => x.value);
-        const assistantId = (packs.find((p) => p.assistant) || {}).id;
         const pickVal = (want && runVals.find((v) => v.startsWith(want + '|'))) || (model && runVals.find((v) => v === model.packId + '|' + (model.mode || 'regular')))
-          || runVals.find((v) => !v.startsWith(assistantId + '|')) || runVals[0] || '';
+          || runVals[0] || '';
         if (pickVal) modelSel.value = pickVal;
         want = '';
         fillKinds(items);
@@ -650,12 +648,11 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     const kept = {};  // pack id -> {nodes, msgs}: switching models (or tabs in the app) keeps each one's conversation and results
     function pickModel(asked) {
       const [pid, pmode] = (modelSel.value || '').split('|');
-      // a pack that is not running in the mode picked: ask, then start it (the others stop; the assistant stays)
+      // a pack that is not running in the mode picked: ask, then start it (the others stop)
       if (asked === true && pid && !server && !models.find((m) => m.packId === pid && (m.mode || 'regular') === pmode)) {
-        const p = packs.find((x) => x.id === pid) || { name: pid }, a = packs.find((x) => x.assistant);
-        const others = models.filter((m) => m.packId !== pid && !(a && m.packId === a.id));
-        const msg = 'Start ' + p.name + ' (' + modeName(pmode) + ')?' + (others.length ? '\n\nThis stops ' + others.map((m) => m.name).join(', ') + ': one model pack runs at a time.' : '')
-          + (a && a.id !== pid ? '\n' + a.name + ' (the assistant) keeps running' + (p.kind && p.kind !== 'text' ? ', on the CPU while this pack uses the GPU.' : '.') : '');
+        const p = packs.find((x) => x.id === pid) || { name: pid };
+        const others = models.filter((m) => m.packId !== pid);
+        const msg = 'Start ' + p.name + ' (' + modeName(pmode) + ')?' + (others.length ? '\n\nThis stops ' + others.map((m) => m.name).join(', ') + ': one model pack runs at a time.' : '');
         if (!window.confirm(msg)) { modelSel.value = lastValue; return; }
         usePack('start', pid, pmode);
         return;

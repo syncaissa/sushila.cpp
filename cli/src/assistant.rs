@@ -127,7 +127,12 @@ pub fn quote_sections(q: &str) -> Vec<Section> {
     let secs = sections();
     let r = rank(q, secs);
     let Some(top) = r.first().map(|x| x.1) else { return vec![] };
-    r.iter().take(2).filter(|x| x.1 >= 0.75 * top).map(|x| secs[x.0].clone()).collect()
+    // a section counts only if it shares a real word with the question ("why is the sky blue" shares only "why" with a
+    // note about crashes): otherwise the question is not about Sushila and nothing is quoted
+    const GENERIC: [&str; 12] = ["why", "please", "tell", "explain", "know", "want", "need", "help", "thing", "way", "like", "make"];
+    let qw: Vec<String> = words(q).into_iter().filter(|w| !GENERIC.contains(&w.as_str())).collect();
+    r.iter().take(2).filter(|x| x.1 >= 0.75 * top).filter(|x| { let sw = words(&format!("{} {}", secs[x.0].title, secs[x.0].text)); qw.iter().any(|w| sw.contains(w)) })
+        .map(|x| secs[x.0].clone()).collect()
 }
 
 /// What is true on this computer right now, as plain lines. `local`: false for visitors from other machines (no paths).
@@ -239,6 +244,33 @@ fn kind_of(p: &Value) -> &str { let k = p["kind"].as_str().unwrap_or("text"); if
 pub fn facts_answer(q: &str, state: &Value, catalog: &Value, gpu_line: &str, local: bool, home: &str) -> Option<String> {
     let l = q.to_lowercase();
     let has = |ws: &[&str]| ws.iter().any(|w| l.contains(w));
+    let packs = state["packs"].as_object();
+    let running = state["running"].as_object();
+    let mode = |m: &Value| if m == "turbo" { "Accelerated" } else { "Standard" };
+    let how = has(&["how do", "how to", "how can"]);
+    // what is installed / running: straight from the state, with or without a language model
+    if has(&["running", "loaded", "active", "started"]) && has(&["model", "pack", "what", "which", "anything"]) && !how {
+        let r: Vec<String> = running.map(|m| m.iter().map(|(id, v)| format!("- {} ({id}): {}{}", v["name"].as_str().unwrap_or(id), mode(&v["mode"]), if v["ready"] == true { "" } else { ", still loading" })).collect()).unwrap_or_default();
+        return Some(if r.is_empty() { "No model pack is running. Start one on the Inference page (pick it at the top) or with `sushila start <pack>`; `sushila list` shows the installed ones.".into() }
+            else { format!("Running now:\n{}\nStop one with `sushila stop <pack>` or the Stop button on the Inference page.", r.join("\n")) });
+    }
+    if has(&["install", "have", "list", "show", "my ", "all "]) && has(&["model", "pack"]) && !how && !has(&["where", "fit", "can i run", "should", "recommend"]) {
+        let mut v: Vec<(&String, &Value)> = packs.map(|m| m.iter().collect()).unwrap_or_default();
+        v.sort_by_key(|(_, p)| kind_of(p).to_string());
+        if v.is_empty() { return Some("No model pack is installed yet. `sushila search --fits` lists the ones that fit this computer; `sushila install <pack>` adds one.".into()); }
+        let lines: Vec<String> = v.iter().map(|(id, p)| format!("- {} ({id}): {}, {}{}", p["name"].as_str().unwrap_or(id), kind_of(p), crate::util::human(p["bytes"].as_u64().unwrap_or(0)),
+            running.and_then(|m| m.get(id.as_str())).map(|r| format!(", running ({})", mode(&r["mode"]))).unwrap_or_default())).collect();
+        return Some(format!("Installed model packs ({}):\n{}\nStart one: pick it on the Inference page, or `sushila start <pack>` (one pack runs at a time).", v.len(), lines.join("\n")));
+    }
+    if has(&["where"]) && has(&["image", "picture", "photo", "output", "song", "video", "result"]) {
+        return Some(if local { format!("Pictures made on the Inference page are saved in {} (one folder per day); under each picture, Show in folder opens it. Queue jobs keep their results in {}.",
+            std::path::Path::new(home).join("outputs").join("images").display(), std::path::Path::new(home).join("outputs").display()) }
+            else { "On the computer that runs the server, in outputs/ inside its Sushila home folder.".into() });
+    }
+    if has(&["gpu", "graphics", "video card", "vram"]) && has(&["what", "which", "do i have", "my "]) && !has(&["fit", "run"]) { return Some(gpu_line.to_string()); }
+    if has(&["version"]) && has(&["sushila", "engine", "what", "which"]) {
+        return Some(format!("sushila {}, engine Sushila.cpp {} ({}). `sushila version` prints both.", env!("CARGO_PKG_VERSION"), state["engine"]["version"].as_str().unwrap_or("not installed"), state["engine"]["key"].as_str().unwrap_or("")));
+    }
     if has(&["where"]) && has(&["model", "pack", "stored", "store", "file", "folder", "home", "kept", "saved"]) {
         return Some(if local { format!("On this computer the model packs are in {}, inside the home folder {home}. `sushila home` prints it; `sushila du` shows the space each pack uses.",
             std::path::Path::new(home).join("model-packs").display()) }
@@ -260,15 +292,14 @@ pub fn facts_answer(q: &str, state: &Value, catalog: &Value, gpu_line: &str, loc
 /// The quote-mode answer: facts for questions about this computer, else the best 1-2 sections as they are written,
 /// the commands in them, and (when one fits) the bigger chat model that would answer in its own words.
 pub fn quote_answer(q: &str, notes: &[Section], state: &Value, catalog: &Value, gpu_line: &str, local: bool, home: &str, model: &str) -> Value {
-    let model_bytes = state["packs"][model]["bytes"].as_u64().unwrap_or(0);
-    let bigger = catalog["packs"].as_array().and_then(|a| a.iter().find(|p| p["id"] == "qwen3-4b-instruct-2507" && p["fits"] != false && p["bytes"].as_u64().unwrap_or(0) > model_bytes && !state["packs"]["qwen3-4b-instruct-2507"].is_object()).cloned());
-    let hint = bigger.map(|p| format!("For fuller answers install a bigger chat model, e.g. `sushila install qwen3-4b-instruct-2507` (needs about {:.0} GB).", (p["bytes"].as_f64().unwrap_or(2.5e9) / 1e9).ceil()));
+    let _ = model;
+    let hint = fuller_hint(state, catalog);
     let (mut answer, quotes, commands): (String, Vec<Value>, Vec<String>);
     if let Some(f) = facts_answer(q, state, catalog, gpu_line, local, home) {
         commands = commands_in(&f);
         answer = f; quotes = vec![json!({ "title": "Live facts about this computer", "source": "facts", "text": answer })];
     } else if notes.is_empty() {
-        answer = "The notes do not answer this. See the Documentation page (/docs) or `sushila --help`.".into(); quotes = vec![]; commands = vec![];
+        answer = "Without a chat model running, the Sushila helper answers questions about Sushila and this computer (what is installed or running, how to make pictures, songs and videos, settings, problems). For this question you need a chat model.".into(); quotes = vec![]; commands = vec![];
     } else {
         let best: Vec<&Section> = notes.iter().take(2).collect();
         // the notes are one paragraph per section, wrapped at about 120 characters: unwrapped, so terminals and the page
@@ -282,6 +313,47 @@ pub fn quote_answer(q: &str, notes: &[Section], state: &Value, catalog: &Value, 
     if let Some(h) = &hint { answer += &format!("\n\n{h}"); }
     json!({ "mode": "quote", "answer": answer, "quotes": quotes, "commands": commands, "hint": hint, "model": model })
 }
+/// small_model for a pack known by its key (records carry the id too, but the key is what counts).
+fn small_pack(id: &str, p: &Value) -> bool { let mut q = p.clone(); q["id"] = json!(id); small_model(&q) }
+/// The chat model (3B or more) that runs and is ready, if any.
+pub fn running_chat(state: &Value) -> Option<String> {
+    let packs = state["packs"].as_object()?;
+    state["running"].as_object()?.iter().filter(|(id, r)| r["ready"] == true && packs.get(*id).map(|p| p["kind"].as_str().unwrap_or("text") == "text" && !small_pack(id, p)).unwrap_or(false))
+        .max_by_key(|(id, _)| packs[*id]["bytes"].as_u64().unwrap_or(0)).map(|(id, _)| id.clone())
+}
+/// How to get an answer in plain words: start an installed chat model (and what that stops), or install one.
+pub fn fuller_hint(state: &Value, catalog: &Value) -> Option<String> {
+    if running_chat(state).is_some() { return None; }
+    let chat = state["packs"].as_object().and_then(|m| m.iter().filter(|(id, p)| p["kind"].as_str().unwrap_or("text") == "text" && !small_pack(id, p) && !id.contains("coder"))
+        .min_by_key(|(_, p)| p["bytes"].as_u64().unwrap_or(0)).map(|(id, p)| (id.clone(), p["name"].as_str().unwrap_or(id).to_string())));
+    let stops: Vec<String> = state["running"].as_object().map(|m| m.iter().map(|(id, r)| r["name"].as_str().unwrap_or(id).to_string()).collect()).unwrap_or_default();
+    match chat {
+        Some((id, name)) => Some(format!("For a fuller answer in plain words, start the chat model: `sushila start {id}` ({name}){}.",
+            if stops.is_empty() { String::new() } else { format!("; this stops {} (one model pack runs at a time)", stops.join(", ")) })),
+        None => catalog["packs"].as_array().and_then(|a| a.iter().find(|p| p["id"] == "qwen3-4b-instruct-2507" && p["fits"] != false))
+            .map(|p| format!("For answers in plain words, install a chat model: `sushila install qwen3-4b-instruct-2507` (about {:.0} GB), then start it.", (p["bytes"].as_f64().unwrap_or(2.5e9) / 1e9).ceil())),
+    }
+}
+/// The classic helper's direct answer to common tasks ("make a picture", "write a song", ...): the steps, with the pack
+/// names installed here (no language model involved).
+pub fn intent_answer(q: &str, state: &Value, port: u16) -> Option<String> {
+    let l = q.to_lowercase();
+    let has = |ws: &[&str]| ws.iter().any(|w| l.contains(w));
+    let pack_of = |k: &str| state["packs"].as_object().and_then(|m| m.iter().find(|(_, p)| kind_of(p) == k).map(|(id, _)| id.clone()));
+    let page = format!("http://localhost:{port}/");
+    let task = |k: &str, what: &str, example: &str, install: &str| -> String {
+        match pack_of(k) {
+            Some(id) => format!("To {what}: on the Inference page ({page}) pick {id} at the top (it starts after asking), then type your request. In a terminal: `sushila run {id} \"{example}\"`."),
+            None => format!("To {what} you need {} {k} pack first: `sushila install {install}` (or `sushila search --kind {k} --fits`).", if k.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" }),
+        }
+    };
+    if has(&["picture", "image", "photo", "draw", "illustration"]) && !has(&["where", "fit"]) { return Some(task("image", "make a picture", "a red fox in the snow", "z-image-turbo")); }
+    if has(&["song", "music", "melody", "lyrics"]) && !has(&["where", "fit"]) { return Some(task("music", "make a song", "an upbeat pop song about summer", "ace-step-15")); }
+    if has(&["video", "clip", "movie", "animation"]) && !has(&["where", "fit"]) { return Some(task("video", "make a video", "two bears dancing by a river", "wan2.2-ti2v-5b")); }
+    if has(&["code", "program", "script", "function", "coding"]) && has(&["write", "help", "make", "create", "fix"]) { return Some(task("code", "get help with code", "write a Python function that reverses a string", "qwen2.5-coder-7b")); }
+    if has(&["phone", "tablet", "other computer", "another computer"]) { return Some("To use Sushila from a phone or another computer: `sushila share on`, restart the server, `sushila keys add phone`, then `sushila share qr` (same network).".into()); }
+    None
+}
 /// One line about the GPU, for quote-mode answers.
 pub fn gpu_line(gpu: &Option<Value>, other: &Option<String>, info: &Value) -> String {
     match (gpu, other) {
@@ -290,13 +362,6 @@ pub fn gpu_line(gpu: &Option<Value>, other: &Option<String>, info: &Value) -> St
         _ if info["os"] == "macos" && info["arch"] == "aarch64" => format!("This computer: Apple silicon with {:.0} GB of shared memory.", info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9),
         _ => format!("This computer: no GPU found (CPU), {:.0} GB of memory.", info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9),
     }
-}
-/// The model Ask Sushila uses here and whether it answers in quote mode.
-pub fn model_for(dir: &std::path::Path, mem_gb: f64) -> Option<(String, bool)> {
-    let st = crate::webserver::read_state(dir);
-    let m = pick_model(&st, mem_gb).or_else(|| st["packs"].get(crate::core::DEFAULT_MODEL).map(|_| crate::core::DEFAULT_MODEL.to_string()))?;
-    let small = small_model(&st["packs"][&m]);
-    Some((m, small))
 }
 
 /// This computer's GPUs and memory, looked up once per server process.
@@ -318,15 +383,26 @@ pub async fn answer_stream(dir: &std::path::Path, port: u16, q: &str, history: &
     let cat: Value = std::fs::read_to_string(dir.join("catalog-cache.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(Value::Null);
     let facts = live_facts(&st, &cat, gpu, other, info, port as u64, local, &dir.to_string_lossy());
     let mem = gpu.as_ref().and_then(|g| g["memoryGB"].as_f64()).unwrap_or(info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9 * 0.6);
-    let model = pick_model(&st, mem).or_else(|| st["packs"].get(crate::core::DEFAULT_MODEL).map(|_| crate::core::DEFAULT_MODEL.to_string()))
-        .ok_or("no text model is installed (install one on the Admin tab, e.g. qwen2.5-0.5b-q4km)")?;
-    if small_model(&st["packs"][&model]) {
+    let _ = mem;
+    let gl = gpu_line(gpu, other, info);
+    // questions about this computer (installed, running, where, which fits): answered from the live state, always
+    if let Some(f) = facts_answer(q, &st, &cat, &gl, local, &dir.to_string_lossy()) {
+        if let Some(e) = each { e(&f); }
+        crate::core::log(true, &format!("assistant: {} chars asked, answered from the live facts", q.len()));
+        return Ok(json!({ "mode": "facts", "answer": f, "model": "sushila helper", "sources": [{ "title": "Live facts about this computer", "source": "facts" }], "commands": commands_in(&f) }));
+    }
+    // a chat model (3B or more) that already runs answers in its own words; none is ever started for an answer, since
+    // starting one would stop the pack in use (one at a time): without one, the classic helper answers
+    let model = running_chat(&st).unwrap_or_default();
+    if model.is_empty() || small_model(&st["packs"][&model]) {
         // quote mode: nothing generated, so the model need not even be loaded
         let notes = quote_sections(q);
-        let mut v = quote_answer(q, &notes, &st, &cat, &gpu_line(gpu, other, info), local, &dir.to_string_lossy(), &model);
+        let mut v = quote_answer(q, &notes, &st, &cat, &gl, local, &dir.to_string_lossy(), &model);
+        v["model"] = json!("sushila helper");
+        if let Some(i) = intent_answer(q, &st, port) { v["answer"] = json!(format!("{i}\n\n{}", v["answer"].as_str().unwrap_or(""))); }
         v["sources"] = json!(v["quotes"].as_array().map(|a| a.iter().map(|x| json!({ "title": x["title"], "source": x["source"] })).collect::<Vec<_>>()).unwrap_or_default());
         if let Some(f) = each { f(v["answer"].as_str().unwrap_or("")); }
-        crate::core::log(true, &format!("assistant: {} chars asked, answered with quotes ({model} is under 3B)", q.len()));
+        crate::core::log(true, &format!("assistant: {} chars asked, answered by the helper (no chat model running)", q.len()));
         return Ok(v);
     }
     let st2 = crate::webserver::start_and_wait(dir, &model, 300).await.ok_or(format!("{model} did not start; see the Admin tab, Logs"))?;
@@ -372,13 +448,39 @@ mod tests {
         let st = json!({ "packs": { "qwen2.5-0.5b-q4km": { "bytes": 534772932u64 } } });
         let v = quote_answer("I forgot the admin password", &notes, &st, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km");
         let a = v["answer"].as_str().unwrap();
-        assert!(v["commands"].as_array().unwrap().iter().any(|c| c == "sushila password --reset") && a.contains("Commands from these notes:") && a.ends_with("(needs about 3 GB)."), "{a}");
+        assert!(v["commands"].as_array().unwrap().iter().any(|c| c == "sushila password --reset") && a.contains("Commands from these notes:") && a.contains("install a chat model: `sushila install qwen3-4b-instruct-2507` (about 3 GB)"), "{a}");
         let f = quote_answer("which image model fits my GPU?", &notes, &st, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km");
         let fa = f["answer"].as_str().unwrap(); assert!(fa.contains("z-image-turbo (image") && !fa.contains("z-image-turbo-nvidia") && !fa.contains("- qwen3"), "{fa}");
         let w = quote_answer("where are my models stored?", &notes, &st, &cat, "GPU", false, "/secret/home", "qwen2.5-0.5b-q4km");
         assert!(!w["answer"].as_str().unwrap().contains("/secret"));
         let st4 = json!({ "packs": { "qwen2.5-0.5b-q4km": { "bytes": 1 }, "qwen3-4b-instruct-2507": { "bytes": 2 } } });
-        assert!(quote_answer("hello", &notes, &st4, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km")["hint"].is_null());
+        // the chat model is installed but not running: start it (not install it)
+        assert!(quote_answer("hello", &notes, &st4, &cat, "GPU", true, "/h", "qwen2.5-0.5b-q4km")["hint"].as_str().unwrap_or("").contains("`sushila start qwen3-4b-instruct-2507`"));
+    }
+    #[test] fn helper_without_a_model() {
+        // installed: a chat model and an image pack; running: only the image pack (no language model answers)
+        let st = json!({ "packs": { "qwen3-4b-instruct-2507": { "id": "qwen3-4b-instruct-2507", "name": "Qwen3 4B", "kind": "text", "bytes": 2500000000u64 },
+                                    "z-image-turbo-nvidia": { "id": "z-image-turbo-nvidia", "name": "Z-Image-Turbo NVIDIA", "kind": "image", "bytes": 12000000000u64 } },
+                         "running": { "z-image-turbo-nvidia": { "name": "Z-Image-Turbo NVIDIA", "mode": "turbo", "ready": true } }, "engine": { "version": "0.1.1", "key": "windows-x86_64-cuda" } });
+        let cat = json!({ "packs": [] });
+        let f = |q: &str| facts_answer(q, &st, &cat, "GPU line", true, "/h").unwrap_or_default();
+        let list = f("list all the models installed");
+        assert!(list.contains("Installed model packs (2)") && list.contains("qwen3-4b-instruct-2507") && list.contains("z-image-turbo-nvidia") && list.contains("running (Accelerated)"), "{list}");
+        assert!(f("what is running now?").contains("Running now:") && f("which model is running").contains("Z-Image-Turbo NVIDIA"));
+        assert!(f("where are my pictures saved?").contains("outputs") && f("what gpu do i have").contains("GPU line"));
+        assert!(facts_answer("how do I add a coding model?", &st, &cat, "g", true, "/h").is_none(), "a how-to question goes to the notes, not the facts");
+        assert!(running_chat(&st).is_none());
+        let h = fuller_hint(&st, &cat).unwrap();
+        assert!(h.contains("`sushila start qwen3-4b-instruct-2507`") && h.contains("this stops Z-Image-Turbo NVIDIA"), "{h}");
+        let i = intent_answer("how do I make a picture of a cat?", &st, 8765).unwrap();
+        assert!(i.contains("z-image-turbo-nvidia") && i.contains("http://localhost:8765/"), "{i}");
+        assert!(intent_answer("make me a song", &st, 8765).unwrap().contains("sushila install ace-step-15"));
+        assert!(intent_answer("make a video", &st, 8765).unwrap().contains("need a video pack") && intent_answer("draw an image", &json!({}), 1).unwrap().contains("need an image pack"));
+        assert!(quote_sections("why is the sky blue?").is_empty(), "off-topic: nothing quoted");
+        assert!(!quote_sections("I forgot the admin password").is_empty());
+        // with the chat model running and ready, it answers (no hint)
+        let mut st2 = st.clone(); st2["running"] = json!({ "qwen3-4b-instruct-2507": { "ready": true, "mode": "regular" } });
+        assert_eq!(running_chat(&st2).as_deref(), Some("qwen3-4b-instruct-2507")); assert!(fuller_hint(&st2, &cat).is_none());
     }
     #[test] fn trims() { let t = "alpha one\nbeta two\npassword reset here\ngamma\ndelta"; assert!(trim_to("password", t, 25).contains("password reset here")); assert_eq!(trim_to("x", "short", 100), "short"); }
     #[test] fn picks_largest_running_chat_model() {

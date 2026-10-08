@@ -231,11 +231,8 @@ impl Window {
         matches!(self.ask(lines, prompt).to_lowercase().as_str(), "y" | "yes")
     }
     /// Ask Sushila answers with quotes here (its model is under 3B parameters).
-    fn quote_mode(&self) -> bool {
-        let (gpu, _, info) = self.rt.block_on(crate::assistant::probe(&self.data));
-        let mem = gpu.as_ref().and_then(|g| g["memoryGB"].as_f64()).unwrap_or(info["memory_bytes"].as_f64().unwrap_or(0.0) / 1e9 * 0.6);
-        crate::assistant::model_for(&self.data, mem).map(|m| m.1).unwrap_or(true)
-    }
+    /// The classic helper answers here unless a chat model (3B or more) already runs.
+    fn quote_mode(&self) -> bool { crate::assistant::running_chat(&crate::webserver::read_state(&self.data)).is_none() }
     fn assistant(&self, q: &str, extra: Option<&str>, stream: bool) -> Result<serde_json::Value, String> {
         // under the screen, whole lines (output of commands running in the background may come in between)
         let screen = crate::tui::in_screen();

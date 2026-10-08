@@ -74,13 +74,15 @@ running, queue progress, GPU memory). It has no keys of its own. `ticker off` hi
 `sushila config set ticker off` keeps it off.
 
 ## Ask Sushila
-The assistant answers questions about Sushila from these notes and the documentation, with live facts about this
+The Sushila helper answers questions about Sushila from these notes and the documentation, with live facts about this
 computer (GPU, installed packs, which packs fit). Use it from the ☰ menu of the page (Ask Sushila), with
 `sushila assistant "<question>"` (or `sushila assistant` to keep asking), or by typing a question in the server window.
-It uses the largest installed text model. With a model under 3B parameters (such as the 0.5B default) it does not
-write answers itself, because small models invent steps: it quotes the best one or two sections of the notes, lists
-the commands in them, and answers questions about this computer (which packs fit, where the models are) from the live
-facts. With a model of 3B or more (for example `sushila install qwen3-4b-instruct-2507`) it answers in its own words.
+It needs no language model and never starts one (that would stop the pack in use): questions about this computer
+(what is installed or running, where pictures are saved, which packs fit, the GPU, the version) come straight from the
+live state; "how do I make a picture / song / video / code" gets the steps with the packs installed here; other
+questions get the best one or two sections of these notes and the commands in them. If a chat model of 3B or more is
+running, it answers those other questions in its own words instead; if none runs, the answer ends with how to start
+one (for example `sushila start qwen3-4b-instruct-2507`) and which running pack that would stop.
 
 ## Which pack fits my computer
 Rough rule for text models in 4-bit: the model needs about 0.6 GB of memory per billion parameters, plus room for
@@ -103,10 +105,11 @@ the Inference page lists each pack in both modes, e.g. "Z-Image-Turbo (Accelerat
 The Inference page (http://localhost:8765/) has one model picker: every installed pack, once per mode, with what it
 does (Chat, Code, Image, Music, Video) and whether it runs. Choosing one that is stopped asks first and starts it; ■ Stop
 stops it. Chips by kind (Chat, Image, ...) jump to that kind. One model pack runs at a time: starting one stops the
-others, on the page, the Admin page and with `sushila start` alike (all show the same state). The assistant's chat model
-(Qwen3 4B) is the exception: it keeps running so the terminal and Ask Sushila always answer; while an image, music or
-video pack uses the GPU it moves to the CPU (slower answers, but a picture being drawn is never interrupted) and returns
-to the GPU when that pack stops. Pictures made on the page are also saved in the home folder (outputs/images/<date>/);
+others, on the page, the Admin page and with `sushila start` alike (all show the same state). The terminal and Ask
+Sushila need no model: the Sushila helper answers questions about this computer (what is installed or running, where
+pictures are saved, which packs fit, the GPU) from the live state, turns "how do I make a picture / song / video" into
+the steps with the packs installed here, and quotes these notes for the rest. When a chat model runs, it answers
+free-form questions in its own words; when none runs, the helper says how to start one and what that would stop. Pictures made on the page are also saved in the home folder (outputs/images/<date>/);
 under each one, Show in folder opens it in Explorer or Finder and Copy path copies its location. Sizes go up to
 2048x2048 for every image model (34 s at 2048 on an RTX 3090 with the NVIDIA 4-bit pack, Accelerated); 4K (3840x2160)
 for the standard image engine only (about 3 minutes on a 24 GB GPU; measured once on an RTX 3090).

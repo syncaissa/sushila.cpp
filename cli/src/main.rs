@@ -814,52 +814,15 @@ impl Owner {
     }
 }
 
-/// One model pack at a time: starting one stops the others, except the assistant's chat model (Qwen3 4B), which keeps
-/// running for the terminal and Ask Sushila. When the new pack needs the GPU (images, music, video, or a text model that
-/// does not fit next to it), the assistant moves to the CPU instead of stopping, so a question never interrupts a picture.
+/// One model pack at a time: starting one stops the others (the terminal's Sushila helper needs no model; a chat model
+/// that happens to run answers its free-form questions).
 async fn make_room(ctx: &mut Ctx, o: &mut Owner, pack: &str) {
-    let assistant = ctx.assistant_pack();
     let running: Vec<String> = ctx.state["running"].as_object().map(|m| m.keys().cloned().collect()).unwrap_or_default();
     for id in &running {
-        if id == pack || Some(id) == assistant.as_ref() { continue; }
+        if id == pack { continue; }
         ctx.log(&format!("stopping {id}: one model pack at a time ({pack} starts)"));
         ctx.stop_model(id).await; o.starting.remove(id);
     }
-    let Some(a) = assistant.filter(|a| a != pack) else { return };
-    let p = ctx.state["packs"][pack].clone();
-    let both = p["bytes"].as_f64().unwrap_or(0.0) + ctx.state["packs"][&a]["bytes"].as_f64().unwrap_or(0.0);
-    let to_cpu = p["kind"].as_str().unwrap_or("text") != "text" || !ctx.gpu_holds(both).await;
-    if to_cpu && !ctx.cpu_only.contains(&a) {
-        ctx.cpu_only.insert(a.clone());
-        if ctx.state["running"][&a].is_object() {
-            ctx.log(&format!("{a} (the assistant) moves to the CPU while {pack} uses the GPU"));
-            ctx.stop_model(&a).await; o.starting.remove(&a);
-        }
-    }
-    // on the CPU the assistant needs system memory, which a pack that does not fit its GPU also uses (parts of it wait
-    // in RAM): with too little free RAM for both, the assistant pauses until the pack stops, instead of both crashing
-    if ctx.cpu_only.contains(&a) && !ctx.state["running"][&a].is_object() {
-        let gb = |b: &Value| b.as_f64().unwrap_or(0.0) / 1e9;
-        let pack_ram = if ctx.gpu_holds(p["bytes"].as_f64().unwrap_or(0.0)).await { 2.0 } else { gb(&p["bytes"]) + 3.0 };
-        let need = pack_ram + gb(&ctx.state["packs"][&a]["bytes"]) * 1.3 + 1.5;
-        let free = ctx.free_ram_gb();
-        if free < need {
-            ctx.log(&format!("{a} (the assistant) pauses while {pack} runs: {free:.1} GB of memory free, both need about {need:.0} GB; it starts again when {pack} stops"));
-            return;
-        }
-    }
-    if !ctx.state["running"][&a].is_object() { if let Err(e) = o.start(ctx, &a, None, None).await { ctx.log(&format!("{a}: {e}")); } }
-}
-/// When no pack needs the GPU any more, the assistant goes back to it.
-async fn assistant_back(ctx: &mut Ctx, o: &mut Owner) {
-    let Some(a) = ctx.assistant_pack() else { return };
-    if !ctx.cpu_only.contains(&a) { return; }
-    let others = ctx.state["running"].as_object().map(|m| m.keys().any(|k| *k != a)).unwrap_or(false);
-    if others { return; }
-    ctx.cpu_only.remove(&a);
-    ctx.log(&format!("{a} (the assistant) goes back to the GPU"));
-    if ctx.state["running"][&a].is_object() { ctx.stop_model(&a).await; o.starting.remove(&a); }
-    if let Err(e) = o.start(ctx, &a, None, None).await { ctx.log(&format!("{a}: {e}")); }
 }
 
 async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
@@ -917,7 +880,7 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
                 make_room(ctx, o, &pack).await;
                 o.start(ctx, &pack, r["mode"].as_str(), Some(id.clone())).await?; Ok(ctx.state["running"][&pack]["ready"] == true)
             }
-            "stop" => { ctx.stop_model(&pack).await; o.starting.remove(&pack); assistant_back(ctx, o).await; Ok(true) }
+            "stop" => { ctx.stop_model(&pack).await; o.starting.remove(&pack); Ok(true) }
             "settings" => {
                 for k in ["threads", "contextSize", "gpuLayers", "parallel", "keepCopy", "enginePort", "port", "idleMinutes"] {
                     if let Some(v) = r["values"].get(k) { if v.is_number() || v.is_boolean() { ctx.state["settings"][k] = v.clone(); } }
@@ -1007,7 +970,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Done>();
     let mut o = Owner { tasks: vec![], prog: Default::default(), tx, starting: Default::default(), checking: Default::default(), rejected: Default::default() };
     let mut last_scan = std::time::Instant::now() - Duration::from_secs(10);
-    // at start: the assistant's chat model (it stays running), else the first installed pack
+    // at start: the chat model (Qwen3 4B or the small default) if installed, else the first installed pack
     let mut ids: Vec<String> = if packs.is_empty() { ctx.assistant_pack().map(|a| vec![a]).unwrap_or_else(|| ctx.packs().keys().take(max).cloned().collect()) } else { packs.to_vec() };
     if ids.is_empty() {
         ctx.load_catalog().await?;
@@ -1055,7 +1018,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                                 ctx.log(&format!("{e}")); ctx.model_failed(&id).await;
                                 if let Some(next) = ctx.fallback_for(&id, &e).await {
                                     match ctx.install_engine(Some(next)).await { Ok(()) => { let _ = o.start(ctx, &id, None, t.clone()).await; } Err(e2) => { if let Some(t) = t { o.finish(&t, &Err(e2)); } } }
-                                } else { if let Some(t) = t { o.finish(&t, &Err(e)); } assistant_back(ctx, &mut o).await; }  // the pack failed: the assistant comes back
+                                } else if let Some(t) = t { o.finish(&t, &Err(e)); }
                             }
                         }
                     }
@@ -1187,7 +1150,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             ctx.log(&format!("{id} stopped unexpectedly{}; {}{} (see {})", if why.is_empty() { " (killed)".to_string() } else { why },
                 if again { "restarting it" } else { "not restarted: 3 crashes in 10 minutes" }, last.map(|l| format!("; its last line: {l}")).unwrap_or_default(), log.display()));
             ctx.stop_model(&id).await;
-            if again { if let Err(e) = o.start(ctx, &id, mode.as_deref(), None).await { ctx.log(&format!("{id}: {e}")); } } else { assistant_back(ctx, &mut o).await; }
+            if again { if let Err(e) = o.start(ctx, &id, mode.as_deref(), None).await { ctx.log(&format!("{id}: {e}")); } }
         }
         // queue requests from pages: add / pause / resume / cancel / remove
         let inbox = ctx.data.join("queue-in");

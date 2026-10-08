@@ -42,7 +42,7 @@ pub struct Ctx {
     other_vram: Option<Option<f64>>,
     pub quiet: bool,
     pub procs: Arc<Mutex<HashMap<String, tokio::process::Child>>>,
-    /// Packs that run on the CPU for now: the assistant's chat model while an image, music or video pack uses the GPU.
+    /// Packs asked to run on the CPU (-ngl 0, 2 slots); empty unless something sets it.
     pub cpu_only: std::collections::HashSet<String>,
 }
 
@@ -98,8 +98,7 @@ impl Ctx {
         Ok(Ctx { data, packs_dir, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, other_vram: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())), cpu_only: Default::default() })
     }
     pub fn log(&self, line: &str) { log(self.quiet, line) }
-    /// The chat model that stays running for the terminal and Ask Sushila: settings.assistantPack, else Qwen3 4B, else
-    /// the small default, whichever is installed.
+    /// The chat model started with the server: settings.assistantPack, else Qwen3 4B, else the small default, if installed.
     pub fn assistant_pack(&self) -> Option<String> {
         let installed = |id: &str| self.state["packs"].get(id).is_some();
         self.setting("assistantPack").as_str().filter(|id| installed(id)).map(String::from)
@@ -112,10 +111,7 @@ impl Ctx {
             _ => if p["category"].as_str().map(|c| c.eq_ignore_ascii_case("code")).unwrap_or(false) || p["id"].as_str().map(|i| i.contains("coder")).unwrap_or(false) { "code" } else { "chat" },
         }
     }
-    /// Free system memory (RAM) now, in GB.
-    pub fn free_ram_gb(&self) -> f64 { let mut sys = sysinfo::System::new(); sys.refresh_memory(); sys.available_memory() as f64 / 1e9 }
-    /// Whether the GPU holds this many bytes of models at once (with room to work).
-    pub async fn gpu_holds(&mut self, bytes: f64) -> bool { self.gpu_room_for(&json!({ "bytes": bytes })).await }
+
     pub fn setting(&self, k: &str) -> Value { self.state["settings"][k].clone() }
     pub fn packs(&self) -> &serde_json::Map<String, Value> { self.state["packs"].as_object().unwrap() }
 
@@ -130,7 +126,7 @@ impl Ctx {
         let assistant = self.assistant_pack();
         let packs: Vec<Value> = self.packs().values().map(|p| json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "category": Ctx::category(p), "turbo": can_turbo(p),
             "mode": p["preferredMode"].as_str().filter(|m| *m == "regular" || (*m == "turbo" && can_turbo(p))).unwrap_or(if can_turbo(p) { "turbo" } else { "regular" }),
-            "assistant": assistant.as_deref() == p["id"].as_str(), "bytes": p["bytes"], "custom": p["custom"] == true, "source": p["source"] })).collect();
+            "default": assistant.as_deref() == p["id"].as_str(), "bytes": p["bytes"], "custom": p["custom"] == true, "source": p["source"] })).collect();
         let engine = self.state.get("engine").filter(|e| e.is_object()).map(|e| json!({ "version": e["version"], "source": e["source"] })).unwrap_or(Value::Null);
         let tasks = self.state.get("tasks").cloned().unwrap_or(json!([]));
         let owner = self.state.get("owner").cloned().unwrap_or(Value::Null);
@@ -654,9 +650,8 @@ impl Ctx {
         }
         let rt = self.state["runtimes"]["image-nunchaku"].clone();
         let servers = self.state["engine"]["servers"].clone();
-        // the assistant on the CPU (while another pack uses the GPU): 2 slots; on the GPU at most 4, leaving room for others
-        let cpu = self.cpu_only.contains(id);
-        let slots = if engine != "text" { 1 } else if cpu { 2 } else if self.assistant_pack().as_deref() == Some(id) { self.auto_slots(&p).await.min(4) } else { self.auto_slots(&p).await };
+        let cpu = self.cpu_only.contains(id);  // a pack asked to run on the CPU (none by default)
+        let slots = if engine != "text" { 1 } else if cpu { 2 } else { self.auto_slots(&p).await.min(4) };
         let (program, args): (String, Vec<String>) = match engine.as_str() {
             "image-nunchaku" => {
                 if !rt.is_object() { return Err(format!("{id} needs the NVIDIA image runtime: install the pack again to set it up")); }
