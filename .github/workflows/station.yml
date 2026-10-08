@@ -1,0 +1,74 @@
+# Sushila Station: the desktop app, for Windows (SushilaStation.exe), macOS (SushilaStation, universal, and
+# Sushila Station.app) and Linux (SushilaStation). Each job first builds the sushila engine for its platform, which
+# travels inside the app (station/build.rs: SUSHILA_BIN).
+name: Sushila Station desktop app
+on:
+  workflow_dispatch:
+    inputs:
+      platforms: { description: "windows,macos,linux", default: "windows,macos,linux" }
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, key: windows }
+          - { os: macos-14, key: macos }
+          - { os: ubuntu-22.04, key: linux }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Skip unless asked
+        id: want
+        shell: bash
+        run: echo "go=$([[ ',${{ inputs.platforms }},' == *',${{ matrix.key }},'* ]] && echo yes || echo no)" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
+        if: steps.want.outputs.go == 'yes'
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.want.outputs.go == 'yes'
+        with: { targets: "${{ matrix.key == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}" }
+      - uses: Swatinem/rust-cache@v2
+        if: steps.want.outputs.go == 'yes'
+        with: { workspaces: "cli -> target\nstation -> target", key: station-${{ matrix.key }} }
+      - uses: actions/setup-node@v4
+        if: steps.want.outputs.go == 'yes'
+        with: { node-version: 20 }
+      - name: Linux libraries (WebKitGTK, tray)
+        if: steps.want.outputs.go == 'yes' && matrix.key == 'linux'
+        run: sudo apt-get update -q && sudo apt-get install -yq libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+      - name: Build the sushila engine (Windows, Linux)
+        if: steps.want.outputs.go == 'yes' && matrix.key != 'macos'
+        shell: bash
+        run: cd cli && cargo build --release && ls -la target/release/
+      - name: Build the sushila engine (macOS, universal)
+        if: steps.want.outputs.go == 'yes' && matrix.key == 'macos'
+        run: |
+          cd cli
+          cargo build --release --target aarch64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+          mkdir -p target/universal && lipo -create -output target/universal/sushila target/aarch64-apple-darwin/release/sushila target/x86_64-apple-darwin/release/sushila
+          file target/universal/sushila
+      - name: Build Sushila Station (Windows)
+        if: steps.want.outputs.go == 'yes' && matrix.key == 'windows'
+        shell: bash
+        run: |
+          export SUSHILA_BIN="$GITHUB_WORKSPACE/cli/target/release/sushila.exe"
+          cd station && npx --yes @tauri-apps/cli@^2 build --no-bundle
+          mkdir -p ../out && cp target/release/SushilaStation.exe ../out/ && cp "$SUSHILA_BIN" ../out/sushila.exe
+      - name: Build Sushila Station (Linux)
+        if: steps.want.outputs.go == 'yes' && matrix.key == 'linux'
+        run: |
+          export SUSHILA_BIN="$GITHUB_WORKSPACE/cli/target/release/sushila"
+          cd station && npx --yes @tauri-apps/cli@^2 build --no-bundle
+          mkdir -p ../out && cp target/release/SushilaStation ../out/ && cp "$SUSHILA_BIN" ../out/sushila
+      - name: Build Sushila Station (macOS, universal)
+        if: steps.want.outputs.go == 'yes' && matrix.key == 'macos'
+        run: |
+          export SUSHILA_BIN="$GITHUB_WORKSPACE/cli/target/universal/sushila"
+          cd station && npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin --bundles app
+          mkdir -p ../out && cp target/universal-apple-darwin/release/SushilaStation ../out/
+          ditto -c -k --keepParent "target/universal-apple-darwin/release/bundle/macos/Sushila Station.app" "../out/Sushila Station.app.zip"
+          cp "$SUSHILA_BIN" ../out/sushila
+          file ../out/SushilaStation
+      - uses: actions/upload-artifact@v4
+        if: steps.want.outputs.go == 'yes'
+        with: { name: "station-${{ matrix.key }}", path: out/ }

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sushila Station</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <div class="sidetop" data-tauri-drag-region><img src="logo.png" alt="" class="logo"><div><b>Sushila Station</b><small id="sver"></small></div></div>
+    <nav id="nav"></nav>
+    <div class="sidefoot" id="engbox"></div>
+  </aside>
+  <main id="main">
+    <header id="bar" data-tauri-drag-region>
+      <div class="bartitle" data-tauri-drag-region><h1 id="title"></h1><span id="subtitle"></span></div>
+      <div id="baracts"></div>
+    </header>
+    <section id="view"></section>
+    <footer id="status"></footer>
+  </main>
+</div>
+<div id="sheet" class="hidden"></div>
+<div id="toasts"></div>
+<script src="app.js"></script>
+</body>
+</html>
