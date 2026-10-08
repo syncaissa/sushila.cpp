@@ -94,6 +94,10 @@ pub async fn tunnel_register(dir: &Path, target: &str, id: &str, owner_secret: &
     call(dir, reqwest::Method::POST, "/api/app/tunnel", Some((serde_json::to_vec(&json!({ "target": target, "id": id, "ownerSecret": owner_secret })).unwrap(), "application/json".into())), true).await
         .map_err(|e| if e.contains("sign in") || e.contains("not signed in") { "sign in to sushila.ai first (Library: Upload and get link asks for your e-mail)".to_string() } else { e })
 }
+/// Deletes the link at sushila.ai for good (sushila.ai from build 28 on; an older site only marks it stopped).
+pub async fn tunnel_delete(dir: &Path, id: &str) -> Result<Value, String> {
+    call(dir, reqwest::Method::POST, "/api/app/tunnel/stop", Some((serde_json::to_vec(&json!({ "id": id, "delete": true })).unwrap(), "application/json".into())), true).await
+}
 pub async fn tunnel_stop(dir: &Path, id: &str) -> Result<Value, String> {
     call(dir, reqwest::Method::POST, "/api/app/tunnel/stop", Some((serde_json::to_vec(&json!({ "id": id })).unwrap(), "application/json".into())), true).await
 }

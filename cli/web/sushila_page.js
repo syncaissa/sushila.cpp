@@ -1430,6 +1430,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     // ---------- chat (text models)
     function chatScreen() {
       main.replaceChildren(el('div', { class: 'chat' }, el('div', { id: 'chatlog' }, el('div', { class: 'hero' }, el('div', { class: 'heroicon' }, kindOf(model) === 'code' ? '💻' : '💬'),
+          kindOf(model) === 'code' ? el('div', { class: 'sub', style: 'font-weight:600' }, 'Generate Code, locally or remotely.') : null,
           el('h2', {}, kindOf(model) === 'code' ? 'What shall we build?' : 'What can I help with?'),
           el('div', { class: 'sub' }, (server ? 'Runs on ' + server.replace(/^https?:\/\//, '') : 'Runs entirely on this computer: your words never leave it') + ' · ' + model.name))),
         el('div', { class: 'composer' }, el('textarea', { id: 'q', placeholder: 'Ask anything. ' + (server ? 'Runs on ' + server.replace(/^https?:\/\//, '') + '.' : 'Runs entirely on this computer.') }),
@@ -1492,7 +1493,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     let videoJob = null, videoModel = '', startImage = null;
     function videoScreen() {
       startImage = null;
-      main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create a video'),
+      main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Generate Video, locally or remotely.'),
         el('label', { for: 'vprompt' }, 'Describe the video'), el('textarea', { id: 'vprompt', rows: 4, placeholder: 'e.g. two bears dancing in a forest near a river, slow camera pan, golden light' }),
         el('label', { for: 'vimg' }, 'Start from a picture (optional)'), el('input', { id: 'vimg', type: 'file', accept: 'image/png,image/jpeg,image/webp', onchange: pickStartImage }),
         el('div', { class: 'bar2' },
@@ -1557,7 +1558,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     // The engine works in two queued jobs: /lm writes the song (structure and audio codes from lyrics + style), /synth sings
     // it; each returns a job id that is polled at /job?id=N, and the synth result is multipart/mixed with one MP3 part.
     function musicScreen() {
-      main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create music'),
+      main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Generate Music and Songs, locally or remotely.'),
         el('label', { for: 'mlyrics' }, '1. Lyrics'), el('textarea', { id: 'mlyrics', rows: 9, placeholder: '[verse]\nWrite your lyrics here…\n\n[chorus]\n…\n\n(leave empty for an instrumental, or let the model write them: type [auto])' }),
         el('label', { for: 'mstyle' }, '2. Style'), el('input', { id: 'mstyle', placeholder: 'e.g. upbeat acoustic folk, warm male vocals, guitar and fiddle, 110 bpm' }),
         el('div', { class: 'bar2', style: 'margin-top:10px' }, el('label', {}, 'Length ', el('select', { id: 'mdur', onchange: () => showAutoLength() }, ['auto', 30, 60, 90, 120, 150, 180, 210, 240, 270, 300].map((d) => el('option', { value: d, selected: d === 'auto' },
@@ -1667,7 +1668,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
 
     // ---------- images (image packs): POST /v1/images/generations (OpenAI format) -> base64 PNG
     function imageScreen() {
-      main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Create images'),
+      main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Generate Images, locally or remotely.'),
         el('label', { for: 'iprompt' }, 'Describe the image'), el('textarea', { id: 'iprompt', rows: 4, placeholder: 'e.g. a red fox in fresh snow at sunrise, soft light, photograph' }),
         el('div', { class: 'bar2' },
           el('label', {}, 'Size ', el('select', { id: 'isize' }, imageSizes(model).map(([v, t]) => el('option', { value: v, selected: v === (model && model.mode === 'turbo' ? '768x768' : '1024x1024') }, t)))),

@@ -678,6 +678,75 @@ const footer = (contact) => `<footer class="site"><div class="wrap">
   <div class="fbottom"><span>© ${new Date().getUTCFullYear()} Sushila, an open-source research project</span><span><a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a></span></div>
 </div></footer>`;
 
+// The 404 page: a swan flies in with a bundle (a little computer in a blue cloth), lets it go, the bundle floats down
+// and lands, and the swan flies on. Drawn in SVG and animated with CSS (no scripts); still for reduced motion.
+function NOT_FOUND(path) {
+  return `<style>
+.nf{max-width:860px;margin:10px auto 40px;text-align:center}
+.nf .scene{background:linear-gradient(#f4f8ff,#fff 70%);border-radius:22px;border:1px solid #e3e9f3;overflow:hidden}
+.nf svg{display:block;width:100%;height:auto}
+.nf .ink{stroke:#2b2b2b;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nf .swan{animation:nfFly 7s cubic-bezier(.45,.05,.4,1) .3s both}
+.nf .bag{animation:nfBag 7s cubic-bezier(.45,.05,.4,1) .3s both}
+.nf .wing{transform-box:fill-box;transform-origin:20% 95%;animation:nfFlap .55s ease-in-out infinite alternate}
+.nf .wing2{transform-box:fill-box;transform-origin:20% 95%;animation:nfFlap .55s ease-in-out .12s infinite alternate}
+.nf .heart{opacity:0;transform-box:fill-box;transform-origin:center;animation:nfHeart 1.6s ease-out 5.2s both}
+.nf .heart.h2{animation-delay:5.6s}
+.nf .shadow{opacity:0;animation:nfShadow 7s linear .3s both}
+.nf .cloud{animation:nfCloud 40s linear infinite}
+@keyframes nfFly{0%{transform:translate(-300px,50px)}38%{transform:translate(300px,0)}46%{transform:translate(330px,-6px)}100%{transform:translate(1050px,-190px)}}
+@keyframes nfBag{0%{transform:translate(-300px,50px)}38%{transform:translate(300px,0)}44%{transform:translate(322px,-4px) rotate(0)}
+  66%{transform:translate(335px,188px) rotate(-7deg)}72%{transform:translate(335px,174px) rotate(3deg)}79%,100%{transform:translate(335px,188px) rotate(0)}}
+@keyframes nfFlap{from{transform:rotate(14deg)}to{transform:rotate(-30deg)}}
+@keyframes nfHeart{0%{opacity:0;transform:translateY(10px) scale(.4)}40%{opacity:1;transform:translateY(-6px) scale(1.1)}100%{opacity:1;transform:translateY(-14px) scale(1)}}
+@keyframes nfShadow{0%,60%{opacity:0}75%,100%{opacity:1}}
+@keyframes nfCloud{from{transform:translateX(0)}to{transform:translateX(-900px)}}
+@media (prefers-reduced-motion:reduce){.nf .swan,.nf .bag,.nf .wing,.nf .wing2,.nf .heart,.nf .shadow,.nf .cloud{animation:none}.nf .swan{transform:translate(620px,-120px)}.nf .bag{transform:translate(335px,188px)}.nf .heart,.nf .shadow{opacity:1}}
+.nf h1{font-size:clamp(28px,5vw,44px);margin:22px 0 6px;letter-spacing:-.02em}
+.nf p{color:#5b6372;margin:6px 0}
+.nf code{background:#eef2f8;padding:2px 7px;border-radius:6px;word-break:break-all}
+.nf .acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+</style>
+<div class="nf">
+<div class="scene" role="img" aria-label="A swan flies past and lets go of a little computer wrapped in a blue cloth; it floats down and lands.">
+<svg viewBox="0 0 900 470" xmlns="http://www.w3.org/2000/svg">
+  <g class="cloud" fill="#e9f0fb"><ellipse cx="760" cy="70" rx="70" ry="20"/><ellipse cx="800" cy="58" rx="40" ry="18"/><ellipse cx="1660" cy="110" rx="80" ry="22"/><ellipse cx="300" cy="120" rx="60" ry="16"/><ellipse cx="1200" cy="60" rx="55" ry="15"/></g>
+  <ellipse cx="450" cy="440" rx="330" ry="16" fill="#eef1f5"/>
+  <ellipse class="shadow" cx="495" cy="430" rx="62" ry="10" fill="#d5dae2"/>
+  <g transform="translate(0,90)">
+    <g class="bag">
+      <path class="ink" d="M160 34 C 116 52, 108 142, 160 154 C 212 142, 204 52, 160 34 Z" fill="#9cc3ea"/>
+      <path class="ink" d="M160 34 C 140 70, 136 120, 150 152" fill="none" opacity=".35"/>
+      <g transform="rotate(-14 165 92)"><rect class="ink" x="140" y="66" width="52" height="58" rx="5" fill="#fff"/>
+        <rect x="146" y="72" width="16" height="44" rx="2" fill="#e8f5e9" stroke="#2b2b2b" stroke-width="1"/><rect x="166" y="96" width="20" height="20" rx="2" fill="#3fa34d" stroke="#2b2b2b" stroke-width="1"/>
+        <circle cx="152" cy="78" r="2" fill="#3fa34d"/><circle cx="152" cy="85" r="2" fill="#3fa34d"/><circle cx="152" cy="92" r="2" fill="#3fa34d"/>
+        <path d="M168 76h16M168 82h16M168 88h12" stroke="#2b2b2b" stroke-width="1"/></g>
+      <path d="M150 128 c-6 -8 -16 -2 -10 6 l10 9 l10 -9 c6 -8 -4 -14 -10 -6z" fill="#fff" stroke="#2b2b2b" stroke-width="1.2"/>
+      <path class="ink" d="M160 34 c-10 -12 -22 -10 -18 -2 c3 5 12 4 18 2 c6 2 15 3 18 -2 c4 -8 -8 -10 -18 2z" fill="#9cc3ea"/>
+      <path class="ink" d="M160 34 l0 -10" fill="none"/>
+    </g>
+    <g class="swan">
+      <path class="ink wing2" d="M58 58 C 40 22, 60 -14, 96 -30 C 88 -2, 92 26, 84 60 Z" fill="#f1f3f6"/>
+      <path class="ink" d="M8 70 L -16 58 L -4 72 L -20 80 L 6 80" fill="#fff"/>
+      <path class="ink" d="M8 70 C 18 42, 78 36, 110 56 C 124 66, 120 86, 94 92 C 58 100, 22 94, 8 70 Z" fill="#fff"/>
+      <path class="ink" d="M40 90 L -14 104 M 52 92 L -6 112" fill="none"/>
+      <path class="ink" d="M100 62 C 112 42, 110 22, 128 11 C 137 6, 148 11, 146 21 C 139 21, 129 26, 123 40 C 117 53, 116 62, 110 68 Z" fill="#fff"/>
+      <path class="ink" d="M145 15 L 172 23 L 144 24 Z" fill="#f39a3d"/>
+      <circle cx="138" cy="16" r="1.8" fill="#2b2b2b"/>
+      <path class="ink wing" d="M62 60 C 46 18, 82 -26, 126 -36 C 106 -6, 108 28, 90 64 Z" fill="#fff"/>
+      <path d="M78 40 C 88 18, 100 0, 112 -14 M 84 52 C 96 34, 104 18, 116 6" stroke="#2b2b2b" stroke-width="1" fill="none" opacity=".45"/>
+    </g>
+  </g>
+  <path class="heart" d="M560 300 c-8 -12 -26 -4 -16 10 l16 14 l16 -14 c10 -14 -8 -22 -16 -10z" fill="#e5484d" stroke="#2b2b2b" stroke-width="1.4"/>
+  <path class="heart h2" d="M598 270 c-6 -9 -19 -3 -12 7 l12 10 l12 -10 c7 -10 -6 -16 -12 -7z" fill="#e5484d" stroke="#2b2b2b" stroke-width="1.4"/>
+</svg>
+</div>
+<h1>Error 404 – you may be lost</h1>
+<p>The swan dropped off this page somewhere else: <code>${esc(path)}</code> does not exist, or the link was deleted.</p>
+<div class="acts"><a class="btn" href="/">sushila.ai home</a><a class="btn ghost" href="/mycontent">myContent</a><a class="btn ghost" href="/install">Get Sushila</a><a class="btn ghost" href="/bugs/new">Report a broken link</a></div>
+</div>`;
+}
+
 function docPage(env, title, desc, body, user) {
   const contact = env.CONTACT || DEFAULT_CONTACT;
   return `<!doctype html>
@@ -2280,6 +2349,13 @@ async function tunnelApi(request, env, db, p, url) {
   if (p === '/api/app/tunnel/stop') {
     const id = String(d.id || '');
     if (!TUNNEL_ID.test(id)) return json({ error: 'Bad request.' }, 400);
+    // {delete: true}: the link is removed for good (Delete this link and create a new one); its address never works again
+    if (d.delete === true) {
+      try { await db.request('DeleteItem', { TableName: TABLES.localhostLinks, Key: { id: S(id) }, ConditionExpression: 'userId = :u', ExpressionAttributeValues: { ':u': S(app.userId) } }); }
+      catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) throw e; return json({ error: 'Not found.' }, 404); }
+      tunnelCache.delete(id);
+      return json({ ok: true, deleted: true });
+    }
     await tunnelSetStatus(db, app.userId, id, 'stopped');
     return json({ ok: true });
   }
@@ -3911,6 +3987,10 @@ export default {
     const db = new DynamoDB(env), b2 = new B2(env);
     const session = await readSession(request, env);
     const html = (b, extra = {}) => new Response(b, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': session ? 'private, no-store' : 'public, max-age=300', ...SEC, ...extra } });
+    // a page that is not there: the swan 404 page for browsers, plain text for programs
+    const notFound = (msg = 'Not found') => /text\/html/.test(request.headers.get('accept') || '')
+      ? new Response(docPage(env, 'Page not found', 'This page does not exist on sushila.ai.', () => NOT_FOUND(p), null), { status: 404, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...SEC } })
+      : new Response(msg, { status: 404, headers: SEC });
     try {
       if (p === '/localhost' || p.startsWith('/localhost/')) return await tunnelProxy(request, env, db, p, url);  // temporary internet URLs
       if (method === 'POST') {
@@ -3956,7 +4036,7 @@ export default {
         if (p === '/bugs' || p === '/bugs/') return html(docPage(env, 'Bug reports', 'Your sushila.ai bug reports.', BUGS(user), user));
         if (p === '/bugs/new') return html(docPage(env, 'Report a bug', 'Report a bug in Sushila.cpp or sushila.ai.', BUG_NEW(url), user));
         const id = decodeURIComponent(p.slice('/bugs/'.length));
-        if (!/^[A-Za-z0-9-]{4,40}$/.test(id)) return new Response('Not found', { status: 404, headers: SEC });
+        if (!/^[A-Za-z0-9-]{4,40}$/.test(id)) return notFound();
         return html(docPage(env, 'Bug report', 'A sushila.ai bug report.', BUG_VIEW(user, id), user));
       }
       if (p === '/admin' || p === '/admin/') {
@@ -3981,7 +4061,7 @@ export default {
         if (!TOOLS[key] && !b2.configured) return new Response('Not available.', { status: 503, headers: SEC });
         if (!TOOLS[key]) await hostCatalog(env, b2, url.origin);
         const d = TOOLS[key] || (hostCatalogCache && hostCatalogCache.direct[key]);
-        if (!d) return new Response('Not found', { status: 404, headers: SEC });
+        if (!d) return notFound();
         const [first] = key.split('/');
         ctx.waitUntil(logDownload(db, request, { file: d.file, kind: ['engine', 'runtime', 'tools'].includes(first) ? first : 'pack', packId: ['engine', 'runtime', 'tools'].includes(first) ? '' : first, bytes: d.bytes }));
         if (d.github && url.searchParams.get('from') !== 'b2') {  // released files: served from GitHub Releases (counted there), B2 if GitHub fails
@@ -4035,7 +4115,7 @@ export default {
       }
       if (p.startsWith('/download/')) {
         const m = (await catalog(db)).find((x) => x.file === decodeURIComponent(p.slice('/download/'.length)) && (x.visible || (user && user.isAdmin)));
-        if (!m) return new Response('Not found', { status: 404, headers: SEC });
+        if (!m) return notFound();
         if (!user) return Response.redirect(`${url.origin}/signin?next=${encodeURIComponent(p)}`, 302);
         return html(docPage(env, `Download ${m.name} ${m.quant}`, 'Download a model file.', DOWNLOAD(m), user));
       }
@@ -4091,7 +4171,7 @@ up();})();</script></body></html>`);
       }
       if (p.startsWith('/c/')) {  // a shared file: /c/<12 hex>
         const page = await sharePage(env, db, p.slice(3).replace(/\/$/, ''), url.origin, request);
-        return page ? html(page) : new Response('This link was deleted or never existed.', { status: 404, headers: SEC });
+        return page ? html(page) : notFound('This link was deleted or never existed.');
       }
       if (p === '/models.json') {
         return json({
@@ -4106,7 +4186,7 @@ up();})();</script></body></html>`);
         return new Response(bytes, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' } });
       }
       if (p === '/robots.txt') return new Response('User-agent: *\nAllow: /\nDisallow: /download/\nDisallow: /account\nDisallow: /admin\nDisallow: /bugs\nDisallow: /api/\n', { headers: { 'content-type': 'text/plain' } });
-      return new Response('Not found', { status: 404, headers: SEC });
+      return notFound();
     } catch (e) {
       console.error(p, e && e.stack || e);
       const code = errorCode(e);

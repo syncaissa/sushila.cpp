@@ -87,6 +87,11 @@ impl Ctx {
                 }
             }
         };
+        // paths into a home that has moved (build 27: %APPDATA%\\ai.sushila.hoststation -> %LOCALAPPDATA%\\Sushila) follow it
+        if crate::locate::rebase_paths(&mut s, &data) {
+            log(quiet, "paths in state.json updated to this home (it moved)");
+            let _ = std::fs::write(&path, serde_json::to_string_pretty(&s).unwrap_or_default());
+        }
         let defaults = json!({ "catalogUrl": CATALOG_URL, "port": 7874, "enginePort": 7875, "threads": 0, "contextSize": 4096, "gpuLayers": -1,
                                "scope": "user", "parallel": 0, "keepCopy": true, "idleMinutes": 0 });
         let mut settings = defaults.as_object().unwrap().clone();

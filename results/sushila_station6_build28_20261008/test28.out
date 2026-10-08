@@ -1,0 +1,8 @@
+free
+PASS sushila --version shows build 28
+PASS state.json paths follow the moved home
+PASS /health reports build 28
+PASS build 27 engine running (no build number)
+FAIL Station replaced the older engine with build 28
+PASS a different Station copy replaces the running one
+  26307 /root/b/SushilaStation

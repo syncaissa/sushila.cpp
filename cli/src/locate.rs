@@ -33,6 +33,30 @@ pub fn move_legacy_home(home: PathBuf) -> PathBuf {
     }
 }
 
+/// Paths kept in state.json (the engine, the image runtime's python, model packs) name the home they were installed
+/// in. After the home moved (build 27 moved the roaming home to the local one, or `sushila home`), every string that
+/// starts with the old home is rewritten to the new one. Returns whether anything changed.
+pub fn rebase_paths(v: &mut serde_json::Value, home: &Path) -> bool {
+    let olds: Vec<String> = [legacy_default()].iter().filter(|o| o.as_path() != home && !o.exists()).map(|o| o.to_string_lossy().to_string()).collect();
+    if olds.is_empty() { return false; }
+    let new = home.to_string_lossy().to_string();
+    fn walk(v: &mut serde_json::Value, olds: &[String], new: &str) -> bool {
+        match v {
+            serde_json::Value::String(s) => {
+                for o in olds {
+                    // the old home itself, or a path inside it (either separator)
+                    if s.as_str() == o || s.starts_with(&format!("{o}\\")) || s.starts_with(&format!("{o}/")) { *s = format!("{new}{}", &s[o.len()..]); return true; }
+                }
+                false
+            }
+            serde_json::Value::Array(a) => a.iter_mut().fold(false, |c, x| walk(x, olds, new) | c),
+            serde_json::Value::Object(m) => m.values_mut().fold(false, |c, x| walk(x, olds, new) | c),
+            _ => false,
+        }
+    }
+    walk(v, &olds, &new)
+}
+
 // ---------- where your pictures, songs and videos go: Documents\Sushila (Images, Music, Videos) by default, the OS's
 // real Documents folder (so it follows OneDrive's redirection), or any folder chosen in Settings (the one-line file
 // <home>/outputs-folder). An install from before keeps <home>/outputs until its owner answers the question once
@@ -204,5 +228,26 @@ pub fn resolve(explicit: Option<PathBuf>) -> (PathBuf, Option<String>) {
             (p.clone(), Some(format!("several Sushila folders found; using the most recently used, {} (others: {}). Make one of them the home with `sushila home <folder>`.",
                 p.display(), others.join(", "))))
         }
+    }
+}
+
+#[cfg(test)]
+mod rebase_tests {
+    #[test]
+    fn paths_follow_a_moved_home() {
+        let old = super::legacy_default();
+        if old.exists() { return; }  // a machine that still has the old home: the rewrite is (rightly) not done
+        let o = old.to_string_lossy().to_string();
+        let sep = std::path::MAIN_SEPARATOR;
+        let new = std::env::temp_dir().join("sushila-rebase-test");
+        let mut v = serde_json::json!({ "runtimes": { "image-nunchaku": { "python": format!("{o}{sep}runtime{sep}python{sep}python.exe"), "dir": o.clone() } },
+                                        "packs": [{ "dir": format!("{o}/model-packs/x") }], "other": format!("{o}-not-inside"), "n": 3 });
+        assert!(super::rebase_paths(&mut v, &new));
+        let n = new.to_string_lossy().to_string();
+        assert_eq!(v["runtimes"]["image-nunchaku"]["python"], format!("{n}{sep}runtime{sep}python{sep}python.exe"));
+        assert_eq!(v["runtimes"]["image-nunchaku"]["dir"], n);
+        assert_eq!(v["packs"][0]["dir"], format!("{n}/model-packs/x"));
+        assert_eq!(v["other"], format!("{o}-not-inside"));
+        assert!(!super::rebase_paths(&mut v, &new));  // nothing left to change
     }
 }

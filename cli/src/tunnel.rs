@@ -209,6 +209,19 @@ pub fn set_owner_for_test(id: &str, secret: &str) { *OWNER.write().unwrap() = So
 pub fn pass_for_test(id: &str, secret: &str, exp_ms: u64) -> String {
     format!("owner.{id}.{exp_ms}.t.{}", hex::encode(hmac_sha256(secret.as_bytes(), format!("sushila-owner|{id}|{exp_ms}|t").as_bytes())))
 }
+/// "Delete this link and create a new one": the link is stopped and deleted at sushila.ai (its address never works
+/// again), and a new one starts with a new address, a new access key and a new owner secret.
+pub async fn renew(dir: &Path, port: u16) -> Result<Value, String> {
+    let old = saved(dir)["id"].as_str().unwrap_or("").to_string();
+    let _ = stop(dir).await;
+    if !old.is_empty() { let _ = crate::share::tunnel_delete(dir, &old).await; }
+    save(dir, &json!({}));
+    let mut v = start(dir, port).await?;
+    crate::core::log(true, &format!("internet link renewed: {} deleted, {} made", if old.is_empty() { "(none)" } else { &old }, v["link"].as_str().unwrap_or("")));
+    v["deleted"] = json!(old);
+    Ok(v)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

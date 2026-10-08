@@ -16,6 +16,12 @@ fn main() {
         }
         _ => (Vec::new(), "none".to_string()),  // a development build: the app uses a `sushila` it finds on the computer
     };
+    // the engine's build number, from its version line "(build N)" inside the binary (0: a build before 28)
+    let build = bytes.windows(7).position(|w| w == b"(build ").and_then(|i| {
+        let d: String = bytes[i + 7..].iter().take(6).take_while(|c| c.is_ascii_digit()).map(|&c| c as char).collect();
+        d.parse::<u32>().ok()
+    }).unwrap_or(0);
+    println!("cargo:rustc-env=SUSHILA_ENGINE_BUILD={build}");
     std::fs::write(&out, &bytes).unwrap();
     println!("cargo:rustc-env=SUSHILA_BIN_PATH={}", out.display());
     println!("cargo:rustc-env=SUSHILA_BIN_SHA={sha}");

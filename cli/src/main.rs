@@ -34,7 +34,7 @@ use crate::core::*;
 use crate::util::*;
 
 #[derive(Parser)]
-#[command(name = "sushila", version, about = "Sushila.cpp from the command line: the same commands on Windows, macOS and Linux",
+#[command(name = "sushila", version = VERSION_LINE, about = "Sushila.cpp from the command line: the same commands on Windows, macOS and Linux",
           after_help = "Examples:\n  sushila install qwen3-4b-instruct-2507\n  sushila serve                      # then open http://127.0.0.1:7874\n  sushila run qwen2.5-0.5b-q4km \"Write a haiku about GPUs\"\n  sushila selftest                   # engine + smallest model + one answer: exit code 0 = works")]
 struct Cli {
     /// Use this home folder for this command (default: the remembered home, see `sushila home`; or $SUSHILA_HOME)
@@ -288,6 +288,11 @@ async fn main() -> ExitCode {
         }
     }
 }
+
+/// The test-build number (shown by /health): Sushila Station replaces a running engine older than the one it carries.
+pub const BUILD: u32 = 28;
+/// `sushila --version`: "0.1.1 (build 28)" (keep the number equal to BUILD; Station reads it)
+const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 28)");
 
 /// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
 const START_FAILED: u8 = 3;

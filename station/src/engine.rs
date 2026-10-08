@@ -33,18 +33,36 @@ fn write_exe(dest: &PathBuf) -> Result<(), String> {
     let tmp = dest.with_extension("part");
     std::fs::write(&tmp, BUNDLED).map_err(|e| e.to_string())?;
     #[cfg(unix)] { use std::os::unix::fs::PermissionsExt; std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?; }
-    // replacing a running program fails on Windows: the old one keeps running until it stops, the new one is used next
+    // replacing a running program fails on Windows, but a running program can be renamed: the old one goes aside
+    // (<name>.old, removed the next time), the new one takes its name and is used from the next start
     if std::fs::rename(&tmp, dest).is_err() {
-        let _ = std::fs::remove_file(&tmp);
-        if !dest.exists() { return Err(format!("could not write {}", dest.display())); }
+        let aside = dest.with_extension("old");
+        let _ = std::fs::remove_file(&aside);
+        if std::fs::rename(dest, &aside).is_err() || std::fs::rename(&tmp, dest).is_err() {
+            let _ = std::fs::remove_file(&tmp);
+            if !dest.exists() { let _ = std::fs::rename(&aside, dest); return Err(format!("could not write {}", dest.display())); }
+        }
     }
     Ok(())
+}
+
+/// The engine build this Station carries (SUSHILA_ENGINE_BUILD at build time; 0 if unknown).
+pub fn bundled_build() -> u32 { option_env!("SUSHILA_ENGINE_BUILD").and_then(|b| b.parse().ok()).unwrap_or(0) }
+/// The build of an engine program, from `sushila --version` ("0.1.1 (build 28)"); 0 for builds before 28.
+fn build_of(p: &PathBuf) -> u32 {
+    let Ok(o) = hidden(std::process::Command::new(p)).arg("--version").stdin(std::process::Stdio::null()).output() else { return 0 };
+    let t = String::from_utf8_lossy(&o.stdout).to_string();
+    t.split("(build ").nth(1).and_then(|r| r.split(')').next()).and_then(|n| n.trim().parse().ok()).unwrap_or(0)
 }
 
 /// The engine program to run: the installed command if it is there, else Station's own copy, else one on the PATH.
 pub fn program() -> Result<PathBuf, String> {
     let cli = cli_path();
-    if cli.is_file() { return Ok(cli); }
+    if cli.is_file() {
+        // the installed command, brought up to this Station's engine when it is older (a newer one is left alone)
+        if !BUNDLED.is_empty() && build_of(&cli) < bundled_build() { let _ = write_exe(&cli); }
+        return Ok(cli);
+    }
     if let Some(p) = bundled_copy() { write_exe(&p)?; return Ok(p); }
     let path = std::env::var_os("PATH").unwrap_or_default();
     for d in std::env::split_paths(&path) { let p = d.join(EXE); if p.is_file() { return Ok(p); } }

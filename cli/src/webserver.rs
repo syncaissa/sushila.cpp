@@ -778,6 +778,7 @@ async fn srv_tunnel_act(axum::extract::State(s): axum::extract::State<Arc<Srv>>,
     match act.as_str() {
         "start" => match crate::tunnel::start(&s.data_dir, s.port).await { Ok(v) => axum::Json(v).into_response(), Err(e) => (axum::http::StatusCode::BAD_GATEWAY, e).into_response() },
         "stop" => axum::Json(crate::tunnel::stop(&s.data_dir).await).into_response(),
+        "renew" => match crate::tunnel::renew(&s.data_dir, s.port).await { Ok(v) => axum::Json(v).into_response(), Err(e) => (axum::http::StatusCode::BAD_GATEWAY, e).into_response() },
         "new-key" => match crate::tunnel::new_key(&s.data_dir).await { Ok(v) => axum::Json(v).into_response(), Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e).into_response() },
         // a new link at every start, or not (this computer's choice; no admin login needed for its own internet link)
         "at-start-on" | "at-start-off" => {
@@ -882,7 +883,7 @@ fn health(s: &Arc<Srv>, headers: &axum::http::HeaderMap, st: &Value, path: &str)
     let running = st.get("running").and_then(|r| r.as_object()).cloned().unwrap_or_default();
     let ready = running.values().filter(|r| r.get("ready").and_then(|x| x.as_bool()).unwrap_or(false)).count();
     match path {
-        "/health" => axum::Json(json!({ "ok": true, "app": "sushila", "version": env!("CARGO_PKG_VERSION"), "port": s.port, "uptimeSeconds": s.started.elapsed().as_secs(), "models": running.len(), "ready": ready })).into_response(),
+        "/health" => axum::Json(json!({ "ok": true, "app": "sushila", "version": env!("CARGO_PKG_VERSION"), "build": crate::BUILD, "port": s.port, "uptimeSeconds": s.started.elapsed().as_secs(), "models": running.len(), "ready": ready })).into_response(),
         "/ready" => (if ready > 0 { axum::http::StatusCode::OK } else { axum::http::StatusCode::SERVICE_UNAVAILABLE }, axum::Json(json!({ "ready": ready }))).into_response(),
         _ => {
             let allowed = local_host(headers, s.port) || caller(headers, st).map(|w| !w.starts_with("open")).unwrap_or(false) || admin_ok(s, headers, st);

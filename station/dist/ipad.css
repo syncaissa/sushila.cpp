@@ -116,3 +116,22 @@ textarea.field{height:auto;min-height:120px;line-height:1.5}
 .ffask,.panel.warn{margin-bottom:14px;border-left:4px solid var(--accent,#7c5cff)}
 .panel.warn{border-left-color:#e8a33d}
 .ffask .row,.panel.warn .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+/* build 6: full model names, Show models, SETUP on the engine button, the collapsible model list */
+.modelsel{min-width:340px;max-width:min(620px,52vw);width:auto}
+.packlist .txt b{white-space:normal;overflow:visible;text-overflow:clip}
+.engbig{cursor:pointer}
+.engbig .setupbtn{margin-left:auto;flex:none;font-size:11px;font-weight:800;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.24);border:1px solid rgba(255,255,255,.55);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.engbig:hover .setupbtn{background:rgba(255,255,255,.38)}
+.packtoggle{display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;margin:0 0 8px;border:0;border-radius:14px;background:var(--card,#fff);box-shadow:0 1px 3px rgba(0,0,0,.08);cursor:pointer;text-align:left;font:inherit;color:inherit}
+.packtoggle:hover{filter:brightness(.98)}
+.packtoggle .tri{width:14px;font-size:13px;opacity:.7}
+#bargo{margin-left:auto;flex:none}
+.gobtn{white-space:nowrap}
+.navlbl{display:flex;flex-direction:column;line-height:1.2;min-width:0}.navlbl small{font-size:11.5px;opacity:.65;font-weight:500}.navitem.on .navlbl small{opacity:.85}
+/* the model picker and the page's buttons: their own row under the title (full model names, nothing cut off) */
+#baracts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 26px;border-bottom:1px solid var(--line,#e5e5ea);background:var(--bar)}
+#baracts:empty{display:none}
+.bartitle{min-width:0;flex:1}
+#subtitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modelsel{min-width:340px;max-width:100%}
+#baracts{flex:none}

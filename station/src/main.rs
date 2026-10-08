@@ -68,12 +68,30 @@ async fn engine_start(st: S<'_>) -> Result<Value, String> {
     for _ in 0..60 { tokio::time::sleep(Duration::from_millis(500)).await; if engine::health(&st.http).await["running"] == true { st.inner.lock().await.token.clear(); return Ok(v); } }
     Err("Sushila was started but does not answer yet; it may still be setting itself up (see Logs)".into())
 }
+/// At Station's start: a running engine older than the one Station carries (an older Station or sushila.exe left it
+/// running) is stopped and the new one started, so the app and the engine match. A newer engine is kept.
+#[tauri::command]
+async fn engine_ensure(st: S<'_>) -> Result<Value, String> {
+    let h = engine::health(&st.http).await;
+    if h["running"] != true { return engine_start(st).await; }
+    let (have, want) = (h["build"].as_u64().unwrap_or(0) as u32, engine::bundled_build());
+    if want == 0 || have >= want { return Ok(json!({ "already": true, "build": have })); }
+    let _ = engine::stop().await;
+    // a server finishing a download or a model start stops when that step ends: wait for it (up to 15 minutes), then
+    // start the new engine; never leave the computer without one
+    for _ in 0..1800 { if engine::health(&st.http).await["running"] != true { break; } tokio::time::sleep(Duration::from_millis(500)).await; }
+    if engine::health(&st.http).await["running"] == true { return Ok(json!({ "already": true, "build": have, "busy": "the older engine is still finishing a download; it is replaced at the next start" })); }
+    let mut v = engine_start(st).await?;
+    v["replaced"] = json!(true); v["from"] = json!(have); v["to"] = json!(want);
+    Ok(v)
+}
 #[tauri::command]
 async fn engine_stop(st: S<'_>) -> Result<Value, String> { let r = engine::stop().await; st.inner.lock().await.token.clear(); r }
 #[tauri::command]
 async fn engine_restart(st: S<'_>) -> Result<Value, String> {
     let _ = engine::stop().await;
-    for _ in 0..40 { if engine::health(&st.http).await["running"] != true { break; } tokio::time::sleep(Duration::from_millis(500)).await; }
+    // a server finishing a download or a model start stops when that step ends (up to a minute or so)
+    for _ in 0..180 { if engine::health(&st.http).await["running"] != true { break; } tokio::time::sleep(Duration::from_millis(500)).await; }
     engine_start(st).await
 }
 #[tauri::command] fn install_cli() -> Result<Value, String> { engine::install_cli() }
@@ -162,16 +180,30 @@ fn notify_os(app: AppHandle, title: String, body: String) -> Result<(), String> 
 fn show_main(app: &AppHandle) { if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus(); } }
 
 fn main() {
+    // started by an older copy that is handing over: let it close first (it holds the one-instance lock)
+    if std::env::var_os("SUSHILA_STATION_TAKEOVER").is_some() { std::env::remove_var("SUSHILA_STATION_TAKEOVER"); std::thread::sleep(Duration::from_millis(2500)); }
     let st = Arc::new(St { http: engine::client(), inner: Mutex::new(Inner::default()) });
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
+        // opening Station again shows the window; opening a different copy (a newer download) replaces this one
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            let other = args.first().map(|a| std::path::Path::new(&cwd).join(a)).and_then(|p| std::fs::canonicalize(p).ok());
+            let me = std::env::current_exe().ok().and_then(|p| std::fs::canonicalize(p).ok());
+            match (other, me) {
+                (Some(o), Some(m)) if o != m && o.is_file() => {
+                    let mut c = std::process::Command::new(&o);
+                    c.args(args.iter().skip(1)).env("SUSHILA_STATION_TAKEOVER", "1");
+                    if c.spawn().is_ok() { app.exit(0); } else { show_main(app); }
+                }
+                _ => show_main(app),
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--hidden"])))
         .manage(st)
-        .invoke_handler(tauri::generate_handler![api, engine_status, engine_start, engine_stop, engine_restart, install_cli, uninstall_cli, media_url, chat_start, chat_stop, read_picture, save_to, copy_text, notify_os])
+        .invoke_handler(tauri::generate_handler![api, engine_status, engine_ensure, engine_start, engine_stop, engine_restart, install_cli, uninstall_cli, media_url, chat_start, chat_stop, read_picture, save_to, copy_text, notify_os])
         .setup(|app| {
             let hidden = std::env::args().any(|a| a == "--hidden");  // started at login: only the tray icon
             let mut b = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
