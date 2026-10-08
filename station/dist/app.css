@@ -24,6 +24,14 @@ input,textarea,select,button{font:inherit;color:inherit}
 .sidetop{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
 body.mac .sidetop{padding-top:40px}
 .sidetop .logo{width:30px;height:30px;border-radius:7px}
+.engbig{display:flex;align-items:center;gap:10px;margin:2px 12px 8px;padding:12px 14px;border-radius:12px;border:1px solid transparent;text-align:left;cursor:default;width:calc(100% - 24px);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.engbig .bdot{width:12px;height:12px;border-radius:50%;background:#fff;flex:none;box-shadow:0 0 0 4px rgba(255,255,255,.25)}
+.engbig b{display:block;font-size:14.5px;font-weight:700}.engbig small{display:block;font-size:12px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.engbig .chev{margin-left:auto;opacity:.85;font-size:16px}
+.engbig.on{background:#0f7b3a}.engbig.busy{background:#b7791f}.engbig.off{background:#c42b1c}.engbig.none{background:#5f6368}
+.engbig:hover{filter:brightness(1.08)}.engbig.busy .bdot{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{50%{opacity:.35}}
+.engpanel{display:grid;grid-template-columns:300px 1fr;gap:20px}.engpanel .packlist{max-height:62vh;overflow:auto}
+@media (max-width:900px){.engpanel{grid-template-columns:1fr}}
 .sidetop b{display:block;font-size:14px;font-weight:600}.sidetop small{display:block;color:var(--mut);font-size:11.5px}
 #nav{flex:1;overflow:auto;padding:4px 8px 10px}
 .navgroup{font-size:11.5px;font-weight:600;color:var(--mut);padding:14px 10px 4px;letter-spacing:.02em}

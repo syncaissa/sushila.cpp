@@ -39,6 +39,8 @@ const KIND = { text: 'Chat', code: 'Code', image: 'Pictures', music: 'Music', vi
 async function api(method, path, body) { return invoke('api', { method, path, body: body === undefined ? null : body }); }
 async function get(path) { const r = await api('GET', path); if (!r.ok) throw new Error(typeof r.data === 'string' ? r.data : (r.data && r.data.error) || 'HTTP ' + r.status); return r.data; }
 async function post(path, body) { const r = await api('POST', path, body || {}); if (!r.ok) throw new Error(typeof r.data === 'string' ? r.data : (r.data && (r.data.error && (r.data.error.message || r.data.error))) || 'HTTP ' + r.status); return r.data; }
+// copying goes through the app to the system clipboard (the web clipboard would ask the user for permission)
+const copy = (text) => invoke('copy_text', { text: String(text) });
 const openUrl = (url) => (T.opener ? T.opener.openUrl(url) : invoke('plugin:opener|open_url', { url })).catch((e) => toast(String(e), 'err'));
 const reveal = (path) => post('/api/reveal', { path }).catch(() => (T.opener ? T.opener.revealItemInDir(path) : invoke('plugin:opener|reveal_item_in_dir', { path })).catch((e) => toast(String(e), 'err')));
 
@@ -62,21 +64,19 @@ function ask(title, text, ok = 'OK', danger = false) {
       h('button', { class: 'btn ' + (danger ? 'danger' : 'primary'), onclick: () => fin(true) }, ok))]);
   });
 }
-async function notify(title, body) {
-  try { const n = T.notification; if (!n) return; let ok = await n.isPermissionGranted(); if (!ok) ok = (await n.requestPermission()) === 'granted'; if (ok) n.sendNotification({ title, body }); } catch (_) {}
-}
+async function notify(title, body) { try { await invoke('notify_os', { title, body }); } catch (_) {} }
 
 // ------------------------------------------------------------------ app state
 const S = { view: 'chat', st: null, eng: { running: false }, catalog: null, lib: null, queue: null, chats: { chat: [], code: [] }, pick: {}, busy: {} };
 try { S.view = localStorage.getItem('station-view') || 'chat'; S.pick = JSON.parse(localStorage.getItem('station-pick') || '{}'); } catch (_) {}
 const NAV = [
-  ['Create', [['chat', 'Chat'], ['code', 'Code'], ['pictures', 'Pictures'], ['music', 'Music'], ['video', 'Video']]],
+  ['', [['pictures', 'Generate Images'], ['music', 'Generate Music and Songs'], ['video', 'Generate Video'], ['code', 'Generate Code'], ['chat', 'Chat']]],
   ['Your work', [['mycontent', 'myContent'], ['queue', 'Queue']]],
   ['This computer', [['packs', 'Model packs'], ['engine', 'Engine'], ['link', 'Internet link'], ['logs', 'Logs'], ['settings', 'Settings']]],
   ['Help', [['help', 'Ask Sushila']]],
 ];
-const TITLES = { chat: ['Chat', 'Talk with a model on this computer'], code: ['Code', 'Write and explain code'], pictures: ['Pictures', 'Make pictures from words'],
-  music: ['Music', 'Songs from a style and lyrics'], video: ['Video', 'Videos from words or a picture'], mycontent: ['myContent', 'Everything you made'],
+const TITLES = { chat: ['Chat', 'Talk with a model on this computer'], code: ['Generate Code', 'Write and explain code'], pictures: ['Generate Images', 'Make pictures from words'],
+  music: ['Generate Music and Songs', 'Songs from a style and lyrics'], video: ['Generate Video', 'Videos from words or a picture'], mycontent: ['myContent', 'Everything you made'],
   queue: ['Queue', 'Work running in the background'], packs: ['Model packs', 'Install, start and stop models'], engine: ['Engine', 'Sushila on this computer'],
   link: ['Internet link', 'Use this computer from anywhere'], logs: ['Logs', 'What Sushila is doing'], settings: ['Settings', 'Limits and preferences'], help: ['Ask Sushila', 'Answers from Sushila\'s documentation'] };
 const CREATE_KIND = { chat: 'text', code: 'text', pictures: 'image', music: 'music', video: 'video' };
@@ -87,11 +87,74 @@ function modeName(m) { return m === 'turbo' ? 'Accelerated' : 'Standard'; }
 
 function renderNav() {
   const qn = S.queue ? S.queue.jobs.filter((j) => j.status === 'running' || j.status === 'queued').length : 0;
-  put($('nav'), ...NAV.map(([g, items]) => [h('div', { class: 'navgroup' }, g), ...items.map(([k, t]) =>
+  put($('nav'), ...NAV.map(([g, items]) => [g ? h('div', { class: 'navgroup' }, g) : h('div', { style: 'height:6px' }), ...items.map(([k, t]) =>
     h('div', { class: 'navitem' + (S.view === k ? ' on' : ''), onclick: () => go(k), role: 'button', tabindex: 0 }, h('span', { class: 'ico' }, icon(k)), t,
       k === 'queue' && qn ? h('span', { class: 'badge' }, qn) : null))]));
 }
+// the big Sushila Engine button under the logo: its state, always visible; a click opens the engine and model packs panel
+function engineState() {
+  const e = S.eng, st = S.st || {}, r = st.running || [];
+  if (S.engBusy) return ['busy', S.engBusy, 'please wait…'];
+  if (!e.running) return ['off', 'Sushila Engine is down', 'click to start it'];
+  if (!st.engine || !st.engine.version) return ['none', 'Engine not installed', 'click to download it'];
+  if (r.some((x) => !x.ready)) return ['busy', 'Engine starting a model', r.map((x) => x.name).join(', ')];
+  return ['on', 'Sushila Engine running', r.length ? r.map((x) => x.name).join(', ') : 'no model running'];
+}
+function renderEngineButton() {
+  const [cls, title, sub] = engineState(); const b = $('engbig'); if (!b) return;
+  b.className = 'engbig ' + cls; b.onclick = enginePanel;
+  put(b, h('span', { class: 'bdot' }), h('div', {}, h('b', {}, title), h('small', {}, sub)), h('span', { class: 'chev' }, '▾'));
+}
+async function engineDo(what) {
+  const labels = { start: 'Starting the engine…', stop: 'Stopping the engine…', download: 'Downloading the engine…', upgrade: 'Upgrading the engine…' };
+  S.engBusy = labels[what]; renderEngineButton(); $('sheet').click();
+  try {
+    if (what === 'start') { await invoke('engine_start'); toast('The Sushila Engine is running.', 'ok'); }
+    else if (what === 'stop') { if (!await ask('Stop the Sushila Engine?', 'Models stop, and the queue waits until it starts again.', 'Stop', true)) { S.engBusy = ''; renderEngineButton(); return; } await invoke('engine_stop'); toast('The engine stopped.', 'ok'); }
+    else { if (!S.eng.running) await invoke('engine_start'); await post('/api/control', { action: 'engine-install' }); toast(what === 'download' ? 'Downloading the engine for this computer in the background (see Logs).' : 'Installing the newest signed engine in the background (see Logs).', 'ok', what === 'download' ? 'Download' : 'Upgrade'); }
+  } catch (e) { toast(String(e.message || e), 'err'); }
+  S.engBusy = ''; refresh();
+}
+async function packDo(action, p) {
+  const others = ((S.st && S.st.running) || []).filter((r) => r.packId !== p.id);
+  if (action === 'start' && others.length && !await ask('Start ' + p.name + '?', others.map((r) => r.name).join(', ') + ' (running now) will stop, to keep this computer\'s memory and GPU for ' + p.name + '.', 'Start')) return;
+  if (action === 'stop' && !await ask('Stop ' + p.name + '?', 'It frees the memory and GPU it uses.', 'Stop')) return;
+  if (action === 'install') { try { await post('/api/control', { action: 'install', pack: p.id }); toast('Downloading ' + p.name + ' in the background; it is checked file by file.', 'ok', 'Download and install'); } catch (e) { toast(e.message, 'err'); } setTimeout(enginePanelRefresh, 800); return; }
+  await useModel(action, p.id, p.turbo ? 'turbo' : 'regular'); setTimeout(enginePanelRefresh, 1500);
+}
+let panelBox = null;
+function enginePanelRefresh() { if (panelBox && panelBox.isConnected) put(panelBox, enginePanelBody()); }
+async function enginePanel() {
+  if (!S.catalog && S.eng.running) await loadCatalog();
+  panelBox = h('div'); put(panelBox, enginePanelBody()); sheet(panelBox, true);
+}
+function enginePanelBody() {
+  const e = S.eng, st = S.st || {}, [cls, title, sub] = engineState();
+  const installed = st.packs || [], ids = new Set(installed.map((p) => p.id));
+  const cat = ((S.catalog && S.catalog.packs) || []).filter((p) => !p.hidden);
+  const all = cat.concat(installed.filter((p) => !cat.some((c) => c.id === p.id)));
+  const downloading = new Set(((st.tasks || []).filter((t) => t.status === 'running' && t.action === 'install')).map((t) => t.target));
+  const btn = (t, f, cls2, dis) => h('button', { class: 'btn ' + (cls2 || ''), style: 'width:100%;justify-content:flex-start;margin-top:8px', disabled: !!dis, onclick: f }, t);
+  const left = h('div', {}, h('div', { class: 'engbig ' + cls, style: 'margin:0;width:100%' }, h('span', { class: 'bdot' }), h('div', {}, h('b', {}, title), h('small', {}, sub))),
+    h('div', { class: 'small mut', style: 'margin:10px 2px' }, e.running ? 'Engine ' + (st.engine ? st.engine.version + ' · ' + (st.engineKey || '') : 'not installed') + (st.gpu ? ' · ' + st.gpu : '') : 'The engine runs the models and the queue on this computer.'),
+    btn('▶  1. Start Engine', () => engineDo('start'), 'primary', e.running),
+    btn('■  2. Stop Engine', () => engineDo('stop'), '', !e.running),
+    btn('⬇  3. Download Engine', () => engineDo('download'), '', e.running && st.engine && st.engine.version),
+    btn('⟳  4. Upgrade Engine', () => engineDo('upgrade'), '', !(st.engine && st.engine.version)),
+    h('div', { class: 'small mut', style: 'margin-top:12px' }, 'Station keeps the engine running when you close its window; Quit from the tray icon.'));
+  const right = h('div', {}, h('h3', { style: 'margin:0 0 8px' }, 'Model packs'), h('div', { class: 'group packlist' }, all.length ? all.map((p) => {
+    const inst = ids.has(p.id), r = running(p.id), dl = downloading.has(p.id), bytes = p.bytes || (p.files || []).reduce((n, f) => n + (f.bytes || 0), 0);
+    return h('div', { class: 'item' }, h('div', { class: 'kicon' }, icon(p.kind === 'image' ? 'pictures' : p.kind === 'text' ? (packKind(p) === 'code' ? 'code' : 'chat') : p.kind || 'chat')),
+      h('div', { class: 'txt' }, h('b', {}, p.name), h('span', {}, [KIND[packKind(p)] || p.kind, human(bytes)].filter(Boolean).join(' · '))),
+      r ? h('span', { class: 'tag on' }, r.ready ? 'Running' : 'Starting…') : dl ? h('span', { class: 'tag acc' }, 'Downloading…') : inst ? h('span', { class: 'tag' }, 'Installed') : h('span', { class: 'tag' }, p.fits === false ? 'Needs other hardware' : 'Not installed'),
+      !inst ? h('button', { class: 'btn small primary', disabled: dl || p.fits === false || !e.running, onclick: () => packDo('install', p) }, 'Download & install')
+        : r ? h('button', { class: 'btn small', onclick: () => packDo('stop', p) }, 'Stop') : h('button', { class: 'btn small primary', disabled: !e.running, onclick: () => packDo('start', p) }, 'Start'));
+  }) : h('div', { class: 'item' }, h('span', { class: 'mut' }, e.running ? 'Loading the catalog…' : 'Start the engine to see the model packs.'))));
+  return [h('div', { class: 'row', style: 'margin-bottom:12px' }, h('h3', { style: 'margin:0' }, 'Sushila Engine'), h('span', { class: 'grow' }), h('button', { class: 'btn small', onclick: () => $('sheet').click() }, 'Close')),
+    h('div', { class: 'engpanel' }, left, right)];
+}
 function renderEngineBox() {
+  renderEngineButton(); enginePanelRefresh();
   const e = S.eng, r = (S.st && S.st.running) || [];
   const dot = e.running ? (r.some((x) => !x.ready) ? 'busy' : 'on') : 'off';
   put($('engbox'), h('div', { class: 'engline' }, h('span', { class: 'dot ' + dot }), h('div', { class: 'grow' },
@@ -134,14 +197,21 @@ async function useModel(action, pack, mode) {
 
 // ------------------------------------------------------------------ routing
 function go(v) { S.view = v; try { localStorage.setItem('station-view', v); } catch (_) {} render(); if (v === 'mycontent') loadLib(); if (v === 'packs') loadCatalog(); }
+// what the user typed stays: fields with an id are read before each redraw and written back after it
+S.draft = {};
+function keepDraft() { const v = $('view'); if (!v) return; const d = S.draft[S.lastView || S.view] = S.draft[S.lastView || S.view] || {};
+  v.querySelectorAll('input[id],textarea[id],select[id]').forEach((x) => { if (x.type !== 'file' && x.type !== 'checkbox') d[x.id] = x.value; }); }
+function restoreDraft() { const d = S.draft[S.view]; if (!d) return; const v = $('view');
+  for (const [id, val] of Object.entries(d)) { const x = v.querySelector('#' + CSS.escape(id)); if (x && x.type !== 'file' && x.type !== 'checkbox') x.value = val; } }
 function render() {
+  keepDraft(); S.lastView = S.view;
   const [t, sub] = TITLES[S.view] || ['', '']; $('title').textContent = t; $('subtitle').textContent = sub;
   renderNav(); renderEngineBox();
   const view = $('view'); view.className = S.view === 'chat' || S.view === 'code' ? 'flush' : '';
   put($('baracts'), ...(S.eng.running ? modelBar(S.view) : []), ...(VIEWS[S.view].bar ? VIEWS[S.view].bar() : []));
   if (!S.eng.running && !['engine', 'settings', 'help'].includes(S.view)) { view.className = ''; put(view, stoppedPanel()); return; }
   const keep = view.querySelector('.msgs'); const scroll = keep ? keep.scrollTop : 0;
-  put(view, VIEWS[S.view].render());
+  put(view, VIEWS[S.view].render()); restoreDraft();
   const k2 = view.querySelector('.msgs'); if (k2 && keep) k2.scrollTop = scroll;
 }
 function stoppedPanel() {
@@ -181,7 +251,7 @@ function mdNodes(text) {  // code fences as blocks with Copy; the rest as text (
   parts.forEach((p, i) => {
     if (i % 2 === 0) { if (p) out.push(document.createTextNode(p)); return; }
     const nl = p.indexOf('\n'); const code = nl >= 0 ? p.slice(nl + 1) : p;
-    const pre = h('pre', {}, h('code', {}, code.replace(/\n$/, '')), h('button', { class: 'btn small copyc', onclick: () => { navigator.clipboard.writeText(code).then(() => toast('Copied', 'ok', '', 1500)); } }, 'Copy'));
+    const pre = h('pre', {}, h('code', {}, code.replace(/\n$/, '')), h('button', { class: 'btn small copyc', onclick: () => { copy(code).then(() => toast('Copied', 'ok', '', 1500)); } }, 'Copy'));
     out.push(pre);
   });
   return out;
@@ -199,6 +269,7 @@ async function send(view) {
     if (!m.run && await ask('Start ' + (m.pack ? m.pack.name : m.id) + '?', 'This model is not running yet. It loads in the background, then your message is sent.', 'Start')) { await useModel('start', m.id, m.pack && m.pack.turbo ? 'turbo' : 'regular'); }
     toast('The model is loading; send again when it shows ● in the picker.', '', '', 5000); return;
   }
+  ta.value = ''; if (S.draft[view]) S.draft[view].q = '';  // sent: the box empties (its draft too)
   const msgs = S.chats[view]; msgs.push({ role: 'user', content: q });
   const id = 'c' + Date.now(); const a = { role: 'assistant', content: '', streaming: true, id, t0: performance.now(), n: 0 }; msgs.push(a); render();
   const sys = view === 'code' ? [{ role: 'system', content: 'You are an expert programmer. Answer with correct, complete code in fenced code blocks and short explanations.' }] : [];
@@ -221,41 +292,68 @@ VIEWS.chat = chatView('chat'); VIEWS.code = chatView('code');
 // Pictures: made right away; Music and Video: through the queue (they take minutes), finished ones below
 VIEWS.pictures = {
   render() {
-    const made = S.made || [];
     const form = h('div', { class: 'panel' },
-      h('label', { class: 'lbl' }, 'Describe the picture'), h('textarea', { class: 'field', id: 'ip', rows: 5, style: 'width:100%', placeholder: 'A red fox in fresh snow, morning light' }),
+      h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Describe the picture'), histButton('pictures')), h('textarea', { class: 'field', id: 'ip', rows: 5, style: 'width:100%', placeholder: 'A red fox in fresh snow, morning light' }),
       h('div', { class: 'row', style: 'margin-top:4px' }, h('div', { class: 'grow' }, h('label', { class: 'lbl' }, 'Size'), h('select', { class: 'field', id: 'isize', style: 'width:100%' },
         ...[['768x768', 'Square, fast (768)'], ['1024x1024', 'Square (1024)'], ['1024x768', 'Landscape'], ['768x1024', 'Portrait'], ['1536x1024', 'Wide, large']].map(([v, t]) => h('option', { value: v }, t)))),
         h('div', { style: 'width:90px' }, h('label', { class: 'lbl' }, 'How many'), h('select', { class: 'field', id: 'in', style: 'width:100%' }, ...[1, 2, 3, 4].map((n) => h('option', {}, n))))),
       h('label', { class: 'lbl' }, 'Seed (empty: random)'), h('input', { class: 'field', id: 'iseed', style: 'width:100%', inputmode: 'numeric' }),
       h('div', { class: 'row', style: 'margin-top:16px' }, h('button', { class: 'btn primary grow', id: 'igo', onclick: makePictures }, 'Make pictures')), h('div', { id: 'imsg', class: 'small mut', style: 'margin-top:8px' }));
-    return h('div', { class: 'split' }, form, h('div', {}, made.length ? h('div', { class: 'gallery' }, made.map((x) => h('div', { class: 'tile' }, h('div', { class: 'thumb' }, h('img', { src: x.src, alt: '' })),
-      h('div', { class: 'cap' }, h('b', {}, x.prompt), h('span', { class: 'mut' }, x.secs ? x.secs.toFixed(1) + ' s · ' : '', x.size))))) : recent('image', 'Your pictures appear here.')));
+    const drawing = S.drawing ? h('div', { class: 'gallery', style: 'margin-bottom:12px' }, Array.from({ length: S.drawing }, () => h('div', { class: 'tile' }, h('div', { class: 'thumb' }, h('span', { class: 'spin', style: 'font-size:34px' }, '⏳')),
+      h('div', { class: 'cap' }, h('b', {}, 'Drawing…'), h('span', { class: 'mut' }, 'it appears here when it is ready'))))) : null;
+    return h('div', { class: 'split' }, form, h('div', {}, drawing, recent('image', 'Your pictures appear here.')));
   },
 };
+// ---- prompt history: every prompt made on Images, Music and Video (newest first, 200 at most); a click fills the form
+const HIST_FIELDS = { pictures: ['ip', 'isize', 'in', 'iseed'], music: ['mstyle', 'mlyrics', 'mdur'], video: ['vp', 'vsize', 'vlen'] };
+const histGet = (v) => { try { return JSON.parse(localStorage.getItem('station-hist-' + v) || '[]'); } catch (_) { return []; } };
+function histAdd(v) {
+  const f = {}; for (const id of HIST_FIELDS[v]) { const x = $(id); if (x) f[id] = x.value; }
+  const main = f.ip || f.mstyle || f.vp || ''; if (!main.trim()) return;
+  const list = histGet(v).filter((e) => JSON.stringify(e.f) !== JSON.stringify(f)); list.unshift({ f, at: new Date().toISOString() });
+  try { localStorage.setItem('station-hist-' + v, JSON.stringify(list.slice(0, 200))); } catch (_) {}
+}
+function histButton(v) { return h('button', { class: 'btn small', title: 'Earlier prompts: pick one to fill the form', onclick: () => histPick(v) }, '🕘 Prompt history'); }
+function histPick(v) {
+  const list = histGet(v);
+  let close;
+  const use = (e) => { S.draft[v] = Object.assign({}, S.draft[v], e.f); for (const [id, val] of Object.entries(e.f)) { const x = $(id); if (x) x.value = val; } close(); };
+  close = sheet([h('div', { class: 'row', style: 'margin-bottom:8px' }, h('h3', { style: 'margin:0' }, 'Prompt history'), h('span', { class: 'grow' }),
+      list.length ? h('button', { class: 'btn small danger', onclick: async () => { if (await ask('Clear the prompt history?', 'The list of earlier prompts on this page is emptied (your files stay).', 'Clear', true)) { try { localStorage.removeItem('station-hist-' + v); } catch (_) {} } } }, 'Clear') : null,
+      h('button', { class: 'btn small', onclick: () => close() }, 'Close')),
+    list.length ? h('div', { class: 'group', style: 'max-height:60vh;overflow:auto;margin:0' }, list.map((e) => h('div', { class: 'item', style: 'cursor:default', onclick: () => use(e) },
+      h('div', { class: 'txt' }, h('b', { style: 'white-space:normal' }, (e.f.ip || e.f.mstyle || e.f.vp || '').slice(0, 300)),
+        h('span', {}, [e.f.isize, e.f.mdur ? e.f.mdur + ' s' : '', e.f.vsize, e.f.mlyrics ? 'with lyrics' : '', when(e.at)].filter(Boolean).join(' · '))),
+      h('button', { class: 'btn small primary', onclick: (ev) => { ev.stopPropagation(); use(e); } }, 'Use'))))
+      : h('p', {}, 'No prompts yet: what you make on this page is listed here.')], true);
+}
 async function makePictures() {
   const m = currentModel('pictures'), prompt = $('ip').value.trim(); if (!prompt) return;
-  if (!m || !m.run || !m.run.ready) { toast('Start a picture model first (the picker at the top).', 'err'); return; }
+  if (!m) { toast('Install a picture model first (the Engine button, or Model packs).', 'err'); return; }
+  if (!m.run || !m.run.ready) {
+    if (!m.run && await ask('Start ' + (m.pack ? m.pack.name : m.id) + '?', 'The picture model is not running. It starts in the background (your prompt stays here); press Make pictures again when it shows ● at the top.', 'Start')) await packDo('start', m.pack || { id: m.id, name: m.id });
+    else if (m.run) toast('The picture model is still starting; your prompt stays here. Press Make pictures again in a moment.', '', '', 6000);
+    return;
+  }
+  histAdd('pictures');
   const n = +$('in').value, size = $('isize').value, seed = $('iseed').value.trim(); $('igo').disabled = true;
   const close = toast(h('span', {}, h('span', { class: 'spin' }, '⏳'), ' Drawing ' + n + ' picture' + (n > 1 ? 's' : '') + '…'), '', '', 0);
-  S.made = S.made || [];
+  S.drawing = n; render();
   try {
     for (let i = 0; i < n; i++) {
-      const t0 = performance.now();
-      const r = await post('/v1/images/generations', { model: m.id, prompt, size, n: 1, seed: seed ? +seed + i : undefined });
-      const d = r.data && r.data[0]; if (d && d.b64_json) S.made.unshift({ src: 'data:image/png;base64,' + d.b64_json, prompt, size, secs: (performance.now() - t0) / 1000 });
-      if (S.view === 'pictures') render();
+      await post('/v1/images/generations', { model: m.id, prompt, size, n: 1, seed: seed ? +seed + i : undefined });
+      S.drawing = n - i - 1; S.lib = null; await loadLib();  // the engine saved it in the Library: shown there with every action
     }
   } catch (e) { toast(e.message, 'err', 'Could not make the picture'); }
-  close(); const b = $('igo'); if (b) b.disabled = false; S.lib = null;
+  S.drawing = 0; close(); S.lib = null; await loadLib(); const b = $('igo'); if (b) b.disabled = false;
 }
 function queueForm(view) {
   const isMusic = view === 'music';
   return h('div', { class: 'panel' }, isMusic ? [
-    h('label', { class: 'lbl' }, 'Style'), h('input', { class: 'field', id: 'mstyle', style: 'width:100%', placeholder: 'Upbeat pop, female vocals, bright synths' }),
+    h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Style'), histButton('music')), h('input', { class: 'field', id: 'mstyle', style: 'width:100%', placeholder: 'Upbeat pop, female vocals, bright synths' }),
     h('label', { class: 'lbl' }, 'Lyrics (empty: instrumental)'), h('textarea', { class: 'field', id: 'mlyrics', rows: 8, style: 'width:100%', placeholder: '[Verse]\n…\n[Chorus]\n…' }),
     h('label', { class: 'lbl' }, 'Length'), h('select', { class: 'field', id: 'mdur', style: 'width:100%' }, ...[[30, '30 seconds'], [60, '1 minute'], [120, '2 minutes'], [180, '3 minutes']].map(([v, t]) => h('option', { value: v, selected: v === 60 }, t)))]
-    : [h('label', { class: 'lbl' }, 'Describe the video'), h('textarea', { class: 'field', id: 'vp', rows: 5, style: 'width:100%', placeholder: 'A paper boat drifting down a rainy street, cinematic' }),
+    : [h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Describe the video'), histButton('video')), h('textarea', { class: 'field', id: 'vp', rows: 5, style: 'width:100%', placeholder: 'A paper boat drifting down a rainy street, cinematic' }),
       h('div', { class: 'row' }, h('div', { class: 'grow' }, h('label', { class: 'lbl' }, 'Size'), h('select', { class: 'field', id: 'vsize', style: 'width:100%' }, ...[['1280x704', 'Landscape 720p'], ['704x1280', 'Portrait 720p'], ['832x480', 'Small, faster']].map(([v, t]) => h('option', { value: v }, t)))),
         h('div', { class: 'grow' }, h('label', { class: 'lbl' }, 'Length'), h('select', { class: 'field', id: 'vlen', style: 'width:100%' }, ...[[49, '2 seconds'], [81, '3 seconds'], [121, '5 seconds']].map(([v, t]) => h('option', { value: v }, t))))),
       h('label', { class: 'lbl' }, 'Start from a picture (optional)'), h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: pickStart }, 'Choose picture…'), h('span', { class: 'small mut', id: 'vstartname' }, S.vstart ? S.vstart.name : 'none'),
@@ -272,6 +370,10 @@ async function pickStart() {
 }
 async function addJob(view) {
   const m = currentModel(view); if (!m) { toast('Install a ' + view + ' model first (Model packs).', 'err'); return; }
+  if (!m.run || !m.run.ready) {
+    // the queue starts the model itself when its turn comes; nothing typed is lost either way
+  }
+  histAdd(view);
   let kind, title, params;
   if (view === 'music') { const style = $('mstyle').value.trim(); if (!style) { toast('Describe the style first.', 'err'); return; } kind = 'music'; title = style; params = { style, lyrics: $('mlyrics').value.trim() || '[Instrumental]', duration: +$('mdur').value }; }
   else { const p = $('vp').value.trim(); if (!p) { toast('Describe the video first.', 'err'); return; } const [w, hh] = $('vsize').value.split('x').map(Number); kind = 'video'; title = p;
@@ -288,7 +390,7 @@ function jobsOf(kind) {
 // the newest Library files of a kind, with players (each loads its address with a read-only media token)
 function recent(kind, emptyText) {
   if (!S.lib) { loadLib(); return h('div', { class: 'empty' }, 'Loading…'); }
-  const items = S.lib.items.filter((x) => x.kind === kind).slice(0, 24);
+  const items = S.lib.items.filter((x) => x.kind === kind).sort((a, b) => String(b.created || '').localeCompare(String(a.created || ''))).slice(0, 24);
   if (!items.length) return h('div', { class: 'empty' }, emptyText);
   return h('div', {}, h('div', { class: 'pagehead' }, h('h2', { style: 'font-size:15px' }, 'Recent'), h('span', { class: 'grow' }), h('button', { class: 'btn small', onclick: () => go('mycontent') }, 'All in myContent')),
     h('div', { class: 'gallery' }, items.map(libTile)));
@@ -302,14 +404,16 @@ function libTile(x) {
   return h('div', { class: 'tile' }, h('div', { class: 'thumb', onclick: () => preview(x) }, x.kind === 'music' ? '🎵' : mediaEl(x, true)),
     x.kind === 'music' ? mediaEl(x) : null,
     h('div', { class: 'cap' }, h('b', {}, x.prompt || x.name), h('span', { class: 'mut' }, (x.pack || '') + (x.created ? ' · ' + new Date(x.created).toLocaleDateString() : ''))),
-    h('div', { class: 'acts' }, h('button', { class: 'btn small', onclick: () => preview(x) }, 'Open'), x.trash ? [h('button', { class: 'btn small', onclick: () => libAct('restore', x) }, 'Restore'), h('button', { class: 'btn small danger', onclick: () => libAct('purge', x) }, 'Delete')]
-      : [h('button', { class: 'btn small', onclick: () => share(x) }, 'Get link'), h('button', { class: 'btn small', onclick: () => saveAs(x) }, 'Save as…')]));
+    h('div', { class: 'acts' }, h('button', { class: 'btn small', title: 'Information', onclick: () => preview(x) }, 'ⓘ'),
+      x.trash ? [h('button', { class: 'btn small', onclick: () => libAct('restore', x) }, 'Restore'), h('button', { class: 'btn small danger', onclick: () => libAct('purge', x) }, 'Delete')]
+      : [h('button', { class: 'btn small', onclick: () => saveAs(x) }, 'Download'), h('button', { class: 'btn small', onclick: () => share(x) }, 'Get link'),
+         x.path ? h('button', { class: 'btn small', title: os === 'mac' ? 'Show in Finder' : 'Show in folder', onclick: () => reveal(x.path) }, '📂') : null]));
 }
 function preview(x) {
   const rows = [['Made with', x.pack], ['Prompt', x.prompt], ['Style', x.style], ['Lyrics', x.lyrics], ['Size', x.size], ['Seed', x.seed], ['Created', when(x.created)], ['File', x.path], ['Bytes', human(x.bytes)]].filter(([, v]) => v != null && v !== '' && v !== -1);
   const close = sheet([h('h3', {}, x.name), mediaEl(x), h('table', { class: 'table selectable', style: 'margin-top:10px' }, rows.map(([k, v]) => h('tr', {}, h('th', { style: 'width:110px' }, k), h('td', { style: 'white-space:pre-wrap' }, String(v))))),
     h('div', { class: 'row end' }, x.path ? h('button', { class: 'btn', onclick: () => reveal(x.path) }, os === 'mac' ? 'Show in Finder' : 'Show in folder') : null,
-      h('button', { class: 'btn', onclick: () => saveAs(x) }, 'Save as…'), x.trash ? null : h('button', { class: 'btn', onclick: () => { close(); share(x); } }, 'Upload and get link'),
+      h('button', { class: 'btn', onclick: () => saveAs(x) }, 'Download'), x.trash ? null : h('button', { class: 'btn', onclick: () => { close(); share(x); } }, 'Upload and get link'),
       x.trash ? null : h('button', { class: 'btn danger', onclick: () => { close(); libAct('delete', x); } }, 'Delete'), h('button', { class: 'btn primary', onclick: () => close() }, 'Close'))], true);
 }
 async function saveAs(x) {
@@ -367,7 +471,7 @@ async function share(x) {
   if (!await signIn()) return;
   if (!await ask('Upload "' + x.name + '" to sushila.ai?', 'It is labelled AI-generated. All uploaded files are visible to everyone who has the link. You may delete them at any time at sushila.ai/mycontent. Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported.', 'Upload and get link')) return;
   const close = toast(h('span', {}, h('span', { class: 'spin' }, '⏳'), ' Uploading to sushila.ai… the link appears here when it is ready.'), '', 'Uploading', 0);
-  try { const m = await post('/api/share/upload', { rel: x.rel }); close(); await navigator.clipboard.writeText(m.link).catch(() => {});
+  try { const m = await post('/api/share/upload', { rel: x.rel }); close(); await copy(m.link).catch(() => {});
     sheet([h('h3', {}, 'Uploaded: the link is copied'), h('p', { class: 'selectable', style: 'font-size:16px;color:var(--fg)' }, m.link), h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => openUrl(m.link) }, 'Open'), h('button', { class: 'btn primary', onclick: () => $('sheet').click() }, 'Done'))]); }
   catch (e) { close(); toast(e.message, 'err', 'Could not upload'); }
 }
@@ -476,7 +580,7 @@ VIEWS.link = { render() {
   if (!S.tunnelAt || Date.now() - S.tunnelAt > 5000) { S.tunnelAt = Date.now(); get('/api/tunnel').then((v) => { S.tunnel = v; if (S.view === 'link') render(); }).catch(() => {}); }
   return h('div', {}, h('div', { class: 'group' }, h('h3', {}, 'Your link'),
     t.running ? [h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', { class: 'selectable', style: 'font-size:15px' }, t.link), h('span', {}, 'Open since ' + when(t.since) + '. Only you can open it, signed in to sushila.ai.')),
-        h('button', { class: 'btn small', onclick: () => navigator.clipboard.writeText(t.link).then(() => toast('Copied', 'ok', '', 1500)) }, 'Copy'), h('button', { class: 'btn small', onclick: () => openUrl(t.link) }, 'Open')),
+        h('button', { class: 'btn small', onclick: () => copy(t.link).then(() => toast('Copied', 'ok', '', 1500)) }, 'Copy'), h('button', { class: 'btn small', onclick: () => openUrl(t.link) }, 'Open')),
       h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Access key for programs'), h('span', { class: 'selectable' }, t.key || '')), h('button', { class: 'btn small', onclick: async () => { if (await ask('Make a new access key?', 'Programs using the old key stop working.', 'New key')) { await post('/api/tunnel/new-key', {}).catch((e) => toast(e.message, 'err')); S.tunnelAt = 0; render(); } } }, 'New key')),
       h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Stop the link'), h('span', {}, 'It stops working until you start it again (the address stays the same).')), h('button', { class: 'btn small danger', onclick: async () => { await post('/api/tunnel/stop', {}).catch((e) => toast(e.message, 'err')); S.tunnelAt = 0; render(); } }, 'Stop'))]
       : h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'No link yet'), h('span', {}, 'A link like sushila.ai/localhost/… reaches this computer from anywhere, through a Cloudflare tunnel. Only you can open it.')),
@@ -497,7 +601,7 @@ async function startLink() {
 
 // Logs
 VIEWS.logs = {
-  bar: () => [h('input', { class: 'field', placeholder: 'Filter', value: S.logf || '', style: 'width:200px', oninput: (e) => { S.logf = e.target.value; drawLog(); } }), h('button', { class: 'btn small', onclick: () => navigator.clipboard.writeText(S.log || '').then(() => toast('Copied', 'ok', '', 1500)) }, 'Copy all')],
+  bar: () => [h('input', { class: 'field', placeholder: 'Filter', value: S.logf || '', style: 'width:200px', oninput: (e) => { S.logf = e.target.value; drawLog(); } }), h('button', { class: 'btn small', onclick: () => copy(S.log || '').then(() => toast('Copied', 'ok', '', 1500)) }, 'Copy all')],
   render() { const box = h('div', { class: 'logbox', id: 'logbox' }); setTimeout(drawLog, 0); return box; },
 };
 async function loadLog() { try { const r = await get('/api/logs?since=' + (S.logNext || 0)); S.log = ((S.log || '') + (r.text || '')).slice(-400000); S.logNext = r.next; if (S.view === 'logs') drawLog(); } catch (_) {} }

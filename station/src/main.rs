@@ -13,6 +13,8 @@ use std::time::{Duration, Instant};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_notification::NotificationExt;
 use tokio::sync::Mutex;
 
 #[derive(Default)]
@@ -149,6 +151,13 @@ async fn save_to(st: S<'_>, url: String, dest: String) -> Result<(), String> {
     tokio::fs::write(&dest, &bytes).await.map_err(|e| e.to_string())
 }
 
+/// Copies text to the system clipboard through the operating system (no web permission prompt in the window).
+#[tauri::command]
+fn copy_text(app: AppHandle, text: String) -> Result<(), String> { app.clipboard().write_text(text).map_err(|e| e.to_string()) }
+/// A system notification, sent from here (the web Notification API would ask the user for permission).
+#[tauri::command]
+fn notify_os(app: AppHandle, title: String, body: String) -> Result<(), String> { app.notification().builder().title(title).body(body).show().map_err(|e| e.to_string()) }
+
 // ---------------------------------------------------------------- the window and the tray
 fn show_main(app: &AppHandle) { if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus(); } }
 
@@ -157,11 +166,12 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--hidden"])))
         .manage(st)
-        .invoke_handler(tauri::generate_handler![api, engine_status, engine_start, engine_stop, engine_restart, install_cli, uninstall_cli, media_url, chat_start, chat_stop, read_picture, save_to])
+        .invoke_handler(tauri::generate_handler![api, engine_status, engine_start, engine_stop, engine_restart, install_cli, uninstall_cli, media_url, chat_start, chat_stop, read_picture, save_to, copy_text, notify_os])
         .setup(|app| {
             let hidden = std::env::args().any(|a| a == "--hidden");  // started at login: only the tray icon
             let mut b = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
