@@ -151,8 +151,10 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
   // Every button sends a request to the server (POST /api/control) and the view follows /api/state: the server is the
   // one source of truth, and every step it takes is in logs/sushila.log (the Logs tab).
   function manager() {
-    const token = window.SUSHILA_TOKEN || '';
-    const local = !!token;  // the page carries this computer's token only when opened here (http://localhost:<port>/)
+    // this computer's token (the page opened here, http://localhost:<port>/), or the owner pass sushila.ai gives the
+    // link's owner on https://sushila.ai/localhost/<id>/: either way this is the computer's own page, every tab
+    const token = window.SUSHILA_TOKEN || window.SUSHILA_OWNER || '';
+    const local = !!token;
     let session = ''; try { session = sessionStorage.getItem('sushila-admin') || ''; } catch (_) {}
     const api = (path, opts = {}) => fetch(path, Object.assign({}, opts, { headers: Object.assign({ 'x-sushila-token': token, 'x-sushila-admin': session, 'content-type': 'application/json' }, opts.headers || {}) }));
     const TABS = [['', 'Inference'], ['library', 'Library'], ['admin', 'Admin']];
@@ -988,7 +990,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     const qs = embedded ? new URLSearchParams() : new URLSearchParams(location.search);
     const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
     if (qs.get('t')) { try { sessionStorage.setItem('sushila-token', qs.get('t')); } catch (_) {} }
-    let token = opts.token || ''; if (!embedded) try { token = window.SUSHILA_TOKEN || sessionStorage.getItem('sushila-token') || ''; } catch (_) { token = window.SUSHILA_TOKEN || ''; }
+    let token = opts.token || ''; if (!embedded) try { token = window.SUSHILA_TOKEN || window.SUSHILA_OWNER || sessionStorage.getItem('sushila-token') || ''; } catch (_) { token = window.SUSHILA_TOKEN || window.SUSHILA_OWNER || ''; }
     let want = opts.model || qs.get('model') || '';
     let autoPrompt = (opts.prompt || qs.get('prompt') || '').slice(0, 2000), autoRun = !!opts.run || qs.get('run') === '1';  // e.g. the first-start demo
     let autoLyrics = (opts.lyrics || qs.get('lyrics') || '').slice(0, 4000);

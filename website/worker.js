@@ -514,7 +514,24 @@ form{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 input{flex:1 1 240px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font-size:15px}
 #msg{margin-top:10px;font-size:14px;min-height:1.4em}
 footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--mut);font-size:14px}
-@media (max-width:640px){.hero{flex-direction:column-reverse;align-items:flex-start;gap:12px}.herologo{width:120px;height:120px}nav{height:auto;flex-wrap:wrap;padding:10px 0;gap:8px}nav .links{margin-left:0;gap:6px 14px;font-size:14px;justify-content:flex-start}.hero{padding:40px 0 28px}th,td{padding:8px 10px}}
+.navt{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}.burger{display:none}
+@media (max-width:860px){
+header{position:sticky;top:0;z-index:60;background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:saturate(1.4) blur(12px);backdrop-filter:saturate(1.4) blur(12px)}
+nav{height:58px;gap:8px;position:relative}
+.burger{display:flex;margin-left:auto;width:44px;height:44px;flex-direction:column;justify-content:center;align-items:center;gap:5px;border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.burger:hover{background:var(--card)}.navt:focus-visible+.burger{outline:2px solid var(--acc);outline-offset:2px}
+.burger span{display:block;width:22px;height:2px;border-radius:2px;background:var(--fg);transition:transform .22s ease,opacity .18s ease}
+.navt:checked+.burger span:nth-child(1){transform:translateY(7px) rotate(45deg)}.navt:checked+.burger span:nth-child(2){opacity:0}.navt:checked+.burger span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+nav .links{position:absolute;top:58px;left:-16px;right:-16px;margin:0;flex-direction:column;flex-wrap:nowrap;gap:0;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 18px 30px rgba(16,24,40,.14);padding:6px 0 12px;
+  visibility:hidden;opacity:0;transform:translateY(-8px);transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s;max-height:calc(100vh - 58px);overflow-y:auto}
+.navt:checked~.links{visibility:visible;opacity:1;transform:none;transition:opacity .18s ease,transform .18s ease}
+nav .links a{display:block;padding:14px 22px;font-size:17px;font-weight:600;color:var(--fg)}nav .links a+a{border-top:1px solid var(--line)}nav .links a:active{background:var(--card)}
+}
+@media (max-width:640px){body{font-size:16px}.wrap{padding:0 18px}
+.hero{flex-direction:column-reverse;align-items:flex-start;gap:12px;padding:28px 0 24px}.herologo{width:104px;height:104px}.hero h1{font-size:clamp(28px,8.4vw,36px)}.hero p{font-size:16.5px;line-height:1.6}
+.herocta{display:block;width:100%;box-sizing:border-box;text-align:center;padding:14px 18px;border-radius:14px}.hero .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}.hero .row .btn{text-align:center;padding:11px 10px}
+.btn{min-height:44px;box-sizing:border-box;border-radius:12px}h2{font-size:23px}.doc h1{font-size:28px}section{padding:30px 0}
+th,td{padding:8px 10px}table{font-size:14px}pre{font-size:13px;border-radius:10px}footer{text-align:center}p code,li code,td code{overflow-wrap:anywhere;word-break:break-word}}
 .doc{max-width:760px;padding:40px 0 56px}
 .doc h1{font-size:34px;margin:0 0 4px;letter-spacing:-.02em}
 .doc h2{font-size:20px;margin:32px 0 8px}
@@ -524,6 +541,14 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--mut);fon
 
 const accountLink = (user) => user ? `${user.isAdmin ? '<a href="/admin">Admin</a>' : ''}<a href="/mycontent">My content</a><a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
 const brand = () => `<a class="brand" href="/"><img src="/logo.png" width="32" height="32" alt=""> Sushila.cpp</a>`;
+// The top bar: the brand and the links; on a phone the links fold into ☰ (a checkbox, so it works without scripts;
+// choosing a link closes it)
+const NAV = (links) => `<header><div class="wrap"><nav>
+  ${brand()}
+  <input type="checkbox" id="navt" class="navt" aria-label="Menu" aria-controls="navlinks"><label for="navt" class="burger" title="Menu"><span></span><span></span><span></span></label>
+  <div class="links" id="navlinks">${links}</div>
+</nav></div></header>
+<script>document.querySelectorAll('#navlinks a').forEach(function(a){a.addEventListener('click',function(){document.getElementById('navt').checked=false;});});</script>`;
 
 const footer = (contact) => `<footer><div class="wrap row" style="justify-content:space-between">
   <span>© ${new Date().getUTCFullYear()} Sushila, an open-source research project</span>
@@ -544,10 +569,7 @@ ${ICON_LINKS}
 ${STYLE}</style>
 </head>
 <body>
-<header><div class="wrap"><nav>
-  ${brand()}
-  <div class="links"><a href="/">Home</a><a href="/manual" class="hide">Manual install</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
-</nav></div></header>
+${NAV(`<a href="/">Home</a><a href="/install">Install</a><a href="/manual">Manual install</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}`)}
 <main class="wrap"><article class="doc">
 ${body(contact)}
 </article></main>
@@ -863,10 +885,7 @@ ${ICON_LINKS}
 ${STYLE}</style>
 </head>
 <body>
-<header><div class="wrap"><nav>
-  ${brand()}
-  <div class="links"><a href="#how">How</a><a href="#results">Results</a><a href="#get">Get Sushila</a><a href="#packs">Packs</a><a href="/manual">Manual install</a><a href="#api">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}</div>
-</nav></div></header>
+${NAV(`<a href="#how">How</a><a href="#results">Results</a><a href="#get">Get Sushila</a><a href="#packs">Packs</a><a href="/manual">Manual install</a><a href="#api">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}`)}
 
 <main class="wrap">
 <div class="hero"><div class="herotext">
@@ -1128,7 +1147,7 @@ function say(id, text, ok){ const m=document.getElementById(id); m.textContent=t
 </script>`;
 
 const SIGNIN = (url, intro) => () => {
-  const next = (url.searchParams.get('next') || '/account').startsWith('/') ? url.searchParams.get('next') || '/account' : '/account';
+  const next = /^\/(?![\/\\])[^\\]*$/.test(url.searchParams.get('next') || '') ? url.searchParams.get('next') : '/account';
   return `${FORM_CSS}
 ${intro || '<h1>Sign in</h1>'}
 <p class="meta"><b>No password to remember:</b> enter your e-mail address and we e-mail you a one-time code (OTP) to sign in, every time. Any e-mail linked to your account works.</p>
@@ -1156,7 +1175,7 @@ ${CLIENT}
 <script>
 (function(){
   let signup = false, email = '';
-  const $ = (id) => document.getElementById(id), NEXT = ${JSON.stringify(next)};
+  const $ = (id) => document.getElementById(id), NEXT = ${JSON.stringify(next).replace(/</g, '\\u003c')};
   function setMode(s){ signup = s; $('newfields').classList.toggle('hidden', !s); $('t1').textContent = s ? 'Have an account? ' : 'New here? ';
     $('mode').textContent = s ? 'Sign in' : 'Create an account'; document.querySelector('h1').textContent = s ? 'Create an account' : 'Sign in'; say('m',''); }
   function timer(){ const b=$('resend'); let s=10; b.disabled=true; b.textContent='Resend code ('+s+'s)';
@@ -1917,19 +1936,39 @@ async function sharePage(env, db, id, origin, request) {
   // the disclaimer, how to make your own); ⛶ is the browser's full screen; the views stay in the corner
   const media = m.kind === 'image' ? `<img class="media" src="${src}" alt="${t}">`
     : m.kind === 'video' ? `<video class="media" src="${src}" controls playsinline autoplay muted loop></video>`
-    : `<div class="song"><div class="note">🎵</div><div class="stitle">${t}</div><audio src="${src}" controls></audio></div>`;
+    : `<div class="song" id="song"><div class="disc" aria-hidden="true"><div class="discin">🎵</div></div><div class="stitle">${t}</div>
+<div class="ssub">AI-generated song${m.model ? ' · ' + esc(m.model) : ''}</div><audio id="au" src="${src}" preload="metadata"></audio>
+<div class="player"><button class="pp" id="pp" aria-label="Play" title="Play (space)"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path id="ppi" d="M8 5v14l11-7z" fill="currentColor"/></svg></button>
+<div class="bar"><input type="range" id="sk" min="0" max="1000" value="0" step="1" aria-label="Seek"><div class="times"><span id="tc">0:00</span><span id="td">0:00</span></div></div>
+<button class="ib2" id="mu" aria-label="Mute" title="Mute (m)"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path id="mui" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z" fill="currentColor"/></svg></button>
+<input type="range" id="vo" class="vol" min="0" max="100" value="100" aria-label="Volume">
+<a class="ib2" href="${esc(viewKey(id))}/download" aria-label="Download" title="Download"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 3v11m0 0l-4.5-4.5M12 14l4.5-4.5M4 17v3h16v-3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div></div>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t} · Sushila</title>
 ${ICON_LINKS.replace('<meta property="og:image" content="https://sushila.ai/logo.png">', '')}<meta property="og:title" content="${t}"><meta property="og:description" content="AI-generated with Sushila${m.model ? ' (' + esc(m.model) + ')' : ''}">
 ${m.kind === 'image' ? `<meta property="og:image" content="${esc(origin)}${src}">` : ''}<style>${STYLE}html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.5 system-ui,sans-serif;overflow:hidden}
 .stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}.media{max-width:100vw;max-height:100vh;width:100%;height:100%;object-fit:contain}
-.song{text-align:center;padding:24px;max-width:640px;width:100%}.song .note{font-size:72px}.song .stitle{font-size:22px;font-weight:700;margin:10px 0 18px}.song audio{width:100%}
+.song{text-align:center;padding:24px 18px;max-width:620px;width:100%;box-sizing:border-box}
+.stage:has(.song){background:radial-gradient(circle at 50% 30%,#123a36 0%,#0b1416 55%,#000 100%)}
+.disc{width:min(220px,52vw);aspect-ratio:1;margin:0 auto 22px;border-radius:50%;background:conic-gradient(from 0deg,#2dd4bf,#0f766e,#134e4a,#2dd4bf);display:flex;align-items:center;justify-content:center;box-shadow:0 20px 60px rgba(45,212,191,.25),inset 0 0 0 10px rgba(0,0,0,.25);animation:spin 9s linear infinite;animation-play-state:paused}
+.song.playing .disc{animation-play-state:running}@keyframes spin{to{transform:rotate(360deg)}}
+.discin{width:38%;aspect-ratio:1;border-radius:50%;background:#0b1416;display:flex;align-items:center;justify-content:center;font-size:clamp(26px,7vw,40px);box-shadow:0 0 0 4px rgba(255,255,255,.08)}
+.song .stitle{font-size:clamp(19px,4.6vw,24px);font-weight:800;margin:0 0 4px;letter-spacing:-.01em}.ssub{color:#9fb3b0;font-size:14px;margin-bottom:22px}
+.player{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:12px 14px;backdrop-filter:blur(10px)}
+.pp{flex:none;width:56px;height:56px;border-radius:50%;border:0;background:#2dd4bf;color:#062b27;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 20px rgba(45,212,191,.35);transition:transform .12s}
+.pp:hover{transform:scale(1.06)}.pp:active{transform:scale(.96)}
+.bar{flex:1;min-width:0}.times{display:flex;justify-content:space-between;font-size:12px;color:#9fb3b0;margin-top:2px;font-variant-numeric:tabular-nums}
+.player input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;border:0;padding:0;box-sizing:border-box;border-radius:99px;background:linear-gradient(to right,#2dd4bf var(--p,0%),rgba(255,255,255,.18) var(--p,0%)) center/100% 6px no-repeat;outline:none;cursor:pointer;margin:2px 0}
+.player input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.player input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;background:#fff}
+.ib2{flex:none;width:40px;height:40px;border-radius:50%;border:0;background:transparent;color:#d6e4e2;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}.ib2:hover{background:rgba(255,255,255,.1);color:#fff}
+.vol{flex:none;width:80px!important}@media (max-width:560px){.vol{display:none}.player{gap:8px;padding:10px}.pp{width:50px;height:50px}}
 .ctl{position:fixed;top:12px;right:12px;display:flex;gap:8px;z-index:5}.ctl button,.ctl a{border:0;border-radius:99px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);color:#fff;font-size:20px;cursor:pointer;text-decoration:none;backdrop-filter:blur(4px)}
 .ctl button:hover,.ctl a:hover{background:rgba(0,0,0,.8)}.brand{position:fixed;top:14px;left:14px;z-index:5;color:#fff;text-decoration:none;font-weight:800;background:rgba(0,0,0,.45);padding:6px 12px;border-radius:99px}
 .views{position:fixed;right:14px;bottom:14px;z-index:5;padding:6px 12px;border-radius:99px;background:rgba(0,0,0,.6);color:#fff;font-size:14px}
 .info{position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);background:var(--bg);color:var(--fg);z-index:10;padding:22px;overflow:auto;box-shadow:-12px 0 30px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .2s}
 .info.open{transform:none}.info h1{font-size:20px;margin:6px 0}.info .ai{display:inline-block;margin:6px 0;padding:3px 10px;border-radius:99px;background:var(--accbg);color:var(--acc);font-weight:700;font-size:13px}
 .info .sub{color:var(--mut);font-size:14px}.info a{color:var(--acc)}.info .x{float:right;border:0;background:transparent;color:var(--mut);font-size:26px;cursor:pointer}.info dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}.info dt{color:var(--mut)}
-.brand,.ctl,.views{transition:opacity .4s}body.idle .brand,body.idle .ctl,body.idle .views{opacity:0;pointer-events:none}body.idle{cursor:none}
+.brand,.ctl,.views{transition:opacity .4s}body.idle .brand,body.idle .ctl,body.idle .views{opacity:0;pointer-events:none}body.idle{cursor:none}body.idle:has(.song){cursor:auto}
 .info .btn{display:inline-block;margin:8px 8px 0 0;padding:8px 14px;border-radius:10px;background:var(--acc);color:#fff;text-decoration:none;font-weight:700}</style></head><body>
 <div class="stage">${media}</div>
 <a class="brand" href="/">Sushila</a>
@@ -1950,10 +1989,22 @@ function show(on){info.classList.toggle('open',on);ib.setAttribute('aria-expande
 ib.onclick=function(){show(!info.classList.contains('open'));};document.getElementById('ix').onclick=function(){show(false);};
 document.addEventListener('keydown',function(e){if(e.key==='Escape')show(false);if(e.key==='i')show(!info.classList.contains('open'));});
 // the view count is refreshed when the visitor comes back to this tab (and when the information opens): no polling
-var lastV=0;function views(){if(Date.now()-lastV<30000)return;lastV=Date.now();fetch(location.pathname.replace(/\/$/,'')+'/views',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(!j)return;var t=j.views.toLocaleString('en-US')+' view'+(j.views===1?'':'s');document.getElementById('vw').textContent='👁 '+t;var d=document.getElementById('vd');if(d)d.textContent=t;}).catch(function(){});}
+var lastV=0;function views(){if(Date.now()-lastV<30000)return;lastV=Date.now();fetch(location.pathname.replace(/\\/$/,'')+'/views',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(!j)return;var t=j.views.toLocaleString('en-US')+' view'+(j.views===1?'':'s');document.getElementById('vw').textContent='👁 '+t;var d=document.getElementById('vd');if(d)d.textContent=t;}).catch(function(){});}
 document.addEventListener('visibilitychange',function(){if(!document.hidden)views();});ib.addEventListener('click',views);
 document.getElementById('fb').onclick=function(){var d=document.documentElement;if(document.fullscreenElement)document.exitFullscreen();else if(d.requestFullscreen)d.requestFullscreen().catch(function(){});else if(d.webkitRequestFullscreen)d.webkitRequestFullscreen();};
-${m.kind === 'music' ? 'show(false);' : ''}})();</script></body></html>`;
+${m.kind === 'music' ? `var au=document.getElementById('au'),pp=document.getElementById('pp'),ppi=document.getElementById('ppi'),sk=document.getElementById('sk'),vo=document.getElementById('vo'),mu=document.getElementById('mu'),mui=document.getElementById('mui'),song=document.getElementById('song'),drag=false;
+function f(x){if(!isFinite(x))return'0:00';x=Math.floor(x);return Math.floor(x/60)+':'+String(x%60).padStart(2,'0');}
+function fill(r){r.style.setProperty('--p',(r.value/r.max*100)+'%');}
+function tick(){if(!drag&&au.duration){sk.value=Math.round(au.currentTime/au.duration*1000);fill(sk);}document.getElementById('tc').textContent=f(au.currentTime);document.getElementById('td').textContent=f(au.duration);}
+function st(){var on=!au.paused;song.classList.toggle('playing',on);ppi.setAttribute('d',on?'M6 5h4v14H6zm8 0h4v14h-4z':'M8 5v14l11-7z');pp.setAttribute('aria-label',on?'Pause':'Play');}
+function vol(){mui.setAttribute('d',au.muted||au.volume===0?'M3 9v6h4l5 5V4L7 9H3zm13.6 3l2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z':'M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z');vo.value=au.muted?0:Math.round(au.volume*100);fill(vo);}
+pp.onclick=function(){if(au.paused)au.play().catch(function(){});else au.pause();};
+['play','pause','ended'].forEach(function(e){au.addEventListener(e,st);});['timeupdate','loadedmetadata','durationchange'].forEach(function(e){au.addEventListener(e,tick);});au.addEventListener('volumechange',vol);
+sk.addEventListener('input',function(){drag=true;fill(sk);if(au.duration)document.getElementById('tc').textContent=f(sk.value/1000*au.duration);});
+sk.addEventListener('change',function(){if(au.duration)au.currentTime=sk.value/1000*au.duration;drag=false;});
+vo.addEventListener('input',function(){au.volume=vo.value/100;au.muted=vo.value==0;});mu.onclick=function(){au.muted=!au.muted;if(!au.muted&&au.volume===0)au.volume=1;};
+document.addEventListener('keydown',function(e){if(e.target.tagName==='INPUT'&&e.target.type!=='range')return;if(e.key===' '){e.preventDefault();pp.click();}else if(e.key==='m')mu.click();else if(e.key==='ArrowRight'&&au.duration)au.currentTime=Math.min(au.duration,au.currentTime+5);else if(e.key==='ArrowLeft')au.currentTime=Math.max(0,au.currentTime-5);});
+fill(sk);vol();show(false);` : ''}})();</script></body></html>`;
 }
 
 // --- Temporary internet URL: https://sushila.ai/localhost/<id>/ -> a Cloudflare quick tunnel to someone's Sushila Engine.
@@ -1979,13 +2030,15 @@ async function tunnelApi(request, env, db, p, url) {
     if (limited(request, 'tunnel', 10)) return json({ error: 'Too many links. Please wait a minute.' }, 429);
     const target = String(d.target || '').toLowerCase();
     if (!TUNNEL_TARGET.test(target)) return json({ error: 'Only a Cloudflare quick tunnel (https://….trycloudflare.com) can be linked.' }, 400);
+    // the engine's owner secret (64 hex, made on that computer): sushila.ai signs the owner's passes with it (tunnelProxy)
+    const secret = /^[0-9a-f]{64}$/.test(String(d.ownerSecret || '')) ? String(d.ownerSecret) : '';
     // the same link as last time (this computer remembers its id): it now leads to the new tunnel
     const prev = String(d.id || '');
     if (TUNNEL_ID.test(prev)) {
       try {
         await db.request('UpdateItem', { TableName: TABLES.localhostLinks, Key: { id: S(prev) }, ConditionExpression: 'userId = :u',
-          UpdateExpression: 'SET target = :t, #s = :on, updatedAt = :n, ip = :ip REMOVE stoppedAt', ExpressionAttributeNames: { '#s': 'status' },
-          ExpressionAttributeValues: { ':u': S(app.userId), ':t': S(target), ':on': S('online'), ':n': S(new Date().toISOString()), ':ip': S(request.headers.get('cf-connecting-ip') || '-') } });
+          UpdateExpression: `SET target = :t, #s = :on, updatedAt = :n, ip = :ip${secret ? ', ownerSecret = :o' : ''} REMOVE stoppedAt`, ExpressionAttributeNames: { '#s': 'status' },
+          ExpressionAttributeValues: { ':u': S(app.userId), ':t': S(target), ':on': S('online'), ':n': S(new Date().toISOString()), ':ip': S(request.headers.get('cf-connecting-ip') || '-'), ...(secret ? { ':o': S(secret) } : {}) } });
         tunnelCache.delete(prev);
         return json({ id: prev, link: `${url.origin}/localhost/${prev}/`, same: true });
       } catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) throw e; }  // deleted (or not this account's): a new link
@@ -1994,7 +2047,7 @@ async function tunnelApi(request, env, db, p, url) {
     for (let i = 0; i < 5 && !id; i++) {
       const c = hex(crypto.getRandomValues(new Uint8Array(10)));
       try { await db.put(TABLES.localhostLinks, { id: S(c), target: S(target), userId: S(app.userId), status: S('online'), createdAt: S(new Date().toISOString()), updatedAt: S(new Date().toISOString()),
-        ip: S(request.headers.get('cf-connecting-ip') || '-'), country: S((request.cf && request.cf.country) || '-'), userAgent: S(clean(request.headers.get('user-agent'), 200) || '-') }, 'attribute_not_exists(id)'); id = c; }
+        ip: S(request.headers.get('cf-connecting-ip') || '-'), country: S((request.cf && request.cf.country) || '-'), userAgent: S(clean(request.headers.get('user-agent'), 200) || '-'), ...(secret ? { ownerSecret: S(secret) } : {}) }, 'attribute_not_exists(id)'); id = c; }
       catch (e) { if (!/ConditionalCheckFailed/.test(e.message)) throw e; }
     }
     if (!id) return json({ error: 'Could not make a link.' }, 500);
@@ -2024,10 +2077,20 @@ ${gone ? `<h1>This link was closed</h1><p>Its owner deleted it at sushila.ai/myc
 <li>Go to that computer and make sure it is on and connected to the internet.</li>
 <li>Start Sushila: on Windows double-click <b>sushila.exe</b> (or press <b>Start Sushila</b> at <a href="https://sushila.ai/start">sushila.ai/start</a> on that computer); on macOS or Linux run <code>sushila serve</code> in a terminal.</li>
 <li>Keep the Sushila window open. Within about a minute this same link works again: reload this page.</li></ol>
-<p class="s">The link stays the same from start to start. Visitors need the access key shown in the Sushila window on that computer.</p>`}
+<p class="s">The link stays the same from start to start. Its owner, signed in to sushila.ai, gets everything; other visitors need the access key shown in the Sushila window on that computer.</p>`}
 <p class="s">Make free pictures, music and videos on your own computer: <a href="https://sushila.ai/install">sushila.ai/install</a>.</p>`, { status: gone ? 404 : 502, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...SEC } });
 }
-async function tunnelProxy(request, db, p, url) {
+// The link's owner (signed in to sushila.ai as the account that made it) gets everything this computer's own page has
+// (all tabs, Admin, Library, packs) without the access key: sushila.ai gives the page an owner pass, signed with the
+// secret the engine registered for its link; the engine checks the signature, the link id and the time (12 hours).
+// Other visitors sign in too and then need the access key, as before.
+const OWNER_PASS_MS = 12 * 3600 * 1000;
+async function ownerPass(row) {
+  const secret = str(row, 'ownerSecret'); if (!/^[0-9a-f]{64}$/.test(secret)) return '';
+  const id = str(row, 'id'), exp = Date.now() + OWNER_PASS_MS, nonce = hex(crypto.getRandomValues(new Uint8Array(8)));
+  return `owner.${id}.${exp}.${nonce}.${await hmacHex(secret, `sushila-owner|${id}|${exp}|${nonce}`)}`;
+}
+async function tunnelProxy(request, env, db, p, url) {
   const m = p.match(/^\/localhost\/([0-9a-f]{20})(\/.*)?$/);
   if (!m) return tunnelDown('gone');
   const [, id, rest] = m, prefix = `/localhost/${id}`;
@@ -2037,18 +2100,25 @@ async function tunnelProxy(request, db, p, url) {
   if (!db.configured) return tunnelDown('down');
   const row = await tunnelRow(db, id);
   if (!row) return tunnelDown('gone');
+  // opening the link in a browser needs a sushila.ai sign-in (e-mail and a one-time code); the page's own requests
+  // carry no cookies (it is sandboxed) and are checked by the engine (owner pass or access key)
+  const nav = request.method === 'GET' && (request.headers.get('sec-fetch-dest') === 'document' || (!request.headers.get('sec-fetch-dest') && (request.headers.get('accept') || '').includes('text/html')));
+  const user = nav ? await readSession(request, env) : null;
+  if (nav && !user) return new Response(null, { status: 302, headers: { location: `${url.origin}/signin?next=${encodeURIComponent(prefix + '/')}`, 'cache-control': 'no-store' } });
+  const owner = !!user && user.userId === str(row, 'userId');
   // the targets to try: this link's tunnel, then the same account's newest working one (an old link that was not
   // deleted leads to the latest)
-  const targets = str(row, 'status') === 'online' ? [str(row, 'target')] : [];
+  const first = str(row, 'status') === 'online' ? row : null;
   const newest = async () => { try { const r = await db.request('Query', { TableName: TABLES.localhostLinks, IndexName: 'user-index', KeyConditionExpression: 'userId = :u',
       FilterExpression: '#s = :on', ExpressionAttributeNames: { '#s': 'status' }, ExpressionAttributeValues: { ':u': S(str(row, 'userId')), ':on': S('online') }, ScanIndexForward: false, Limit: 20 });
-    return (r.Items || []).sort((a, b) => (str(b, 'updatedAt') || str(b, 'createdAt')).localeCompare(str(a, 'updatedAt') || str(a, 'createdAt'))).map((x) => str(x, 'target')); } catch { return []; } };
+    return (r.Items || []).sort((a, b) => (str(b, 'updatedAt') || str(b, 'createdAt')).localeCompare(str(a, 'updatedAt') || str(a, 'createdAt'))); } catch { return []; } };
   const h = new Headers();
   for (const [k, v] of request.headers) if (!/^(host|cookie|cf-|x-forwarded-|x-real-ip|origin|referer)/i.test(k)) h.set(k, v);
   const buf = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer();  // may be sent twice
   const tryOne = async (t) => { try { const x = await fetch(t + rest + url.search, { method: request.method, headers: h, body: buf, redirect: 'manual' }); return (x.status === 530 || x.status === 1033 || x.status === 502) ? null : x; } catch { return null; } };
-  let r = targets.length ? await tryOne(targets[0]) : null;
-  if (!r) { for (const t of (await newest()).filter((t) => !targets.includes(t)).slice(0, 2)) { r = await tryOne(t); if (r) break; } }
+  // the row that answers signs the owner pass: an old link leads to the newest one, whose engine knows its own id
+  let served = first, r = first ? await tryOne(str(first, 'target')) : null;
+  if (!r) { for (const x of (await newest()).filter((x) => !first || str(x, 'target') !== str(first, 'target')).slice(0, 2)) { r = await tryOne(str(x, 'target')); if (r) { served = x; break; } } }
   if (!r) return tunnelDown('down');
   const out = new Headers();
   for (const [k, v] of r.headers) if (!/^(set-cookie|content-security-policy|x-frame-options|access-control-|content-length|content-encoding)$/i.test(k)) out.set(k, v);
@@ -2056,7 +2126,13 @@ async function tunnelProxy(request, db, p, url) {
   out.set('content-security-policy', TUNNEL_CSP); out.set('x-content-type-options', 'nosniff'); out.set('referrer-policy', 'no-referrer');
   for (const [k, v] of Object.entries(cors)) out.set(k, v);
   if ((r.headers.get('content-type') || '').includes('text/html')) {  // the page shell's own absolute paths (script, icons)
-    const t = (await r.text()).replace(/(\s(?:src|href)=")\/(?!\/)/g, `$1${prefix}/`);
+    let t = (await r.text()).replace(/(\s(?:src|href)=")\/(?!\/)/g, `$1${prefix}/`);
+    const pass = nav && owner ? await ownerPass(served) : '';
+    if (pass) {  // the owner's pass: only in this page (never cached), only for the owner
+      const tag = `<script>window.SUSHILA_OWNER=${JSON.stringify(pass)};</script>`;
+      t = t.includes('<div id="app"></div>') ? t.replace('<div id="app"></div>', '<div id="app"></div>' + tag) : tag + t;
+    }
+    if (nav) out.set('cache-control', 'no-store');
     return new Response(t, { status: r.status, headers: out });
   }
   return new Response(r.body, { status: r.status, headers: out });
@@ -2193,7 +2269,7 @@ function render(){var q=document.getElementById('q').value.trim().toLowerCase(),
 function tab(t){inTrash=t;inLinks=false;render()}
 function links(){inLinks=true;render()}
 function renderLinks(){document.getElementById('trashnote').hidden=true;var el=document.getElementById('list');
- var sec='<details class="secnote" open><summary><b>How this is kept secure</b></summary><ul><li><b>Only you can make a link.</b> Sushila on your computer asks sushila.ai for it with your account, which you signed in to with your e-mail and a one-time code (OTP). Without that sign-in sushila.ai refuses: no account, no link. Each link is stored with your account, the time and the address it came from.</li><li><b>A link cannot be guessed:</b> 20 random characters (80 bits).</li><li><b>The link alone is not enough.</b> Using a model through it needs the access key made with that link, shown only on your computer. Your Sushila Engine checks the key on every request.</li><li><b>Visitors see only the Inference page.</b> Admin, the Library, your files, installing, starting or stopping models need your computer\\'s own token, which Sushila gives only to pages opened on that computer (localhost). Through the link the engine sees another device and refuses them.</li><li><b>sushila.ai forwards a link only to the Cloudflare tunnel your engine registered</b> (https://….trycloudflare.com). Pages from your computer run sandboxed on sushila.ai: they never see anyone\\'s sushila.ai sign-in, and your computer never receives visitors\\' sushila.ai cookies.</li><li><b>Stop it at any time:</b> Delete here, or Stop (🌐) on your computer. The link stops at once. A link you did not delete always leads to your newest working one, with the same access key; choose a new key at any time in 🌐 (the old one stops working at once).</li></ul></details>';
+ var sec='<details class="secnote" open><summary><b>How this is kept secure</b></summary><ul><li><b>Only you can make a link.</b> Sushila on your computer asks sushila.ai for it with your account, which you signed in to with your e-mail and a one-time code (OTP). Without that sign-in sushila.ai refuses: no account, no link. Each link is stored with your account, the time and the address it came from.</li><li><b>A link cannot be guessed:</b> 20 random characters (80 bits).</li><li><b>The link alone is not enough: opening it needs a sushila.ai sign-in</b> (your e-mail and a one-time code).</li><li><b>You, signed in, get everything</b> your computer\\'s own page has: every tab, Admin (with your admin password, as at home), the Library and the model packs. sushila.ai gives your page an <i>owner pass</i>, signed with a secret that only your computer and sushila.ai know; your Sushila Engine checks the signature, the link and the time (12 hours, then reload) on every request.</li><li><b>Anyone else</b>, even signed in, sees only the Inference page and needs the access key shown on your computer.</li><li><b>sushila.ai forwards a link only to the Cloudflare tunnel your engine registered</b> (https://….trycloudflare.com). Pages from your computer run sandboxed on sushila.ai: they never see anyone\\'s sushila.ai sign-in, and your computer never receives visitors\\' sushila.ai cookies.</li><li><b>Stop it at any time:</b> Delete here, or Stop (🌐) on your computer. The link stops at once. A link you did not delete always leads to your newest working one, with the same access key; choose a new key at any time in 🌐 (the old one stops working at once).</li></ul></details>';
  if(!LK.length){el.innerHTML=sec+'<p class="s" style="margin:24px 0">No internet links yet. In Sushila on your computer, press 🌐 Get temporary internet URL: a link like sushila.ai/localhost/… reaches your Sushila Engine from anywhere while it runs.</p>';return}
  el.innerHTML=sec+'<p class="s">Each link reaches your Sushila Engine while it runs (visitors need the access key shown when you made it). Delete stops a link at once.</p><div style="overflow-x:auto"><table class="lt"><thead><tr><th>Link</th><th>Status</th><th>Made</th><th>From</th><th></th></tr></thead><tbody>'+LK.map(function(k){var u=location.origin+'/localhost/'+k.id+'/';
   return '<tr id="l-'+k.id+'"><td><a href="'+u+'" target="_blank">'+E(u.replace(/^https?:\\/\\//,''))+'</a></td><td>'+(k.status==='online'?'<b style="color:#127a3a">● online</b>':'stopped'+(k.stoppedAt?'<br><span class="s">'+E(k.stoppedAt.slice(0,16).replace('T',' '))+'</span>':''))+'</td><td class="s">'+E(k.createdAt.slice(0,16).replace('T',' '))+'</td><td class="s">'+E(k.ip)+' '+E(k.country)+'</td><td class="acts"><button class="linkbtn" onclick="copyL(\\''+k.id+'\\')">Copy</button><button class="linkbtn danger" onclick="delL(\\''+k.id+'\\')">Delete</button></td></tr>'}).join('')+'</tbody></table></div>';}
@@ -3520,7 +3596,7 @@ export default {
     const session = await readSession(request, env);
     const html = (b, extra = {}) => new Response(b, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': session ? 'private, no-store' : 'public, max-age=300', ...SEC, ...extra } });
     try {
-      if (p === '/localhost' || p.startsWith('/localhost/')) return await tunnelProxy(request, db, p, url);  // temporary internet URLs
+      if (p === '/localhost' || p.startsWith('/localhost/')) return await tunnelProxy(request, env, db, p, url);  // temporary internet URLs
       if (method === 'POST') {
         if (p === '/api/waitlist') return await waitlist(request, env, db);
         if (p === '/api/auth/send-code') return await sendCode(request, env, db, session);

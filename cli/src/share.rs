@@ -88,9 +88,10 @@ pub async fn upload(dir: &Path, rel: &str) -> Result<Value, String> {
     Ok(v)
 }
 /// The temporary internet URL: sushila.ai records it for this account and answers {id, link} (sushila.ai/localhost/<id>/).
-pub async fn tunnel_register(dir: &Path, target: &str, id: &str) -> Result<Value, String> {
-    // id: this computer's link from before; sushila.ai keeps it (the same address) unless it was deleted
-    call(dir, reqwest::Method::POST, "/api/app/tunnel", Some((serde_json::to_vec(&json!({ "target": target, "id": id })).unwrap(), "application/json".into())), true).await
+pub async fn tunnel_register(dir: &Path, target: &str, id: &str, owner_secret: &str) -> Result<Value, String> {
+    // id: this computer's link from before; sushila.ai keeps it (the same address) unless it was deleted.
+    // owner_secret: signs the owner's passes (tunnel.rs)
+    call(dir, reqwest::Method::POST, "/api/app/tunnel", Some((serde_json::to_vec(&json!({ "target": target, "id": id, "ownerSecret": owner_secret })).unwrap(), "application/json".into())), true).await
         .map_err(|e| if e.contains("sign in") || e.contains("not signed in") { "sign in to sushila.ai first (Library: Upload and get link asks for your e-mail)".to_string() } else { e })
 }
 pub async fn tunnel_stop(dir: &Path, id: &str) -> Result<Value, String> {

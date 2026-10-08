@@ -3,10 +3,14 @@
 //   1. cloudflared (Cloudflare's own program, Apache-2.0) is fetched once through sushila.ai/install (an exact copy of
 //      release CLOUDFLARED_VERSION); its SHA-256 is checked against the value below before it is used.
 //   2. `cloudflared tunnel --url http://127.0.0.1:<port>` prints a random https://<words>.trycloudflare.com address.
-//   3. That host name is allowed on this engine (share.hosts) and a new access key is made for the link: visitors
-//      from the internet are remote callers, so they use the Inference page with that key; Admin, Library and this
-//      computer's files stay on this computer (they need the local token, which only localhost pages get).
-//   4. sushila.ai records the link (signed-in account: user id, time, IP) and forwards /localhost/<id>/ to the tunnel.
+//   3. That host name is allowed on this engine (share.hosts) and a new access key is made for the link.
+//   4. sushila.ai records the link (signed-in account: user id, time, IP, and this computer's owner secret) and
+//      forwards /localhost/<id>/ to the tunnel. Opening the link needs a sushila.ai sign-in (e-mail and one-time code).
+//   5. The owner (signed in as the account that made the link) gets an owner pass in the page: "owner.<link id>.<expiry
+//      ms>.<nonce>.<HMAC-SHA256 of the rest with the owner secret>", valid 12 hours, checked here (owner_ok). With it the
+//      page is this computer's own page: every tab, Admin (with its password, as here), the Library and the packs.
+//      Other signed-in visitors use the Inference page with the access key.
+// The owner secret (32 random bytes) stays in <home>/tunnel.json and at sushila.ai; it only works while the tunnel runs.
 // Stop (or quitting Sushila) ends the tunnel; the link then answers "not online". The key and host are removed.
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -22,6 +26,34 @@ fn asset() -> Option<(&'static str, &'static str)> {
         ("macos", "aarch64") => Some(("cloudflared-darwin-arm64.tgz", "a2f79ff7b9420aa537d74af239f376da170bbabeb529aec416002adac6a72e70")),
         _ => None,
     }
+}
+
+/// The running link's id and owner secret, for owner_ok (cleared when the tunnel stops).
+static OWNER: std::sync::RwLock<Option<(String, String)>> = std::sync::RwLock::new(None);
+
+fn hmac_sha256(key: &[u8], msg: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut k = [0u8; 64];
+    if key.len() > 64 { k[..32].copy_from_slice(&Sha256::digest(key)); } else { k[..key.len()].copy_from_slice(key); }
+    let (mut ipad, mut opad) = ([0x36u8; 64], [0x5cu8; 64]);
+    for i in 0..64 { ipad[i] ^= k[i]; opad[i] ^= k[i]; }
+    let inner = Sha256::new().chain_update(ipad).chain_update(msg).finalize();
+    Sha256::new().chain_update(opad).chain_update(inner).finalize().into()
+}
+
+/// An owner pass from sushila.ai (see the top): for this link, not expired, at most 13 hours ahead (clock skew), and
+/// signed with this computer's owner secret (compared in constant time).
+pub fn owner_ok(pass: &str) -> bool {
+    let Some((id, secret)) = OWNER.read().ok().and_then(|g| g.clone()) else { return false };
+    check_pass(pass, &id, &secret, crate::cmds::now_secs() * 1000)
+}
+fn check_pass(pass: &str, id: &str, secret: &str, now_ms: u64) -> bool {
+    let parts: Vec<&str> = pass.split('.').collect();
+    let [tag, pid, exp, nonce, sig] = parts[..] else { return false };
+    let Ok(exp_ms) = exp.parse::<u64>() else { return false };
+    if tag != "owner" || pid != id || id.is_empty() || exp_ms <= now_ms || exp_ms > now_ms + 13 * 3600 * 1000 || nonce.len() > 64 || sig.len() != 64 { return false; }
+    let want = hex::encode(hmac_sha256(secret.as_bytes(), format!("sushila-owner|{pid}|{exp}|{nonce}").as_bytes()));
+    want.bytes().zip(sig.bytes()).fold(0u8, |d, (a, b)| d | (a ^ b)) == 0
 }
 
 struct Tunnel { child: tokio::process::Child, target: String, link: String, id: String, key_name: String, key: String, since: String }
@@ -108,9 +140,12 @@ pub async fn start(dir: &Path, port: u16) -> Result<Value, String> {
     use sha2::{Digest, Sha256};
     // one link at a time: keys of earlier links (e.g. before a crash) are removed with this one's arrival
     control(dir, json!({ "enabled": true, "removeHostSuffix": ".trycloudflare.com", "addHost": host, "removeKeyPrefix": "internet-link-", "addKey": { "name": key_name, "sha256": hex::encode(Sha256::digest(key.as_bytes())) } }))?;
-    let reg = match crate::share::tunnel_register(dir, &target, keep["id"].as_str().unwrap_or("")).await { Ok(v) => v, Err(e) => { let _ = child.kill().await; let _ = control(dir, json!({ "removeHost": host, "removeKey": key_name })); return Err(e); } };
+    let secret = keep["ownerSecret"].as_str().filter(|s| s.len() == 64 && s.bytes().all(|c| c.is_ascii_hexdigit())).map(String::from)
+        .unwrap_or_else(|| { let mut b = [0u8; 32]; let _ = getrandom::getrandom(&mut b); hex::encode(b) });
+    let reg = match crate::share::tunnel_register(dir, &target, keep["id"].as_str().unwrap_or(""), &secret).await { Ok(v) => v, Err(e) => { let _ = child.kill().await; let _ = control(dir, json!({ "removeHost": host, "removeKey": key_name })); return Err(e); } };
     let link = reg["link"].as_str().unwrap_or("").to_string();
-    save(dir, &json!({ "id": reg["id"], "key": key }));
+    save(dir, &json!({ "id": reg["id"], "key": key, "ownerSecret": secret }));
+    if let Ok(mut g) = OWNER.write() { *g = Some((reg["id"].as_str().unwrap_or("").to_string(), secret)); }
     let since = crate::util::now_iso();
     crate::core::log(true, &format!("temporary internet URL: {link} -> {target}"));
     *TUNNEL.lock().await = Some(Tunnel { child, target: target.clone(), link: link.clone(), id: reg["id"].as_str().unwrap_or("").to_string(), key_name, key: key.clone(), since: since.clone() });
@@ -137,7 +172,7 @@ pub async fn at_start(dir: PathBuf, port: u16) {
         return;
     }
     match start(&dir, port).await {
-        Ok(v) => crate::core::log(false, &format!("Internet:  {}   (visitors need the access key {} ; this computer's Admin, Library and files stay here; switch off: 🌐 on the page)",
+        Ok(v) => crate::core::log(false, &format!("Internet:  {}   (you: sign in to sushila.ai and open it, everything as here; others: the access key {} ; switch off: 🌐 on the page)",
             v["link"].as_str().unwrap_or(""), v["key"].as_str().unwrap_or(""))),
         Err(e) => crate::core::log(false, &format!("Internet link: not made ({e})")),
     }
@@ -159,6 +194,7 @@ pub async fn new_key(dir: &Path) -> Result<Value, String> {
 
 pub async fn stop(dir: &Path) -> Value {
     let t = TUNNEL.lock().await.take();
+    if let Ok(mut g) = OWNER.write() { *g = None; }
     let Some(mut t) = t else { return json!({ "running": false }) };
     let _ = t.child.kill().await;
     let host = t.target.trim_start_matches("https://").to_string();
@@ -166,4 +202,34 @@ pub async fn stop(dir: &Path) -> Value {
     let _ = crate::share::tunnel_stop(dir, &t.id).await;
     crate::core::log(true, &format!("temporary internet URL stopped: {}", t.link));
     json!({ "running": false, "stopped": t.link })
+}
+
+#[cfg(test)]
+pub fn set_owner_for_test(id: &str, secret: &str) { *OWNER.write().unwrap() = Some((id.to_string(), secret.to_string())); }
+#[cfg(test)]
+pub fn pass_for_test(id: &str, secret: &str, exp_ms: u64) -> String {
+    format!("owner.{id}.{exp_ms}.t.{}", hex::encode(hmac_sha256(secret.as_bytes(), format!("sushila-owner|{id}|{exp_ms}|t").as_bytes())))
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn hmac_matches_rfc4231() {
+        // RFC 4231 test case 2
+        assert_eq!(hex::encode(hmac_sha256(b"Jefe", b"what do ya want for nothing?")), "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
+    }
+    #[test]
+    fn owner_pass_checks() {
+        let (id, sec, now) = ("0123456789abcdef0123", "ab".repeat(32), 1_800_000_000_000u64);
+        let mk = |id: &str, exp: u64, secret: &str| format!("owner.{id}.{exp}.n0nce.{}", hex::encode(hmac_sha256(secret.as_bytes(), format!("sushila-owner|{id}|{exp}|n0nce").as_bytes())));
+        assert!(check_pass(&mk(id, now + 3_600_000, &sec), id, &sec, now));
+        assert!(!check_pass(&mk(id, now - 1, &sec), id, &sec, now), "expired");
+        assert!(!check_pass(&mk(id, now + 14 * 3_600_000, &sec), id, &sec, now), "too far ahead");
+        assert!(!check_pass(&mk("ffffffffffffffffffff", now + 1000, &sec), id, &sec, now), "another link");
+        assert!(!check_pass(&mk(id, now + 1000, &"cd".repeat(32)), id, &sec, now), "another secret");
+        let good = mk(id, now + 1000, &sec);
+        assert!(!check_pass(&good.replace("n0nce", "n0nc3"), id, &sec, now), "changed nonce");
+        assert!(!check_pass(&format!("{good}0"), id, &sec, now) && !check_pass("owner", id, &sec, now) && !check_pass("", id, &sec, now));
+        assert!(!owner_ok(&good), "not the running link (none, or another id): no owner");
+    }
 }

@@ -142,10 +142,17 @@ pub fn cli_token(dir: &Path) -> String {
 /// (from the socket, never from the request), so another machine cannot claim it with a Host header.
 const PEER_LOCAL: &str = "x-sushila-peer-local";
 const PEER_IP: &str = "x-sushila-peer-ip";
-fn local_host(headers: &axum::http::HeaderMap, port: u16) -> bool {
+fn this_computer(headers: &axum::http::HeaderMap, port: u16) -> bool {
     let host = headers.get("host").and_then(|h| h.to_str().ok()).unwrap_or("");
     headers.get(PEER_LOCAL).map(|v| v == "1").unwrap_or(false) && (host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}"))
 }
+/// The owner of the temporary internet URL, signed in at sushila.ai: the page sends the owner pass sushila.ai gave it
+/// (as its token), checked by tunnel::owner_ok. The owner has everything this computer's own page has.
+fn owner(headers: &axum::http::HeaderMap) -> bool {
+    headers.get("x-sushila-token").and_then(|h| h.to_str().ok()).filter(|t| t.starts_with("owner.")).map(crate::tunnel::owner_ok).unwrap_or(false)
+}
+/// This computer, or its owner through the internet link.
+fn local_host(headers: &axum::http::HeaderMap, port: u16) -> bool { this_computer(headers, port) || owner(headers) }
 /// Requests per minute for another device: by access key, or in open mode by the caller's real address (an open-mode
 /// visitor id is chosen by the browser, so it cannot be the limit). Windows older than a minute are dropped as the
 /// map is used, so it holds only the last minute's callers.
@@ -263,6 +270,7 @@ fn caller(headers: &axum::http::HeaderMap, st: &Value) -> Option<String> {
     let given = headers.get("x-sushila-token").and_then(|h| h.to_str().ok()).unwrap_or("");
     // the token counts only on a connection that really comes from this computer (not through a proxy or tunnel)
     if !token.is_empty() && given == token && headers.get(PEER_LOCAL).map(|v| v == "1").unwrap_or(false) { return Some("local".into()); }
+    if owner(headers) { return Some("local".into()); }
     let sh = share(st)?;
     let keyed = headers.get("authorization").and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(|k| k.trim())
         .filter(|k| k.len() >= 20).map(|k| hex::encode(Sha256::digest(k.as_bytes())))
@@ -283,7 +291,8 @@ async fn srv_page(axum::extract::State(s): axum::extract::State<Arc<Srv>>, heade
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
     // Opened on this computer (http://localhost:<port>/ or 127.0.0.1): the page carries this computer's token, so the
     // address alone is enough. Other sites cannot read this page (no CORS on /), and it may not be framed.
-    let local = local_host(&headers, s.port);
+    // (never through the internet link, not even for its owner: the owner's page has its own pass)
+    let local = this_computer(&headers, s.port);
     let html = match (local, st.get("token").and_then(|t| t.as_str())) {
         (true, Some(t)) => PAGE_HTML.replace("<div id=\"app\"></div>", &format!("<div id=\"app\"></div><script>window.SUSHILA_TOKEN={};</script>", Value::String(t.to_string()))),
         _ => PAGE_HTML.to_string(),
@@ -1170,6 +1179,26 @@ mod robustness_tests {
         assert!(local_host(&h, 7874));
         h.insert("host", axum::http::HeaderValue::from_static("abc.trycloudflare.com"));
         assert!(!local_host(&h, 7874));
+    }
+    #[test] fn owner_pass_through_the_internet_link() {
+        let (id, sec) = ("aaaaaaaaaaaaaaaaaaaa", "12".repeat(32));
+        crate::tunnel::set_owner_for_test(id, &sec);
+        let now = crate::cmds::now_secs() * 1000;
+        let tunnel = |pass: &str| { let mut h = axum::http::HeaderMap::new();
+            h.insert("host", axum::http::HeaderValue::from_static("abc-def.trycloudflare.com"));
+            h.insert("cf-connecting-ip", axum::http::HeaderValue::from_static("198.51.100.7"));
+            if let Ok(v) = axum::http::HeaderValue::from_str(pass) { h.insert("x-sushila-token", v); } h };
+        let st = json!({ "token": "local-token-xyz", "share": { "enabled": true, "hosts": ["abc-def.trycloudflare.com"], "keys": [] } });
+        let good = tunnel(&crate::tunnel::pass_for_test(id, &sec, now + 3_600_000));
+        assert!(local_host(&good, 7874) && caller(&good, &st).as_deref() == Some("local") && host_ok(&good, 7874, &st), "the owner: everything this computer has");
+        assert!(!this_computer(&good, 7874), "but never this computer's own token in the page");
+        for (bad, why) in [(crate::tunnel::pass_for_test(id, &"34".repeat(32), now + 3_600_000), "forged (another secret)"),
+                           (crate::tunnel::pass_for_test(id, &sec, now - 1), "expired"),
+                           (crate::tunnel::pass_for_test("bbbbbbbbbbbbbbbbbbbb", &sec, now + 3_600_000), "another link"),
+                           ("local-token-xyz".to_string(), "the local token through the tunnel"), ("owner.".to_string(), "garbage")] {
+            let h = tunnel(&bad);
+            assert!(!local_host(&h, 7874) && caller(&h, &st).is_none(), "{why}: refused");
+        }
     }
     #[test] fn login_lockout() {
         let ip = "203.0.113.99";
