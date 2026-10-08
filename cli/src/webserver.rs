@@ -330,6 +330,7 @@ async fn srv_state(axum::extract::State(s): axum::extract::State<Arc<Srv>>, head
     // only the "public" part of the Host Station state (models and what runs): never the session token or keys
     let origin = headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
     let mut v = st.get("public").cloned().unwrap_or(json!({}));
+    if v.get("appVersion").and_then(|x| x.as_str()).map(|x| x.is_empty()).unwrap_or(true) { v["appVersion"] = json!(env!("CARGO_PKG_VERSION")); }  // this program's version, always
     if local_host(&headers, s.port) {  // the page on this computer (http://localhost:<port>/)
         v["now"] = crate::util::progress_now();  // downloads in progress (for the Admin page)
     } else {

@@ -448,7 +448,9 @@ const IMAGES = {
   '/favicon-32.png': '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',
 };
 IMAGES['/favicon.ico'] = IMAGES['/favicon-32.png'];  // browsers accept a PNG here
-const ICON_LINKS = `<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+const ICON_LINKS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta property="og:image" content="https://sushila.ai/logo.png">`;
@@ -537,6 +539,105 @@ th,td{padding:8px 10px}table{font-size:14px}pre{font-size:13px;border-radius:10p
 .doc h2{font-size:20px;margin:32px 0 8px}
 .doc p,.doc li{color:var(--fg)}
 .doc .meta{color:var(--mut);margin:0 0 24px}
+
+/* ===== Sushila design system (2026-10): navy and white, one blue accent, an amber marker; light type, generous space ===== */
+:root{--bg:#f5f3f5;--fg:#1d2433;--mut:#5b6377;--line:#e2dee6;--card:#fff;--acc:#2563eb;--acc2:#1d4ed8;--accbg:#e8efff;--code:#eef0f5;
+  --navy:#1a2347;--ink:#080a12;--hot:#ff9800;--ok:#16794a;--radius:14px;--shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);
+  --font:"Inter","Segoe UI Variable","Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0e17;--fg:#e8ebf4;--mut:#9aa3b8;--line:#232a3d;--card:#121726;--acc:#6b9bff;--acc2:#8fb3ff;--accbg:#16213f;--code:#171d2e;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}}
+:root[data-theme="dark"]{--bg:#0b0e17;--fg:#e8ebf4;--mut:#9aa3b8;--line:#232a3d;--card:#121726;--acc:#6b9bff;--acc2:#8fb3ff;--accbg:#16213f;--code:#171d2e;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}
+body{font-family:var(--font);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3{font-weight:500;letter-spacing:-.015em;color:var(--fg)}
+.wrap{max-width:1200px;padding:0 24px}
+a{color:var(--acc);text-decoration-thickness:1px;text-underline-offset:3px}
+header{position:sticky;top:0;z-index:60;background:color-mix(in srgb,var(--card) 92%,transparent);-webkit-backdrop-filter:saturate(1.5) blur(14px);backdrop-filter:saturate(1.5) blur(14px);border-bottom:1px solid var(--line)}
+nav{height:72px;gap:28px}nav .brand{font-size:19px;font-weight:600;letter-spacing:-.01em}
+nav .links{gap:4px;font-size:15px;align-items:center}
+nav .links a{color:var(--fg);font-weight:500;padding:8px 12px;border-radius:10px;transition:background .15s,color .15s}
+nav .links a:hover{background:var(--bg);color:var(--acc)}
+nav .links a.navcta{background:var(--navy);color:#fff;padding:9px 18px;border-radius:99px;margin-left:8px}nav .links a.navcta:hover{background:var(--acc);color:#fff}
+.btn{border-radius:99px;padding:12px 24px;font-weight:600;font-size:15px;color:#fff;background:var(--acc);transition:background .15s,transform .15s,box-shadow .15s;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.btn:hover{background:var(--acc2);transform:translateY(-1px)}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}.btn.ghost:hover{border-color:var(--fg);background:transparent}
+.btn.light{background:#fff;color:var(--ink)}.btn.light:hover{background:#e9edf7}
+.btn.outline-light{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.45)}.btn.outline-light:hover{background:rgba(255,255,255,.1);border-color:#fff}
+.btn.small{padding:7px 14px;font-size:13.5px}
+section{padding:88px 0;border-top:0}
+h2{font-size:clamp(28px,3.2vw,38px);line-height:1.18;margin:0 0 14px;font-weight:500}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);margin:0 0 14px}
+.eyebrow::before{content:"";width:22px;height:3px;border-radius:2px;background:var(--hot)}
+.lead{font-size:18px;line-height:1.65;color:var(--mut);max-width:760px;margin:0 0 36px;font-weight:400}
+.card{border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);border:1px solid var(--line);transition:transform .2s,box-shadow .2s,border-color .2s}
+.card h3{font-size:19px;margin:0 0 8px;font-weight:600}.card p{font-size:15px;line-height:1.6}
+.grid{gap:20px}
+.tablewrap{border-radius:var(--radius);box-shadow:var(--shadow)}
+th{font-size:12px;letter-spacing:.08em;font-weight:600;background:color-mix(in srgb,var(--bg) 60%,var(--card))}
+th,td{padding:14px 18px}
+pre{border-radius:12px;border:1px solid var(--line)}
+input,select,textarea{border-radius:12px;padding:12px 14px;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--acc) 45%,transparent);outline-offset:1px;border-color:var(--acc)}
+.note{font-size:14px;line-height:1.6}
+.doc{max-width:820px;padding:64px 0 80px}.doc h1{font-size:clamp(32px,4vw,44px);font-weight:500;margin:0 0 10px}.doc h2{font-size:22px;font-weight:600;margin:40px 0 10px}
+/* full-bleed bands inside .wrap (no horizontal overflow) */
+.band{position:relative;background:var(--band,var(--card));box-shadow:0 0 0 100vmax var(--band,var(--card));clip-path:inset(0 -100vmax)}
+.band.dark{--band:var(--ink);color:#e8ebf4}.band.dark h2,.band.dark h3{color:#fff}.band.dark .lead,.band.dark .note,.band.dark .sub{color:#aab3c8}.band.dark a:not(.btn){color:#9cc0ff}
+.band.dark .card{background:#121726;border-color:#232a3d;color:#e8ebf4}.band.dark .card p{color:#aab3c8}.band.dark code{background:#1a2135;color:#e8ebf4}
+.band.navy{--band:var(--navy);color:#e8ebf4}
+/* hero carousel */
+.hx{position:relative;margin:0 calc(50% - 50vw);width:100vw;max-width:100vw;overflow:hidden;background:var(--ink);color:#fff}
+@supports (width:100dvw){.hx{width:100dvw;margin:0 calc(50% - 50dvw)}}
+.hx-slides{position:relative;height:clamp(520px,72vh,680px)}
+.hx-slide{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .8s ease,visibility 0s linear .8s;display:flex;align-items:center}
+.hx-slide.on{opacity:1;visibility:visible;transition:opacity .8s ease}
+.hx-art{position:absolute;inset:0;overflow:hidden}.hx-art svg,.hx-art .herologo{position:absolute}
+.hx-slide::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,10,18,.92) 0%,rgba(8,10,18,.72) 42%,rgba(8,10,18,.05) 75%);pointer-events:none}
+.hx-in{position:relative;z-index:2;width:100%;max-width:1200px;margin:0 auto;padding:0 24px 90px}
+.hx-cat{font-size:13px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--hot);margin:0 0 18px}
+.hx h1{color:#fff;font-weight:300;font-size:clamp(36px,5.6vw,68px);line-height:1.06;letter-spacing:-.025em;margin:0 0 20px;max-width:760px}
+.hx h1 b{font-weight:600}
+.hx p{color:#c5cbe0;font-size:clamp(16px,1.5vw,19px);line-height:1.6;max-width:600px;margin:0 0 32px;font-weight:300}
+.hx .row{gap:12px}
+.hx-tabs{position:absolute;left:0;right:0;bottom:0;z-index:3;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.hx-tabs .wrap{display:grid;grid-template-columns:repeat(4,1fr)}
+.hx-tab{all:unset;cursor:pointer;padding:18px 18px 20px;border-top:4px solid transparent;color:#9aa3b8;font-size:14px;line-height:1.35;transition:color .2s,border-color .2s;position:relative}
+.hx-tab small{display:block;font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;margin-bottom:4px;color:#6b7590}
+.hx-tab:hover{color:#fff}.hx-tab.on{color:#fff;border-top-color:var(--hot)}.hx-tab.on small{color:var(--hot)}
+.hx-tab:focus-visible{outline:2px solid #fff;outline-offset:-4px}
+.hx-tab .bar{position:absolute;left:0;top:-4px;height:4px;width:0;background:var(--hot)}
+.hx-art .herologo{right:max(4vw,calc(50vw - 560px));top:50%;width:min(420px,38vw);height:min(420px,38vw);transform:translateY(-58%);filter:drop-shadow(0 30px 60px rgba(37,99,235,.35))}
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:-1px 0 0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);position:relative;z-index:4;margin-top:48px}
+.stat{padding:28px 30px}.stat+.stat{border-left:1px solid var(--line)}
+.stat b{display:block;font-size:clamp(34px,4vw,46px);font-weight:300;letter-spacing:-.03em;line-height:1.05;color:var(--fg)}.stat b em{font-style:normal;color:var(--acc);font-weight:500}
+.stat span{display:block;margin-top:8px;font-size:14px;color:var(--mut);line-height:1.45}
+/* feature cards with art */
+.fcards{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.fcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow);transition:transform .2s,box-shadow .2s}
+.fcard:hover{transform:translateY(-4px);box-shadow:0 2px 4px rgba(16,24,40,.06),0 18px 40px rgba(16,24,40,.12)}
+.fart{height:150px;position:relative;overflow:hidden;background:var(--navy)}.fart svg{position:absolute;inset:0;width:100%;height:100%}
+.fbody{padding:22px 22px 24px}.fbody small{display:block;font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:8px}
+.fbody h3{font-size:18px;font-weight:600;margin:0 0 8px}.fbody p{margin:0;color:var(--mut);font-size:15px;line-height:1.6}
+.steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;counter-reset:st;margin:0;padding:0;list-style:none}
+.steps3 li{counter-increment:st;background:#121726;border:1px solid #232a3d;border-radius:var(--radius);padding:28px 26px;color:#c5cbe0;font-size:15px;line-height:1.6}
+.steps3 li::before{content:counter(st,decimal-leading-zero);display:block;font-size:40px;font-weight:300;color:var(--hot);letter-spacing:-.02em;margin-bottom:12px}
+.steps3 li>b:first-child{display:block;color:#fff;font-size:18px;font-weight:600;margin-bottom:6px}.steps3 li b{color:#fff}
+.band.dark [role=status]{background:#121726;border-color:#232a3d!important;border-radius:var(--radius)!important;padding:18px 20px!important;color:#c5cbe0}.band.dark [role=status] code{background:#1a2135}.band.dark input{background:#0b0e17;border-color:#232a3d;color:#fff}
+.pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.pricing .card h3{font-size:22px;font-weight:500}
+details.card>summary{cursor:pointer;list-style:none;font-weight:600;font-size:17px;display:flex;align-items:center;justify-content:space-between}
+details.card>summary::-webkit-details-marker{display:none}details.card>summary::after{content:"+";font-size:24px;font-weight:300;color:var(--mut)}details.card[open]>summary::after{content:"–"}details.card[open]>summary{margin-bottom:14px}
+/* footer */
+footer.site{background:var(--ink);color:#9aa3b8;border:0;padding:72px 0 36px;margin-top:0}
+footer.site .fgrid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:40px}
+footer.site h4{color:#fff;font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin:0 0 16px}
+footer.site a{color:#c5cbe0;text-decoration:none;display:block;padding:4px 0;font-size:14.5px}footer.site a:hover{color:#fff}
+footer.site .fbrand{display:flex;align-items:center;gap:10px;color:#fff;font-size:20px;font-weight:600;margin-bottom:12px}
+footer.site .fbottom{margin-top:56px;padding-top:24px;border-top:1px solid #1d2438;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13.5px}
+footer.site .fbottom a{display:inline;padding:0}
+@media (max-width:1000px){.fcards{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}.stat:nth-child(3){border-left:0}.stat:nth-child(n+3){border-top:1px solid var(--line)}footer.site .fgrid{grid-template-columns:1fr 1fr}}
+@media (max-width:860px){nav{height:62px}nav .links{top:62px}nav .links a{border-radius:0;padding:15px 24px}nav .links a.navcta{margin:10px 24px 4px;text-align:center;border-radius:99px}.hx-tabs .wrap{grid-template-columns:repeat(4,1fr);padding:0}.hx-tab{padding:14px 10px 16px;font-size:12.5px}.hx-tab small{font-size:10px;letter-spacing:.1em}}
+@media (max-width:760px){.pricing,.steps3{grid-template-columns:1fr}section{padding:56px 0}.hx-slide::after{background:linear-gradient(180deg,rgba(8,10,18,.55) 0%,rgba(8,10,18,.9) 60%)}.hx-in{padding-bottom:110px;align-self:flex-end}.hx-art .herologo{width:180px;height:180px;right:20px;top:22%;transform:none}.hx-tab span.t{display:none}.hx-tab{text-align:center}}
+@media (max-width:560px){.fcards{grid-template-columns:1fr}.stat{padding:20px 18px}.stats{margin-top:28px}footer.site .fgrid{grid-template-columns:1fr}.wrap{padding:0 18px}.hx-in{padding:0 18px 104px}}
+@media (prefers-reduced-motion:reduce){.hx-slide,.fcard,.btn{transition:none}}
 `;
 
 const accountLink = (user) => user ? `${user.isAdmin ? '<a href="/admin">Admin</a>' : ''}<a href="/mycontent">My content</a><a href="/account">${esc(user.firstName || 'Account')}</a>` : `<a href="/signin">Sign in</a>`;
@@ -550,9 +651,16 @@ const NAV = (links) => `<header><div class="wrap"><nav>
 </nav></div></header>
 <script>document.querySelectorAll('#navlinks a').forEach(function(a){a.addEventListener('click',function(){document.getElementById('navt').checked=false;});});</script>`;
 
-const footer = (contact) => `<footer><div class="wrap row" style="justify-content:space-between">
-  <span>© ${new Date().getUTCFullYear()} Sushila, an open-source research project</span>
-  <span><a href="/#disclaimer">Disclaimer</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="/bugs/new">Report a bug</a> · <a href="/reportabuse">Report abuse</a> · <a href="mailto:${esc(contact)}">${esc(contact)}</a></span>
+const footer = (contact) => `<footer class="site"><div class="wrap">
+  <div class="fgrid">
+    <div><div class="fbrand"><img src="/logo.png" width="34" height="34" alt=""> Sushila.cpp</div>
+      <p style="margin:0 0 14px;max-width:340px;line-height:1.6">Faster AI on your own computer. Chat, code, images, music and video, with the same model files and the same answers.</p>
+      <a href="/install" style="display:inline-block;color:#fff;font-weight:600">Get Sushila →</a></div>
+    <div><h4>Product</h4><a href="/install">Install</a><a href="/#packs">Model packs</a><a href="/manual">Manual install</a><a href="/docs">Documentation</a><a href="/#api">Serverless API</a></div>
+    <div><h4>Research</h4><a href="/#how">How it works</a><a href="/#results">Results</a><a href="/#retest">Retest it yourself</a><a href="/mycontent">My content</a></div>
+    <div><h4>Support</h4><a href="/bugs/new">Report a bug</a><a href="/reportabuse">Report abuse</a><a href="mailto:${esc(contact)}">Contact</a><a href="/#disclaimer">Disclaimer</a></div>
+  </div>
+  <div class="fbottom"><span>© ${new Date().getUTCFullYear()} Sushila, an open-source research project</span><span><a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a></span></div>
 </div></footer>`;
 
 function docPage(env, title, desc, body, user) {
@@ -569,7 +677,7 @@ ${ICON_LINKS}
 ${STYLE}</style>
 </head>
 <body>
-${NAV(`<a href="/">Home</a><a href="/install">Install</a><a href="/manual">Manual install</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}`)}
+${NAV(`<a href="/">Home</a><a href="/install">Install</a><a href="/manual">Manual install</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}<a class="navcta" href="/install">Get Sushila</a>`)}
 <main class="wrap"><article class="doc">
 ${body(contact)}
 </article></main>
@@ -577,6 +685,42 @@ ${footer(contact)}
 </body>
 </html>`;
 }
+
+
+// Artwork for the home page (inline SVG, no image files): the hero slides and the feature cards
+const HX_BG = (a, b) => `<defs><radialGradient id="g1${a}" cx="72%" cy="40%" r="60%"><stop offset="0" stop-color="${a}" stop-opacity=".55"/><stop offset="1" stop-color="${a}" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2${a}" cx="95%" cy="95%" r="50%"><stop offset="0" stop-color="${b}" stop-opacity=".45"/><stop offset="1" stop-color="${b}" stop-opacity="0"/></radialGradient>
+<pattern id="gr${a}" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#ffffff" stroke-opacity=".05"/></pattern></defs>
+<rect width="1600" height="700" fill="#080a12"/><rect width="1600" height="700" fill="url(#g1${a})"/><rect width="1600" height="700" fill="url(#g2${a})"/><rect width="1600" height="700" fill="url(#gr${a})"/>`;
+const svg = (inner) => `<svg viewBox="0 0 1600 700" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true">${inner}</svg>`;
+const HX_ART = [
+  // 1. your own computer: glow behind the swan (the swan is the logo, added over it)
+  svg(HX_BG('#2563eb', '#7c3aed') + '<circle cx="1180" cy="300" r="250" fill="none" stroke="#6b9bff" stroke-opacity=".18"/><circle cx="1180" cy="300" r="330" fill="none" stroke="#6b9bff" stroke-opacity=".1"/><circle cx="1180" cy="300" r="410" fill="none" stroke="#6b9bff" stroke-opacity=".06"/>'),
+  // 2. speed: the baseline bar and Sushila's
+  svg(HX_BG('#0ea5e9', '#ff9800') + [['Ollama', 1, '#3a4258'], ['Sushila.cpp', 4.05, 'url(#bar)']].map(([n, v, c], i) => {
+    const h = Math.round(v * 92), x = 1000 + i * 210, y = 560 - h;
+    return `<rect x="${x}" y="${y}" width="130" height="${h}" rx="10" fill="${c}"/><text x="${x + 65}" y="600" fill="#9aa3b8" font-size="22" text-anchor="middle" font-family="Inter,sans-serif">${n}</text><text x="${x + 65}" y="${y - 18}" fill="#fff" font-size="${i ? 44 : 26}" font-weight="${i ? 300 : 400}" text-anchor="middle" font-family="Inter,sans-serif">${v.toFixed(2)}×</text>`;
+  }).join('') + '<defs><linearGradient id="bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs><line x1="960" y1="560" x2="1400" y2="560" stroke="#fff" stroke-opacity=".25"/>'),
+  // 3. precomputed once: a landscape of dots with its contour lines
+  svg(HX_BG('#10b981', '#2563eb') + Array.from({ length: 13 }, (_, r) => Array.from({ length: 24 }, (_, c) => {
+    const x = 760 + c * 34, y = 120 + r * 36 + Math.sin(c / 3 + r / 2) * 10, v = (Math.sin(c / 4) + Math.cos(r / 3)) / 2;
+    return `<circle cx="${x}" cy="${y.toFixed(1)}" r="${(2 + v * 2.2).toFixed(1)}" fill="${v > .55 ? '#ff9800' : '#6ee7b7'}" fill-opacity="${(.25 + v * .5).toFixed(2)}"/>`;
+  }).join('')).join('') + [0, 1, 2].map((k) => `<path d="M740 ${330 + k * 60} C 900 ${230 + k * 60}, 1050 ${430 + k * 60}, 1200 ${300 + k * 60} S 1450 ${260 + k * 60}, 1600 ${340 + k * 60}" fill="none" stroke="#6ee7b7" stroke-opacity="${.5 - k * .13}" stroke-width="2"/>`).join('')),
+  // 4. pictures, songs, videos: frames and a waveform
+  svg(HX_BG('#db2777', '#2563eb') + '<defs><linearGradient id="f1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="f2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/></linearGradient><linearGradient id="f3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#f97316"/></linearGradient></defs>'
+    + '<rect x="1010" y="120" width="300" height="220" rx="18" fill="url(#f1)" opacity=".85" transform="rotate(-6 1160 230)"/><rect x="1180" y="200" width="300" height="220" rx="18" fill="url(#f2)" opacity=".9" transform="rotate(5 1330 310)"/><rect x="1090" y="300" width="260" height="190" rx="18" fill="url(#f3)" opacity=".9"/>'
+    + '<path d="M1170 350 l50 30 -50 30z" fill="#fff" opacity=".95"/>'
+    + Array.from({ length: 44 }, (_, i) => { const h = 12 + Math.abs(Math.sin(i * .7) * Math.cos(i * .23)) * 90; return `<rect x="${760 + i * 18}" y="${600 - h / 2}" width="8" height="${h.toFixed(0)}" rx="4" fill="#fff" fill-opacity="${(.25 + (i % 7) / 14).toFixed(2)}"/>`; }).join('')),
+];
+const fsvg = (inner, bg) => `<svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="400" height="150" fill="${bg}"/>${inner}</svg>`;
+const F_ART = [
+  fsvg([0, 1, 2, 3, 4].map((k) => `<path d="M-10 ${40 + k * 22} C 80 ${10 + k * 22}, 160 ${80 + k * 22}, 240 ${35 + k * 22} S 360 ${20 + k * 22}, 410 ${50 + k * 22}" fill="none" stroke="${k === 2 ? '#ff9800' : '#6b9bff'}" stroke-opacity="${k === 2 ? 1 : .5}" stroke-width="${k === 2 ? 3 : 1.5}"/>`).join(''), '#111a3a'),
+  fsvg('<g stroke="#6b9bff" stroke-opacity=".6" stroke-width="2" fill="none"><path d="M60 75 L150 40 M60 75 L150 75 M60 75 L150 110 M150 40 L240 25 M150 40 L240 55 M150 75 L240 85 M240 25 L330 20 M240 55 L330 60"/></g>'
+    + [[60, 75, '#fff'], [150, 40, '#ff9800'], [150, 75, '#6b9bff'], [150, 110, '#3a4258'], [240, 25, '#ff9800'], [240, 55, '#6b9bff'], [240, 85, '#3a4258'], [330, 20, '#ff9800'], [330, 60, '#3a4258']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="9" fill="${c}"/>`).join(''), '#0f1730'),
+  fsvg(Array.from({ length: 60 }, (_, i) => { const x = 20 + (i * 53) % 360, y = 20 + (i * 37) % 110; return `<circle cx="${x}" cy="${y}" r="${i === 23 ? 9 : 4}" fill="${i === 23 ? '#ff9800' : '#6b9bff'}" fill-opacity="${i === 23 ? 1 : .35 + (i % 5) / 10}"/>`; }).join('') + '<circle cx="' + (20 + (23 * 53) % 360) + '" cy="' + (20 + (23 * 37) % 110) + '" r="20" fill="none" stroke="#ff9800" stroke-opacity=".6"/>', '#101a2f'),
+  fsvg('<rect x="140" y="30" width="120" height="90" rx="10" fill="#1a2347" stroke="#6b9bff" stroke-width="2"/><rect x="170" y="55" width="60" height="40" rx="4" fill="#2563eb"/><text x="200" y="82" text-anchor="middle" fill="#fff" font-size="18" font-family="Inter,sans-serif" font-weight="600">S</text>'
+    + Array.from({ length: 6 }, (_, i) => `<path d="M${152 + i * 19} 30 v-18 M${152 + i * 19} 120 v18" stroke="#6b9bff" stroke-width="3"/><path d="M140 ${42 + i * 13} h-18 M260 ${42 + i * 13} h18" stroke="#6b9bff" stroke-width="3"/>`).join('') + '<path d="M0 135 H120 M280 15 H400" stroke="#ff9800" stroke-width="2" stroke-dasharray="6 6"/>', '#0d1428'),
+];
 
 const EFFECTIVE = '4 October 2026';
 // Governing law and courts: set GOVERNING_LAW (e.g. "the State of Delaware, USA") once counsel confirms it.
@@ -885,37 +1029,73 @@ ${ICON_LINKS}
 ${STYLE}</style>
 </head>
 <body>
-${NAV(`<a href="#how">How</a><a href="#results">Results</a><a href="#get">Get Sushila</a><a href="#packs">Packs</a><a href="/manual">Manual install</a><a href="#api">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}`)}
+${NAV(`<a href="#how">How</a><a href="#results">Results</a><a href="#packs">Packs</a><a href="/manual">Manual install</a><a href="#api">API</a><a href="/bugs/new">Report a bug</a>${accountLink(user)}<a class="navcta" href="/install">Get Sushila</a>`)}
 
 <main class="wrap">
-<div class="hero"><div class="herotext">
-  <h1>Faster LLM inference.<br>Same model files, same answers.</h1>
-  <p>Sushila.cpp is a llama.cpp-based engine that does the expensive work once per model, right after the model is released,
-  so every token you generate afterwards costs less. Llama-3.3-70B runs 4.05× faster than vanilla Ollama on the same GPU;
-  on the very same model file, Llama-3.1-70B runs 2.0× faster than stock llama.cpp on a GPU and 2.3× on a CPU, with exactly its output.</p>
-  <a class="btn herocta" href="#get">Run AI models on your own computer, free<span>One program for Windows, Mac and Linux · chat, code, images, music, video in your browser</span></a>
-  <div class="row"><a class="btn ghost" href="#packs">Model packs</a><a class="btn ghost" href="/manual">Manual install</a><a class="btn ghost" href="#api">Serverless API</a></div>
-</div><div class="herologo" id="swanlogo" role="img" aria-label="Sushila logo: a swan shaped like the letter S, with an S-marked integrated circuit, on a base"><img class="swan" src="/logo-swan.png" alt=""><img class="base" src="/logo-base.png" alt=""></div></div>
+<div class="hx" id="hx" aria-roledescription="carousel" aria-label="Sushila.cpp">
+ <div class="hx-slides">
+  <div class="hx-slide on" aria-roledescription="slide" aria-label="1 of 4"><div class="hx-art">${HX_ART[0]}<div class="herologo" id="swanlogo" role="img" aria-label="Sushila logo: a swan shaped like the letter S, with an S-marked integrated circuit, on a base"><img class="swan" src="/logo-swan.png" alt=""><img class="base" src="/logo-base.png" alt=""></div></div>
+   <div class="hx-in"><div class="hx-cat">Platform</div><h1>AI on your own computer. <b>Free.</b></h1>
+   <p>One program for Windows, Mac and Linux: chat, code, images, music and video in your browser, on your own GPU. Private, and offline once installed.</p>
+   <div class="row"><a class="btn light" href="/install">Get Sushila</a><a class="btn outline-light" href="#packs">Model packs</a></div></div></div>
+  <div class="hx-slide" aria-roledescription="slide" aria-label="2 of 4"><div class="hx-art">${HX_ART[1]}</div>
+   <div class="hx-in"><div class="hx-cat">Results</div><h1>Llama-3.3-70B, <b>4.05× faster</b> than Ollama</h1>
+   <p>The same GPU and the same answers: 160 benchmark prompts it never saw, GSM8K accuracy unchanged. 2.58× on average over eight chat and coding models.</p>
+   <div class="row"><a class="btn light" href="#results">See every result</a><a class="btn outline-light" href="#retest">Retest it yourself</a></div></div></div>
+  <div class="hx-slide" aria-roledescription="slide" aria-label="3 of 4"><div class="hx-art">${HX_ART[2]}</div>
+   <div class="hx-in"><div class="hx-cat">Technology</div><h1>Precomputed <b>once</b> per model</h1>
+   <p>Right after a model's release, Sushila builds its landscapes and draft heads, so every token afterwards reads fewer bytes. Same model files, same output.</p>
+   <div class="row"><a class="btn light" href="#how">How it works</a><a class="btn outline-light" href="/docs">Documentation</a></div></div></div>
+  <div class="hx-slide" aria-roledescription="slide" aria-label="4 of 4"><div class="hx-art">${HX_ART[3]}</div>
+   <div class="hx-in"><div class="hx-cat">Create</div><h1>Pictures, songs and <b>videos</b></h1>
+   <p>Z-Image, ACE-Step and Wan 2.2 run on your own computer, and every file carries an AI-generated label. Share any of them with one link.</p>
+   <div class="row"><a class="btn light" href="#packs">Model packs</a><a class="btn outline-light" href="/install">Get Sushila</a></div></div></div>
+ </div>
+ <div class="hx-tabs"><div class="wrap" role="tablist">
+  <button class="hx-tab on" role="tab" aria-selected="true"><span class="bar"></span><small>Platform</small><span class="t">AI on your own computer</span></button>
+  <button class="hx-tab" role="tab" aria-selected="false"><span class="bar"></span><small>Results</small><span class="t">4.05× faster than Ollama</span></button>
+  <button class="hx-tab" role="tab" aria-selected="false"><span class="bar"></span><small>Technology</small><span class="t">Precomputed once per model</span></button>
+  <button class="hx-tab" role="tab" aria-selected="false"><span class="bar"></span><small>Create</small><span class="t">Pictures, songs and videos</span></button>
+ </div></div>
+</div>
+<script>(function(){var hx=document.getElementById('hx');if(!hx)return;var sl=hx.querySelectorAll('.hx-slide'),tb=hx.querySelectorAll('.hx-tab'),n=0,t0=0,paused=false,raf;
+var still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches,DUR=7000;
+function go(k){n=(k+sl.length)%sl.length;sl.forEach(function(s,i){s.classList.toggle('on',i===n);s.setAttribute('aria-hidden',i!==n);});tb.forEach(function(b,i){b.classList.toggle('on',i===n);b.setAttribute('aria-selected',i===n);b.querySelector('.bar').style.width='0';});t0=performance.now();}
+tb.forEach(function(b,i){b.addEventListener('click',function(){go(i);});});
+hx.addEventListener('mouseenter',function(){paused=true;});hx.addEventListener('mouseleave',function(){paused=false;t0=performance.now()-(parseFloat(tb[n].querySelector('.bar').style.width)||0)/100*DUR;});
+hx.addEventListener('keydown',function(e){if(e.key==='ArrowRight')go(n+1);if(e.key==='ArrowLeft')go(n-1);});
+var sx=null;hx.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;},{passive:true});hx.addEventListener('touchend',function(e){if(sx==null)return;var d=e.changedTouches[0].clientX-sx;if(Math.abs(d)>50)go(n+(d<0?1:-1));sx=null;},{passive:true});
+function tick(t){if(!paused&&!document.hidden){var p=(t-t0)/DUR;if(p>=1)go(n+1);else tb[n].querySelector('.bar').style.width=(p*100).toFixed(2)+'%';}else if(paused||document.hidden){t0=t-(parseFloat(tb[n].querySelector('.bar').style.width)||0)/100*DUR;}raf=requestAnimationFrame(tick);}
+go(0);if(!still)raf=requestAnimationFrame(tick);})();</script>
 
-<section id="how">
+<div class="stats" role="list">
+  <div class="stat" role="listitem"><b><em>4.05×</em></b><span>Llama-3.3-70B against vanilla Ollama, same GPU, unseen prompts</span></div>
+  <div class="stat" role="listitem"><b>2.58×</b><span>average speedup over eight GPU chat and coding models</span></div>
+  <div class="stat" role="listitem"><b>13</b><span>models measured: text, code, images, video and music</span></div>
+  <div class="stat" role="listitem"><b>1</b><span>program for Windows, macOS and Linux, using your GPU automatically</span></div>
+</div>
+
+<section id="how" style="padding-top:40px">
+  <div class="eyebrow">How it works</div>
   <h2>What Sushila.cpp does</h2>
   <p class="lead">Decoding is limited by how many bytes of weights the hardware reads per token. Sushila
   (<b>S</b>calable <b>U</b>pstream <b>S</b>ynthesis for <b>H</b>ybrid <b>I</b>nference in <b>L</b>arge-model <b>A</b>cceleration)
   computes small artifacts once per model so each token reads fewer bytes or the model runs fewer passes.</p>
-  <div class="grid">
-    <div class="card"><h3>Landscapes</h3><p>A precomputed map of each model's output layer: a cheap preview picks a short list of candidate tokens,
-      which are then scored exactly. About 13–15% of the layer is read, with the same top token.</p></div>
-    <div class="card"><h3>Precomputed draft heads</h3><p>A small head fitted on the model's own answers proposes several tokens; the full model checks them all
-      in one pass. Accepted tokens are exactly what the model would have produced.</p></div>
-    <div class="card"><h3>Landscape hunt</h3><p>Each model gets the stack that suits it. New models first try the existing landscapes,
-      and a new one is searched for only if none fits.</p></div>
-    <div class="card"><h3>Kernels</h3><p>Tree verification in llama.cpp and a tuned GPU kernel switch make checking 5–8 drafted tokens 18–38% cheaper.</p></div>
+  <div class="fcards">
+    <div class="fcard"><div class="fart">${F_ART[0]}</div><div class="fbody"><small>Ours</small><h3>Landscapes</h3><p>A precomputed map of each model's output layer: a cheap preview picks a short list of candidate tokens,
+      which are then scored exactly. About 13–15% of the layer is read, with the same top token.</p></div></div>
+    <div class="fcard"><div class="fart">${F_ART[1]}</div><div class="fbody"><small>Ours</small><h3>Precomputed draft heads</h3><p>A small head fitted on the model's own answers proposes several tokens; the full model checks them all
+      in one pass. Accepted tokens are exactly what the model would have produced.</p></div></div>
+    <div class="fcard"><div class="fart">${F_ART[2]}</div><div class="fbody"><small>Day 0</small><h3>Landscape hunt</h3><p>Each model gets the stack that suits it. New models first try the existing landscapes,
+      and a new one is searched for only if none fits.</p></div></div>
+    <div class="fcard"><div class="fart">${F_ART[3]}</div><div class="fbody"><small>Engine</small><h3>Kernels</h3><p>Tree verification in llama.cpp and a tuned GPU kernel switch make checking 5–8 drafted tokens 18–38% cheaper.</p></div></div>
   </div>
   <p class="note">Sushila.cpp also uses established methods, including EAGLE-3 draft heads, small draft models and fast 4-bit kernels,
   and combines them with its own. The paper credits each method and reports how much it adds.</p>
 </section>
 
-<section id="results">
+<section id="results" class="band" style="--band:var(--card)">
+  <div class="eyebrow">Results</div>
   <h2>Measured speed, every model</h2>
   <p class="lead">Sushila.cpp against the usual way to run each model locally, on the same hardware. Text: vanilla Ollama on one A100,
   160 unseen benchmark prompts, greedy decoding. Images, video and music: the reference engine on one RTX 4090.</p>
@@ -951,23 +1131,25 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
 </section>
 
 
-<section id="get">
+<section id="get" class="band dark">
+  <div class="eyebrow">Get started</div>
   <h2>Get Sushila</h2>
   <p class="lead">One program, <code>sushila</code> (<code>sushila.exe</code> on Windows), runs the models on your own computer and opens a page in your
   browser for chat, code, images, music and video. It uses your GPU (NVIDIA, AMD, Intel, Apple) automatically, and the CPU otherwise.</p>
-  <ol class="steps">
+  <ol class="steps3">
     <li><b>Download</b> Sushila for your system (one file). <span class="sub">The downloads open when the Sushila paper is published:
       <a href="#" id="getnotify">email me when they are ready</a>.</span></li>
-    <li><b>Run it</b>: double-click it; the first time it sets itself up for your GPU and asks you to choose an admin password.
+    <li><b>Run it</b> Double-click it; the first time it sets itself up for your GPU and asks you to choose an admin password.
       Or in a terminal: <code>sushila serve</code>. Your browser opens <code>http://localhost:7874</code>.</li>
-    <li><b>Choose a model pack</b> below (<b>Install</b>), or on its Admin tab. Everything runs on your computer: free, private, offline once installed.</li>
+    <li><b>Choose a model pack</b> Below (<b>Install</b>), or on its Admin tab. Everything runs on your computer: free, private, offline once installed.</li>
   </ol>
   <div id="sstatus2" class="note" role="status" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0">Checking whether Sushila runs on this computer…</div>
   <p class="sub">All commands, for Windows, macOS and Linux: <a href="/docs">documentation</a>.</p>
 </section>
 
 <section id="packs">
-  <h2>Model packs</h2>
+  <div class="eyebrow">Model packs</div>
+  <h2>Models, ready to run</h2>
   <div id="sstatus" class="note" role="status" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0">Checking whether Sushila runs on this computer…</div>
   <p class="lead">A model pack is a model and its precomputed files (landscape, draft head), installed by <b>Sushila</b> on your own computer:
   one program (<code>sushila</code>, <code>sushila.exe</code> on Windows) that runs the models and serves a web page for chat, code,
@@ -1035,11 +1217,12 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
 }));</script>
 
 
-<section id="api">
+<section id="api" class="band" style="--band:var(--card)">
+  <div class="eyebrow">Hosted</div>
   <h2>Serverless API</h2>
   <p class="lead">This website and Sushila.cpp are free. To skip the hardware, use our hosted GPUs: an OpenAI-compatible API,
   billed per token. Because each token costs us less to generate, our rates are lower.</p>
-  <div class="grid">
+  <div class="pricing">
     <div class="card"><h3>Free</h3><p>Sushila.cpp, the models above and every script, running on your own machine.</p></div>
     <div class="card"><h3>Pay per token</h3><p>Hosted open models on serverless GPUs. No servers to run and no minimum spend.</p></div>
     <div class="card"><h3>Dedicated</h3><p>Reserved capacity and custom day-0 tuning for your own model. <a href="mailto:${esc(contact)}">Contact us</a>.</p></div>
@@ -1051,9 +1234,8 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
   <p class="note">The API is provided as is, with no warranty or guarantee of availability; see the <a href="#disclaimer">disclaimer</a>,
   the <a href="/terms">Terms of Service</a> and the <a href="/privacy">Privacy Policy</a>. We use your e-mail only to contact you about early access.</p>
 </section>
-<section id="disclaimer">
-  <h2>Disclaimer</h2>
-  <div class="card disc">
+<section id="disclaimer" style="padding-top:56px">
+  <details class="card disc"><summary>Disclaimer: Sushila is a research project; use at your own risk</summary>
   <p><b>Sushila is a research project.</b> Sushila.cpp, the precomputed landscapes and draft heads, the benchmarks, the hosted
   model files and the serverless API are research software and research results, published so that others can study, reproduce and
   build on them. They are experimental, may change or stop at any time, and are not a finished commercial product.</p>
@@ -1070,7 +1252,7 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
   <p>Speed figures are measurements on specific hardware and settings; your results may differ. Models are made by third parties
   and are governed by their own licenses; Sushila does not endorse or take responsibility for their content. Some jurisdictions do
   not allow certain warranty exclusions or liability limits, in which case they apply only as far as the law allows.</p>
-  </div>
+  </details>
 </section>
 </main>
 

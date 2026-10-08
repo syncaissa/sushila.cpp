@@ -142,8 +142,71 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
   let shareFromInference = null;
 
 
+
+  // ================================================================== the look (2026-10, as sushila.ai): navy and
+  // white, one blue accent, an amber marker, light headings; the last style on the page, so it is the one that counts
+  const DESIGN = `
+:root{--bg:#f5f3f5;--card:#fff;--ink:#1d2433;--mut:#5b6377;--line:#e2dee6;--acc:#2563eb;--acc2:#1d4ed8;--accbg:#e8efff;--code:#eef0f5;--hot:#ff9800;--night:#080a12;--navy:#1a2347;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.07);--r:14px;--font:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#0b0e17;--card:#121726;--ink:#e8ebf4;--mut:#9aa3b8;--line:#232a3d;--acc:#6b9bff;--acc2:#8fb3ff;--accbg:#16213f;--code:#171d2e;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}}
+html,body{font-family:var(--font);font-size:15px;-webkit-font-smoothing:antialiased;background:var(--bg)}
+body{background:var(--bg)!important}
+h1,h2,h3{letter-spacing:-.015em}
+/* the top bar: night, white brand, tabs with the amber marker */
+.snav{position:sticky;top:0;z-index:30;background:var(--night);border:0;box-shadow:none;padding:0 22px;height:64px;gap:2px;flex-wrap:nowrap}
+.snav .brand{color:#fff;font-size:17px;font-weight:600;margin-right:22px}.snav .mark{background:transparent;box-shadow:none;width:34px;height:34px}
+.snav a[data-tab]{color:#aab3c8;font-weight:500;font-size:14.5px;padding:0 14px;height:64px;display:inline-flex;align-items:center;border-radius:0;background:transparent;box-shadow:inset 0 0 0 transparent;transition:color .15s,box-shadow .15s}
+.snav a[data-tab]:hover{color:#fff}.snav a[data-tab].on{color:#fff;background:transparent;box-shadow:inset 0 -3px 0 var(--hot)}
+.smenu summary{color:#fff}.smenu>div{top:44px}
+.snav .tunbtn{background:transparent!important;color:#fff!important;border:1px solid rgba(255,255,255,.35)!important;border-radius:99px!important;padding:8px 16px!important;font-weight:500}
+.snav .tunbtn:hover{border-color:#fff!important;background:rgba(255,255,255,.08)!important}
+/* the band under it: the page's name, over the night sky; the first card of the page rises into it */
+.appband{position:relative;overflow:hidden;color:#fff;background:var(--night);padding:46px 22px 92px}
+.appband::before{content:"";position:absolute;inset:0;background:radial-gradient(700px 360px at 78% 10%,rgba(37,99,235,.45),transparent 70%),radial-gradient(520px 300px at 100% 100%,rgba(124,58,237,.35),transparent 70%),
+  linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px) 0 0/44px 44px,linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px) 0 0/44px 44px}
+.appband>div{position:relative;max-width:1100px;margin:0 auto}
+.appband .eb{display:inline-flex;align-items:center;gap:10px;font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--hot);margin-bottom:12px}
+.appband .eb::before{content:"";width:22px;height:3px;border-radius:2px;background:var(--hot)}
+.appband h1{margin:0 0 10px;font-weight:300;font-size:clamp(28px,4vw,44px);line-height:1.1;letter-spacing:-.025em;color:#fff}.appband h1 b{font-weight:600}
+.appband p{margin:0;color:#c5cbe0;font-size:16px;font-weight:300;max-width:680px;line-height:1.6}
+.maxed .appband{display:none}
+#app>.top,.top{margin:-64px auto 0;position:relative;z-index:4;border-radius:var(--r);box-shadow:0 2px 4px rgba(16,24,40,.06),0 18px 40px rgba(16,24,40,.14);border:1px solid var(--line);padding:14px 18px}
+.manage{position:relative;z-index:4;margin-top:-64px!important;padding-top:0!important}
+.manage>.srvstat:first-child{box-shadow:0 2px 4px rgba(16,24,40,.06),0 18px 40px rgba(16,24,40,.14)}
+body[data-view=library] .appband,body[data-view=assistant] .appband{padding-bottom:46px}
+body[data-view=library] .manage,body[data-view=assistant] .manage{margin-top:0!important;padding-top:20px!important}
+.adminhead h1{display:none}.adminhead{margin:22px 0 12px}
+/* surfaces */
+.card,.sec,.chat,.music,.qpanel,.srvstat,.libcard,.picker,.diag,.track{border-radius:var(--r)!important;border:1px solid var(--line);box-shadow:var(--shadow)}
+.srvstat{background:var(--card);padding:16px 18px}
+.sec>summary{font-weight:600;font-size:15.5px;padding:15px 18px}.secbody{padding:4px 18px 18px}
+.chat,.music{margin:18px auto}
+/* buttons: one solid blue, quiet outlines, pills for the big ones */
+button{border-radius:10px;font-weight:600;transition:background .15s,border-color .15s,transform .15s}
+button:where(:not(.ghost,.chip,.danger,.copy,.tclose,.pickbtn,.lopen,.tab,.tunbtn,.infobtn,.mfull)){background:var(--acc)!important;border-color:var(--acc)!important;color:#fff!important}
+button:where(:not(.ghost,.chip,.danger,.copy,.tclose,.pickbtn,.lopen,.tab,.tunbtn,.infobtn,.mfull)):hover{background:var(--acc2)!important}
+.seg button:not(.on){background:transparent!important;color:var(--ink)!important;border-color:transparent!important}.seg button.on{background:var(--acc)!important;color:#fff!important}
+button.ghost{border-color:var(--line);color:var(--ink);background:var(--card)}button.ghost:hover{border-color:var(--ink)}
+button.danger{border-radius:10px}
+.big{border-radius:99px!important;padding:12px 26px}
+.seg button.on{background:var(--acc)!important}.chip.on{background:var(--acc)!important}
+.pkmode{color:var(--acc);background:var(--accbg)}.pickbtn{border-radius:12px!important;padding:9px 14px}
+input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--acc) 40%,transparent);outline-offset:1px;border-color:var(--acc)}
+.bubble.user{background:var(--accbg)}.bubble.bot{box-shadow:var(--shadow)}
+.dlbtn{background:var(--acc);border-radius:99px}
+.pill.on{color:var(--ok);border-color:currentColor}
+.hero h2{font-weight:500;font-size:24px;letter-spacing:-.015em}
+.downbar{top:64px}
+.switch{display:flex!important;align-items:center;gap:12px}.switch .slider{display:inline-block!important;flex:none}
+.snav>a:not([data-tab]),.snav>button.ghost:not(.tunbtn){color:#c5cbe0!important;background:transparent!important;border-color:rgba(255,255,255,.25)!important}
+@media (max-width:760px){.snav{padding:0 12px;height:58px}.snav a[data-tab]{height:58px;padding:0 10px}.snav .brand{margin-right:8px}.snav .tunbtn{padding:6px 10px!important;font-size:12px}
+  .appband{padding:30px 16px 80px}.appband p{font-size:15px}#app>.top,.top{margin:-58px 10px 0}.manage{margin-top:-58px!important}}
+@media (max-width:900px){.snav .tunbtn{font-size:0!important;padding:7px 10px!important;line-height:1}.snav .tunbtn::before{content:"🌐";font-size:17px}}
+@media (max-width:520px){.snav .brand{font-size:0;margin-right:4px}.snav a[data-tab]{padding:0 9px;font-size:14px}.smenu{margin-right:2px}}
+`;
   manager();
   inferencePage();
+  document.head.append(el('style', { id: 'sushila-design' }, DESIGN));
 
   // ================================================================== 1. managing this computer's Sushila
   // Tabs above the page: Use (the inference page below) and, on this computer only, Admin (Packs, Engine, Queue, Logs,
@@ -265,7 +328,9 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
     const nav = el('nav', { class: 'snav' }, menu, el('b', { class: 'brand' }, mark, 'Sushila'), ...(local ? TABS : TABS.slice(0, 1)).map(([h, t]) => el('a', { href: '#' + h, 'data-tab': h }, t)),
       el('span', { style: 'flex:1' }), local ? el('button', { class: 'ghost tunbtn', title: 'A link that reaches this Sushila Engine from the internet', onclick: () => internetUrl() }, '🌐 Get temporary internet URL') : null, local ? el('a', { href: '#admin', id: 'logout', class: 'hidden', onclick: async (e) => { e.preventDefault(); await api('/api/admin/logout', { method: 'POST' }).catch(() => {}); session = ''; try { sessionStorage.removeItem('sushila-admin'); } catch (_) {} poll(); } }, 'Log out') : null);
     const box = el('div', { id: 'manage', class: 'manage hidden' });
-    document.body.prepend(nav); document.body.append(box);
+    // the band under the bar: which page this is, in a sentence (set by route)
+    const band = el('div', { class: 'appband', id: 'appband' });
+    document.body.prepend(nav); nav.after(band); document.body.append(box);
     // when Sushila stops while this page is open: a banner says so, with a Start button (sushila:// starts the program on
     // Windows, where Sushila registers that link for this user), and the page comes back by itself when it runs again
     const down = el('div', { class: 'downbar hidden', role: 'alert' }, el('b', {}, 'Sushila Engine is not running on this computer. '),
@@ -905,6 +970,12 @@ padding:14px 14px 14px 12px;box-shadow:0 12px 32px rgba(16,24,40,.22);font-size:
     function route() {
       const h = location.hash.slice(1).split('/');
       view = h[0] === 'assistant' ? 'assistant' : local && h[0] === 'admin' ? 'admin' : local && h[0] === 'library' ? 'library' : ''; note = '';
+      const B = { '': ['Create', ['What will you ', el('b', {}, 'make'), ' today?'], local ? 'Chat, code, pictures, songs and videos, made on this computer: private, and free.' : 'Chat, code, pictures, songs and videos, made on this Sushila Engine.'],
+        library: ['Library', ['Everything you ', el('b', {}, 'made')], 'Pictures, songs and videos made here, with the prompt and settings of each. Share any of them with one link.'],
+        admin: ['Admin', ['This computer\'s ', el('b', {}, 'Sushila')], 'Model packs, the engine, the queue, logs and settings: everything that runs here.'],
+        assistant: ['Help', ['Ask ', el('b', {}, 'Sushila')], 'Answers from Sushila\'s own documentation, with the commands to run.'] }[view] || [];
+      band.replaceChildren(el('div', {}, el('div', { class: 'eb' }, B[0]), el('h1', {}, ...B[1]), el('p', {}, B[2])));
+      document.body.dataset.view = view;
       if (view === 'library') { lib.items = null; libFresh = true; }
       // #admin/<section> (also the old tab names) opens that section and scrolls to it
       const alias = { logs: 'logs', log: 'logs' }, want = alias[h[1]] || h[1];
@@ -1051,7 +1122,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       const cur = model;
       pickBtn.replaceChildren(el('span', { class: 'pkicon' }, cur ? KIND_ICON[kindOf(cur)] || '💬' : '＋'),
         el('span', { class: 'pkname' }, cur ? cur.name : (packs.length ? 'Choose a model' : 'No model installed')),
-        cur ? el('span', { class: 'pkmode' }, modeName(cur.mode)) : null, el('span', { class: 'pkcaret' }, '▾'));
+        ...(cur ? [el('span', { class: 'pkmode' }, modeName(cur.mode))] : []), el('span', { class: 'pkcaret' }, '▾'));
       if (picker.classList.contains('hidden')) return;
       const list = packs.length ? packs : models.map((m) => Object.assign({ id: m.packId }, m));
       const counts = {}; list.forEach((p) => { const k = kindOf(p); counts[k] = (counts[k] || 0) + 1; });
