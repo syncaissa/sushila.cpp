@@ -26,8 +26,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, '..', '..'))                  # forGithub/
 RESULTS = os.path.join(REPO, 'results')
 RESEARCH = os.path.join(RESULTS, 'research')
-PAPER_TEX = os.environ.get('SUSHILA_PAPER_TEX',
-                           os.path.normpath(os.path.join(REPO, '..', 'Paper', 'latex', 'paper.tex')))
+# The detail tables these scripts rebuild are in the paper's extended edition (paper_extended.tex, 53 pages); the
+# 18-page paper (paper.tex) reuses a subset of the same numbers. Without the extended edition, paper.tex is checked.
+_LATEX = os.path.normpath(os.path.join(REPO, '..', 'Paper', 'latex'))
+PAPER_TEX = os.environ.get('SUSHILA_PAPER_TEX', next((os.path.join(_LATEX, f) for f in ('paper_extended.tex', 'paper.tex')
+                                                      if os.path.exists(os.path.join(_LATEX, f))), os.path.join(_LATEX, 'paper.tex')))
 EXPECTED_DIR = os.path.join(HERE, 'expected')
 
 MATCH, MISMATCH, NOTDER, BYDEF = 'MATCH', 'MISMATCH', 'NOT DERIVABLE', 'BY DEFINITION'
