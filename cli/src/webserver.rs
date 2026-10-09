@@ -17,7 +17,11 @@ use crate::net::client;
 pub const DOCS_HTML: &str = include_str!("../web/sushila_docs.html");
 /// Example prompts for new pictures (one per line, # = note): the Random button on the picture page (app and browser).
 const IMAGE_PROMPTS: &str = include_str!("../web/prompts/images.txt");
-pub fn image_prompts() -> Vec<&'static str> { IMAGE_PROMPTS.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).collect() }
+/// Example prompts for videos: the Random button on the video page.
+const VIDEO_PROMPTS: &str = include_str!("../web/prompts/videos.txt");
+fn prompt_lines(t: &'static str) -> Vec<&'static str> { t.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).collect() }
+pub fn image_prompts() -> Vec<&'static str> { prompt_lines(IMAGE_PROMPTS) }
+pub fn video_prompts() -> Vec<&'static str> { prompt_lines(VIDEO_PROMPTS) }
 
 // Sushila Station's own screens (a copy of station/dist, checked equal by check_sync.sh) plus bridge.js, which turns the
 // app's requests into requests to this engine: the preview of one design for the app and the browser, at /station/.
@@ -337,11 +341,12 @@ static STATION_PAGE: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
         .replace("<script src=\"app.js\"></script>", &format!("<script>{}</script>\n<script>{}</script>", file("bridge.js"), file("app.js")))
 });
 
-/// GET /api/prompts/images: the example prompts for new pictures ({prompts: [...]}); the same list for everyone.
-async fn srv_prompts(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+/// GET /api/prompts/images and /api/prompts/videos: the example prompts ({prompts: [...]}); the same list for everyone.
+async fn srv_prompts(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Path(kind): axum::extract::Path<String>, headers: axum::http::HeaderMap) -> axum::response::Response {
     use axum::response::IntoResponse;
     if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    ([("cache-control", "max-age=3600")], axum::Json(json!({ "prompts": image_prompts() }))).into_response()
+    let list = match kind.as_str() { "images" => image_prompts(), "videos" => video_prompts(), _ => return (axum::http::StatusCode::NOT_FOUND, "not found").into_response() };
+    ([("cache-control", "max-age=3600")], axum::Json(json!({ "prompts": list }))).into_response()
 }
 
 /// GET /api/notifications: the messages sushila.ai asks every Sushila app to show at start (sushilaai-notifications rows
@@ -370,6 +375,31 @@ async fn srv_notifications(axum::extract::State(s): axum::extract::State<Arc<Srv
     }
     let v = std::fs::read_to_string(&file).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).filter(|v| v["notifications"].is_array()).unwrap_or(json!({ "notifications": [] }));
     ([("cache-control", "no-store")], axum::Json(v)).into_response()
+}
+
+/// GET /api/apps-open: which Generate pages sushila.ai has open ({apps: {images, music, video, coding, chat: true|false}}).
+/// Asked at most every 5 minutes and kept in <home>/apps-open.json; never heard of (or a missing app): open.
+async fn srv_apps_open(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    static LAST: std::sync::LazyLock<tokio::sync::Mutex<Option<std::time::Instant>>> = std::sync::LazyLock::new(|| tokio::sync::Mutex::new(None));
+    let file = s.data_dir.join("apps-open.json");
+    let mut last = LAST.lock().await;
+    if last.map(|t| t.elapsed() > Duration::from_secs(300)).unwrap_or(true) {
+        *last = Some(std::time::Instant::now());
+        let url = format!("{}/api/apps-open", crate::share::site(&s.data_dir));
+        let got = async {
+            let u = crate::net::check_url(&url, false)?;
+            let r = crate::net::client()?.get(u).timeout(Duration::from_secs(5)).send().await.map_err(|e| e.to_string())?;
+            if !r.status().is_success() { return Err(format!("HTTP {}", r.status())); }
+            r.json::<Value>().await.map_err(|e| e.to_string())
+        }.await;
+        if let Ok(v) = got { if v["apps"].is_object() { let _ = crate::util::write_atomic(&file, v.to_string().as_bytes()); } }
+    }
+    let known = std::fs::read_to_string(&file).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).unwrap_or(Value::Null);
+    let apps: serde_json::Map<String, Value> = ["images", "music", "video", "coding", "chat"].iter()
+        .map(|a| (a.to_string(), json!(known["apps"][a].as_bool() != Some(false)))).collect();
+    ([("cache-control", "no-store")], axum::Json(json!({ "apps": apps }))).into_response()
 }
 
 /// /station and /station/...: the preview address of the one design (2026-10-09); it is the page at / now.
@@ -1229,8 +1259,9 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
     let app = axum::Router::new()
         .route("/", axum::routing::get(srv_page))
         .route("/docs", axum::routing::get(srv_docs))
-        .route("/api/prompts/images", axum::routing::get(srv_prompts))
+        .route("/api/prompts/:kind", axum::routing::get(srv_prompts))
         .route("/api/notifications", axum::routing::get(srv_notifications))
+        .route("/api/apps-open", axum::routing::get(srv_apps_open))
         .route("/station", axum::routing::get(srv_station))
         .route("/station/", axum::routing::get(srv_station))
         .route("/station/:file", axum::routing::get(srv_station))
@@ -1286,8 +1317,13 @@ mod robustness_tests {
     }
     #[test] fn image_prompts_are_new_pictures() {
         let p = image_prompts();
-        assert_eq!(p.len(), 70);
+        assert_eq!(p.len(), 250);
         assert!(p.iter().all(|x| !x.starts_with('#') && !x.contains("this photo") && x.len() > 20));
+        assert_eq!(p.iter().collect::<std::collections::HashSet<_>>().len(), p.len(), "no duplicates");
+        let v = video_prompts();
+        assert_eq!(v.len(), 250);
+        assert_eq!(v.iter().collect::<std::collections::HashSet<_>>().len(), v.len(), "no duplicates");
+        assert!(v.iter().all(|x| x.len() > 60 && !x.to_lowercase().contains("lip-sync") && !x.to_lowercase().contains("lyrics")));
         // the Station screens the engine serves at /station/ are all there
         for f in ["index.html", "app.js", "bridge.js", "app.css", "ipad.css", "logo.png"] { assert!(STATION_FILES.iter().any(|(n, _, b)| *n == f && !b.is_empty()), "{f}"); }
     }

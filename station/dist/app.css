@@ -153,3 +153,7 @@ label.lbl{display:block;font-size:12.5px;color:var(--mut);margin:12px 0 4px;font
 #view .qcmds{margin-top:8px;display:flex;flex-direction:column;gap:4px}#view .qcmds code{display:block;padding:4px 8px;background:var(--field);border:1px solid var(--line)}
 /* the health line on the Engine page */
 .panel.health{padding:12px 16px}.panel.health.ok{border-left:4px solid var(--ok)}.panel.health.warn{border-left:4px solid var(--warn)}.panel.health.err{border-left:4px solid var(--err)}
+/* the free tag on its own line in a tile, just above the Download button */
+.tile .freetag.block{display:block;margin:0 10px 6px;width:fit-content}
+/* a Generate page sushila.ai has switched off (table sushilaai-apps-open): greyed out, "currently disabled" */
+.navitem.off{opacity:.45;filter:grayscale(1)}.navitem.off small{font-style:italic}

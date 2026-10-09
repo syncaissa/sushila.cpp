@@ -1,5 +1,5 @@
-# One prompt per line. Lines starting with # are notes. Source: RandomPromtsForImages.txt (2026-10-09).
-# New pictures from text: the Random button on the picture page picks one of these.
+# One prompt per line. Lines starting with # are notes.
+# New pictures from text: the Random button and the stress test on Generate Images pick from these (250: 70 from RandomPromtsForImages.txt, 180 written 2026-10-09 to cover more areas).
 An elderly fisherman mending nets on a wooden dock at sunrise, golden light catching the deep lines of his weathered face, soft mist drifting over calm water behind him.
 A young woman reading by a rain-streaked café window at night, her face warmly lit by an amber table lamp, blurred city lights reflecting in the glass.
 A street musician playing violin under an old stone archway at dusk, coins scattered in his open case, pigeons taking flight in the soft evening light.
@@ -70,3 +70,183 @@ A minimalist Japanese living room with tatami mats and sliding doors open to a p
 A vintage recording studio with glowing tube amplifiers, guitars on stands, warm amber lighting.
 A close-up of coffee being poured into a cup with latte art, steam curling up, soft café background.
 A grand old train station with sunbeams streaming through a glass roof, travelers walking in the light.
+A white observatory dome slowly opening on a desert mountaintop at twilight, the Milky Way rising overhead, a faint red work light glowing inside, long-exposure wide shot with crisp stars.
+Rows of glass beakers and flasks filled with amber, green, and violet liquids on a sunlit laboratory bench, light refracting through the glass onto white tiles, clean high-key product photography.
+A six-wheeled planetary rover parked on a rust-colored rocky plain, its tracks trailing behind it, a pale butterscotch sky and distant crater rim, realistic 3D render with fine dust detail.
+A backyard amateur telescope pointed at a bright full moon on a frosty night, a thermos and star chart on a folding table, cool blue moonlight, 35mm film look.
+Saturn and its rings seen from a tilted angle against deep black space, a few icy moons glinting nearby, soft sunlight raking across the ring bands, cinematic space art.
+A glowing pillar-shaped nebula of rose, teal, and gold gas clouds with newborn stars sparkling inside, rendered as an ultra-detailed deep-space astrophotograph.
+A vintage brass orrery on a dark wooden desk, tiny planets on curved arms catching candlelight, an old leather notebook open beside it, moody still-life oil painting.
+A field of giant white radio telescope dishes aimed at the sky in a wide green valley at dawn, low fog between them, aerial drone shot.
+A rocket on a coastal launch pad seconds after ignition, a towering plume of white steam and orange fire lighting the clouds, telephoto shot from across a marsh with birds in flight.
+A young student looking through a microscope in a bright school science lab, a petri dish and colored pencils beside her notebook, warm natural window light, candid documentary photo.
+A diver drifting through a towering kelp forest, golden-green fronds swaying, shafts of sunlight piercing the water from above, a school of silver fish passing, underwater wide-angle shot.
+A curious octopus unfurling its arms across a sandy seabed beside a sunken clay amphora, its skin shifting colors, soft turquoise light, macro underwater photography.
+A dense bloom of moon jellyfish pulsing through deep blue water, their translucent bells lit from above like lanterns, dreamy slow-shutter underwater photo.
+The inside of a glacier ice cave with walls of rippled sapphire blue ice, a lone explorer in a red jacket at the entrance for scale, glowing natural daylight.
+A colony of emperor penguins huddled together on sea ice during a gentle snowfall, a fluffy grey chick peeking from between adult feet, soft overcast light, telephoto wildlife shot.
+Green and violet aurora curtains rippling above a frozen lake scattered with cracked ice slabs, stars reflecting in a patch of open water, long-exposure night landscape.
+A pod of beluga whales surfacing between floating chunks of ice in a calm Arctic bay, pale pink midnight sun on the horizon, aerial photograph.
+A harbor seal resting on a floating iceberg sculpted into arches by the sea, blue icy water around it, crisp morning light, nature documentary still.
+A reef manta ray gliding overhead in silhouette against a sunlit surface, tiny fish following beneath it, view from below, wide-angle underwater shot.
+A research icebreaker ship cutting through white pack ice under a pastel polar twilight, its deck lights glowing warm yellow, cinematic wide shot.
+Dew drops strung along the threads of a spider web at sunrise, each droplet reflecting a tiny upside-down meadow, extreme macro photography with soft golden bokeh.
+A single snowflake resting on dark blue wool mittens, its six-armed crystal structure razor sharp, cold morning light, extreme macro photo.
+The compound eye of a dragonfly in extreme close-up, thousands of iridescent facets shimmering green and blue, studio macro photography with focus stacking.
+A honeybee covered in golden pollen grains crawling across the center of a sunflower, shallow depth of field, warm summer afternoon light, macro shot.
+A bean seed sprouting in dark moist soil, its pale root curling down and first green leaves unfolding, side-lit cross-section view, scientific macro photograph.
+A cluster of purple amethyst crystals inside a cracked geode, glittering facets lit by a single soft spotlight, dark velvet background, mineral specimen photography.
+Pollen grains of different flowers magnified under an electron microscope, spiky spheres and ridged ovals in false pastel colors, scientific micrograph style.
+A tiny jumping spider perched on a green leaf, its large front eyes looking straight at the camera, fuzzy hairs catching light, extreme macro with creamy background.
+Frost ferns spreading across a windowpane in winter, intricate feathery ice patterns backlit by a pale sunrise, close-up photography in cool blue tones.
+A water droplet suspended from the tip of a curled fern frond, the whole forest refracted inside it, rainy morning light, ultra-sharp macro photo.
+A surfer carving across the face of a glassy turquoise wave at sunrise, spray arcing off the board, shot from the water at wave level with a fast shutter.
+A young climber reaching for a colorful hold on an overhanging wall in an indoor bouldering gym, chalk dust drifting in the light, dynamic low-angle shot.
+A cricket batter driving the ball on a sunlit village green, white clothing, wooden pavilion and spectators on picnic blankets behind, telephoto sports photography.
+Hundreds of marathon runners streaming across a long bridge at dawn, the city skyline glowing behind them, aerial drone photograph with soft pastel light.
+A figure skater spinning on an empty ice rink, her dress fanning out, ice crystals spraying from her blades, a single cool spotlight, long-exposure motion blur.
+A kite surfer launching high above turquoise shallow water, a bright kite against puffy white clouds, sandy coastline below, action shot with crisp detail.
+An elderly man deep in thought over a wooden chessboard in a city park, chin resting on his hand, dappled afternoon light through plane trees, 35mm street photography.
+A rowing crew of eight gliding in perfect sync across a misty river at dawn, oars leaving swirling ripples, low wide shot from the riverbank.
+A skateboarder frozen mid-ollie over concrete steps in a sunlit plaza, long shadows on the pavement, fisheye lens, vibrant 1990s film colors.
+A women's football team celebrating a goal together on a rain-soaked pitch under stadium floodlights, joyful faces and splashing water, sports photojournalism.
+A dancing dragon puppet weaving through a crowded street during Lunar New Year, red lanterns overhead, confetti in the air, festive night photography with warm glow.
+A crowd laughing and throwing clouds of pink, yellow, and turquoise powder during Holi, colors hanging in the sunlit air, vibrant wide-angle festival photo.
+A family Día de Muertos altar covered in marigold petals, candles, sugar skulls, framed photos, and pan de muerto, warm candlelight, intimate close-up still life.
+Samba dancers in feathered costumes of emerald and gold parading under bright lights during Carnival in Rio, sequins sparkling, energetic motion-blurred night shot.
+A close-up of hands finishing a Diwali rangoli of colored powder and flower petals on a doorstep, small oil lamps glowing around its edges, warm overhead shot.
+Rows of glowing brass lanterns strung across a courtyard for Eid, families sharing sweets beneath them at dusk, warm golden light, gentle documentary style.
+Friends sharing a Hanami picnic of bento boxes on a blue blanket beneath blooming cherry trees in a city park, petals drifting down, soft spring daylight.
+Young riders racing horses across the vast green Mongolian steppe during Naadam, dust trailing behind, colorful traditional clothing, wide panoramic shot.
+People in flower crowns dancing around a tall maypole on a Nordic midsummer evening, a red wooden barn and lake behind them, soft golden midnight sun.
+Thousands of floating paper lanterns rising into the night sky above a river during a lantern festival, reflections shimmering on the water, dreamy long exposure.
+A restored vintage motorcycle parked on a winding coastal road, chrome gleaming in late afternoon sun, the sea glittering below, 35mm film look with warm grain.
+A sleek white high-speed train rushing through green rice terraces, motion blur along its body, snowy mountain in the distance, panning shot.
+A giant container ship being loaded at a busy port at night, towering cranes lit in orange, stacks of colorful containers, aerial long-exposure photo.
+Dozens of colorful hot air balloons drifting over rocky valleys and fairy chimneys at sunrise, soft pink sky, aerial wide shot.
+A yellow vintage tram climbing a steep narrow street of blue-and-white tiled houses on a bright morning, laundry hanging from balconies, cheerful travel photography.
+A red tractor harvesting golden wheat at sunset, chaff glowing in the air behind it, swallows flying low, wide cinematic farmland shot.
+A seaplane taking off from a calm turquoise lagoon beside a small island, spray trailing from its floats, bright tropical midday light, aerial shot.
+An old steam locomotive crossing a stone viaduct through autumn hills, white steam billowing against a deep blue sky, classic railway photography.
+A cutaway isometric 3D illustration of a busy cargo airport, planes being loaded, tiny workers and vehicles, clean pastel colors.
+A wooden sailing ship with full white sails cutting through rolling waves on a bright windy day, gulls overhead, dramatic marine oil painting.
+A busy morning in the ancient Roman forum, merchants selling fruit and pottery between marble columns and temples, togas and sunlight, historically detailed matte painting.
+A medieval scriptorium where monks copy illuminated manuscripts at slanted desks, dust motes drifting in beams of light from tall windows, warm Renaissance oil painting style.
+A lively 1920s jazz club with a band playing brass instruments on a small stage, dancers in beaded dresses, smoky amber light, sepia-toned vintage photograph.
+An ancient Egyptian workshop where artisans paint colorful murals and carve stone statues, reed brushes and pigment bowls, bright desert sunlight through a doorway, detailed illustration.
+A rainy evening on an Edo-period street, wooden shopfronts with paper lanterns, people under oiled-paper umbrellas, rendered as a traditional woodblock print.
+A Silk Road caravan resting in a caravanserai courtyard at dusk, camels unloaded, bales of silk and spices stacked by arches, warm lamp light, cinematic painting.
+A Viking-era village by a fjord at dawn, turf-roofed longhouses, a wooden boat being built on the shore, mist over the water, realistic historical concept art.
+A Renaissance artist's workshop with apprentices grinding pigments and stretching canvases, a large unfinished fresco sketch on the wall, soft north light, oil painting style.
+A bustling Victorian London market street in fog, horse-drawn carts, gas lamps glowing, vendors selling hot chestnuts, atmospheric 19th-century photograph style.
+Ancient Maya astronomers on top of a stepped stone pyramid at night, observing the stars above the jungle canopy, torchlight on carved stone, epic historical illustration.
+A blacksmith hammering a glowing orange horseshoe on an anvil, sparks flying in a dark forge, dramatic side light on his leather apron, high-speed photography.
+A weaver working at a large wooden loom with vivid red and indigo threads, a half-finished patterned rug in front of her, soft window light, documentary portrait.
+A glassblower turning a molten orange glob on a long pipe beside a roaring furnace, glowing heat reflecting on his face, dark studio, cinematic close-up.
+A coffee farmer handpicking ripe red cherries on a misty green mountainside plantation, woven basket at her hip, soft morning light, 35mm film look.
+A watchmaker assembling a tiny mechanical movement under a magnifying loupe, tweezers holding a gear, brass parts on a felt mat, extreme close-up with shallow focus.
+A potter in a Jaipur workshop painting intricate cobalt blue floral patterns onto glazed vases, shelves of finished pieces behind, warm afternoon light.
+A woodcarver carving an ornate floral panel on a teak door, curled shavings at his feet, raking light revealing the texture of the grain, detailed workshop photo.
+A cheesemaker turning large golden wheels of cheese on wooden shelves in a stone cellar, soft lantern light, rustic still-life photography.
+A tea picker on a steep emerald hillside plantation plucking fresh leaves into a basket on her back, morning mist rolling through the valley, wide landscape shot.
+A violin maker carving the curved scroll of a new instrument, spruce shavings and hand tools on a cluttered bench, warm workshop light, watercolor illustration.
+A boy in a homemade cardboard rocket painted with stars and planets, wearing a colander helmet, counting down in a sunny backyard, playful candid photo.
+A big family laughing around a long dinner table under string lights in a garden, passing bowls of food, warm golden evening, candid wide shot.
+A scruffy dog sitting patiently in front of the front door, ears perked and tail wagging, afternoon light through the hallway window, heartwarming close-up.
+Two siblings reading by flashlight inside a blanket fort made of sheets and pillows, fairy lights strung inside, cozy warm glow, whimsical storybook illustration.
+Kids racing wooden toy boats down a rain-filled gutter after a storm, splashing in rubber boots, wet sunlit street, joyful 35mm film snapshot.
+A father teaching his daughter to ride a bicycle on a quiet tree-lined street, her face full of determination, soft late-afternoon light, warm candid photo.
+Children blowing giant soap bubbles in a sunny meadow, rainbow reflections swirling on the bubbles, a small dog chasing them, bright cheerful summer photo.
+A grandfather and granddaughter planting tomato seedlings in a backyard vegetable garden, muddy hands and watering can, golden morning light, gentle watercolor painting.
+A little girl hanging her painting on the refrigerator with a proud smile, crayons scattered across the kitchen table, bright morning light, cozy isometric 3D illustration.
+A group of kids having a sleepover, telling stories in sleeping bags around a glowing lantern on a living room floor, warm cozy light, stylized 3D animation style.
+A silver-scaled sea dragon coiling through towering ocean waves at twilight, spray glittering around its horned head, storm clouds parting to reveal a pale moon, epic wide-angle fantasy oil painting.
+A spiral library carved inside the trunk of an ancient living tree, wooden shelves following the grain, a young scholar climbing a root ladder, shafts of green-gold light falling from knotholes above.
+A phoenix rising from glowing embers on a desert altar at dawn, fiery wings spread wide, sparks drifting into a lilac sky, dramatic low-angle digital painting with rich warm contrast.
+A chain of small floating islands linked by rope bridges, shepherds guiding fluffy sheep across a swaying span, cotton clouds below and soft afternoon sunlight, whimsical watercolor illustration.
+A gentle Chinese lung dragon winding through misty limestone peaks, its long whiskers trailing like ribbons, pearl glowing between its claws, traditional ink-and-color scroll painting style.
+A Norse world tree at the center of a starry cosmos, nine glowing realms nestled among its branches, a lone raven circling the trunk, intricate fantasy concept art with deep blues and gold.
+A kitsune with nine flowing white tails sitting beneath a vermilion shrine gate at dusk, fox fire flickering blue around it, falling maple leaves, cinematic soft-focus fantasy photograph.
+A gentle centaur gathering wildflowers beside a clear stream, dappled summer light on his chestnut flanks, painterly Pre-Raphaelite style with lush detail.
+A griffin perched on a crumbling marble column above a sunlit valley, golden feathers ruffled by wind, eagle eyes scanning the horizon, highly detailed realistic fantasy illustration, telephoto perspective.
+A herd of tiny moss-covered forest spirits carrying acorn lanterns across a fallen log at night, fireflies around them, macro photography look with shallow depth of field and warm glow.
+The lush garden deck of a generation starship, terraced vegetable beds curving up the cylinder walls, children chasing butterflies along a path, artificial sunlight strip glowing overhead, wide-angle sci-fi concept art.
+A retro-futurist roadside diner on a red desert planet at dusk, chrome rocket cars parked outside, a waitress in a bubble helmet serving milkshakes, 1950s pulp magazine illustration style.
+An android with porcelain-white plating painting a landscape at an easel in a sunlit loft, delicate brushstroke on canvas, paint smudges on its fingers, soft natural window light, cinematic photograph.
+The rotating ring corridor of a space station, crew members floating past a huge window showing Earth at sunrise, clean white panels and blue accent lights, photorealistic 35mm wide shot.
+A desert planet colony of domed adobe habitats under twin setting suns, solar sails catching orange light, a rover kicking up dust on the approach road, epic matte painting.
+A deep-sea research submarine interior with a scientist sketching a glowing anglerfish through a round porthole, dim red cabin lights, brass instruments, moody cinematic still.
+A massive orbital shipyard assembling a sleek starship, welding sparks drifting in zero gravity, tiny worker drones swarming the hull, distant blue planet below, hyper-detailed sci-fi render.
+A botanist in a lightweight spacesuit kneeling beside alien plants with translucent purple leaves on a misty jungle moon, helmet visor reflecting bioluminescent spores, soft overcast light, documentary-style photo.
+A cozy cargo-ship galley in deep space, two crew members sharing noodles at a fold-down table, warm amber lamps against stars outside the viewport, lived-in cinematic sci-fi film still.
+A colossal ancient alien monolith half-buried in ice on a frozen moon, a small expedition team with lamps at its base, gas giant rising on the horizon, cold blue-white atmospheric concept art.
+A bright Scandinavian kitchen with pale oak cabinets, white tiles, a bowl of green apples on the island, and soft morning sun spilling across the linen-draped table, interior design magazine photo.
+A mid-century modern lounge with a walnut sideboard, curved velvet sofa in mustard yellow, a globe pendant lamp and floor-to-ceiling windows framing pine trees, warm late-afternoon light, architectural photography.
+A greenhouse café filled with hanging ferns and trailing pothos, wrought-iron tables, a barista pouring tea, sunlight diffused through whitewashed glass panes, airy lifestyle photograph.
+A cozy attic art studio with sloping wooden beams, canvases leaning against the walls, a paint-spattered stool beneath a skylight, dust motes floating in a soft beam of light.
+An independent bookshop at night with towering shelves, a rolling ladder, green banker's lamps casting pools of warm light, a sleeping cat on a stack of books, cinematic interior shot.
+A modern spa bathroom with a freestanding stone tub, walls of pale terrazzo, potted monstera and hanging plants near a frosted window, soft diffused daylight, calm minimalist interior photography.
+A sunken conversation pit in a 1970s living room, burnt orange shag carpet, round cushions, a fireplace with a brass hood, warm retro film photograph with grain.
+A small Parisian apartment balcony converted into a breakfast nook, bistro chairs, potted geraniums, croissants on a tray, rooftops and chimneys glowing under early sunlight, editorial travel photo.
+A rustic Alpine chalet living room with exposed timber walls, sheepskin throws, a crackling wood stove and snowy peaks visible through a large window, golden hour interior photography.
+A Wabi-sabi inspired ceramics showroom with raw plaster walls, uneven handmade vases on low wooden plinths, a single branch in a tall jar, soft shadowless north light, quiet minimalist photo.
+A faceted glass perfume bottle resting on rippling champagne silk, a single drop on the stopper catching light, soft gradient backdrop, luxury product photography with crisp reflections.
+A pair of white high-top sneakers floating mid-air against a pastel mint backdrop, laces suspended gracefully, sharp studio lighting with soft shadows, clean commercial product shot.
+A vintage rangefinder camera with worn leather on a dark wooden desk, a roll of film and old photographs beside it, moody Rembrandt lighting, shallow depth of field.
+A three-tier lemon and berry cake on a white porcelain stand, fresh raspberries tumbling down the frosting, soft window light in a bright bakery, food magazine still life.
+A row of handmade ceramic mugs in speckled glazes on an open oak shelf, steam rising from one, morning light grazing the textures, warm lifestyle product photograph.
+A mechanical wristwatch with an open skeleton dial lying on black slate, tiny gears glinting, macro product photography with dramatic side lighting and deep shadows.
+A Dutch Golden Age style still life of a silver goblet, peeled lemon, grapes and a seashell on a draped table, rich chiaroscuro against a dark background, oil painting.
+A glass terrarium with miniature succulents and pebbles on a sunlit windowsill, droplets on the glass, soft bokeh background, delicate macro photography with natural light.
+Overhead flat lay of artisan stationery on a linen tablecloth: a fountain pen, wax seal, dried flowers and kraft envelopes, soft even daylight, neutral earthy tones.
+A pair of polished brass headphones on a marble pedestal, dramatic teal and orange rim lighting, reflective black floor, high-end tech product photography, low-angle hero shot.
+A layered paper-cut diorama of a mountain valley at sunset, each paper layer a deeper shade of coral and violet, tiny paper birds overhead, soft backlight casting gentle shadows.
+A Chinese ink wash painting of a lone fisherman on a bamboo raft beneath misty mountains, sparse brushstrokes, generous empty space, subtle grey gradients on rice paper.
+A low-poly landscape of rolling green hills, faceted pine trees and a winding river under a gradient sky, clean geometric 3D render with soft ambient occlusion.
+A stained glass window depicting a stylized sunrise over ocean waves, deep cobalt and amber glass pieces, sunlight streaming through and projecting colors onto a stone floor.
+A Byzantine-style mosaic of a peacock among vines, thousands of tiny gold and turquoise tesserae shimmering, photographed close-up under warm museum lighting.
+Abstract fluid art with swirling cells of teal, gold and deep magenta paint merging on a canvas, glossy resin finish, high-resolution macro photograph showing delicate lacing patterns.
+A collection of origami animals—a crane, fox, elephant and frog—folded from patterned washi paper and arranged on a light wooden table, soft top light, shallow depth of field.
+A claymation scene of a tiny lighthouse keeper sipping tea on a rocky island, plasticine waves and cotton-wool clouds, visible fingerprint textures, warm stop-motion film lighting.
+A Bauhaus-inspired geometric composition of overlapping circles, triangles and bold lines in primary red, yellow and blue on cream paper, flat graphic poster style with subtle print grain.
+An Art Nouveau illustration of a woman with flowing hair intertwined with lilies and swirling vines, ornamental border, muted gold and sage palette, lithograph poster style.
+A supercell thunderstorm rotating over an empty prairie at dusk, its striated mothership cloud lit from within by lightning, a lone windmill in the foreground, wide-angle storm-chaser photograph.
+Thick fog blanketing a hilly city at dawn, only bridge towers and church spires poking through, the rising sun painting the mist peach and gold, aerial drone photograph.
+A vivid double rainbow arching over a green valley after a summer shower, wet grass sparkling, dark clouds retreating behind a farmhouse, crisp landscape photograph.
+Multiple forks of lightning striking a dark open sea at night, purple-lit clouds reflected on choppy water, long-exposure photograph from a rocky shore.
+Delicate frost fern patterns spreading across a cold windowpane, morning sun glowing through the ice crystals in gold and blue, extreme macro photography.
+A towering desert sandstorm rolling toward a small oasis town, palms bending, an orange wall of dust swallowing the sky, dramatic telephoto shot.
+Mammatus clouds hanging like soft pouches over a quiet suburban street at sunset, glowing pink and orange after a storm, wide-angle photograph with deep saturated tones.
+A vast field of noctilucent clouds glowing electric blue above a northern lake at midnight, still water mirroring the sky, long-exposure night photography.
+Sun rays bursting through dark storm clouds over a mountain lake, crepuscular beams fanning across the water, a small rowboat for scale, moody cinematic landscape photo.
+A light snowfall drifting through a streetlamp's glow on a quiet village lane at night, each flake sparkling, soft bokeh and cool blue tones, film photograph.
+An editorial portrait of a woman with close-cropped silver hair in a sculptural black coat, a single hard light carving sharp shadows across her face, deep charcoal backdrop, high-fashion magazine style.
+A young Ghanaian man wearing a vibrant handwoven kente cloth draped over his shoulder, standing proudly in a sunlit courtyard, rich colors, respectful documentary portrait photography.
+A Korean woman in an elegant pastel hanbok walking through a palace courtyard in autumn, red maple leaves around her, soft natural light, graceful full-length portrait.
+A teenager in oversized streetwear and chunky sneakers leaning against a weathered brick alley wall, puddles reflecting evening sky, cinematic 50mm street fashion photograph.
+An elderly couple laughing together on a park bench, hands intertwined, autumn sunlight filtering through trees behind them, warm candid portrait with shallow depth of field.
+A Peruvian weaver in a bright embroidered montera hat and woven shawl sitting by her loom high in the Andes, crisp mountain light, detailed environmental portrait.
+A model in a flowing crimson gown standing on wind-swept white sand dunes, fabric billowing dramatically behind her, golden hour backlight, fashion editorial photograph.
+A Rajasthani man wearing a bright saffron turban and a curled mustache, smiling warmly in front of a blue-painted wall, vivid colors, close-up 85mm portrait.
+A Mongolian herder woman in a richly decorated deel and fur-trimmed hat standing beside her horse on the open steppe, low evening sun, respectful wide environmental portrait.
+A black-and-white studio portrait of a jazz-era-styled dancer in a sequined dress mid-twirl, motion blur on the fringe, crisp face, classic Hollywood glamour lighting.
+An overhead shot of an Ethiopian injera platter topped with colorful stews, lentils, collard greens and spiced beef, hands reaching in to share, warm natural light, rustic woven table.
+Mexican street tacos al pastor on a small plate, topped with pineapple, cilantro and onion, lime wedges beside them, a sizzling food cart blurred behind, vibrant evening street food photography.
+A bamboo steamer basket of translucent shrimp dumplings with steam rising, a teapot and chopsticks nearby, dark wooden table, moody side lighting, close-up food photograph.
+Hands rolling fresh pasta dough on a floured wooden board in a sunny Italian kitchen, ribbons of tagliatelle draped over a rack, soft warm window light.
+A traditional Indian thali on a polished steel plate, small bowls of dal, paneer, raita, pickles and fluffy rice with a stack of rotis, overhead food photography, bright natural light.
+Delicate Japanese wagashi sweets shaped like cherry blossoms and autumn leaves on a lacquered tray, a bowl of frothy matcha beside them, soft diffused light, minimalist composition.
+A lavish Turkish breakfast spread with olives, tomatoes, cucumbers, white cheese, honeycomb, simit and tulip-shaped tea glasses, sunlit terrace overlooking the sea, wide overhead shot.
+A Spanish paella pan bubbling over an open fire, golden saffron rice studded with mussels and prawns, smoke curling upward, outdoor courtyard at golden hour.
+A Vietnamese bowl of pho with thin beef slices, fresh herbs, bean sprouts and lime on a plastic street stall table, steam rising in the morning light, candid travel food photo.
+A Moroccan clay tagine lifted to reveal slow-cooked chicken with preserved lemons and green olives, fragrant steam, patterned tiles around it, warm low-key lighting.
+A soaring Gothic cathedral nave with ribbed vaults and tall pointed arches, colored light from rose windows pooling on the stone floor, symmetrical wide-angle architectural photograph.
+A brutalist concrete library with massive cantilevered forms and deep-set windows, students walking up wide exterior steps, dramatic overcast sky, high-contrast black-and-white photograph.
+A Moorish courtyard with intricate carved stucco arches, a long reflecting pool and orange trees, late afternoon light casting lace-like shadows, serene architectural photograph.
+A treehouse village of wooden cabins connected by rope walkways high in a rainforest canopy, lanterns lit at dusk, mist rising between the trunks, cinematic concept art.
+A whitewashed cliffside village with blue-domed chapels stacked above a deep blue sea, bougainvillea spilling over stairways, bright midday sun, aerial travel photograph.
+A futuristic eco-skyscraper wrapped in terraced gardens and cascading greenery, wind turbines integrated into its crown, set against a clear morning sky, photorealistic architectural render.
+A Sahelian mud-brick mosque with wooden beams protruding from its earthen walls, a market gathering in its shade at sunrise, warm ochre tones, wide-angle documentary photograph.
+A Russian Orthodox church with colorful onion domes dusted in fresh snow, a frozen river in the foreground, pale winter sunrise, crisp landscape architecture photo.
+A Japanese wooden pagoda reflected in a still pond surrounded by red autumn maples, early morning stillness, symmetrical composition, soft golden light.
+An Art Deco hotel lobby with geometric gold inlays, a sweeping marble staircase and a fan-shaped chandelier, warm evening glow, elegant interior architectural photograph.

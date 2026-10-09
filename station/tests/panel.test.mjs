@@ -27,6 +27,8 @@ const catalog = { packs: [
 const state = { engine: { version: 'b1' }, packs, running: [], tasks: [] };
 const calls = [];
 const me = { signedIn: false, lastEmail: '' };
+let appsOpen = { images: true, music: true, video: true, coding: true, chat: true };
+let S = null;
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/' });
 const w = dom.window;
 w.__TAURI__ = {
@@ -48,7 +50,9 @@ w.__TAURI__ = {
     if (a.path === '/api/system') return { ok: true, status: 200, data: { ram: { totalGB: 32, freeGB: 20 }, disk: { freeGB: 100, totalGB: 500 }, engine: { version: 'b1', gpuBuild: true }, gpu: { name: 'RTX', memTotalGB: 24, memUsedGB: 2 }, crashesToday: 0, crashesTotal: 0, uptimeS: 3600, requests: 12 } };
     if (a.path === '/api/crashes') return { ok: true, status: 200, data: [] };
     if (a.path === '/api/notifications') return { ok: true, status: 200, data: { notifications: [{ id: 'n1', title: 'New build', message: 'Get it at https://sushila.ai/install today.', url: 'https://sushila.ai/install', linkText: 'Get it', level: 'info' }] } };
-    if (a.path === '/api/prompts/images') return { ok: true, status: 200, data: { prompts: ['A red fox in snow', 'A lighthouse at dusk'] } };
+    if (a.path === '/api/prompts/images') return { ok: true, status: 200, data: { prompts: S && S.manyPrompts ? Array.from({ length: 30 }, (_, i) => 'Example prompt ' + i) : ['A red fox in snow', 'A lighthouse at dusk'] } };
+    if (a.path === '/api/prompts/videos') return { ok: true, status: 200, data: { prompts: ['A paper boat drifting down a rainy street, slow dolly in', 'A kite rising over a beach at sunset, crane up'] } };
+    if (a.path === '/api/apps-open') return { ok: true, status: 200, data: { apps: appsOpen } };
     if (a.path === '/api/share/me') return { ok: true, status: 200, data: { ...me } };
     if (a.path === '/api/share/code') return { ok: true, status: 200, data: { ok: true } };
     if (a.path === '/api/share/verify') { Object.assign(me, { signedIn: true, email: a.body.email }); return { ok: true, status: 200, data: { ok: true } }; }
@@ -60,7 +64,7 @@ w.CSS = w.CSS || { escape: (x) => String(x).replace(/[^\w-]/g, (c) => '\\' + c) 
 { const sc = w.document.createElement('script'); sc.textContent = readFileSync(join(dist, 'app.js'), 'utf8') + '\n;window.__S = S;'; w.document.body.append(sc); }
 const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
 await tick(300);
-const S = w.__S, $ = (s) => w.document.querySelector(s), $$ = (s) => [...w.document.querySelectorAll(s)];
+S = w.__S; const $ = (s) => w.document.querySelector(s), $$ = (s) => [...w.document.querySelectorAll(s)];
 const text = (el) => (el ? el.textContent : '');
 
 // --- a newer Station: the notice with its release notes; Upgrade now asks the app to install it
@@ -183,6 +187,50 @@ ok(text(w.document.getElementById('baracts')).includes('Pause the queue') && tex
 await w.eval('mePanel()'); await tick(200);
 { const sh = text(w.document.getElementById('sheet')); ok(sh.includes('https://sushila.ai/c/abc123def456') && sh.includes('3 views') && sh.includes('Delete link'), 'account window: the links with views and Delete link'); }
 w.document.getElementById('sheet').click();
+
+// --- "100% FREE, generated locally!" right by the Download button of a file made here (not on another one)
+S.lib = { items: [{ kind: 'image', name: 'a.png', rel: 'Images/a.png', path: '/x/a.png', created: '2026-10-09T10:00:00Z', where: 'local', pack: 'z-image', prompt: 'a fox' },
+  { kind: 'image', name: 'b.png', rel: 'Images/b.png', path: '/x/b.png', created: '2026-10-09T09:00:00Z', where: 'cloud:x', pack: 'cloud', prompt: 'a cat' }], trash: [] };
+await w.eval('go("mycontent")'); await tick(100);
+{ const tiles = $$('#view .tile'); const t = tiles.find((x) => text(x).includes('a.png')), u = tiles.find((x) => text(x).includes('b.png'));
+  const tag = t && t.querySelector('.freetag'), dl = t && [...t.querySelectorAll('button')].find((b) => text(b) === 'Download');
+  ok(tag && dl && tag.nextElementSibling && tag.nextElementSibling.contains(dl), 'myContent: the free tag sits right above the Download button');
+  ok(u && !u.querySelector('.freetag'), 'a file made elsewhere has no free tag'); }
+// --- Stress test: 25 different example prompts queued
+S.manyPrompts = true; S.prompts = null;
+await w.eval('go("pictures")'); await tick(100);
+ok([...w.document.querySelectorAll('#view button')].some((b) => text(b) === 'Stress test: generate 25 images'), 'Images: the Stress test button');
+{ const before = calls.length;
+  const p0 = w.eval('stressTest()'); await tick(100);
+  [...w.document.querySelectorAll('#sheet button')].find((b) => text(b).startsWith('Queue 25')).click(); await p0; await tick(100);
+  const q = calls.slice(before).filter(([c, a]) => c === 'api' && a.path === '/api/queue' && a.method === 'POST').map(([, a]) => a.body);
+  ok(q.length === 25 && new Set(q.map((b) => b.params.prompt)).size === 25 && q.every((b) => b.kind === 'image'), 'Stress test: 25 picture jobs with 25 different prompts (' + q.length + ')'); }
+// --- 🎲 Random on the video page: one of the video examples
+await w.eval('go("video")'); await tick(100);
+w.document.getElementById('vp').value = 'A paper boat drifting down a rainy street, slow dolly in';
+[...w.document.querySelectorAll('#view button')].find((b) => text(b).includes('Random')).click(); await tick(100);
+ok(w.document.getElementById('vp').value === 'A kite rising over a beach at sunset, crane up', 'video page: Random fills another video example: ' + w.document.getElementById('vp').value);
+
+// --- prompt history: typed here + saved with every file + still in the queue, newest first, each prompt once
+S.lib = { items: [{ kind: 'image', name: 'x.png', rel: 'Images/x.png', created: '2026-10-09T12:00:00Z', where: 'local', prompt: 'made in the browser', size: '1024x1024', seed: 7 },
+  { kind: 'image', name: 'y.png', rel: 'Images/y.png', created: '2026-10-09T11:00:00Z', where: 'local', prompt: 'made in the browser' },
+  { kind: 'music', name: 's.mp3', rel: 'Music/s.mp3', created: '2026-10-09T11:30:00Z', prompt: 'a song' }], trash: [] };
+S.queue = { jobs: [{ id: 'q1', kind: 'image', status: 'queued', created: '2026-10-09T13:00:00Z', params: { prompt: 'still queued', size: '768x768' } }] };
+{ const h = await w.eval('histAll("pictures")');
+  ok(h[0].f.ip === 'still queued' && h.some((e) => e.f.ip === 'made in the browser' && e.f.isize === '1024x1024' && e.f.iseed === '7') && h.filter((e) => e.f.ip === 'made in the browser').length === 1 && !h.some((e) => e.f.ip === 'a song'),
+    'prompt history: queued + saved with files, newest first, once each: ' + h.map((e) => e.f.ip).join(' | ')); }
+
+// --- an app switched off on sushila.ai: greyed out, the page says so, nothing is made
+appsOpen = { ...appsOpen, images: false }; S.appsAt = 0;
+await w.eval('loadAppsOpen()'); await tick(150);
+{ const item = $$('#nav .navitem').find((x) => text(x).includes('Generate Images'));
+  ok(item && item.classList.contains('off') && text(item).includes('currently disabled'), 'sidebar: Generate Images greyed, "currently disabled"');
+  await w.eval('go("pictures")'); await tick(100);
+  ok(text($('#view')).includes('Generate Images is currently disabled'), 'the page says it is currently disabled');
+  const before = calls.length; await w.eval('makePictures()'); await tick(50);
+  ok(!calls.slice(before).some(([c, a]) => c === 'api' && a.path === '/api/queue'), 'nothing is queued while it is off'); }
+appsOpen = { ...appsOpen, images: true }; S.appsAt = 0; await w.eval('loadAppsOpen()'); await tick(150);
+ok(!$$('#nav .navitem').find((x) => text(x).includes('Generate Images')).classList.contains('off'), 'switched on again: not greyed');
 
 // --- free tag
 ok(w.eval('freeTag({ where: "local" })') && !w.eval('freeTag({ where: "cloud:x" })') && !w.eval('freeTag({})'), 'free tag only for where=local');

@@ -35,7 +35,8 @@ const human = (b) => !b ? '' : b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e
 const when = (t) => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleString(); };
 // files the engine made on this computer (library "where": "local"); files from remote/cloud models get no tag
 const FREE_LOCAL = '100% FREE, generated locally!';
-const freeTag = (x) => x.where === 'local' ? h('span', { class: 'freetag' }, FREE_LOCAL) : null;
+// block: on a line of its own (tiles); otherwise inline next to the buttons
+const freeTag = (x, block) => x.where === 'local' ? h(block ? 'div' : 'span', { class: 'freetag' + (block ? ' block' : '') }, FREE_LOCAL) : null;
 const MUSIC_STYLE = 'Loud Drums, Guitar, Violin';
 // everything that was asked for a file (the engine keeps it in the library as "details"), one "name: value" per line
 const settingsText = (d) => d && typeof d === 'object' ? Object.entries(d).map(([k, v]) => k + ': ' + v).join('\n') : '';  // the style of a song when none is typed (the engine uses the same)
@@ -44,6 +45,16 @@ const settingsText = (d) => d && typeof d === 'object' ? Object.entries(d).map((
 const ROLE = window.SUSHILA_ROLE || 'app';
 const IN_BROWSER = ROLE !== 'app', MANAGES = ROLE !== 'visitor', VIA_LINK = !!window.SUSHILA_PREFIX;
 const VISITOR_VIEWS = ['pictures', 'music', 'video', 'code', 'chat', 'queue', 'help'];
+// which Generate pages sushila.ai has open (table sushilaai-apps-open, through the engine; unknown = open)
+const APP_OF = { pictures: 'images', music: 'music', video: 'video', code: 'coding', chat: 'chat' };
+const APP_OF_KIND = { image: 'images', music: 'music', video: 'video', code: 'coding', text: 'chat' };
+const isOff = (v) => !!APP_OF[v] && !!S.appsOpen && S.appsOpen[APP_OF[v]] === false;
+const kindOff = (p) => !!S.appsOpen && S.appsOpen[APP_OF_KIND[packKind(p)]] === false;
+const offToast = (v) => toast((TITLES[v] ? TITLES[v][0] : v) + ' is currently disabled.', 'err');
+async function loadAppsOpen() {
+  if (S.appsAt && Date.now() - S.appsAt < 60000) return; S.appsAt = Date.now();
+  try { const r = await get('/api/apps-open'); const was = JSON.stringify(S.appsOpen || {}); S.appsOpen = r.apps || {}; if (JSON.stringify(S.appsOpen) !== was) { S.sig = ''; render(); } } catch (_) {}
+}
 const allowed = (v) => (MANAGES ? !(VIA_LINK && v === 'link') : VISITOR_VIEWS.includes(v));
 const KIND = { text: 'Chat', code: 'Code', image: 'Pictures', music: 'Music', video: 'Video' };
 
@@ -108,7 +119,8 @@ function renderNav() {
   // only the pages this window may show (visitors: Create, Queue, Help); empty groups are left out
   const groups = NAV.map(([g, all]) => [g, all.filter(([k]) => allowed(k))]).filter(([, items]) => items.length);
   put($('nav'), ...groups.map(([g, items]) => [g ? h('div', { class: 'navgroup' }, g) : h('div', { style: 'height:6px' }), ...items.map(([k, t]) =>
-    h('div', { class: 'navitem' + (S.view === k ? ' on' : ''), onclick: () => go(k), role: 'button', tabindex: 0 }, h('span', { class: 'ico c-' + k }, icon(k, 16)), t.endsWith(',') ? h('span', { class: 'navlbl' }, t, h('small', {}, 'locally or remotely.')) : t,
+    h('div', { class: 'navitem' + (S.view === k ? ' on' : '') + (isOff(k) ? ' off' : ''), onclick: () => go(k), role: 'button', tabindex: 0, title: isOff(k) ? 'Currently disabled' : null }, h('span', { class: 'ico c-' + k }, icon(k, 16)),
+      isOff(k) ? h('span', { class: 'navlbl' }, t.replace(/,$/, ''), h('small', {}, 'currently disabled')) : t.endsWith(',') ? h('span', { class: 'navlbl' }, t, h('small', {}, 'locally or remotely.')) : t,
       k === 'queue' && qn ? h('span', { class: 'badge' }, qn) : null))]));
 }
 // the big Sushila Engine button under the logo: its state, always visible; a click opens the engine and model packs panel
@@ -205,9 +217,9 @@ function packList() {
     for (const md of p.turbo ? ['turbo', 'regular'] : ['regular']) {
       const on = r && (r.mode || 'regular') === md;
       rows.push(h('div', { class: 'item' + (md === 'regular' && p.turbo ? ' sub2' : '') }, kicon(p), h('div', { class: 'txt' }, h('b', {}, p.name + ' · ' + modeName(md)), h('span', {}, kindTag(p), ' ', facts(p))),
-        on ? h('span', { class: 'tag on' }, r.ready ? 'Running' : 'Starting…') : h('span', { class: 'tag' }, 'Installed'),
+        on ? h('span', { class: 'tag on' }, r.ready ? 'Running' : 'Starting…') : h('span', { class: 'tag' }, kindOff(p) ? 'Currently disabled' : 'Installed'),
         on ? h('button', { class: 'btn small', onclick: () => packDo('stop', p) }, 'Stop')
-          : h('button', { class: 'btn small' + (md === 'turbo' || !p.turbo ? ' primary' : ''), disabled: !e.running, title: 'Start ' + p.name + ' (' + modeName(md) + ')', onclick: () => packDo('start', p, md) }, r ? '▶ Switch' : '▶ Start')));
+          : h('button', { class: 'btn small' + (md === 'turbo' || !p.turbo ? ' primary' : ''), disabled: !e.running || kindOff(p), title: kindOff(p) ? 'Currently disabled' : 'Start ' + p.name + ' (' + modeName(md) + ')', onclick: () => packDo('start', p, md) }, r ? '▶ Switch' : '▶ Start')));
     }
   }
   return h('div', { id: 'pklist', class: 'group packlist' }, rows.length ? rows : h('div', { class: 'item' }, h('span', { class: 'mut' },
@@ -398,6 +410,8 @@ function render() {
   const view = $('view'); view.className = S.view === 'chat' || S.view === 'code' ? 'flush' : '';
   put($('baracts'), ...(S.eng.running ? modelBar(S.view) : []), ...(VIEWS[S.view].bar ? VIEWS[S.view].bar() : []));
   put($('bargo'), topButtons());
+  if (isOff(S.view)) { view.className = ''; put($('baracts')); put(view, h('div', { class: 'hello' }, h('div', { class: 'big' }, '⏸'), h('h2', {}, (TITLES[S.view] || [''])[0] + ' is currently disabled'),
+    h('p', {}, 'It is switched off for now. The other pages work as usual; this one comes back by itself when it is switched on again.'))); return; }
   if (!S.eng.running && !['engine', 'settings', 'help'].includes(S.view)) { view.className = ''; put(view, stoppedPanel()); return; }
   const keep = view.querySelector('.msgs'); const scroll = keep ? keep.scrollTop : 0;
   put(view, VIEWS[S.view].render()); restoreDraft();
@@ -461,6 +475,7 @@ function msgEl(x) {
 const CODE_SYSTEM = 'You are an expert programmer. Answer with correct, complete code in fenced code blocks and short explanations.';
 // the question goes to the queue (the engine answers it; the model is started when needed); the answer is kept there
 async function sendBackground(view) {
+  if (isOff(view)) return offToast(view);
   const ta = $('q'); const q = ta ? ta.value.trim() : ''; if (!q) return;
   const m = currentModel(view); if (!m) { missingPack(view); return; }
   try {
@@ -470,6 +485,7 @@ async function sendBackground(view) {
   } catch (e) { toast(e.message, 'err', 'Could not add it'); }
 }
 async function send(view) {
+  if (isOff(view)) return offToast(view);
   const ta = $('q'); const q = ta ? ta.value.trim() : ''; if (!q) return;
   const m = currentModel(view);
   if (!m) { missingPack(view); return; }
@@ -508,7 +524,8 @@ VIEWS.pictures = {
   render() {
     const form = h('div', { class: 'panel' },
       h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Describe the picture'),
-        h('span', { class: 'row', style: 'gap:6px' }, h('button', { class: 'btn small', title: 'Fill in one of the example prompts, picked at random', onclick: randomPrompt }, '🎲 Random'), histButton('pictures'))),
+        h('span', { class: 'row', style: 'gap:6px' }, h('button', { class: 'btn small', title: 'Fill in one of the example prompts, picked at random', onclick: () => randomPrompt('pictures') }, '🎲 Random'), histButton('pictures'),
+          h('button', { class: 'btn small', title: '25 different example prompts, one picture each, in the queue', onclick: stressTest }, 'Stress test: generate 25 images'))),
       h('textarea', { class: 'field', id: 'ip', rows: 5, style: 'width:100%', placeholder: 'A red fox in fresh snow, morning light' }),
       h('div', { class: 'row', style: 'margin-top:4px' }, h('div', { class: 'grow' }, h('label', { class: 'lbl' }, 'Size'), h('select', { class: 'field', id: 'isize', style: 'width:100%' },
         ...imageSizes(currentModel('pictures')).map(([v, t]) => h('option', { value: v }, t)))),
@@ -528,12 +545,34 @@ function histAdd(v) {
   try { localStorage.setItem('station-hist-' + v, JSON.stringify(list.slice(0, 200))); } catch (_) {}
 }
 function histButton(v) { return h('button', { class: 'btn small', title: 'Earlier prompts: pick one to fill the form', onclick: () => histPick(v) }, '🕘 Prompt history'); }
-function histPick(v) {
-  const list = histGet(v);
+// the whole history of a page: what was typed in this window, plus every picture, song or video Sushila has made (its
+// prompt and settings are saved with the file, from the app, the browser page, the internet link or the queue) and
+// what is still in the queue; newest first, each prompt once
+const HIST_KIND = { pictures: 'image', music: 'music', video: 'video' };
+function histOfItem(v, x) {
+  const p = x.prompt || x.style || (x.params && (x.params.prompt || x.params.style)) || '';
+  if (!p) return null;
+  const d = x.details || x.params || {}, at = x.created || '';
+  if (v === 'pictures') return { f: { ip: p, isize: x.size || d.size || '', in: '1', iseed: x.seed != null && x.seed !== -1 && x.seed !== '' ? String(x.seed) : '' }, at };
+  if (v === 'music') return { f: { mstyle: p, mlyrics: x.lyrics || d.lyrics || '', mdur: String(x.duration || d.duration || '') }, at };
+  const sz = x.size || (d.width ? d.width + 'x' + d.height : '');
+  return { f: { vp: p, vsize: sz, vlen: String(x.frames || d.video_frames || '') }, at };
+}
+async function histAll(v) {
+  if (!S.lib) await loadLib();
+  const kind = HIST_KIND[v];
+  const made = ((S.lib && S.lib.items) || []).filter((x) => x.kind === kind).map((x) => histOfItem(v, x));
+  const queued = ((S.queue && S.queue.jobs) || []).filter((j) => j.kind === kind && j.status !== 'ready').map((j) => histOfItem(v, { params: j.params, created: j.created }));
+  const all = histGet(v).concat(made, queued).filter(Boolean).sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+  const seen = new Set();
+  return all.filter((e) => { const k = (e.f.ip || e.f.mstyle || e.f.vp || '').trim() + '|' + (e.f.mlyrics || ''); if (!k.trim() || seen.has(k)) return false; seen.add(k); return true; });
+}
+async function histPick(v) {
+  const list = await histAll(v);
   let close;
   const use = (e) => { S.draft[v] = Object.assign({}, S.draft[v], e.f); for (const [id, val] of Object.entries(e.f)) { const x = $(id); if (x) x.value = val; } close(); };
-  close = sheet([h('div', { class: 'row', style: 'margin-bottom:8px' }, h('h3', { style: 'margin:0' }, 'Prompt history'), h('span', { class: 'grow' }),
-      list.length ? h('button', { class: 'btn small danger', onclick: async () => { if (await ask('Clear the prompt history?', 'The list of earlier prompts on this page is emptied (your files stay).', 'Clear', true)) { try { localStorage.removeItem('station-hist-' + v); } catch (_) {} } } }, 'Clear') : null,
+  close = sheet([h('div', { class: 'row', style: 'margin-bottom:8px' }, h('h3', { style: 'margin:0' }, 'Prompt history (' + list.length + ')'), h('span', { class: 'grow' }),
+      list.length ? h('button', { class: 'btn small danger', onclick: async () => { if (await ask('Clear the prompt history?', 'The prompts typed in this window are forgotten. Prompts saved with your pictures, songs and videos stay listed while the files exist.', 'Clear', true)) { try { localStorage.removeItem('station-hist-' + v); } catch (_) {} } } }, 'Clear') : null,
       h('button', { class: 'btn small', onclick: () => close() }, 'Close')),
     // each prompt can be selected and copied (the whole text); only Use fills the form
     list.length ? h('div', { class: 'group', style: 'max-height:60vh;overflow:auto;margin:0' }, list.map((e) => { const text = e.f.ip || e.f.mstyle || e.f.vp || '';
@@ -546,16 +585,37 @@ function histPick(v) {
       : h('p', {}, 'No prompts yet: what you make on this page is listed here.')], true);
 }
 // 🎲 Random: one of the engine's example prompts for new pictures (never the one already in the box)
-async function randomPrompt() {
-  if (!S.prompts) { try { S.prompts = (await get('/api/prompts/images')).prompts || []; } catch (e) { toast(e.message, 'err', 'Could not get the example prompts'); return; } }
-  const box = $('ip'); if (!box || !S.prompts.length) return;
-  const others = S.prompts.filter((p) => p !== box.value.trim());
+// 🎲 Random on the picture and video pages: one of the engine's example prompts for that page (never the one in the box)
+async function randomPrompt(view = 'pictures') {
+  const kind = view === 'video' ? 'videos' : 'images', id = view === 'video' ? 'vp' : 'ip';
+  S.promptLists = S.promptLists || {};
+  if (kind === 'images' && S.prompts) S.promptLists.images = S.prompts;
+  if (!S.promptLists[kind]) { try { S.promptLists[kind] = (await get('/api/prompts/' + kind)).prompts || []; } catch (e) { toast(e.message, 'err', 'Could not get the example prompts'); return; } }
+  if (kind === 'images') S.prompts = S.promptLists.images;
+  const list = S.promptLists[kind], box = $(id); if (!box || !list.length) return;
+  const others = list.filter((p) => p !== box.value.trim());
   box.value = others[Math.floor(Math.random() * others.length)];
-  S.draft.pictures = Object.assign({}, S.draft.pictures, { ip: box.value }); box.focus();
+  S.draft[view] = Object.assign({}, S.draft[view], { [id]: box.value }); box.focus();
+}
+// Stress test: 25 different example prompts, picked at random, queued as 25 pictures with this page's model and size
+async function stressTest() {
+  if (isOff('pictures')) return offToast('pictures');
+  const m = currentModel('pictures'); if (!m) { missingPack('pictures'); return; }
+  if (!S.prompts) { try { S.prompts = (await get('/api/prompts/images')).prompts || []; } catch (e) { toast(e.message, 'err', 'Could not get the example prompts'); return; } }
+  const pool = S.prompts.slice(), picks = [];
+  while (picks.length < 25 && pool.length) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  const size = $('isize') ? $('isize').value : '768x768';
+  if (!await ask('Stress test: generate ' + picks.length + ' images?', picks.length + ' different example prompts, one picture each with ' + (m.pack ? m.pack.name : m.id) + ' at ' + size + ', go to the queue and run one after another (the model starts by itself when needed).', 'Queue ' + picks.length + ' pictures')) return;
+  let n = 0;
+  try { for (const prompt of picks) { await post('/api/queue', { kind: 'image', model: m.id, title: 'Stress test ' + (n + 1) + '/' + picks.length + ': ' + prompt.slice(0, 150), params: { prompt, size, seed: '' } }); n++; } }
+  catch (e) { toast(e.message, 'err', 'Queued ' + n + ' of ' + picks.length); }
+  if (n) toast(n + ' pictures are in the queue. A notice says when each is ready; they appear here and in myContent.', 'ok', 'Stress test queued');
+  loadQueue();
 }
 // pictures go to the queue like songs and videos: the engine makes them (starting the model when it is not running), so
 // the window can be closed; a notice says when they are ready and they appear here and in myContent
 async function makePictures() {
+  if (isOff('pictures')) return offToast('pictures');
   const m = currentModel('pictures'), prompt = $('ip').value.trim(); if (!prompt) { toast('Describe the picture first.', 'err'); return; }
   if (!m) { missingPack('pictures'); return; }
   const n = +$('in').value || 1, size = $('isize').value, seed = $('iseed').value.trim();
@@ -572,7 +632,8 @@ function queueForm(view) {
     h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Style'), histButton('music')), h('input', { class: 'field', id: 'mstyle', style: 'width:100%', placeholder: 'Upbeat pop, female vocals, bright synths (left empty: ' + MUSIC_STYLE + ')' }),
     h('label', { class: 'lbl' }, 'Lyrics (empty: instrumental)'), h('textarea', { class: 'field', id: 'mlyrics', rows: 8, style: 'width:100%', placeholder: '[Verse]\n…\n[Chorus]\n…' }),
     h('label', { class: 'lbl' }, 'Length'), h('select', { class: 'field', id: 'mdur', style: 'width:100%' }, ...[[30, '30 seconds'], [60, '1 minute'], [120, '2 minutes'], [180, '3 minutes']].map(([v, t]) => h('option', { value: v, selected: v === 60 }, t)))]
-    : [h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Describe the video'), histButton('video')), h('textarea', { class: 'field', id: 'vp', rows: 5, style: 'width:100%', placeholder: 'A paper boat drifting down a rainy street, cinematic' }),
+    : [h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Describe the video'),
+        h('span', { class: 'row', style: 'gap:6px' }, h('button', { class: 'btn small', title: 'Fill in one of the example prompts, picked at random', onclick: () => randomPrompt('video') }, '🎲 Random'), histButton('video'))), h('textarea', { class: 'field', id: 'vp', rows: 5, style: 'width:100%', placeholder: 'A paper boat drifting down a rainy street, cinematic' }),
       h('div', { class: 'row' }, h('div', { class: 'grow' }, h('label', { class: 'lbl' }, 'Size'), h('select', { class: 'field', id: 'vsize', style: 'width:100%' }, ...[['1280x704', 'Landscape 720p'], ['704x1280', 'Portrait 720p'], ['832x480', 'Small, faster']].map(([v, t]) => h('option', { value: v }, t)))),
         h('div', { class: 'grow' }, h('label', { class: 'lbl' }, 'Length'), h('select', { class: 'field', id: 'vlen', style: 'width:100%' }, ...[[49, '2 seconds'], [81, '3 seconds'], [121, '5 seconds']].map(([v, t]) => h('option', { value: v }, t))))),
       h('label', { class: 'lbl' }, 'Start from a picture (optional)'), h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: pickStart }, 'Choose picture…'), h('span', { class: 'small mut', id: 'vstartname' }, S.vstart ? S.vstart.name : 'none'),
@@ -588,6 +649,7 @@ async function pickStart() {
   } catch (e) { toast(String(e), 'err'); }
 }
 async function addJob(view) {
+  if (isOff(view)) return offToast(view);
   // the queue starts the model itself when its turn comes; nothing typed is lost either way
   const m = currentModel(view); if (!m) { missingPack(view); return; }
   // no style typed: the default style, shown in the box so it is clear what was used (and kept in the history)
@@ -622,7 +684,9 @@ function mediaEl(x, small) {
 function libTile(x) {
   return h('div', { class: 'tile' }, h('div', { class: 'thumb', onclick: () => preview(x) }, x.kind === 'music' ? '🎵' : mediaEl(x, true)),
     x.kind === 'music' ? mediaEl(x) : null,
-    h('div', { class: 'cap' }, h('b', {}, x.prompt || x.name), h('span', { class: 'mut' }, (x.pack || '') + (x.created ? ' · ' + new Date(x.created).toLocaleDateString() : '')), freeTag(x)),
+    h('div', { class: 'cap' }, h('b', {}, x.prompt || x.name), h('span', { class: 'mut' }, (x.pack || '') + (x.created ? ' · ' + new Date(x.created).toLocaleDateString() : ''))),
+    // "100% FREE, generated locally!" right by the Download button of everything made on this computer
+    x.trash ? null : freeTag(x, true),
     h('div', { class: 'acts' }, h('button', { class: 'btn small', title: 'Information', onclick: () => preview(x) }, 'ⓘ'),
       x.trash ? [h('button', { class: 'btn small', onclick: () => libAct('restore', x) }, 'Restore'), h('button', { class: 'btn small danger', onclick: () => libAct('purge', x) }, 'Delete')]
       : [h('button', { class: 'btn small', onclick: () => saveAs(x) }, 'Download'), h('button', { class: 'btn small', onclick: () => share(x) }, 'Get link'),
@@ -632,7 +696,7 @@ function preview(x) {
   const rows = [['Made with', x.pack], ['Prompt', x.prompt], ['Style', x.style], ['Lyrics', x.lyrics], ['Size', x.size], ['Seed', x.seed], ['Created', when(x.created)], ['Cost', x.where === 'local' ? FREE_LOCAL : ''], ['All settings', settingsText(x.details)], ['File', x.path], ['Bytes', human(x.bytes)]].filter(([, v]) => v != null && v !== '' && v !== -1);
   const close = sheet([h('h3', {}, x.name), mediaEl(x), h('table', { class: 'table selectable', style: 'margin-top:10px' }, rows.map(([k, v]) => h('tr', {}, h('th', { style: 'width:110px' }, k), h('td', { style: 'white-space:pre-wrap' }, String(v))))),
     h('div', { class: 'row end' }, x.path ? h('button', { class: 'btn', onclick: () => reveal(x.path) }, os === 'mac' ? 'Show in Finder' : 'Show in folder') : null,
-      h('button', { class: 'btn', onclick: () => saveAs(x) }, 'Download'), x.trash ? null : h('button', { class: 'btn', onclick: () => { close(); share(x); } }, 'Upload and get link'),
+      x.trash ? null : freeTag(x), h('button', { class: 'btn', onclick: () => saveAs(x) }, 'Download'), x.trash ? null : h('button', { class: 'btn', onclick: () => { close(); share(x); } }, 'Upload and get link'),
       x.trash ? null : h('button', { class: 'btn danger', onclick: () => { close(); libAct('delete', x); } }, 'Delete'), h('button', { class: 'btn primary', onclick: () => close() }, 'Close'))], true);
 }
 async function saveAs(x) {
@@ -784,6 +848,7 @@ function jobItem(j) {
     h('div', { class: 'txt' }, h('b', {}, j.title || j.kind), h('span', {}, (KIND[j.kind] || j.kind) + ' · ' + (j.model || '') + ' · ' + (st === 'queued' ? 'waiting' : st) + (j.progress ? ' · ' + j.progress : '') + (j.error ? ' · ' + j.error : '')),
       st === 'running' ? h('div', { class: 'pbar' }, h('i', { style: 'width:' + (/(\d+)%/.test(j.progress || '') ? RegExp.$1 : 8) + '%' })) : null),
     st === 'ready' ? h('button', { class: 'btn small', onclick: () => openOutput(j) }, 'Open') : null,
+    st === 'ready' && j.output && ['image', 'music', 'video'].includes(j.kind) ? freeTag({ where: j.where || 'local' }) : null,  // the queue runs on this computer
     st === 'ready' && j.output ? h('button', { class: 'btn small', title: 'Save a copy where you choose', onclick: () => saveOutput(j) }, '⬇ Download') : null,
     st === 'ready' && MANAGES && j.output && j.output.file && ['image', 'music', 'video'].includes(j.kind) ? h('button', { class: 'btn small', onclick: () => shareOutput(j) }, '⬆ Upload and get link') : null,
     live ? h('button', { class: 'btn small', onclick: () => qAct(j, 'pause') }, 'Pause') : null,
@@ -1091,7 +1156,8 @@ window.addEventListener('unhandledrejection', (e) => { try { toast(String((e.rea
 async function refresh() {
   try { S.eng = await invoke('engine_status'); } catch (_) { S.eng = { running: false }; }
   if (S.eng.running) { try { S.st = await get('/api/state'); } catch (_) {} loadQueue(); if (S.view === 'logs') loadLog(); autoStartCheck(); loadMe();
-    if (!S.notesShown) { S.notesShown = true; showNotifications(); } }
+    if (!S.notesShown) { S.notesShown = true; showNotifications(); }
+    loadAppsOpen(); }
   if (!S.updateChecked) { S.updateChecked = true; checkUpdate(); }
   const typing = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
   const streaming = (S.chats.chat.concat(S.chats.code)).some((x) => x.streaming);
