@@ -1,0 +1,8 @@
+{
+ "official_stage1_identical_across_runs": true,
+ "official_fp32_seconds": 1635,
+ "stage2_files": 2,
+ "sushila_fp32_codes_equal_to_official_fp32": 1.0,
+ "same_shapes": true,
+ "pass": true
+}

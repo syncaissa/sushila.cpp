@@ -191,7 +191,9 @@ different length. `run_yue_replay.sh` times Sushila's runner on **the official r
 - Every step does its full work, sampling included, and then takes the official token.
 - `replay_check.json` must say `"stage1_tokens_identical": true`.
 - It also runs stage 2 in float32 (`replay_s2fp32`). For the float32 reference, run the official code with stage 2 in
-  float32: our float32 stage-2 codes then equal it exactly (paper Table "YuE v1").
+  float32: `W=/workspace/yue NSEG=2 bash /workspace/repo/scripts/music/yue/run_yue_official_fp32.sh`. It writes
+  `fp32_check.json`; `"pass": true` means every float32 stage-2 code of ours equals the official one (paper Table "YuE v1";
+  our rerun: `results/yue_fp32_reference_20261009/`).
 
 ```
 W=/workspace/yue NSEG=2 bash /workspace/repo/scripts/music/yue/run_yue_replay.sh

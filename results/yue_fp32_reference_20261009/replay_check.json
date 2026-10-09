@@ -1,0 +1,9 @@
+{
+ "replay_bf16": "missing",
+ "replay_s2fp32": {
+  "stage1_tokens_identical": true,
+  "tokens": 6435,
+  "official_tokens": 6435,
+  "stage2_codes_equal_to_official": 0.43280984719864174
+ }
+}

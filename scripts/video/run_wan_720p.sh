@@ -4,7 +4,7 @@
 # default negative prompt (wan_negative_prompt.json); Standard = uncached, Accelerated = the pack's cache plan
 # (EasyCache, threshold 0.2). One engine server (stable-diffusion.cpp in Sushila.cpp 0.1.1) with --offload-to-cpu.
 # Needs the engine and pack first:  sushila engine install && sushila install wan2.2-ti2v-5b   (SUSHILA_HOME below)
-# Frame SSIM afterwards: compare every 4th frame of video-<i>-standard.webm and video-<i>-accelerated.webm.
+# Frame SSIM afterwards (every frame, all planes): bash scripts/video/video_quality_ssim.sh /workspace/vid720v3
 H=${SUSHILA_HOME:-/workspace/sushila-home}; HERE=$(cd "$(dirname "$0")" && pwd)
 E=$H/engine/0.1.1; P=$H/packs/wan2.2-ti2v-5b; export LD_LIBRARY_PATH=$E
 mkdir -p /workspace/vid720v3

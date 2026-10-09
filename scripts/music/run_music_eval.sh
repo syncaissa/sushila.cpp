@@ -4,7 +4,7 @@
 # Same 6 held-out prompts and seeds as run_music_spec.sh (bench_music_spec.py), 60 s songs.
 set -uo pipefail
 W=${W:-/workspace/music}; REPO=${REPO:-/workspace/repo}; OUT=$W/eval; mkdir -p $OUT
-SRV=$(find $W/b/acebuild2 -name ace-server -type f | head -1); HEAD=${HEAD:-$W/head/music-head.gguf}
+SRV=$(find $W/b/acebuild2 $W/b/acebuild -name ace-server -type f 2>/dev/null | head -1)   # acebuild = run_music_spec.sh; HEAD=${HEAD:-$W/head/music-head.gguf}
 log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a $OUT/eval.log; }
 start() {
   [ -n "${SPID:-}" ] && { kill -9 $SPID 2>/dev/null; wait $SPID 2>/dev/null; sleep 2; }

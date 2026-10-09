@@ -1,0 +1,6 @@
+Fetching 12 files:   0%|          | 0/12 [00:00<?, ?it/s]Fetching 12 files:  67%|██████▋   | 8/12 [00:00<00:00, 48.94it/s]Fetching 12 files:  83%|████████▎ | 10/12 [00:20<00:04,  2.00s/it]Fetching 12 files:  92%|█████████▏| 11/12 [00:23<00:02,  2.18s/it]Fetching 12 files: 100%|██████████| 12/12 [00:25<00:00,  2.13s/it]Fetching 12 files: 100%|██████████| 12/12 [00:25<00:00,  2.13s/it]
+m-a-p/YuE-s1-7B-anneal-en-cot /root/.cache/huggingface/hub/models--m-a-p--YuE-s1-7B-anneal-en-cot/snapshots/454c20e1748888800f8e4b3da45125f55482d967
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files:  89%|████████▉ | 8/9 [00:00<00:00, 25.37it/s]Fetching 9 files: 100%|██████████| 9/9 [00:06<00:00,  1.48it/s]
+m-a-p/YuE-s2-1B-general /root/.cache/huggingface/hub/models--m-a-p--YuE-s2-1B-general/snapshots/9dfa90b7013f6b5e7eb5eb2991620dca33058a0e
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files:  89%|████████▉ | 8/9 [00:00<00:00, 13.29it/s]Fetching 9 files: 100%|██████████| 9/9 [00:02<00:00,  3.17it/s]
+m-a-p/YuE-s1-0.5B /root/.cache/huggingface/hub/models--m-a-p--YuE-s1-0.5B/snapshots/65b4514ee5d821275cf4204f307425ed94fb936e
