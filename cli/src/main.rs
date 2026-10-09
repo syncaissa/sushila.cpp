@@ -297,9 +297,9 @@ async fn main() -> ExitCode {
 }
 
 /// The test-build number (shown by /health): Sushila Station replaces a running engine older than the one it carries.
-pub const BUILD: u32 = 35;
-/// `sushila --version`: "0.1.1 (build 35)" (keep the number equal to BUILD; Station reads it)
-const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 35)");
+pub const BUILD: u32 = 36;
+/// `sushila --version`: "0.1.1 (build 36)" (keep the number equal to BUILD; Station reads it)
+const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 36)");
 
 /// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
 const START_FAILED: u8 = 3;
@@ -1344,8 +1344,13 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                                         let seed = if o2.info["seed"].is_null() { pp["seed"].clone() } else { o2.info["seed"].clone() };
                                         if let Some(d) = details.as_object_mut() { if !seed.is_null() { d.insert("seed".into(), seed.clone()); } }
                                         let lyrics = o2.info["lyrics"].as_str().filter(|l| !l.trim().is_empty()).map(|l| json!(l)).unwrap_or(pp["lyrics"].clone());
+                                        // the same facts for pictures, songs and videos: size (a picture's "WxH", a video's width x height),
+                                        // the mode it ran in and how long it took, next to the seed and every setting asked for
+                                        let size = pp["width"].as_u64().map(|w| format!("{w}x{}", pp["height"].as_u64().unwrap_or(0)))
+                                            .or_else(|| pp["size"].as_str().filter(|s| !s.is_empty()).map(String::from));
+                                        let mode = if ctx.state["running"][&mark_pack]["mode"] == "turbo" { "Accelerated" } else { "Standard" };
                                         let meta = json!({ "pack": mark_pack, "prompt": mark_prompt, "remote": mark_remote, "source": "queue", "lyrics": lyrics, "duration": pp["duration"],
-                                            "seed": seed, "frames": pp["video_frames"], "size": pp["width"].as_u64().map(|w| format!("{w}x{}", pp["height"].as_u64().unwrap_or(0))),
+                                            "seed": seed, "frames": pp["video_frames"], "size": size, "mode": mode, "seconds": (t0.elapsed().as_secs_f64() * 10.0).round() / 10.0,
                                             "details": details });
                                         let p = library::save(&ctx.data, k, &o2.ext, &o2.bytes, &mark_prompt, meta).ok_or_else(|| format!("could not save the result in {}", out.display()))?;
                                         p.strip_prefix(&out).map(|r| r.to_string_lossy().replace('\\', "/")).map_err(err)?

@@ -1,0 +1,100 @@
+{
+ "image": {
+  "seconds": 55,
+  "library_item": {
+   "bytes": 749014,
+   "created": "2026-10-09T12:22:35Z",
+   "details": {
+    "prompt": "A red fox in fresh snow, morning light",
+    "seed": 85527771,
+    "size": "768x768"
+   },
+   "kind": "image",
+   "name": "122235-a-red-fox-in-fresh-snow.png",
+   "pack": "z-image-turbo-nvidia",
+   "path": "/root/Documents/Sushila/Images/2026-10-09/122235-a-red-fox-in-fresh-snow.png",
+   "prompt": "A red fox in fresh snow, morning light",
+   "rel": "Images/2026-10-09/122235-a-red-fox-in-fresh-snow.png",
+   "remote": false,
+   "seed": 85527771,
+   "source": "queue",
+   "where": "local"
+  },
+  "tile_text": "A red fox in fresh snow, morning light\nz-image-turbo-nvidia \u00b7 10/9/2026\n100% FREE, generated locally!\n\u24d8\nDownload\nGet link\n\ud83d\udcc2",
+  "tile_has_free": 1,
+  "info_text": "122235-a-red-fox-in-fresh-snow.png\nMade with\tz-image-turbo-nvidia\nPrompt\tA red fox in fresh snow, morning light\nSeed\t85527771\nCreated\t10/9/2026, 12:22:35 PM\nCost\t100% FREE, generated locally!\nAll settings\tprompt: A red fox in fresh snow, morning light\nseed: 85527771\nsize: 768x768\nFile\t/root/Documents/Sushila/Images/2026-10-09/122235-a-red-fox-in-fresh-snow.png\nBytes\t749 KB\nShow in folder\n100% FREE, generated locally!\nDownload\nUpload and get link\nDelete\nClose",
+  "info_has_free": 1,
+  "queue_job": {
+   "created": "2026-10-09T12:21:45Z",
+   "error": "",
+   "finished": "2026-10-09T12:22:35Z",
+   "id": "job-0a5eaa6211e5083c3b",
+   "kind": "image",
+   "model": "z-image-turbo-nvidia",
+   "output": {
+    "bytes": 747115,
+    "file": "Images/2026-10-09/122235-a-red-fox-in-fresh-snow.png",
+    "mime": "image/png"
+   },
+   "progress": "ready in 1 s",
+   "started": "2026-10-09T12:22:33Z",
+   "status": "ready",
+   "title": "A red fox in fresh snow, morning light"
+  },
+  "queue_items_text": [
+   "A red fox in fresh snow, morning light\nPictures \u00b7 z-image-turbo-nvidia \u00b7 ready \u00b7 ready in 1 s\nOpen\n100% FREE, generated locally!\n\u2b07 Download\n\u2b06 Upload and get link\nRemove"
+  ]
+ },
+ "video": {
+  "seconds": 65,
+  "library_item": {
+   "bytes": 5919282,
+   "created": "2026-10-09T12:24:00Z",
+   "details": {
+    "fps": 24,
+    "height": 480,
+    "prompt": "A paper boat drifting down a rainy street, cinematic",
+    "seed": 640712051,
+    "video_frames": 49,
+    "width": 832
+   },
+   "frames": 49,
+   "kind": "video",
+   "name": "122359-a-paper-boat-drifting-down-a.webm",
+   "pack": "wan2.2-ti2v-5b",
+   "path": "/root/Documents/Sushila/Videos/2026-10-09/122359-a-paper-boat-drifting-down-a.webm",
+   "prompt": "A paper boat drifting down a rainy street, cinematic",
+   "rel": "Videos/2026-10-09/122359-a-paper-boat-drifting-down-a.webm",
+   "remote": false,
+   "seed": 640712051,
+   "size": "832x480",
+   "source": "queue",
+   "where": "local"
+  },
+  "tile_text": "A paper boat drifting down a rainy street, cinematic\nwan2.2-ti2v-5b \u00b7 10/9/2026\n100% FREE, generated locally!\n\u24d8\nDownload\nGet link\n\ud83d\udcc2",
+  "tile_has_free": 1,
+  "info_text": "122359-a-paper-boat-drifting-down-a.webm\nMade with\twan2.2-ti2v-5b\nPrompt\tA paper boat drifting down a rainy street, cinematic\nSize\t832x480\nSeed\t640712051\nCreated\t10/9/2026, 12:24:00 PM\nCost\t100% FREE, generated locally!\nAll settings\tfps: 24\nheight: 480\nprompt: A paper boat drifting down a rainy street, cinematic\nseed: 640712051\nvideo_frames: 49\nwidth: 832\nFile\t/root/Documents/Sushila/Videos/2026-10-09/122359-a-paper-boat-drifting-down-a.webm\nBytes\t6 MB\nShow in folder\n100% FREE, generated locally!\nDownload\nUpload and get link\nDelete\nClose",
+  "info_has_free": 1,
+  "queue_job": {
+   "created": "2026-10-09T12:22:57Z",
+   "error": "",
+   "finished": "2026-10-09T12:24:00Z",
+   "id": "job-bd48a52b7672860704",
+   "kind": "video",
+   "model": "wan2.2-ti2v-5b",
+   "output": {
+    "bytes": 5918355,
+    "file": "Videos/2026-10-09/122359-a-paper-boat-drifting-down-a.webm",
+    "mime": "video/webm"
+   },
+   "progress": "ready in 59 s",
+   "started": "2026-10-09T12:23:00Z",
+   "status": "ready",
+   "title": "A paper boat drifting down a rainy street, cinematic"
+  },
+  "queue_items_text": [
+   "A paper boat drifting down a rainy street, cinematic\nVideo \u00b7 wan2.2-ti2v-5b \u00b7 ready \u00b7 ready in 59 s\nOpen\n100% FREE, generated locally!\n\u2b07 Download\n\u2b06 Upload and get link\nRemove"
+  ]
+ },
+ "page_errors": []
+}

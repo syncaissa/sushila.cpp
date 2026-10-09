@@ -710,8 +710,19 @@ function libTile(x) {
       : [h('button', { class: 'btn small', onclick: () => saveAs(x) }, 'Download'), h('button', { class: 'btn small', onclick: () => share(x) }, 'Get link'),
          x.path ? h('button', { class: 'btn small', title: os === 'mac' ? 'Show in Finder' : 'Show in folder', onclick: () => reveal(x.path) }, '📂') : null]));
 }
+// the same facts for a picture, a song and a video, in the same order (what was missing is left out)
+function infoRows(x) {
+  const d = x.details || {};
+  const size = x.size || d.size || (d.width && d.height ? d.width + 'x' + d.height : '');
+  const fps = d.fps || 24, frames = x.frames || d.video_frames;
+  const length = x.kind === 'video' && frames ? (frames / fps).toFixed(1) + ' s (' + frames + ' frames, ' + fps + ' fps)' : x.kind === 'music' && (x.duration || d.duration) ? (x.duration || d.duration) + ' s' : '';
+  return [['Made with', x.pack], ['Mode', x.mode === 'turbo' ? 'Accelerated' : x.mode === 'regular' ? 'Standard' : x.mode], ['Prompt', x.prompt], ['Style', x.style], ['Lyrics', x.lyrics],
+    ['Size', size], ['Length', length], ['Seed', x.seed != null ? x.seed : d.seed], ['Took', x.seconds != null ? x.seconds + ' s' : ''], ['Created', when(x.created)],
+    ['Cost', x.where === 'local' ? FREE_LOCAL : ''], ['All settings', settingsText(x.details)], ['File', x.path], ['Bytes', human(x.bytes)]]
+    .filter(([, v]) => v != null && v !== '' && v !== -1 && v !== '-1');
+}
 function preview(x) {
-  const rows = [['Made with', x.pack], ['Prompt', x.prompt], ['Style', x.style], ['Lyrics', x.lyrics], ['Size', x.size], ['Seed', x.seed], ['Created', when(x.created)], ['Cost', x.where === 'local' ? FREE_LOCAL : ''], ['All settings', settingsText(x.details)], ['File', x.path], ['Bytes', human(x.bytes)]].filter(([, v]) => v != null && v !== '' && v !== -1);
+  const rows = infoRows(x);
   const close = sheet([h('h3', {}, x.name), mediaEl(x), h('table', { class: 'table selectable', style: 'margin-top:10px' }, rows.map(([k, v]) => h('tr', {}, h('th', { style: 'width:110px' }, k), h('td', { style: 'white-space:pre-wrap' }, String(v))))),
     h('div', { class: 'row end' }, x.path ? h('button', { class: 'btn', onclick: () => reveal(x.path) }, os === 'mac' ? 'Show in Finder' : 'Show in folder') : null,
       x.trash ? null : freeTag(x), h('button', { class: 'btn', onclick: () => saveAs(x) }, 'Download'), x.trash ? null : h('button', { class: 'btn', onclick: () => { close(); share(x); } }, 'Upload and get link'),
@@ -878,7 +889,11 @@ async function openOutput(j) {
   const mime = (j.output && j.output.mime) || '';
   const el = mime.startsWith('image') ? h('img', { src: url }) : mime.startsWith('video') ? h('video', { src: url, controls: true, autoplay: true }) : mime.startsWith('audio') ? h('audio', { src: url, controls: true, autoplay: true, style: 'width:100%' }) : h('pre', { class: 'selectable', style: 'white-space:pre-wrap;max-height:60vh;overflow:auto' }, (j.output && j.output.text) || 'Saved in myContent.');
   const made = ['image', 'music', 'video'].includes(j.kind) ? freeTag({ where: j.where || 'local' }) : null;  // the queue runs here
-  sheet([h('h3', {}, j.title || 'Result'), el, h('div', { class: 'row end' }, made, h('button', { class: 'btn', onclick: () => saveOutput(j) }, 'Download'), h('button', { class: 'btn primary', onclick: () => $('sheet').click() }, 'Close'))], true);
+  // the same information as myContent's window (its record: size, mode, seed, time taken, every setting)
+  if (j.output && j.output.file && !S.lib) await loadLib().catch(() => {});
+  const x = j.output && j.output.file ? ((S.lib && S.lib.items) || []).find((i) => i.rel === j.output.file) : null;
+  const info = x ? h('table', { class: 'table selectable', style: 'margin-top:10px' }, infoRows(x).map(([k, v]) => h('tr', {}, h('th', { style: 'width:110px' }, k), h('td', { style: 'white-space:pre-wrap' }, String(v))))) : null;
+  sheet([h('h3', {}, j.title || 'Result'), el, info, h('div', { class: 'row end' }, made, h('button', { class: 'btn', onclick: () => saveOutput(j) }, 'Download'), h('button', { class: 'btn primary', onclick: () => $('sheet').click() }, 'Close'))], true);
 }
 // a finished job's file: saved where you choose (the browser: Downloads); uploaded like a myContent file (found by its path)
 async function saveOutput(j) {

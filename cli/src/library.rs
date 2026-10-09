@@ -274,7 +274,7 @@ pub fn list(dir: &Path) -> Vec<Value> {
             let modified = md.as_ref().and_then(|m| m.modified().ok()).map(iso).unwrap_or_default();
             let mut v = json!({ "rel": rel, "path": p.to_string_lossy(), "name": p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
                 "kind": m["kind"].as_str().unwrap_or(kind), "bytes": md.map(|m| m.len()).unwrap_or(0), "created": m["created"].as_str().map(String::from).unwrap_or(modified) });
-            for k in ["pack", "mode", "prompt", "lyrics", "seed", "size", "duration", "frames", "source", "remote", "details"] { if !m[k].is_null() { v[k] = m[k].clone(); } }
+            for k in ["pack", "mode", "prompt", "lyrics", "seed", "size", "duration", "frames", "seconds", "source", "remote", "details"] { if !m[k].is_null() { v[k] = m[k].clone(); } }
             // where it was made: its record says so; files in Sushila's own folders without a record (made before records,
             // or whose index line was lost when the folder moved) were made by this Sushila here. Files from remote or
             // cloud models always carry their own record ("cloud:<provider>"), so they never get "local" by default.

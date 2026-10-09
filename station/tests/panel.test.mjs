@@ -281,6 +281,14 @@ await w.eval('refresh()'); await tick(100); await w.eval('go("packs")'); await t
   const v = text(w.document.getElementById('view'));
   ok(v.includes('1.42x faster pictures') && [...w.document.querySelectorAll('#view button')].some((b) => text(b) === 'Measure again'), 'the result is listed, with Measure again'); }
 
+// --- the same information for a picture and a video (size, mode, seed, time taken, cost, every setting)
+{ const keys = (x) => w.eval('infoRows(' + JSON.stringify(x) + ')').map((r) => r[0]);
+  const pic = keys({ kind: 'image', pack: 'z', prompt: 'fox', mode: 'Accelerated', seconds: 1.2, seed: 5, where: 'local', created: '2026-10-09T12:00:00Z', details: { prompt: 'fox', size: '768x768', seed: 5 }, path: '/a.png', bytes: 10 });
+  const vid = keys({ kind: 'video', pack: 'w', prompt: 'boat', mode: 'Accelerated', seconds: 59, seed: 7, size: '832x480', frames: 49, where: 'local', created: '2026-10-09T12:00:00Z', details: { prompt: 'boat', width: 832, height: 480, video_frames: 49, fps: 24, seed: 7 }, path: '/a.webm', bytes: 10 });
+  for (const k of ['Made with', 'Mode', 'Prompt', 'Size', 'Seed', 'Took', 'Created', 'Cost', 'All settings', 'File']) ok(pic.includes(k) && vid.includes(k), 'picture and video both show ' + k);
+  ok(vid.includes('Length') && !pic.includes('Length'), 'a video also shows its length');
+  ok(w.eval('infoRows({ kind: "image", details: { size: "768x768" } })').some((r) => r[0] === 'Size' && r[1] === '768x768'), 'a picture size from its settings'); }
+
 // --- free tag
 ok(w.eval('freeTag({ where: "local" })') && !w.eval('freeTag({ where: "cloud:x" })') && !w.eval('freeTag({})'), 'free tag only for where=local');
 ok(text(w.eval('freeTag({ where: "local" })')) === '100% FREE, generated locally!', 'free tag text');

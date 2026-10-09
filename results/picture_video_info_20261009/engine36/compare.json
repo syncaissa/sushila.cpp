@@ -1,0 +1,107 @@
+{
+ "image": {
+  "seconds": 60,
+  "library_item": {
+   "bytes": 931485,
+   "created": "2026-10-09T12:40:19Z",
+   "details": {
+    "prompt": "A red fox in fresh snow, morning light",
+    "seed": 1126582014,
+    "size": "768x768"
+   },
+   "kind": "image",
+   "mode": "Accelerated",
+   "name": "124019-a-red-fox-in-fresh-snow.png",
+   "pack": "z-image-turbo-nvidia",
+   "path": "/root/Documents/Sushila/Images/2026-10-09/124019-a-red-fox-in-fresh-snow.png",
+   "prompt": "A red fox in fresh snow, morning light",
+   "rel": "Images/2026-10-09/124019-a-red-fox-in-fresh-snow.png",
+   "remote": false,
+   "seconds": 1.3,
+   "seed": 1126582014,
+   "size": "768x768",
+   "source": "queue",
+   "where": "local"
+  },
+  "tile_text": "A red fox in fresh snow, morning light\nz-image-turbo-nvidia \u00b7 10/9/2026\n100% FREE, generated locally!\n\u24d8\nDownload\nGet link\n\ud83d\udcc2",
+  "tile_has_free": 1,
+  "info_text": "124019-a-red-fox-in-fresh-snow.png\nMade with\tz-image-turbo-nvidia\nMode\tAccelerated\nPrompt\tA red fox in fresh snow, morning light\nSize\t768x768\nSeed\t1126582014\nTook\t1.3 s\nCreated\t10/9/2026, 12:40:19 PM\nCost\t100% FREE, generated locally!\nAll settings\tprompt: A red fox in fresh snow, morning light\nseed: 1126582014\nsize: 768x768\nFile\t/root/Documents/Sushila/Images/2026-10-09/124019-a-red-fox-in-fresh-snow.png\nBytes\t931 KB\nShow in folder\n100% FREE, generated locally!\nDownload\nUpload and get link\nDelete\nClose",
+  "info_has_free": 1,
+  "queue_job": {
+   "created": "2026-10-09T12:39:23Z",
+   "error": "",
+   "finished": "2026-10-09T12:40:19Z",
+   "id": "job-9309655beb8884cdba",
+   "kind": "image",
+   "model": "z-image-turbo-nvidia",
+   "output": {
+    "bytes": 929586,
+    "file": "Images/2026-10-09/124019-a-red-fox-in-fresh-snow.png",
+    "mime": "image/png"
+   },
+   "progress": "ready in 1 s",
+   "started": "2026-10-09T12:40:18Z",
+   "status": "ready",
+   "title": "A red fox in fresh snow, morning light"
+  },
+  "queue_items_text": [
+   "A red fox in fresh snow, morning light\nPictures \u00b7 z-image-turbo-nvidia \u00b7 ready \u00b7 ready in 1 s\nOpen\n100% FREE, generated locally!\n\u2b07 Download\n\u2b06 Upload and get link\nRemove",
+   "A red fox in fresh snow, morning light\nPictures \u00b7 z-image-turbo-nvidia \u00b7 ready \u00b7 ready in 1 s\nOpen\n100% FREE, generated locally!\n\u2b07 Download\n\u2b06 Upload and get link\nRemove"
+  ]
+ },
+ "video": {
+  "seconds": 60,
+  "library_item": {
+   "bytes": 8100598,
+   "created": "2026-10-09T12:41:34Z",
+   "details": {
+    "fps": 24,
+    "height": 480,
+    "prompt": "A paper boat drifting down a rainy street, cinematic",
+    "seed": 1423030608,
+    "video_frames": 49,
+    "width": 832
+   },
+   "frames": 49,
+   "kind": "video",
+   "mode": "Accelerated",
+   "name": "124134-a-paper-boat-drifting-down-a.webm",
+   "pack": "wan2.2-ti2v-5b",
+   "path": "/root/Documents/Sushila/Videos/2026-10-09/124134-a-paper-boat-drifting-down-a.webm",
+   "prompt": "A paper boat drifting down a rainy street, cinematic",
+   "rel": "Videos/2026-10-09/124134-a-paper-boat-drifting-down-a.webm",
+   "remote": false,
+   "seconds": 54.7,
+   "seed": 1423030608,
+   "size": "832x480",
+   "source": "queue",
+   "where": "local"
+  },
+  "tile_text": "A paper boat drifting down a rainy street, cinematic\nwan2.2-ti2v-5b \u00b7 10/9/2026\n100% FREE, generated locally!\n\u24d8\nDownload\nGet link\n\ud83d\udcc2",
+  "tile_has_free": 1,
+  "info_text": "124134-a-paper-boat-drifting-down-a.webm\nMade with\twan2.2-ti2v-5b\nMode\tAccelerated\nPrompt\tA paper boat drifting down a rainy street, cinematic\nSize\t832x480\nLength\t2.0 s (49 frames, 24 fps)\nSeed\t1423030608\nTook\t54.7 s\nCreated\t10/9/2026, 12:41:34 PM\nCost\t100% FREE, generated locally!\nAll settings\tfps: 24\nheight: 480\nprompt: A paper boat drifting down a rainy street, cinematic\nseed: 1423030608\nvideo_frames: 49\nwidth: 832\nFile\t/root/Documents/Sushila/Videos/2026-10-09/124134-a-paper-boat-drifting-down-a.webm\nBytes\t8 MB\nShow in folder\n100% FREE, generated locally!\nDownload\nUpload and get link\nDelete\nClose",
+  "info_has_free": 1,
+  "queue_job": {
+   "created": "2026-10-09T12:40:38Z",
+   "error": "",
+   "finished": "2026-10-09T12:41:34Z",
+   "id": "job-5b00e9ff930504d7e8",
+   "kind": "video",
+   "model": "wan2.2-ti2v-5b",
+   "output": {
+    "bytes": 8099671,
+    "file": "Videos/2026-10-09/124134-a-paper-boat-drifting-down-a.webm",
+    "mime": "video/webm"
+   },
+   "progress": "ready in 54 s",
+   "started": "2026-10-09T12:40:40Z",
+   "status": "ready",
+   "title": "A paper boat drifting down a rainy street, cinematic"
+  },
+  "queue_items_text": [
+   "A paper boat drifting down a rainy street, cinematic\nVideo \u00b7 wan2.2-ti2v-5b \u00b7 ready \u00b7 ready in 54 s\nOpen\n100% FREE, generated locally!\n\u2b07 Download\n\u2b06 Upload and get link\nRemove",
+   "A paper boat drifting down a rainy street, cinematic\nVideo \u00b7 wan2.2-ti2v-5b \u00b7 ready \u00b7 ready in 59 s\nOpen\n100% FREE, generated locally!\n\u2b07 Download\n\u2b06 Upload and get link\nRemove"
+  ]
+ },
+ "page_errors": []
+}
