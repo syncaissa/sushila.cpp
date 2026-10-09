@@ -94,7 +94,7 @@ pub fn take_requests(dir: &Path, inbox: &str) -> Vec<serde_json::Value> {
 /// questions such as nvidia-smi from code that cannot wait (a hung driver must not freeze anything).
 pub fn output_within(program: &str, args: &[&str], secs: u64) -> Option<String> {
     use std::io::Read;
-    let mut child = std::process::Command::new(program).args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null()).spawn().ok()?;
+    let mut child = hidden(&mut std::process::Command::new(program)).args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null()).spawn().ok()?;
     let mut out = child.stdout.take()?;
     let reader = std::thread::spawn(move || { let mut s = String::new(); let _ = out.read_to_string(&mut s); s });
     let t0 = std::time::Instant::now();
@@ -356,6 +356,40 @@ pub fn set_executable(path: &Path) {
         if let Ok(m) = std::fs::metadata(path) { let mut p = m.permissions(); p.set_mode(p.mode() | 0o755); let _ = std::fs::set_permissions(path, p); }
     }
     let _ = path;
+}
+
+// ---------- no console windows on Windows. A console program started by a program that has no console (Sushila
+// Station starts the engine detached) gets a console window of its own; so does every helper the engine starts
+// (nvidia-smi, cloudflared, reg). These keep them out of sight.
+/// A helper whose output is read or thrown away: never a window.
+pub fn hidden(c: &mut std::process::Command) -> &mut std::process::Command {
+    #[cfg(windows)] { use std::os::windows::process::CommandExt; c.creation_flags(0x0800_0000); }  // CREATE_NO_WINDOW
+    c
+}
+pub fn hidden_async(c: &mut tokio::process::Command) -> &mut tokio::process::Command {
+    #[cfg(windows)] { c.creation_flags(0x0800_0000); }  // CREATE_NO_WINDOW
+    c
+}
+/// Is this process in a terminal someone can see? (Windows: a console window; elsewhere always yes.) A child of a
+/// process without one is hidden; a child of a terminal shares it (its output belongs there).
+pub fn has_console_window() -> bool {
+    #[cfg(windows)] { unsafe { !windows_sys::Win32::System::Console::GetConsoleWindow().is_null() } }
+    #[cfg(not(windows))] { true }
+}
+/// Windows: when the server still got a console window of its own (no terminal shares it), the window says in one line
+/// what it is, instead of standing there blank.
+pub fn name_own_console() {
+    #[cfg(windows)] unsafe {
+        use windows_sys::Win32::System::Console::{GetConsoleProcessList, SetConsoleTitleW};
+        let mut ids = [0u32; 4];
+        if GetConsoleProcessList(ids.as_mut_ptr(), 4) != 1 { return; }
+        let title: Vec<u16> = "Sushila engine running\0".encode_utf16().collect();
+        SetConsoleTitleW(title.as_ptr());
+        if let Ok(mut f) = std::fs::OpenOptions::new().write(true).open("CONOUT$") {
+            use std::io::Write;
+            let _ = writeln!(f, "Sushila engine running (closing this window stops it)");
+        }
+    }
 }
 
 pub fn command(program: &str, args: &[String]) -> tokio::process::Command {

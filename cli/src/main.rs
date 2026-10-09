@@ -270,6 +270,7 @@ async fn main() -> ExitCode {
         return supervise(data, cli.quiet).await;
     }
     if std::env::var("SUSHILA_WORKER").is_ok() {
+        if !tui::in_screen() { name_own_console(); }
         let panic_file = data.join("logs").join("panic.txt");
         std::panic::set_hook(Box::new(move |info| {
             let bt = std::backtrace::Backtrace::force_capture();
@@ -290,9 +291,9 @@ async fn main() -> ExitCode {
 }
 
 /// The test-build number (shown by /health): Sushila Station replaces a running engine older than the one it carries.
-pub const BUILD: u32 = 28;
-/// `sushila --version`: "0.1.1 (build 28)" (keep the number equal to BUILD; Station reads it)
-const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 28)");
+pub const BUILD: u32 = 29;
+/// `sushila --version`: "0.1.1 (build 29)" (keep the number equal to BUILD; Station reads it)
+const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 29)");
 
 /// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
 const START_FAILED: u8 = 3;
@@ -323,6 +324,7 @@ async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
         let t0 = std::time::Instant::now();
         let mut c = tokio::process::Command::new(&exe);
         c.args(&args).env("SUSHILA_WORKER", "1");
+        if !has_console_window() { hidden_async(&mut c); }  // started without a terminal (Sushila Station): no window
         if restarts > 0 { c.env("SUSHILA_NO_BROWSER", "1").env_remove("SUSHILA_TEST_PANIC_AFTER"); }
         let status = match c.status().await { Ok(s) => s, Err(e) => { eprintln!("error: could not start the server: {e}"); return ExitCode::from(1); } };
         let up = t0.elapsed();
@@ -350,7 +352,7 @@ fn register_link() {
     {
         let Ok(exe) = std::env::current_exe() else { return };
         let exe = exe.to_string_lossy().to_string();
-        let run = |args: &[&str]| { let _ = std::process::Command::new("reg").args(args).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status(); };
+        let run = |args: &[&str]| { let _ = hidden(&mut std::process::Command::new("reg")).args(args).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status(); };
         run(&["add", r"HKCU\Software\Classes\sushila", "/ve", "/d", "URL:Sushila", "/f"]);
         run(&["add", r"HKCU\Software\Classes\sushila", "/v", "URL Protocol", "/d", "", "/f"]);
         run(&["add", r"HKCU\Software\Classes\sushila\shell\open\command", "/ve", "/d", &format!("\"{exe}\" \"%1\""), "/f"]);
@@ -724,7 +726,7 @@ fn service(ctx: &mut Ctx, act: &ServiceCmd, j: bool) -> Result<(), String> {
 // ---------- serve: the owner. One per computer: it alone changes state.json, runs models, downloads and the queue;
 // Host Station and the sushila commands ask it through /api/control. Every step goes to logs/sushila.log.
 fn open_browser(url: &str) {
-    let _ = if cfg!(windows) { std::process::Command::new("cmd").args(["/c", "start", "", url]).spawn() }
+    let _ = if cfg!(windows) { hidden(&mut std::process::Command::new("cmd")).args(["/c", "start", "", url]).spawn() }
             else if cfg!(target_os = "macos") { std::process::Command::new("open").arg(url).spawn() }
             else { std::process::Command::new("xdg-open").arg(url).spawn() };
 }
@@ -1247,7 +1249,10 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                                     let kind = match o2.ext.as_str() { "png" | "jpg" | "jpeg" | "webp" => Some("image"), "mp3" | "wav" | "flac" | "ogg" => Some("music"), "webm" | "mp4" => Some("video"), _ => None };
                                     let out = crate::locate::outputs(&ctx.data);
                                     let file = if let Some(k) = kind {
-                                        let meta = json!({ "pack": mark_pack, "prompt": mark_prompt, "remote": mark_remote, "source": "queue" });
+                                        let pp = &jb["params"];
+                                        let meta = json!({ "pack": mark_pack, "prompt": mark_prompt, "remote": mark_remote, "source": "queue", "lyrics": pp["lyrics"], "duration": pp["duration"],
+                                            "seed": pp["seed"], "frames": pp["video_frames"], "size": pp["width"].as_u64().map(|w| format!("{w}x{}", pp["height"].as_u64().unwrap_or(0))),
+                                            "details": library::prompt_details(pp) });
                                         let p = library::save(&ctx.data, k, &o2.ext, &o2.bytes, &mark_prompt, meta).ok_or_else(|| format!("could not save the result in {}", out.display()))?;
                                         p.strip_prefix(&out).map(|r| r.to_string_lossy().replace('\\', "/")).map_err(err)?
                                     } else {

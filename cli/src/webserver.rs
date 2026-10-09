@@ -481,7 +481,7 @@ async fn srv_system(axum::extract::State(s): axum::extract::State<Arc<Srv>>, hea
     static GPU: std::sync::LazyLock<std::sync::Mutex<(Option<std::time::Instant>, Value)>> = std::sync::LazyLock::new(|| std::sync::Mutex::new((None, Value::Null)));
     let stale = GPU.lock().unwrap().0.map(|t| t.elapsed() > Duration::from_secs(5)).unwrap_or(true);
     if stale {
-        let out = tokio::process::Command::new("nvidia-smi").args(["--query-gpu=name,memory.total,memory.used,utilization.gpu,driver_version,temperature.gpu", "--format=csv,noheader,nounits"])
+        let out = crate::util::hidden_async(&mut tokio::process::Command::new("nvidia-smi")).args(["--query-gpu=name,memory.total,memory.used,utilization.gpu,driver_version,temperature.gpu", "--format=csv,noheader,nounits"])
             .stdin(std::process::Stdio::null()).stderr(std::process::Stdio::null()).output().await.ok();
         let g = out.filter(|o| o.status.success()).and_then(|o| String::from_utf8_lossy(&o.stdout).lines().next().map(|l| {
             let f: Vec<&str> = l.split(',').map(str::trim).collect();
@@ -621,7 +621,8 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
     let asked = { let first = if req_json.is_array() { req_json[0].clone() } else { req_json.clone() };
         json!({ "pack": model, "remote": !local, "prompt": first.get("caption").or(first.get("prompt")).cloned(), "lyrics": first.get("lyrics").cloned(),
                 "duration": first.get("duration").cloned(), "seed": first.get("seed").cloned(), "frames": first.get("video_frames").cloned(),
-                "size": first.get("width").and_then(|w| w.as_u64()).map(|w| format!("{w}x{}", first["height"].as_u64().unwrap_or(0))) }) };
+                "size": first.get("width").and_then(|w| w.as_u64()).map(|w| format!("{w}x{}", first["height"].as_u64().unwrap_or(0))),
+                "details": crate::library::prompt_details(&first) }) };
     let mut resp = match r.send().await {
         // a picture is also saved in the home folder (outputs/images/<date>/), so it can be found without downloading;
         // this computer gets the path of each file in the answer (sushila_file), other machines do not
@@ -984,8 +985,14 @@ async fn srv_queue_add(axum::extract::State(s): axum::extract::State<Arc<Srv>>, 
     let queued = read_queue(&s.data_dir).get("jobs").and_then(|j| j.as_array()).map(|a| a.iter().filter(|j| ["queued", "running", "paused"].contains(&j["status"].as_str().unwrap_or(""))).count()).unwrap_or(0);
     if pending + queued > 500 { return with_cors_for((axum::http::StatusCode::TOO_MANY_REQUESTS, "the queue is full").into_response(), &st, origin.as_deref()); }
     let id = new_id();
-    let item = json!({ "action": "add", "id": id, "owner": who, "kind": kind, "model": model,
-        "title": v.get("title").and_then(|t| t.as_str()).unwrap_or("").chars().take(200).collect::<String>(), "params": v.get("params").cloned().unwrap_or(json!({})) });
+    // a song without a style gets the default one (kept in the job, so the file's details say which style made it)
+    let mut params = v.get("params").cloned().filter(|p| p.is_object()).unwrap_or(json!({}));
+    let mut title = v.get("title").and_then(|t| t.as_str()).unwrap_or("").chars().take(200).collect::<String>();
+    if kind == "music" && params["style"].as_str().map(|t| t.trim().is_empty()).unwrap_or(true) {
+        params["style"] = json!(crate::library::DEFAULT_MUSIC_STYLE);
+        if title.trim().is_empty() { title = crate::library::DEFAULT_MUSIC_STYLE.into(); }
+    }
+    let item = json!({ "action": "add", "id": id, "owner": who, "kind": kind, "model": model, "title": title, "params": params });
     if crate::util::post_request(&s.data_dir, "queue-in", &id, &item).is_err() {
         return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "could not queue").into_response();
     }

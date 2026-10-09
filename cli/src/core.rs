@@ -159,7 +159,7 @@ impl Ctx {
         let assistant = self.assistant_pack();
         let packs: Vec<Value> = self.packs().values().map(|p| json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "category": Ctx::category(p), "turbo": can_turbo(p),
             "mode": p["preferredMode"].as_str().filter(|m| *m == "regular" || (*m == "turbo" && can_turbo(p))).unwrap_or(if can_turbo(p) { "turbo" } else { "regular" }),
-            "default": assistant.as_deref() == p["id"].as_str(), "bytes": p["bytes"], "custom": p["custom"] == true, "source": p["source"] })).collect();
+            "default": assistant.as_deref() == p["id"].as_str(), "bytes": p["bytes"], "custom": p["custom"] == true, "source": p["source"], "installedAt": p["installedAt"] })).collect();
         let engine = self.state.get("engine").filter(|e| e.is_object()).map(|e| json!({ "version": e["version"], "source": e["source"] })).unwrap_or(Value::Null);
         let tasks = self.state.get("tasks").cloned().unwrap_or(json!([]));
         let owner = self.state.get("owner").cloned().unwrap_or(Value::Null);

@@ -27,12 +27,26 @@ pub fn slug(text: &str) -> String {
     s.trim_matches('-').to_string()
 }
 
+/// A song's file name: the first words of its lyrics (section tags such as [Verse] left out; "instrumental" without
+/// lyrics) and a random five-digit number, e.g. "walking-down-the-river-tonight-48213".
+pub fn song_name(lyrics: &str) -> String {
+    let words: String = lyrics.lines().map(str::trim).filter(|l| !(l.starts_with('[') && l.ends_with(']')))
+        .map(|l| { let mut out = String::new(); let mut depth = 0; for c in l.chars() { match c { '[' => depth += 1, ']' => depth -= 1, _ if depth <= 0 => out.push(c), _ => {} } } out })
+        .collect::<Vec<_>>().join(" ");
+    let name = slug(&words);
+    let mut b = [0u8; 4]; let _ = getrandom::getrandom(&mut b);
+    format!("{}-{}", if name.is_empty() { "instrumental".to_string() } else { name }, 10_000 + u32::from_le_bytes(b) % 90_000)
+}
+
 /// One line in outputs/library.jsonl for a file just made (`meta`: prompt, lyrics, pack, mode, size, seed, ...).
 pub fn record(dir: &Path, file: &Path, kind: &str, mut meta: Value) {
     use std::io::Write;
     let rel = file.strip_prefix(crate::locate::outputs(dir)).map(|r| r.to_string_lossy().replace('\\', "/")).unwrap_or_default();
     if rel.is_empty() { return; }
     meta["rel"] = json!(rel); meta["kind"] = json!(kind); meta["created"] = json!(crate::util::now_iso());
+    // where it was made: "local" = by the Sushila engine on this computer (free; the page and Station say "100% FREE,
+    // generated locally!"). A file made by a remote/cloud model must set its own value (e.g. "cloud:<provider>").
+    if meta["where"].is_null() { meta["where"] = json!(WHERE_LOCAL); }
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(crate::locate::outputs(dir).join("library.jsonl")) { let _ = writeln!(f, "{meta}"); }
 }
 
@@ -181,7 +195,9 @@ pub fn save(dir: &Path, kind: &str, ext: &str, bytes: &[u8], title: &str, meta: 
     let day = out.join(kind_folder(&out, kind)).join(&now[..10]);
     std::fs::create_dir_all(&day).ok()?;
     let stamp: String = now[11..19].chars().filter(|c| c.is_ascii_digit()).collect();
-    let base = format!("{stamp}-{}", { let s = slug(title); if s.is_empty() { kind.to_string() } else { s } });
+    // songs are named after their lyrics plus a random number (several songs often share one style); the rest after the prompt
+    let base = if kind == "music" { song_name(meta["lyrics"].as_str().unwrap_or("")) }
+        else { format!("{stamp}-{}", { let s = slug(title); if s.is_empty() { kind.to_string() } else { s } }) };
     let mut f = day.join(format!("{base}.{ext}"));
     let mut k = 2; while f.exists() { f = day.join(format!("{base}-{k}.{ext}")); k += 1; }
     let marked = mark_ai(bytes, ext, meta["pack"].as_str().unwrap_or(""), meta["prompt"].as_str().unwrap_or(title), meta["remote"] == true);
@@ -213,6 +229,23 @@ pub fn audio_in_multipart(body: &[u8], ctype: &str) -> Option<(Vec<u8>, String)>
 }
 
 /// Everything in outputs/, newest first: the files on disk, with what the index and the queue know about each.
+pub const WHERE_LOCAL: &str = "local";
+/// The music style used when the person leaves Style empty (page, Station, queue).
+pub const DEFAULT_MUSIC_STYLE: &str = "Loud Drums, Guitar, Violin";
+
+/// Everything that was asked for a file (style, lyrics, length, seed, bpm, key, size, frames, ...), kept with it in
+/// the index: plain values only; pictures sent along (a start frame) and very long fields are left out.
+pub fn prompt_details(asked: &Value) -> Value {
+    let skip = ["init_image", "image", "mask", "audio_codes", "src_audio", "reference_audio", "data"];
+    let mut out = serde_json::Map::new();
+    for (k, v) in asked.as_object().into_iter().flatten() {
+        if skip.contains(&k.as_str()) { continue; }
+        let keep = match v { Value::String(t) => t.len() <= 20_000, Value::Number(_) | Value::Bool(_) => true, _ => false };
+        if keep { out.insert(k.clone(), v.clone()); }
+    }
+    Value::Object(out)
+}
+
 pub fn list(dir: &Path) -> Vec<Value> {
     let out = crate::locate::outputs(dir);
     let mut meta: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
@@ -224,7 +257,7 @@ pub fn list(dir: &Path) -> Vec<Value> {
     for j in q["jobs"].as_array().cloned().unwrap_or_default() {
         if let Some(f) = j["output"]["file"].as_str() {
             meta.entry(f.to_string()).or_insert_with(|| json!({ "pack": j["model"], "prompt": j["params"]["prompt"].as_str().or(j["params"]["style"].as_str()).or(j["title"].as_str()),
-                "lyrics": j["params"]["lyrics"], "seed": j["params"]["seed"], "size": j["params"]["size"], "duration": j["params"]["duration"], "source": "queue", "created": j["created"] }));
+                "lyrics": j["params"]["lyrics"], "seed": j["params"]["seed"], "size": j["params"]["size"], "duration": j["params"]["duration"], "source": "queue", "created": j["created"], "where": j["where"].as_str().unwrap_or(WHERE_LOCAL) }));
         }
     }
     let mut items = vec![];
@@ -241,7 +274,9 @@ pub fn list(dir: &Path) -> Vec<Value> {
             let modified = md.as_ref().and_then(|m| m.modified().ok()).map(iso).unwrap_or_default();
             let mut v = json!({ "rel": rel, "path": p.to_string_lossy(), "name": p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
                 "kind": m["kind"].as_str().unwrap_or(kind), "bytes": md.map(|m| m.len()).unwrap_or(0), "created": m["created"].as_str().map(String::from).unwrap_or(modified) });
-            for k in ["pack", "mode", "prompt", "lyrics", "seed", "size", "duration", "frames", "source"] { if !m[k].is_null() { v[k] = m[k].clone(); } }
+            for k in ["pack", "mode", "prompt", "lyrics", "seed", "size", "duration", "frames", "source", "remote", "details"] { if !m[k].is_null() { v[k] = m[k].clone(); } }
+            // files made before this field existed were all made here; a file nothing knows about gets no claim
+            if !m["where"].is_null() { v["where"] = m["where"].clone(); } else if !m.as_object().map(|o| o.is_empty()).unwrap_or(true) { v["where"] = json!(WHERE_LOCAL); }
             items.push(v);
         }
     }
@@ -432,13 +467,26 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("sushila-lib-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir); std::fs::create_dir_all(&dir).unwrap();
         let f = save(&dir, "music", "mp3", b"ID3fake", "Upbeat pop, female vocals", json!({ "pack": "ace-step-15", "prompt": "Upbeat pop, female vocals", "lyrics": "[Verse] hello", "duration": 60 })).unwrap();
-        assert!(f.to_string_lossy().contains("outputs") && f.file_name().unwrap().to_string_lossy().ends_with("-upbeat-pop-female-vocals.mp3"));
+        // a song is named after its lyrics and a random number, not its style
+        let n = f.file_name().unwrap().to_string_lossy().to_string();
+        assert!(f.to_string_lossy().contains("outputs") && n.starts_with("hello-") && n.len() == "hello-12345.mp3".len() && !n.contains("upbeat"), "{n}");
+        assert!(song_name("[Instrumental]").starts_with("instrumental-") && song_name("[Verse 1]\nWalking down the [softly] river tonight\n[Chorus]\nOh").starts_with("walking-down-the-river-tonight-oh-"));
         std::fs::write(crate::locate::outputs(&dir).join("old.png"), b"png").unwrap();  // an older file without a line in the index
         let l = list(&dir);
         assert_eq!(l.len(), 2);
         let song = l.iter().find(|x| x["kind"] == "music").unwrap();
         assert_eq!(song["pack"], "ace-step-15"); assert_eq!(song["lyrics"], "[Verse] hello"); assert_eq!(song["bytes"], 7);
         assert!(l.iter().any(|x| x["name"] == "old.png" && x["kind"] == "image" && x["created"].as_str().unwrap().len() == 20));
+        // every plain detail of the request is kept; a start picture and huge fields are not
+        let d = prompt_details(&json!({ "style": DEFAULT_MUSIC_STYLE, "lyrics": "[Instrumental]", "duration": 60, "seed": -1, "bpm": 120, "init_image": "AAAA", "big": "x".repeat(30_000), "list": [1] }));
+        assert_eq!(d, json!({ "style": "Loud Drums, Guitar, Violin", "lyrics": "[Instrumental]", "duration": 60, "seed": -1, "bpm": 120 }));
+        // "100% FREE, generated locally!" is shown for "where": "local" only: made here yes, unknown file and cloud file no
+        assert_eq!(song["where"], "local");
+        assert!(l.iter().any(|x| x["name"] == "old.png" && x["where"].is_null()));
+        let c = save(&dir, "image", "png", b"png", "from a cloud model", json!({ "pack": "some-cloud-model", "where": "cloud:example" })).unwrap();
+        let l = list(&dir);
+        assert_eq!(l.iter().find(|x| x["path"] == c.to_string_lossy().as_ref()).unwrap()["where"], "cloud:example");
+        std::fs::remove_file(&c).unwrap();
         let body = b"--XyZ\r\nContent-Type: application/json\r\n\r\n{}\r\n--XyZ\r\nContent-Type: audio/mpeg\r\n\r\nMP3DATA\r\n--XyZ--\r\n";
         let (a, t) = audio_in_multipart(body, "multipart/mixed; boundary=XyZ").unwrap();
         assert_eq!(a, b"MP3DATA"); assert_eq!(t, "audio/mpeg");

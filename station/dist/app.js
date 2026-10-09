@@ -33,6 +33,12 @@ const icon = (k, size = 18) => { const s = document.createElementNS('http://www.
   const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', ICONS[k] || ''); p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'currentColor'); p.setAttribute('stroke-width', '1.7'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round'); s.append(p); return s; };
 const human = (b) => !b ? '' : b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e6 ? Math.round(b / 1e6) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
 const when = (t) => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleString(); };
+// files the engine made on this computer (library "where": "local"); files from remote/cloud models get no tag
+const FREE_LOCAL = '100% FREE, generated locally!';
+const freeTag = (x) => x.where === 'local' ? h('span', { class: 'freetag' }, FREE_LOCAL) : null;
+const MUSIC_STYLE = 'Loud Drums, Guitar, Violin';
+// everything that was asked for a file (the engine keeps it in the library as "details"), one "name: value" per line
+const settingsText = (d) => d && typeof d === 'object' ? Object.entries(d).map(([k, v]) => k + ': ' + v).join('\n') : '';  // the style of a song when none is typed (the engine uses the same)
 const KIND = { text: 'Chat', code: 'Code', image: 'Pictures', music: 'Music', video: 'Video' };
 
 // engine requests: {ok, status, data}
@@ -67,7 +73,7 @@ function ask(title, text, ok = 'OK', danger = false) {
 async function notify(title, body) { try { await invoke('notify_os', { title, body }); } catch (_) {} }
 
 // ------------------------------------------------------------------ app state
-const S = { view: 'chat', st: null, eng: { running: false }, catalog: null, lib: null, queue: null, chats: { chat: [], code: [] }, pick: {}, busy: {} };
+const S = { view: 'chat', st: null, eng: { running: false }, catalog: null, lib: null, queue: null, chats: { chat: [], code: [] }, pick: {}, busy: {}, autoStart: {} };
 try { S.view = localStorage.getItem('station-view') || 'chat'; S.pick = JSON.parse(localStorage.getItem('station-pick') || '{}'); } catch (_) {}
 const NAV = [
   ['', [['pictures', 'Generate Images,'], ['music', 'Generate Music and Songs,'], ['video', 'Generate Video,'], ['code', 'Generate Code,'], ['chat', 'Chat']]],
@@ -128,18 +134,76 @@ function enginePanelRefresh(force) {
   if (!panelOpen()) return;
   const k = viewSig() + (S.engBusy || '') + JSON.stringify(((S.catalog && S.catalog.packs) || []).length) + S.packsOpen;
   if (!force && k === panelBox.dataset.k) return;  // nothing new: leave it alone (no flicker, buttons stay under the mouse)
+  const a = document.activeElement, keep = a && a.id === 'pfq' ? [a.selectionStart, a.selectionEnd] : null;
   panelBox.dataset.k = k; put(panelBox, enginePanelBody());
+  if (keep) { const q = $('pfq'); if (q) { q.focus(); q.setSelectionRange(keep[0], keep[1]); } }
 }
 async function enginePanel() {
   if (!S.catalog && S.eng.running) await loadCatalog();
   panelBox = h('div'); sheet(panelBox, true); enginePanelRefresh(true);
+}
+// ---- the engine panel's model list: kind tabs with counts, search, order; Accelerated and Standard on lines of their own
+const PF_KINDS = [['', 'All'], ['text', 'Chat'], ['code', 'Code'], ['image', 'Pictures'], ['music', 'Music'], ['video', 'Video']];
+const PF_SORTS = [['installed', 'Installed first'], ['newest', 'Date installed, newest'], ['oldest', 'Date installed, oldest'], ['running', 'Running first'],
+  ['az', 'Name A–Z'], ['za', 'Name Z–A'], ['big', 'Largest first'], ['small', 'Smallest first']];
+S.pf = { kind: '', q: '', sort: 'installed' };
+try { Object.assign(S.pf, JSON.parse(localStorage.getItem('station-pf') || '{}'), { q: '' }); } catch (_) {}
+function allPacks() {
+  const st = S.st || {}, installed = st.packs || [];
+  const cat = ((S.catalog && S.catalog.packs) || []).filter((p) => !p.hidden);
+  // a catalog row with what this computer knows of it (installed, when, Accelerated)
+  return cat.map((c) => Object.assign({}, c, installed.find((p) => p.id === c.id) || {}, { inst: installed.some((p) => p.id === c.id) }))
+    .concat(installed.filter((p) => !cat.some((c) => c.id === p.id)).map((p) => Object.assign({}, p, { inst: true })));
+}
+const packBytes = (p) => p.bytes || (p.files || []).reduce((n, f) => n + (f.bytes || 0), 0);
+function setPf(k, v) { S.pf[k] = v; try { localStorage.setItem('station-pf', JSON.stringify({ kind: S.pf.kind, sort: S.pf.sort })); } catch (_) {} const l = $('pklist'); if (l) l.replaceWith(packList()); const f = $('pkfilt'); if (f && k !== 'q') f.replaceWith(packFilters(allPacks())); }
+function packFilters(all) {
+  const n = (k) => all.filter((p) => !k || packKind(p) === k).length;
+  return h('div', { id: 'pkfilt', class: 'pkfilt' },
+    h('div', { class: 'seg' }, PF_KINDS.map(([k, label]) => h('button', { class: 'segb' + (S.pf.kind === k ? ' on' : ''), onclick: () => setPf('kind', k) }, label + ' ' + n(k)))),
+    h('div', { class: 'row', style: 'margin-top:8px;gap:8px;flex-wrap:nowrap' },
+      h('input', { id: 'pfq', class: 'field grow', type: 'search', placeholder: '🔍 Search model packs', value: S.pf.q, oninput: (e) => setPf('q', e.target.value) }),
+      h('select', { class: 'field', style: 'width:auto', title: 'Order', onchange: (e) => setPf('sort', e.target.value) }, PF_SORTS.map(([k, label]) => h('option', { value: k, selected: S.pf.sort === k }, label)))));
+}
+function packList() {
+  const e = S.eng, st = S.st || {};
+  const downloading = new Set(((st.tasks || []).filter((t) => t.status === 'running' && t.action === 'install')).map((t) => t.target));
+  const words = S.pf.q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hay = (p) => [p.name, p.id, KIND[packKind(p)], p.category, p.license, p.description].filter(Boolean).join(' ').toLowerCase();
+  const t = (p) => p.installedAt || '';
+  const by = { installed: (a, b) => b.inst - a.inst || String(a.name).localeCompare(String(b.name)), newest: (a, b) => t(b).localeCompare(t(a)) || b.inst - a.inst, oldest: (a, b) => (t(a) || '~').localeCompare(t(b) || '~'),
+    running: (a, b) => !!running(b.id) - !!running(a.id) || b.inst - a.inst, az: (a, b) => String(a.name).localeCompare(String(b.name)), za: (a, b) => String(b.name).localeCompare(String(a.name)),
+    big: (a, b) => packBytes(b) - packBytes(a), small: (a, b) => packBytes(a) - packBytes(b) }[S.pf.sort] || (() => 0);
+  const list = allPacks().filter((p) => (!S.pf.kind || packKind(p) === S.pf.kind) && words.every((w) => hay(p).includes(w))).sort(by);
+  const kindTag = (p) => h('span', { class: 'ktag k-' + packKind(p) }, KIND[packKind(p)] || p.kind);
+  const kicon = (p) => h('div', { class: 'kicon' }, icon(p.kind === 'image' ? 'pictures' : p.kind === 'text' ? (packKind(p) === 'code' ? 'code' : 'chat') : p.kind || 'chat'));
+  const facts = (p) => [human(packBytes(p)), p.inst && p.installedAt ? 'installed ' + new Date(p.installedAt).toLocaleDateString() : ''].filter(Boolean).join(' · ');
+  const rows = [];
+  for (const p of list) {
+    const r = running(p.id), dl = downloading.has(p.id);
+    if (!p.inst) {
+      rows.push(h('div', { class: 'item' }, kicon(p), h('div', { class: 'txt' }, h('b', {}, p.name), h('span', {}, kindTag(p), ' ', facts(p))),
+        dl ? h('span', { class: 'tag acc' }, 'Downloading…') : h('span', { class: 'tag' }, p.fits === false ? 'Needs other hardware' : 'Not installed'),
+        h('button', { class: 'btn small primary', disabled: dl || p.fits === false || !e.running, onclick: () => packDo('install', p) }, 'Download & install')));
+      continue;
+    }
+    // one line per way to run it: "<name> · Accelerated" and "<name> · Standard"
+    for (const md of p.turbo ? ['turbo', 'regular'] : ['regular']) {
+      const on = r && (r.mode || 'regular') === md;
+      rows.push(h('div', { class: 'item' + (md === 'regular' && p.turbo ? ' sub2' : '') }, kicon(p), h('div', { class: 'txt' }, h('b', {}, p.name + ' · ' + modeName(md)), h('span', {}, kindTag(p), ' ', facts(p))),
+        on ? h('span', { class: 'tag on' }, r.ready ? 'Running' : 'Starting…') : h('span', { class: 'tag' }, 'Installed'),
+        on ? h('button', { class: 'btn small', onclick: () => packDo('stop', p) }, 'Stop')
+          : h('button', { class: 'btn small' + (md === 'turbo' || !p.turbo ? ' primary' : ''), disabled: !e.running, title: 'Start ' + p.name + ' (' + modeName(md) + ')', onclick: () => packDo('start', p, md) }, r ? '▶ Switch' : '▶ Start')));
+    }
+  }
+  return h('div', { id: 'pklist', class: 'group packlist' }, rows.length ? rows : h('div', { class: 'item' }, h('span', { class: 'mut' },
+    !allPacks().length ? (e.running ? 'Loading the catalog…' : 'Start the engine to see the model packs.') : 'No model pack matches' + (S.pf.q ? ' "' + S.pf.q + '"' : '') + '.')));
 }
 function enginePanelBody() {
   const e = S.eng, st = S.st || {}, [cls, title, sub] = engineState();
   const installed = st.packs || [], ids = new Set(installed.map((p) => p.id));
   const cat = ((S.catalog && S.catalog.packs) || []).filter((p) => !p.hidden);
   const all = cat.concat(installed.filter((p) => !cat.some((c) => c.id === p.id)));
-  const downloading = new Set(((st.tasks || []).filter((t) => t.status === 'running' && t.action === 'install')).map((t) => t.target));
   const btn = (t, f, cls2, dis) => h('button', { class: 'btn ' + (cls2 || ''), style: 'width:100%;justify-content:flex-start;margin-top:8px', disabled: !!dis, onclick: f }, t);
   const left = h('div', {}, h('div', { class: 'engbig ' + cls, style: 'margin:0;width:100%' }, h('span', { class: 'bdot' }), h('div', {}, h('b', {}, title), h('small', {}, sub))),
     h('div', { class: 'small mut', style: 'margin:10px 2px' }, e.running ? 'Engine ' + (st.engine ? st.engine.version + ' · ' + (st.engineKey || '') : 'not installed') + (st.gpu ? ' · ' + st.gpu : '') : 'The engine runs the models and the queue on this computer.'),
@@ -152,17 +216,7 @@ function enginePanelBody() {
   const right = h('div', {}, h('button', { class: 'packtoggle', 'aria-expanded': String(!!S.packsOpen), onclick: () => { S.packsOpen = !S.packsOpen; enginePanelRefresh(true); } },
       h('span', { class: 'tri' }, S.packsOpen ? '▾' : '▸'), h('b', {}, 'Model packs'), h('span', { class: 'mut small' }, ' ' + nInst + ' installed' + (nRun ? ' · ' + nRun + ' running' : '') + (all.length ? ' · ' + all.length + ' in all' : '')),
       h('span', { class: 'grow' }), h('span', { class: 'mut small' }, S.packsOpen ? 'Hide' : 'Show the list')),
-    !S.packsOpen ? null : h('div', { class: 'group packlist' }, all.length ? all.map((p) => {
-    const inst = ids.has(p.id), r = running(p.id), dl = downloading.has(p.id), bytes = p.bytes || (p.files || []).reduce((n, f) => n + (f.bytes || 0), 0);
-    return h('div', { class: 'item' }, h('div', { class: 'kicon' }, icon(p.kind === 'image' ? 'pictures' : p.kind === 'text' ? (packKind(p) === 'code' ? 'code' : 'chat') : p.kind || 'chat')),
-      h('div', { class: 'txt' }, h('b', {}, p.name), h('span', {}, [KIND[packKind(p)] || p.kind, human(bytes)].filter(Boolean).join(' · '))),
-      r ? h('span', { class: 'tag on' }, r.ready ? 'Running' : 'Starting…') : dl ? h('span', { class: 'tag acc' }, 'Downloading…') : inst ? h('span', { class: 'tag' }, 'Installed') : h('span', { class: 'tag' }, p.fits === false ? 'Needs other hardware' : 'Not installed'),
-      !inst ? h('button', { class: 'btn small primary', disabled: dl || p.fits === false || !e.running, onclick: () => packDo('install', p) }, 'Download & install')
-        : r ? h('button', { class: 'btn small', onclick: () => packDo('stop', p) }, 'Stop')
-        : h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, ...(p.turbo ? ['turbo', 'regular'] : ['regular']).map((md) =>
-            h('button', { class: 'btn small' + (md === 'turbo' || !p.turbo ? ' primary' : ''), disabled: !e.running, title: 'Start ' + p.name + (p.turbo ? ' (' + modeName(md) + ')' : ''), onclick: () => packDo('start', p, md) },
-              p.turbo ? '▶ ' + modeName(md) : 'Start'))));
-  }) : h('div', { class: 'item' }, h('span', { class: 'mut' }, e.running ? 'Loading the catalog…' : 'Start the engine to see the model packs.'))));
+    !S.packsOpen ? null : packFilters(all), !S.packsOpen ? null : packList());
   return [h('div', { class: 'row', style: 'margin-bottom:12px' }, h('h3', { style: 'margin:0' }, 'Sushila Engine'), h('span', { class: 'grow' }), h('button', { class: 'btn small', onclick: () => $('sheet').click() }, 'Close')),
     h('div', { class: 'engpanel' }, left, right)];
 }
@@ -186,7 +240,7 @@ function modelBar(view) {
   const packs = ((S.st && S.st.packs) || []).filter((p) => p.kind === kind || (kind === 'text' && p.kind === 'text'));
   // a fixed order (by name; code models first on Code): the list never jumps around when a model starts or stops
   const ordered = packs.slice().sort((a, b) => (view === 'code' ? (packKind(b) === 'code') - (packKind(a) === 'code') : 0) || String(a.name).localeCompare(String(b.name)));
-  if (!packs.length) return [h('span', { class: 'mut small' }, 'No ' + ({ chat: 'chat', code: 'coding', pictures: 'picture', music: 'music', video: 'video' }[view] || '') + ' model installed'), h('button', { class: 'btn primary small', onclick: () => go('packs') }, 'Get a model'),
+  if (!packs.length) return [h('span', { class: 'mut small' }, 'No ' + ({ chat: 'chat', code: 'coding', pictures: 'picture', music: 'music', video: 'video' }[view] || '') + ' model installed'), h('button', { class: 'btn primary small', onclick: () => missingPack(view) }, 'Get a model'),
     h('button', { class: 'btn small', onclick: enginePanel }, 'Show models')];
   const m = currentModel(view), cur = m.id, mode = m.mode;
   // one line per way to run it: "<name> · Accelerated" and "<name> · Standard"
@@ -214,10 +268,56 @@ function currentModel(view) {
 }
 // Start / Stop a model, then follow it until it is ready or has failed: the engine's error is shown (and stays until
 // closed), never a silent nothing
+// ---- no pack of the kind needed: name the recommended one, with one click to download, install and start it
+const VIEW_KIND = { chat: 'text', code: 'code', pictures: 'image', music: 'music', video: 'video' };
+const VIEW_WHAT = { chat: 'chat', code: 'coding', pictures: 'picture', music: 'music', video: 'video' };
+function recommendedPack(view) {
+  const want = VIEW_KIND[view], ok = (p) => !p.hidden && p.fits !== false;
+  const cat = ((S.catalog && S.catalog.packs) || []).filter(ok);
+  const of = (k) => cat.filter((p) => packKind(p) === k);
+  const pool = of(want).length ? of(want) : want === 'code' || want === 'text' ? cat.filter((p) => p.kind === 'text') : [];
+  // the catalog's popular pack of that kind, else the smallest one that fits this computer
+  return pool.find((p) => p.popular) || pool.slice().sort((a, b) => packBytes(a) - packBytes(b))[0] || null;
+}
+async function missingPack(view) {
+  if (!S.catalog && S.eng.running) await loadCatalog();
+  const p = recommendedPack(view), what = VIEW_WHAT[view] || view;
+  let close = () => {};
+  const showAll = () => { close(); S.pf.kind = VIEW_KIND[view] || ''; S.pf.q = ''; S.packsOpen = true; enginePanel(); };
+  close = toast(h('div', {},
+    h('div', {}, 'No ' + what + ' model pack is installed yet.'),
+    p ? h('div', { style: 'margin-top:6px' }, 'Recommended pack: ', h('b', {}, p.name), ' (' + human(packBytes(p)) + ')')
+      : h('div', { style: 'margin-top:6px' }, S.eng.running ? 'No ' + what + ' pack in the catalog fits this computer.' : 'Start the Sushila Engine to see the packs.'),
+    h('div', { class: 'row', style: 'margin-top:8px;gap:6px' },
+      p ? h('button', { class: 'btn small primary', onclick: () => { close(); getAndStart(p, view); } }, '⬇ Download, install and start') : null,
+      h('button', { class: 'btn small', onclick: showAll }, 'Show all ' + what + ' packs'))), 'err', 'Model pack needed', 0);
+}
+// one click: download + install (the engine checks every file), then start it when it is ready
+async function getAndStart(p, view) {
+  try {
+    if (!S.eng.running) { await invoke('engine_start'); for (let i = 0; i < 30 && !(S.eng = await invoke('engine_status')).running; i++) await new Promise((r) => setTimeout(r, 1000)); }
+    await post('/api/control', { action: 'install', pack: p.id });
+    S.autoStart[p.id] = view;
+    toast(p.name + ' is downloading and is checked file by file; it starts by itself when it is ready (progress: Show models).', 'ok', 'Download, install and start');
+  } catch (e) { toast(String(e.message || e), 'err', 'Could not download ' + p.name); }
+}
+// called after every state poll: start what finished installing; report a download that failed
+function autoStartCheck() {
+  const st = S.st || {};
+  for (const [id, view] of Object.entries(S.autoStart)) {
+    const p = (st.packs || []).find((x) => x.id === id);
+    const failed = (st.tasks || []).find((t) => t.action === 'install' && t.target === id && t.status === 'failed');
+    if (p) {
+      delete S.autoStart[id]; S.pick[view] = id;
+      try { localStorage.setItem('station-pick', JSON.stringify(S.pick)); } catch (_) {}
+      if (!running(id)) useModel('start', id, p.turbo ? 'turbo' : 'regular');
+    } else if (failed) { delete S.autoStart[id]; toast((failed.error || 'the download failed') + ' (see Logs).', 'err', 'Could not install ' + id, 0); }
+  }
+}
 async function useModel(action, pack, mode) {
   const p = (((S.st && S.st.packs) || []).find((x) => x.id === pack)) || { name: pack };
   S.busy[pack] = true; render();
-  let close = () => {};
+  let close = () => {}, done = false;
   try {
     const r = await post('/api/use', { action, pack, mode });
     if (action === 'start') close = toast(h('span', {}, h('span', { class: 'spin' }, '⏳'), ' ' + p.name + (mode === 'turbo' ? ' (Accelerated)' : '') + ' is loading; the first start can take a minute.'), '', 'Starting', 0);
@@ -234,8 +334,26 @@ async function useModel(action, pack, mode) {
     }
     close(); toast(action === 'start' ? 'You can use it now.' : 'Its memory is free again.', 'ok', p.name + (action === 'start' ? ' is ready' : ' stopped'));
     notify(p.name + (action === 'start' ? ' is ready' : ' stopped'), action === 'start' ? 'You can use it now.' : '');
+    done = true;
   } catch (e) { close(); toast(String(e.message || e), 'err', 'Could not ' + action + ' ' + p.name, 0); }
   S.busy[pack] = false; S.sig = ''; refresh();
+  return done;
+}
+// before making something: the chosen model running and ready, started (and waited for) when it is not; true = go on.
+// Starting stops other models (memory and GPU), so that is asked first.
+async function ensureReady(m) {
+  if (m.run && m.run.ready) return true;
+  const mode = S.pick[m.id + ':mode'] || (m.pack && m.pack.turbo ? 'turbo' : 'regular');
+  const others = ((S.st && S.st.running) || []).filter((r) => r.packId !== m.id);
+  const name = m.pack ? m.pack.name : m.id;
+  if (!m.run && others.length && !await ask('Start ' + name + '?', others.map((r) => r.name).join(', ') + ' (running now) will stop, to keep this computer\'s memory and GPU for ' + name + '. Then it goes on by itself.', 'Start and go on')) return false;
+  if (m.run) {  // already starting: wait for it
+    const close = toast(h('span', {}, h('span', { class: 'spin' }, '⏳'), ' ' + name + ' is still starting; it goes on by itself when it is ready.'), '', '', 0);
+    for (let i = 0; i < 900; i++) { await new Promise((r) => setTimeout(r, 1000)); let st; try { st = await get('/api/state'); } catch (_) { continue; } S.st = st;
+      const r = (st.running || []).find((x) => x.packId === m.id); if (!r) { close(); return useModel('start', m.id, mode); } if (r.ready) { close(); return true; } }
+    close(); return false;
+  }
+  return useModel('start', m.id, mode);
 }
 
 // ------------------------------------------------------------------ routing
@@ -252,7 +370,7 @@ function render() {
   renderNav(); renderEngineBox();
   const view = $('view'); view.className = S.view === 'chat' || S.view === 'code' ? 'flush' : '';
   put($('baracts'), ...(S.eng.running ? modelBar(S.view) : []), ...(VIEWS[S.view].bar ? VIEWS[S.view].bar() : []));
-  put($('bargo'), goButton());
+  put($('bargo'), goButton(), meButton());
   if (!S.eng.running && !['engine', 'settings', 'help'].includes(S.view)) { view.className = ''; put(view, stoppedPanel()); return; }
   const keep = view.querySelector('.msgs'); const scroll = keep ? keep.scrollTop : 0;
   put(view, VIEWS[S.view].render()); restoreDraft();
@@ -314,12 +432,10 @@ function msgEl(x) {
 async function send(view) {
   const ta = $('q'); const q = ta ? ta.value.trim() : ''; if (!q) return;
   const m = currentModel(view);
-  if (!m) { toast('Install a text model first (Model packs).', 'err'); return; }
-  if (!m.run || !m.run.ready) {
-    if (!m.run && await ask('Start ' + (m.pack ? m.pack.name : m.id) + '?', 'This model is not running yet. It loads in the background, then your message is sent.', 'Start')) { await useModel('start', m.id, m.pack && m.pack.turbo ? 'turbo' : 'regular'); }
-    toast('The model is loading; send again when it shows ● in the picker.', '', '', 5000); return;
-  }
-  ta.value = ''; if (S.draft[view]) S.draft[view].q = '';  // sent: the box empties (its draft too)
+  if (!m) { missingPack(view); return; }
+  // not running: start it, wait until it is ready, then send (the message stays in the box meanwhile)
+  if ((!m.run || !m.run.ready) && !await ensureReady(m)) return;
+  { const box = $('q') || ta; box.value = ''; } if (S.draft[view]) S.draft[view].q = '';  // sent: the box empties (its draft too)
   const msgs = S.chats[view]; msgs.push({ role: 'user', content: q });
   const id = 'c' + Date.now(); const a = { role: 'assistant', content: '', streaming: true, id, t0: performance.now(), n: 0 }; msgs.push(a); render();
   const sys = view === 'code' ? [{ role: 'system', content: 'You are an expert programmer. Answer with correct, complete code in fenced code blocks and short explanations.' }] : [];
@@ -379,14 +495,12 @@ function histPick(v) {
 }
 async function makePictures() {
   const m = currentModel('pictures'), prompt = $('ip').value.trim(); if (!prompt) return;
-  if (!m) { toast('Install a picture model first (the Engine button, or Model packs).', 'err'); return; }
-  if (!m.run || !m.run.ready) {
-    if (!m.run && await ask('Start ' + (m.pack ? m.pack.name : m.id) + '?', 'The picture model is not running. It starts in the background (your prompt stays here); press Make pictures again when it shows ● at the top.', 'Start')) await packDo('start', m.pack || { id: m.id, name: m.id });
-    else if (m.run) toast('The picture model is still starting; your prompt stays here. Press Make pictures again in a moment.', '', '', 6000);
-    return;
-  }
+  if (!m) { missingPack('pictures'); return; }
+  // what was asked is read now: the page may be redrawn while the model starts
+  const n = +$('in').value, size = $('isize').value, seed = $('iseed').value.trim();
   histAdd('pictures');
-  const n = +$('in').value, size = $('isize').value, seed = $('iseed').value.trim(); $('igo').disabled = true;
+  if (!m.run || !m.run.ready) { const b = $('igo'); if (b) b.disabled = true; const ready = await ensureReady(m); const b2 = $('igo'); if (b2) b2.disabled = false; if (!ready) return; }
+  { const b = $('igo'); if (b) b.disabled = true; }
   const close = toast(h('span', {}, h('span', { class: 'spin' }, '⏳'), ' Drawing ' + n + ' picture' + (n > 1 ? 's' : '') + '…'), '', '', 0);
   S.drawing = n; render();
   try {
@@ -400,7 +514,7 @@ async function makePictures() {
 function queueForm(view) {
   const isMusic = view === 'music';
   return h('div', { class: 'panel' }, isMusic ? [
-    h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Style'), histButton('music')), h('input', { class: 'field', id: 'mstyle', style: 'width:100%', placeholder: 'Upbeat pop, female vocals, bright synths' }),
+    h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Style'), histButton('music')), h('input', { class: 'field', id: 'mstyle', style: 'width:100%', placeholder: 'Upbeat pop, female vocals, bright synths (left empty: ' + MUSIC_STYLE + ')' }),
     h('label', { class: 'lbl' }, 'Lyrics (empty: instrumental)'), h('textarea', { class: 'field', id: 'mlyrics', rows: 8, style: 'width:100%', placeholder: '[Verse]\n…\n[Chorus]\n…' }),
     h('label', { class: 'lbl' }, 'Length'), h('select', { class: 'field', id: 'mdur', style: 'width:100%' }, ...[[30, '30 seconds'], [60, '1 minute'], [120, '2 minutes'], [180, '3 minutes']].map(([v, t]) => h('option', { value: v, selected: v === 60 }, t)))]
     : [h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Describe the video'), histButton('video')), h('textarea', { class: 'field', id: 'vp', rows: 5, style: 'width:100%', placeholder: 'A paper boat drifting down a rainy street, cinematic' }),
@@ -419,13 +533,15 @@ async function pickStart() {
   } catch (e) { toast(String(e), 'err'); }
 }
 async function addJob(view) {
-  const m = currentModel(view); if (!m) { toast('Install a ' + view + ' model first (Model packs).', 'err'); return; }
+  const m = currentModel(view); if (!m) { missingPack(view); return; }
   if (!m.run || !m.run.ready) {
     // the queue starts the model itself when its turn comes; nothing typed is lost either way
   }
+  // no style typed: the default style, shown in the box so it is clear what was used (and kept in the history)
+  if (view === 'music' && !$('mstyle').value.trim()) { $('mstyle').value = MUSIC_STYLE; S.draft.music = Object.assign({}, S.draft.music, { mstyle: MUSIC_STYLE }); }
   histAdd(view);
   let kind, title, params;
-  if (view === 'music') { const style = $('mstyle').value.trim(); if (!style) { toast('Describe the style first.', 'err'); return; } kind = 'music'; title = style; params = { style, lyrics: $('mlyrics').value.trim() || '[Instrumental]', duration: +$('mdur').value }; }
+  if (view === 'music') { const style = $('mstyle').value.trim(); kind = 'music'; title = style; params = { style, lyrics: $('mlyrics').value.trim() || '[Instrumental]', duration: +$('mdur').value }; }
   else { const p = $('vp').value.trim(); if (!p) { toast('Describe the video first.', 'err'); return; } const [w, hh] = $('vsize').value.split('x').map(Number); kind = 'video'; title = p;
     params = { prompt: p, width: w, height: hh, video_frames: +$('vlen').value, fps: 24, seed: -1, init_image: S.vstart ? S.vstart.data : undefined }; }
   try { await post('/api/queue', { kind, model: m.id, title: title.slice(0, 200), params }); toast('Added to the queue. A notice says when it is ready.', 'ok', 'In the queue'); loadQueue(); }
@@ -453,14 +569,14 @@ function mediaEl(x, small) {
 function libTile(x) {
   return h('div', { class: 'tile' }, h('div', { class: 'thumb', onclick: () => preview(x) }, x.kind === 'music' ? '🎵' : mediaEl(x, true)),
     x.kind === 'music' ? mediaEl(x) : null,
-    h('div', { class: 'cap' }, h('b', {}, x.prompt || x.name), h('span', { class: 'mut' }, (x.pack || '') + (x.created ? ' · ' + new Date(x.created).toLocaleDateString() : ''))),
+    h('div', { class: 'cap' }, h('b', {}, x.prompt || x.name), h('span', { class: 'mut' }, (x.pack || '') + (x.created ? ' · ' + new Date(x.created).toLocaleDateString() : '')), freeTag(x)),
     h('div', { class: 'acts' }, h('button', { class: 'btn small', title: 'Information', onclick: () => preview(x) }, 'ⓘ'),
       x.trash ? [h('button', { class: 'btn small', onclick: () => libAct('restore', x) }, 'Restore'), h('button', { class: 'btn small danger', onclick: () => libAct('purge', x) }, 'Delete')]
       : [h('button', { class: 'btn small', onclick: () => saveAs(x) }, 'Download'), h('button', { class: 'btn small', onclick: () => share(x) }, 'Get link'),
          x.path ? h('button', { class: 'btn small', title: os === 'mac' ? 'Show in Finder' : 'Show in folder', onclick: () => reveal(x.path) }, '📂') : null]));
 }
 function preview(x) {
-  const rows = [['Made with', x.pack], ['Prompt', x.prompt], ['Style', x.style], ['Lyrics', x.lyrics], ['Size', x.size], ['Seed', x.seed], ['Created', when(x.created)], ['File', x.path], ['Bytes', human(x.bytes)]].filter(([, v]) => v != null && v !== '' && v !== -1);
+  const rows = [['Made with', x.pack], ['Prompt', x.prompt], ['Style', x.style], ['Lyrics', x.lyrics], ['Size', x.size], ['Seed', x.seed], ['Created', when(x.created)], ['Cost', x.where === 'local' ? FREE_LOCAL : ''], ['All settings', settingsText(x.details)], ['File', x.path], ['Bytes', human(x.bytes)]].filter(([, v]) => v != null && v !== '' && v !== -1);
   const close = sheet([h('h3', {}, x.name), mediaEl(x), h('table', { class: 'table selectable', style: 'margin-top:10px' }, rows.map(([k, v]) => h('tr', {}, h('th', { style: 'width:110px' }, k), h('td', { style: 'white-space:pre-wrap' }, String(v))))),
     h('div', { class: 'row end' }, x.path ? h('button', { class: 'btn', onclick: () => reveal(x.path) }, os === 'mac' ? 'Show in Finder' : 'Show in folder') : null,
       h('button', { class: 'btn', onclick: () => saveAs(x) }, 'Download'), x.trash ? null : h('button', { class: 'btn', onclick: () => { close(); share(x); } }, 'Upload and get link'),
@@ -536,20 +652,26 @@ function libItems() {
 async function loadLib() { if (S.libLoading) return; S.libLoading = true; try { S.lib = await get('/api/library'); } catch (e) { S.lib = { items: [], trash: [] }; } S.libLoading = false; if (['mycontent', 'pictures', 'music', 'video'].includes(S.view)) render(); }
 
 // sushila.ai: sign in with an e-mail code, then upload and get a link
-async function signIn() {
+async function signIn(fromButton) {
   let me = {}; try { me = await get('/api/share/me'); } catch (_) {}
-  if (me.signedIn) return true;
+  if (me.signedIn) { S.me = me; if (fromButton) { put($('bargo'), goButton(), meButton()); toast('Already signed in as ' + me.email, 'ok'); } return true; }
   return new Promise((res) => {
     let close; let step = 'email'; const box = h('div');
-    const draw = () => put(box, h('h3', {}, 'Sign in to sushila.ai'), h('p', {}, step === 'email' ? 'No password: we e-mail you a one-time code.' : 'Enter the code we sent to ' + S.email + '.'),
-      step === 'email' ? h('input', { class: 'field', id: 'sem', style: 'width:100%', type: 'email', value: S.email || me.lastEmail || '', placeholder: 'you@example.com' }) : h('input', { class: 'field', id: 'scode', style: 'width:100%', inputmode: 'numeric', placeholder: '6-digit code' }),
+    const enter = (e) => { if (e.key === 'Enter') { e.preventDefault(); next(); } };
+    const draw = () => { put(box, h('h3', {}, 'Sign in to sushila.ai'), h('p', {}, step === 'email' ? SIGNIN_WHY + '. No password: we e-mail you a one-time code.' : 'Enter the code we sent to ' + S.email + '.'),
+      step === 'email' ? h('input', { class: 'field', id: 'sem', style: 'width:100%', type: 'email', autocomplete: 'email', value: S.email || me.lastEmail || '', placeholder: 'you@example.com', onkeydown: enter })
+        : h('input', { class: 'field', id: 'scode', style: 'width:100%', inputmode: 'numeric', autocomplete: 'one-time-code', placeholder: '6-digit code', onkeydown: enter }),
       h('div', { class: 'small', id: 'smsg', style: 'color:var(--err);margin-top:6px' }),
       h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => { close(); res(false); } }, 'Cancel'), h('button', { class: 'btn primary', onclick: next }, step === 'email' ? 'Send code' : 'Sign in')));
+      setTimeout(() => { const f = $(step === 'email' ? 'sem' : 'scode'); if (f) f.focus(); }, 0); };
+    let sending = false;
     const next = async () => {
+      if (sending) return; sending = true;
       try {
         if (step === 'email') { S.email = $('sem').value.trim(); await post('/api/share/code', { email: S.email, purpose: 'SIGN_IN' }).catch(async (e) => { if (/No account/.test(e.message)) await post('/api/share/code', { email: S.email, purpose: 'SIGN_UP' }); else throw e; }); step = 'code'; draw(); }
-        else { await post('/api/share/verify', { email: S.email, code: $('scode').value.trim(), firstName: '' }); close(); toast('Signed in as ' + S.email, 'ok'); res(true); }
+        else { await post('/api/share/verify', { email: S.email, code: $('scode').value.trim(), firstName: '' }); close(); toast('Signed in as ' + S.email + '. Upload from myContent to get a link to share.', 'ok'); loadMe(true); res(true); }
       } catch (e) { $('smsg').textContent = e.message; }
+      sending = false;
     };
     draw(); close = sheet(box);
   });
@@ -683,6 +805,28 @@ function linkSwitch() {
 }
 // "Open in a browser": the other ways to use this Sushila: this computer's page (http://localhost:7874/) and the internet
 // link (sushila.ai/localhost/<id>/, only you, signed in to sushila.ai), each with Open and Copy
+// top right: sign in to sushila.ai (e-mail + one-time code), or who is signed in
+const SIGNIN_WHY = 'Sign in to create links to your creations and share';
+async function loadMe(force) {
+  if (!S.eng.running || (!force && S.meAt && Date.now() - S.meAt < 60000)) return;
+  S.meAt = Date.now();
+  try { const me = await get('/api/share/me'); const was = JSON.stringify(S.me || {}); S.me = me; if (force || JSON.stringify(me) !== was) put($('bargo'), goButton(), meButton()); } catch (_) {}
+}
+function meButton() {
+  const me = S.me || {};
+  if (!S.eng.running) return null;
+  if (!me.signedIn) return h('span', { class: 'mebox' }, h('span', { class: 'signhint' }, SIGNIN_WHY),
+    h('button', { class: 'btn small primary', title: SIGNIN_WHY + ' (no password: a one-time code by e-mail)', onclick: () => signIn(true) }, '👤 Sign in'));
+  return h('button', { class: 'btn small', title: 'Signed in to sushila.ai as ' + me.email, onclick: mePanel }, '👤 ' + me.email + ' ▾');
+}
+function mePanel() {
+  const me = S.me || {};
+  const close = sheet([h('h3', {}, 'sushila.ai account'), h('p', {}, 'Signed in as ', h('b', {}, me.email || ''), '. Upload a picture, song or video from myContent to get a link you can share.'),
+    h('div', { class: 'row end' },
+      h('button', { class: 'btn', onclick: () => { close(); openUrl('https://sushila.ai/mycontent'); } }, 'My content on sushila.ai'),
+      h('button', { class: 'btn danger', onclick: async () => { close(); try { await post('/api/share/signout'); toast('Signed out of sushila.ai.', 'ok'); } catch (e) { toast(e.message, 'err'); } loadMe(true); } }, 'Sign out'),
+      h('button', { class: 'btn primary', onclick: () => close() }, 'Close'))]);
+}
 function goButton() {
   return h('button', { class: 'btn small gobtn', title: 'See Sushila in a web browser: on this computer, or through your internet link', onclick: goPanel }, '🌐 Open in browser ▾');
 }
@@ -771,7 +915,7 @@ window.addEventListener('unhandledrejection', (e) => { try { toast(String((e.rea
 // ------------------------------------------------------------------ keeping up to date
 async function refresh() {
   try { S.eng = await invoke('engine_status'); } catch (_) { S.eng = { running: false }; }
-  if (S.eng.running) { try { S.st = await get('/api/state'); } catch (_) {} loadQueue(); if (S.view === 'logs') loadLog(); }
+  if (S.eng.running) { try { S.st = await get('/api/state'); } catch (_) {} loadQueue(); if (S.view === 'logs') loadLog(); autoStartCheck(); loadMe(); }
   const typing = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
   const streaming = (S.chats.chat.concat(S.chats.code)).some((x) => x.streaming);
   const media = document.querySelector('#view video:not([paused]), #view audio');

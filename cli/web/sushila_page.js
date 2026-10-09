@@ -266,6 +266,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
 .downbar .dlbtn{margin:0}
 .spacebox{width:min(1000px,96vw)}.tunbtn{margin-right:8px;padding:6px 12px;font-size:13px}.tunlink{font-size:18px;font-weight:700;word-break:break-all;margin:8px 0}
 @media (max-width:640px){.tunbtn{font-size:12px;padding:5px 8px}}.infobtn{font-weight:800;padding:4px 10px!important;border-radius:99px!important}
+.freetag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle}@media (prefers-color-scheme:dark){.freetag{background:#14532d;color:#bbf7d0}}
 .infodl{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;margin:0;font-size:14px}.infodl dt{color:var(--mut);font-weight:600}.infodl dd{margin:0;overflow-wrap:anywhere}.infodl dd.pre{white-space:pre-wrap}.spacebox h3{margin:18px 0 6px}.warnnote{margin:12px 0;padding:10px 14px;border-radius:10px;background:var(--accbg);font-size:14px}
 .srvstat{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 14px;background:var(--card)}
 .srvstat .dot{width:12px;height:12px;border-radius:50%;flex:none;background:var(--ok);box-shadow:0 0 0 4px rgba(18,122,58,.15)}.srvstat.down{border-color:var(--err);background:var(--errbg)}.srvstat.down .dot{background:var(--err);box-shadow:0 0 0 4px rgba(180,35,24,.15)}
@@ -509,11 +510,15 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
     const KINDS = [['', 'All'], ['image', '🖼 Pictures'], ['music', '🎵 Music'], ['video', '🎬 Videos']];
     const SORTS = [['new', 'Newest first'], ['old', 'Oldest first'], ['az', 'Name A–Z'], ['za', 'Name Z–A'], ['big', 'Largest first'], ['small', 'Smallest first'], ['kind', 'Kind']];
     const when = (t) => (t || '').replace('T', ' ').slice(0, 16);
+    // made by the engine on this computer (library "where": "local"); files from remote/cloud models get no tag
+    const FREE_LOCAL = '100% FREE, generated locally!';
+    const freeTag = (x) => !x.trash && x.where === 'local' ? el('span', { class: 'freetag' }, FREE_LOCAL) : null;
     const title = (x) => x.prompt || x.name;
     const fileInfo = (x) => showInfo(x.name, [['Kind', x.kind === 'image' ? 'Picture' : x.kind === 'music' ? 'Song' : 'Video'], ['Prompt', x.prompt, 'pre'],
       ['Lyrics', x.lyrics && x.lyrics !== '[Instrumental]' ? x.lyrics : x.lyrics ? 'Instrumental' : '', 'pre'], ['Model', x.pack], ['Mode', x.mode === 'turbo' ? 'Accelerated' : x.mode === 'regular' ? 'Standard' : ''],
       ['Size', x.size], ['Seed', x.seed], ['Length', x.duration ? x.duration + ' s' : ''], ['Frames', x.frames], ['File size', human(x.bytes || 0)],
-      ['Made', x.created, 'date'], ['Generated on', x.remote ? 'this Sushila Engine, for someone on another device' : 'this computer'], ['Deleted', x.trash ? x.deleted : '', 'date'],
+      ['Made', x.created, 'date'], ['Cost', !x.trash && x.where === 'local' ? FREE_LOCAL : ''], ['Generated on', x.remote ? 'this Sushila Engine, for someone on another device' : 'this computer'], ['Deleted', x.trash ? x.deleted : '', 'date'],
+      ['All settings', x.details && typeof x.details === 'object' ? Object.entries(x.details).map(([k, v]) => k + ': ' + v).join('\n') : '', 'pre'],
       ['Saved at', x.path, 'pre'], ['Link on sushila.ai', x.link, 'link'], ['Views', x.link && lib.views && x.link in lib.views ? viewsText(lib.views[x.link]) : '']]);
     function libList() {
       const all = lib.inTrash ? lib.trash : (lib.items || []);
@@ -539,7 +544,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
            x.link ? null : el('button', { class: 'ghost', onclick: () => libShare(x) }, '⬆ Upload and get link'),
            el('button', { class: 'danger', onclick: () => libAct('delete', x.rel, 'Moved to the trash: ' + x.name + ' (Trash: restore or delete permanently)') }, '🗑 Delete')];
       return el('div', { class: 'libcard' }, mediaBox(preview, x.link && lib.views && x.link in lib.views ? lib.views[x.link] : null), el('div', { class: 'libbody' }, el('b', {}, title(x).slice(0, 160)),
-        el('div', { class: 'sub' }, facts), x.lyrics && x.lyrics !== '[Instrumental]' ? el('details', {}, el('summary', { class: 'sub' }, 'Lyrics'), el('pre', { class: 'lyr' }, x.lyrics)) : null,
+        el('div', { class: 'sub' }, facts, freeTag(x)), x.lyrics && x.lyrics !== '[Instrumental]' ? el('details', {}, el('summary', { class: 'sub' }, 'Lyrics'), el('pre', { class: 'lyr' }, x.lyrics)) : null,
         el('div', { class: 'sub', style: 'word-break:break-all' }, x.path),
         x.link ? el('div', { class: 'sub' }, '🔗 ', el('a', { href: x.link, target: '_blank', rel: 'noopener', style: 'word-break:break-all' }, x.link), ' ',
           el('button', { class: 'ghost', onclick: () => { try { copyText(x.link); lib.msg = 'Copied: ' + x.link; } catch (_) {} libRender(); } }, 'Copy link')) : null,
@@ -557,7 +562,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
           el('td', { class: 'lthumb' }, el('button', { class: 'lopen', title: 'Open', onclick: () => open(x) }, thumb(x))),
           el('td', { class: 'lname' }, el('b', {}, title(x).slice(0, 140)), el('div', { class: 'sub' }, x.name), x.lyrics && x.lyrics !== '[Instrumental]' ? el('div', { class: 'sub' }, '♪ with lyrics') : null),
           el('td', {}, x.kind === 'image' ? 'Picture' : x.kind === 'music' ? 'Song' : 'Video', x.size ? el('div', { class: 'sub' }, x.size) : null, x.duration ? el('div', { class: 'sub' }, x.duration + ' s') : null),
-          el('td', { class: 'sub' }, x.pack || ''), el('td', { class: 'num' }, human(x.bytes || 0)), el('td', { class: 'sub' }, x.trash ? when(x.deleted) : when(x.created)),
+          el('td', { class: 'sub' }, x.pack || ''), el('td', { class: 'num' }, human(x.bytes || 0)), el('td', { class: 'sub' }, x.trash ? when(x.deleted) : when(x.created), freeTag(x) ? el('div', {}, freeTag(x)) : null),
           el('td', { class: 'sub' }, x.link ? el('a', { href: x.link, target: '_blank', rel: 'noopener' }, x.link.replace(/^https?:\/\//, '')) : '—', x.link && lib.views && x.link in lib.views ? el('div', {}, '👁 ' + viewsText(lib.views[x.link])) : null),
           el('td', { class: 'lacts' }, infoBtn(() => fileInfo(x)), ...(x.trash
             ? [el('button', { class: 'ghost', onclick: () => libAct('restore', x.rel, 'Restored ' + x.name) }, '↩ Restore'),
@@ -1560,7 +1565,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     function musicScreen() {
       main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Generate Music and Songs, locally or remotely.'),
         el('label', { for: 'mlyrics' }, '1. Lyrics'), el('textarea', { id: 'mlyrics', rows: 9, placeholder: '[verse]\nWrite your lyrics here…\n\n[chorus]\n…\n\n(leave empty for an instrumental, or let the model write them: type [auto])' }),
-        el('label', { for: 'mstyle' }, '2. Style'), el('input', { id: 'mstyle', placeholder: 'e.g. upbeat acoustic folk, warm male vocals, guitar and fiddle, 110 bpm' }),
+        el('label', { for: 'mstyle' }, '2. Style'), el('input', { id: 'mstyle', placeholder: 'e.g. upbeat acoustic folk, warm male vocals, guitar and fiddle, 110 bpm (left empty: Loud Drums, Guitar, Violin)' }),
         el('div', { class: 'bar2', style: 'margin-top:10px' }, el('label', {}, 'Length ', el('select', { id: 'mdur', onchange: () => showAutoLength() }, ['auto', 30, 60, 90, 120, 150, 180, 210, 240, 270, 300].map((d) => el('option', { value: d, selected: d === 'auto' },
             d === 'auto' ? 'Auto (from the lyrics)' : d < 60 ? d + ' seconds' : (d / 60) + ' min')))), el('span', { class: 'sub', id: 'mautolen' })),
         el('div', { class: 'row' }, el('button', { id: 'mgo', class: 'big', onclick: makeMusic }, 'Generate'),
@@ -1640,8 +1645,10 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     function showAutoLength() { const x = $('mautolen'); if (x) x.textContent = $('mdur').value === 'auto' ? 'about ' + fmtLen(autoLength($('mlyrics').value)) + ' for these lyrics' : ''; }
     async function makeMusic() {
       const scr = main.firstElementChild, $ = (id) => (scr && scr.querySelector('#' + id)) || null, model = modelNow();  // this job's screen and model (they stay its own if the page switches models)
+      // no style typed: the default style (shown in the box), and the song starts
+      if (!$('mstyle').value.trim()) $('mstyle').value = 'Loud Drums, Guitar, Violin';
       const style = $('mstyle').value.trim(); let lyrics = $('mlyrics').value.trim();
-      if (!style || !model) { $('mmsg').className = 'msg err'; $('mmsg').textContent = 'Describe the style first (2. Style).'; return; }
+      if (!model) { $('mmsg').className = 'msg err'; $('mmsg').textContent = 'Choose a music model first.'; return; }
       if (!lyrics) lyrics = '[Instrumental]'; else if (lyrics === '[auto]') lyrics = '';
       $('mgo').disabled = true; $('mmsg').className = 'msg';
       const t0 = performance.now(), started = Date.now();

@@ -397,7 +397,7 @@ async fn doctor(ctx: &mut Ctx, j: bool) -> Result<(), String> {
         if !want.is_empty() && !key.ends_with(want) { add("WARN", "engine build", format!("{key} ({}) although the GPU wants {}{}", Ctx::gpu_label(&key), want.trim_start_matches('-'), if fb.is_object() { format!("; it fell back on {} after {} did not start", fb["at"].as_str().unwrap_or(""), fb["model"].as_str().unwrap_or("")) } else { String::new() }), "sushila engine install   (then sushila selftest)"); }
         else { add("OK", "engine build", format!("Sushila.cpp {} {key} ({})", ctx.state["engine"]["version"].as_str().unwrap_or(""), Ctx::gpu_label(&key)), ""); }
         let server = ctx.state["engine"]["server"].as_str().unwrap_or("").to_string();
-        let mut c = tokio::process::Command::new(&server); c.arg("--version").stdin(std::process::Stdio::null());
+        let mut c = tokio::process::Command::new(&server); hidden_async(&mut c); c.arg("--version").stdin(std::process::Stdio::null());
         if os == "linux" { if let Some(d) = ctx.state["engine"]["dir"].as_str() { c.env("LD_LIBRARY_PATH", d); } }
         match tokio::time::timeout(Duration::from_secs(30), c.output()).await {
             Ok(Ok(o)) if o.status.success() || !o.stderr.is_empty() => add("OK", "engine runs", String::from_utf8_lossy(&o.stderr).lines().chain(String::from_utf8_lossy(&o.stdout).lines()).find(|l| l.contains("version")).unwrap_or("starts").trim().to_string(), ""),

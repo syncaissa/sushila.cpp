@@ -111,7 +111,7 @@ pub async fn start(dir: &Path, port: u16) -> Result<Value, String> {
     if status().await["running"] == true { return Ok(status().await); }
     let exe = cloudflared(dir).await?;
     let log_path = dir.join("logs").join("tunnel.log");
-    let mut child = tokio::process::Command::new(&exe)
+    let mut child = crate::util::hidden_async(&mut tokio::process::Command::new(&exe))
         .args(["tunnel", "--no-autoupdate", "--url", &format!("http://127.0.0.1:{port}")])
         .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::piped())
         .kill_on_drop(true).spawn().map_err(|e| format!("could not start cloudflared: {e}"))?;
