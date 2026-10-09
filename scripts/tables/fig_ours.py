@@ -5,7 +5,7 @@ vanilla Ollama on the 160 unseen prompts (set "ood") of
     the model down (max(base, pub) / ollama), and
   - Sushila.cpp with our precomputed draft head (ours / ollama),
 read from each model's results/<model>/summary.json (written by scripts/precompute/summarize.py).
-Prints the two coordinate lists in the figure's order. Usage: fig_ours.py [--check]  (--check compares with the figure)."""
+Prints the two coordinate lists in the figure's order. Also prints Sushila.cpp over existing methods alone (range, geometric mean) for the text. Usage: fig_ours.py [--check]"""
 import json, os, re, sys
 REPO = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
 MODELS = [('Llama-3.3-70B', 'results/llama3.3-70b_20261007/summary.json'),
@@ -22,6 +22,10 @@ for name, path in MODELS:
     e, o = max(t['base'], t['pub']) / t['ollama'], t['ours'] / t['ollama']
     existing.append(e); ours.append(o)
     print(f'{name:32s} existing alone {e:.2f}x   with ours {o:.2f}x')
+import math
+ratio = [o / e for e, o in zip(existing, ours)]
+gm = math.exp(sum(math.log(r) for r in ratio) / len(ratio))
+print(f'Sushila.cpp over existing methods alone: {min(ratio):.2f}-{max(ratio):.2f}x, geometric mean {gm:.2f}x (paper, Results at a Glance)')
 coords = lambda v: ' '.join(f'({x:.2f},{i})' for i, x in enumerate(v))
 print('existing:', coords(existing)); print('ours:    ', coords(ours))
 if '--check' in sys.argv:
