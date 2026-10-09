@@ -1,0 +1,7 @@
+# sushila (headless) for macOS
+
+Will be added when available.
+
+The command-line Sushila Engine for macOS will be published here and on https://sushila.ai as soon as it is built and tested.
+
+Available now: see [the downloads overview](../../README.md).
