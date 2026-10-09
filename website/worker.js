@@ -1670,7 +1670,7 @@ const ADMIN = () => () => `${FORM_CSS}
 .ccard.sus{border-color:var(--acc)}.cnum{margin:8px 0;font-size:14px}.ctext{max-height:360px;overflow:auto;white-space:pre-wrap;font-size:13px}
 .cspeed{margin-top:16px;font-size:28px;color:var(--acc)}#cres .ok,.ok{color:var(--acc)}textarea{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;box-sizing:border-box}</style>
 <h1>Admin</h1>
-<div class="admtabs" role="tablist"><button class="tab" data-t="users" aria-selected="true">Users</button><button class="tab" data-t="models" aria-selected="false">Models</button><button class="tab" data-t="compare" aria-selected="false">Compare Speeds</button><button class="tab" data-t="pings" aria-selected="false">License checks</button><button class="tab" data-t="packs" aria-selected="false">Model packs</button><a class="tab" href="/bugs" style="text-decoration:none">Bugs</a></div>
+<div class="admtabs" role="tablist"><button class="tab" data-t="users" aria-selected="true">Users</button><button class="tab" data-t="models" aria-selected="false">Models</button><button class="tab" data-t="compare" aria-selected="false">Compare Speeds</button><button class="tab" data-t="pings" aria-selected="false">License checks</button><button class="tab" data-t="dls" aria-selected="false">Downloads log</button><button class="tab" data-t="packs" aria-selected="false">Model packs</button><a class="tab" href="/bugs" style="text-decoration:none">Bugs</a></div>
 
 <div id="t-users">
   <div class="admin-tools"><input id="q" type="search" placeholder="Filter by e-mail, name, organization or user id">
@@ -1740,6 +1740,18 @@ const ADMIN = () => () => `${FORM_CSS}
     <div class="msg" id="kmsg" role="status"></div>
   </div>
 </div>
+<div id="t-dls" class="hidden">
+  <p class="lead" style="margin-bottom:8px">Downloads log: every Download pressed on sushila.ai/install (sushilaai-downloads-log): the file, who (user id, or "-" for anonymous), IP address, country and time. Times are UTC.</p>
+  <div class="admin-tools"><label class="sub">From <input id="dfrom" type="date" style="flex:none;width:auto"></label><label class="sub">To <input id="dto" type="date" style="flex:none;width:auto"></label>
+    <select id="dwho"><option value="">everyone</option><option value="anon">anonymous</option><option value="user">signed in</option></select>
+    <input id="dfile" type="search" placeholder="file contains" style="flex:1 1 140px"><input id="duser" type="search" placeholder="user id contains" style="flex:1 1 140px">
+    <input id="dip" type="search" placeholder="IP contains" style="flex:1 1 120px"><input id="dcountry" type="search" placeholder="country (US)" maxlength="2" style="flex:0 1 110px">
+    <select id="dorder"><option value="desc">newest first</option><option value="asc">oldest first</option></select>
+    <select id="dsize"><option>25</option><option selected>50</option><option>100</option><option>200</option></select></div>
+  <div class="tablewrap"><table><thead><tr><th>Timestamp (UTC)</th><th>File</th><th>User</th><th>IP</th><th>Country</th><th>From</th><th>Browser</th></tr></thead>
+  <tbody id="db"><tr><td colspan="7" class="sub">Loading…</td></tr></tbody></table></div>
+  <div class="pager"><button class="btn ghost small" id="dprev">Previous</button><span id="dpinfo"></span><button class="btn ghost small" id="dnext">Next</button></div>
+</div>
 <div id="t-pings" class="hidden">
   <p class="lead" style="margin-bottom:8px">License checks (checking the license status of the application and location enforcement, kept for audit purposes and license enforcement): every start of sushila.exe and Sushila Station, and every load or refresh of the Sushila page (sushilaai-audits, cleared monthly). Times are UTC.</p>
   <div class="admin-tools"><label class="sub">From <input id="pfrom" type="date" style="flex:none;width:auto"></label><label class="sub">To <input id="pto" type="date" style="flex:none;width:auto"></label>
@@ -1760,9 +1772,9 @@ ${CLIENT}
   const FIELDS = ${JSON.stringify(MODEL_FIELDS.map((f) => f[0]))};
   document.querySelectorAll('.tab[data-t]').forEach(t => t.onclick = () => {
     document.querySelectorAll('.tab[data-t]').forEach(x => x.setAttribute('aria-selected', x === t));
-    ['users', 'models', 'compare', 'pings', 'packs'].forEach(k => $('t-' + k).classList.toggle('hidden', t.dataset.t !== k));
+    ['users', 'models', 'compare', 'pings', 'dls', 'packs'].forEach(k => $('t-' + k).classList.toggle('hidden', t.dataset.t !== k));
     if (t.dataset.t === 'packs') loadPacks();
-    if (t.dataset.t === 'models') loadModels(); if (t.dataset.t === 'compare') loadCompare(); if (t.dataset.t === 'pings') { ppage = 1; loadPings(); } });
+    if (t.dataset.t === 'models') loadModels(); if (t.dataset.t === 'compare') loadCompare(); if (t.dataset.t === 'pings') { ppage = 1; loadPings(); } if (t.dataset.t === 'dls') { dpage = 1; loadDls(); } });
   // model packs: every row; search, filters and sorting here (a few hundred rows at most); add, edit, switch, delete
   let packs = [], kNew = true;
   async function loadPacks(){
@@ -1828,6 +1840,26 @@ ${CLIENT}
   ['pfrom', 'pto', 'pclient', 'pevent', 'plicense', 'porder', 'psize'].forEach(k => $(k).onchange = () => { ppage = 1; pcursors.length = 1; loadPings(); });
   ['puser', 'pip'].forEach(k => $(k).oninput = () => { clearTimeout(ptimer); ptimer = setTimeout(() => { ppage = 1; pcursors.length = 1; loadPings(); }, 300); });
   $('pprev').onclick = () => { ppage--; loadPings(); }; $('pnext').onclick = () => { ppage++; loadPings(); };
+  // downloads log (sushila.ai/install): the same filters, order and pages
+  let dpage = 1, dtimer = null; const dcursors = [''];
+  $('dto').value = iso(day0); $('dfrom').value = iso(new Date(day0 - 6 * 864e5));
+  async function loadDls(){
+    const qs = new URLSearchParams({ from: $('dfrom').value, to: $('dto').value, who: $('dwho').value, file: $('dfile').value.trim(), user: $('duser').value.trim(),
+      ip: $('dip').value.trim(), country: $('dcountry').value.trim().toUpperCase(), order: $('dorder').value, size: $('dsize').value, cursor: dcursors[dpage - 1] || '' });
+    $('db').innerHTML = '<tr><td colspan="7" class="sub">Loading…</td></tr>';
+    const r = await fetch('/api/admin/downloads-log?' + qs); const d = await r.json();
+    if (!r.ok) { $('db').innerHTML = '<tr><td colspan="7">' + E(d.error) + '</td></tr>'; return; }
+    const from = (t) => t.startsWith('https://github.com/') ? 'GitHub' : 'sushila.ai';
+    $('db').innerHTML = d.items.length ? d.items.map(x => '<tr><td>' + E(x.timestamp.replace('T', ' ').replace('Z', '')) + '</td><td class="wrap"><a href="' + E(x.target) + '" rel="nofollow">' + E(x.file) + '</a></td><td class="wrap">' +
+      (x.userId === '-' ? '<span class="sub">anonymous</span>' : E(x.userId)) + '</td><td>' + E(x.ip) + '</td><td>' + E(x.country) + '</td><td>' + from(x.target) + '</td><td class="wrap sub">' + E(x.userAgent) + '</td></tr>').join('')
+      : '<tr><td colspan="7" class="sub">No downloads match.</td></tr>';
+    dcursors[dpage] = d.next || '';
+    $('dpinfo').textContent = d.items.length + ' download' + (d.items.length === 1 ? '' : 's') + ' · page ' + dpage + (d.next ? '' : ' (last)') + ' · ' + d.from + ' to ' + d.to;
+    $('dprev').disabled = dpage <= 1; $('dnext').disabled = !d.next;
+  }
+  ['dfrom', 'dto', 'dwho', 'dorder', 'dsize'].forEach(k => $(k).onchange = () => { dpage = 1; dcursors.length = 1; loadDls(); });
+  ['dfile', 'duser', 'dip', 'dcountry'].forEach(k => $(k).oninput = () => { clearTimeout(dtimer); dtimer = setTimeout(() => { dpage = 1; dcursors.length = 1; loadDls(); }, 300); });
+  $('dprev').onclick = () => { dpage--; loadDls(); }; $('dnext').onclick = () => { dpage++; loadDls(); };
   // users
   let page = 1, timer = null;
   async function loadUsers(){
@@ -4093,6 +4125,25 @@ async function servePack(request, env, b2, db, ctx, origin, id) {
 // ("at" starts with the ISO timestamp), so a page is read day by day, newest or oldest first, within from..to (UTC
 // dates, at most 92 days), with the filters applied in DynamoDB. Continued with the "next" cursor ({day, key}).
 async function adminPings(db, url) {
+  const g = (k, n = 80) => clean(url.searchParams.get(k), n), conds = [], vals = {}, names = {};
+  for (const [k, f] of [['client', 'client'], ['event', 'event'], ['license', 'licenseType']]) { const v = g(k, 20); if (v) { conds.push(`#${f} = :${f}`); names['#' + f] = f; vals[':' + f] = S(v); } }
+  for (const [k, f] of [['user', 'userId'], ['ip', 'ip']]) { const v = g(k); if (v) { conds.push(`contains(#${f}, :${f})`); names['#' + f] = f; vals[':' + f] = S(v); } }
+  return dayLog(db, url, TABLES.audits, { conds, vals, names }, ['timestamp', 'message', 'licenseType', 'userId', 'ip', 'country', 'client', 'event', 'build', 'version', 'os', 'inStation']);
+}
+
+// Downloads log (sushilaai-downloads-log, every Download on sushila.ai/install) for the Admin tab: the same reading as
+// the license checks; filters: who (anonymous / signed in), file, user id, IP (contains), country (equals).
+async function adminDownloadsLog(db, url) {
+  const g = (k, n = 80) => clean(url.searchParams.get(k), n), conds = [], vals = {}, names = {};
+  const who = g('who', 10); if (who === 'anon' || who === 'user') { conds.push(who === 'anon' ? '#userId = :anon' : '#userId <> :anon'); names['#userId'] = 'userId'; vals[':anon'] = S('-'); }
+  for (const [k, f] of [['file', 'file'], ['user', 'userId'], ['ip', 'ip']]) { const v = g(k); if (v) { conds.push(`contains(#${f}, :${f})`); names['#' + f] = f; vals[':' + f] = S(v); } }
+  const c = g('country', 2).toUpperCase(); if (/^[A-Z]{2}$/.test(c)) { conds.push('#country = :country'); names['#country'] = 'country'; vals[':country'] = S(c); }
+  return dayLog(db, url, TABLES.downloadsLog, { conds, vals, names }, ['timestamp', 'file', 'target', 'userId', 'ip', 'country', 'userAgent']);
+}
+
+// One page of a log table keyed by day (PK "day", SK "at" starting with the ISO time): no scan; days from..to (UTC, at
+// most 92), newest or oldest first, filters applied in DynamoDB, continued with the "next" cursor ({day, key}).
+async function dayLog(db, url, table, { conds, vals, names }, fields) {
   const g = (k, n = 80) => clean(url.searchParams.get(k), n);
   const today = new Date().toISOString().slice(0, 10), isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
   let to = isDay(g('to')) ? g('to') : today, from = isDay(g('from')) ? g('from') : new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
@@ -4100,17 +4151,14 @@ async function adminPings(db, url) {
   const days = []; for (let d = new Date(to + 'T00:00:00Z'); d.toISOString().slice(0, 10) >= from && days.length < 92; d = new Date(d - 864e5)) days.push(d.toISOString().slice(0, 10));
   const asc = g('order') === 'asc'; if (asc) days.reverse();
   const size = Math.min(Math.max(Number(url.searchParams.get('size')) || 50, 10), 200);
-  const conds = [], vals = {}, names = {};
-  for (const [k, f] of [['client', 'client'], ['event', 'event'], ['license', 'licenseType']]) { const v = g(k, 20); if (v) { conds.push(`#${f} = :${f}`); names['#' + f] = f; vals[':' + f] = S(v); } }
-  for (const [k, f] of [['user', 'userId'], ['ip', 'ip']]) { const v = g(k); if (v) { conds.push(`contains(#${f}, :${f})`); names['#' + f] = f; vals[':' + f] = S(v); } }
   let cur = null; try { const c = url.searchParams.get('cursor'); if (c) cur = JSON.parse(atob(c)); } catch { cur = null; }
   let i = cur ? Math.max(days.indexOf(cur.day), 0) : 0, start = cur ? cur.key : undefined;
   const items = [];
   for (let reads = 0; i < days.length && items.length < size && reads < 40; reads++) {
-    const r = await db.request('Query', { TableName: TABLES.audits, KeyConditionExpression: '#day = :day', ScanIndexForward: asc,
+    const r = await db.request('Query', { TableName: table, KeyConditionExpression: '#day = :day', ScanIndexForward: asc,
       ExpressionAttributeNames: { '#day': 'day', ...names }, ExpressionAttributeValues: { ':day': S(days[i]), ...vals },
       ...(conds.length ? { FilterExpression: conds.join(' AND ') } : {}), Limit: size - items.length, ...(start ? { ExclusiveStartKey: start } : {}) });
-    items.push(...(r.Items || []).map((it) => Object.fromEntries(['timestamp', 'message', 'licenseType', 'userId', 'ip', 'country', 'client', 'event', 'build', 'version', 'os', 'inStation'].map((k) => [k, str(it, k)]))));
+    items.push(...(r.Items || []).map((it) => Object.fromEntries(fields.map((k) => [k, str(it, k)]))));
     if (r.LastEvaluatedKey) start = r.LastEvaluatedKey; else { i++; start = undefined; }
   }
   const next = i < days.length ? btoa(JSON.stringify({ day: days[i], key: start })) : null;
@@ -4172,6 +4220,7 @@ async function adminApi(request, env, db, user, path) {
   const url = new URL(request.url);
   if (path.startsWith('/api/admin/compare/')) return await compareApi(request, env, db, new B2(env), user, path);
   if (path === '/api/admin/pings' && request.method === 'GET') return json(await adminPings(db, url));
+  if (path === '/api/admin/downloads-log' && request.method === 'GET') return json(await adminDownloadsLog(db, url));
   if (path === '/api/admin/packs') return await adminPacks(request, db, user);
   if (path === '/api/admin/users' && request.method === 'GET') {
     // no scan: an e-mail or user id is looked up directly; otherwise one page of the newest accounts from list-index
