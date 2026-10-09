@@ -717,7 +717,10 @@ impl Ctx {
         let (program, args): (String, Vec<String>) = match engine.as_str() {
             "image-nunchaku" => {
                 if !rt.is_object() { return Err(format!("{id} needs the NVIDIA image runtime: install the pack again to set it up")); }
-                (rt["python"].as_str().unwrap_or("").into(), [vec![rt["script"].as_str().unwrap_or("").into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string(), "--name".into(), id.into()], pack_args].concat())
+                // the picture server script this engine carries (fixes reach users with the engine, without downloading
+                // the runtime's Python again); the runtime's own copy if it cannot be written
+                let script = nunchaku_script(&self.data).unwrap_or_else(|| rt["script"].as_str().unwrap_or("").to_string());
+                (rt["python"].as_str().unwrap_or("").into(), [vec![script, "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string(), "--name".into(), id.into()], pack_args].concat())
             }
             "music" => (servers["music"].as_str().ok_or("this Sushila.cpp has no music engine: run `sushila engine install` to update it")?.into(),
                         [vec!["--models".into(), dir.to_string_lossy().into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string()], keep_loaded, pack_args].concat()),
@@ -738,7 +741,12 @@ impl Ctx {
         c.current_dir(&dir).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
         if self.info["os"] == "linux" { if let Some(d) = self.state["engine"]["dir"].as_str() { c.env("LD_LIBRARY_PATH", d); } }
         if mode == "regular" { c.env("SUSHILA", "0"); }
-        if engine == "image-nunchaku" { c.env("PYTHONNOUSERSITE", "1").env("PYTHONUNBUFFERED", "1").env("HF_HUB_OFFLINE", "1"); }
+        if engine == "image-nunchaku" {
+            c.env("PYTHONNOUSERSITE", "1").env("PYTHONUNBUFFERED", "1").env("HF_HUB_OFFLINE", "1");
+            // seed variance boost (measured: scripts/image_seed_diversity): different people and scenes for different seeds
+            let v = self.setting("seedVariance").as_f64().unwrap_or(SEED_VARIANCE);
+            c.env("SUSHILA_SEED_VARIANCE", format!("{v}")).env("SUSHILA_SEED_VARIANCE_STEPS", SEED_VARIANCE_STEPS.to_string());
+        }
         self.log(&format!("starting {id} ({}, {slots} parallel slot{}) on port {port}: {program} {}", if mode == "turbo" { "Accelerated" } else { "Standard" }, if slots == 1 { "" } else { "s" }, args.join(" ")));
         let logs = self.data.join("logs"); let _ = std::fs::create_dir_all(&logs);
         // each start begins a section of the engine's log, so a failure shows only this run's lines
@@ -838,7 +846,9 @@ pub fn verify_custom_folder(data: &Path, dir: &Path, meta: &Value, prog: Option<
     let (mut done, mut rec_files) = (0u64, vec![]);
     for f in &files {
         let p = f["path"].as_str().unwrap_or("");
-        if !safe_rel_path(p) || !p.to_lowercase().ends_with(".gguf") { return Err(format!("{name}: {p}: only .gguf files are run as your own model")); }
+        let image = meta["kind"] == "image";
+        let lp = p.to_lowercase();
+        if !safe_rel_path(p) || !(lp.ends_with(".gguf") || (image && lp.ends_with(".safetensors"))) { return Err(format!("{name}: {p}: only .gguf (or, for pictures, .safetensors) files are run as your own model")); }
         if let Some(pg) = prog { if let Ok(mut g) = pg.lock() { *g = json!({ "label": format!("checking {name}: {p}"), "done": done, "total": total }); } }
         let path = join_rel(dir, p);
         if !path.exists() { return Err(format!("{name}: {p} is missing")); }
@@ -851,9 +861,10 @@ pub fn verify_custom_folder(data: &Path, dir: &Path, meta: &Value, prog: Option<
         if !pack_arg_ok(a.as_str().unwrap_or(""), &files) { return Err(format!("{name}: engine option {a} is not allowed")); }
     }
     let model = meta["serve"]["model"].as_str().unwrap_or("");
-    Ok(json!({ "id": meta["id"], "name": meta["name"], "kind": "text", "engine": "text", "bytes": total, "dir": dir.to_string_lossy(), "model": model,
+    let kind = if meta["kind"] == "image" { "image" } else { "text" };
+    Ok(json!({ "id": meta["id"], "name": meta["name"], "kind": kind, "engine": kind, "category": meta["category"], "bytes": total, "dir": dir.to_string_lossy(), "model": model,
         "args": meta["serve"]["args"], "turboArgs": [], "turboRequest": Value::Null, "files": rec_files, "license": meta["license"], "scope": "user",
-        "installedAt": now_iso(), "artifacts": [], "custom": true, "source": meta["source"] }))
+        "installedAt": now_iso(), "artifacts": [], "custom": true, "unlisted": meta["unlisted"] == true, "source": meta["source"] }))
 }
 
 /// A catalog pack whose model file is exactly this file (same sha256): the user's own download is one we precomputed.
@@ -892,6 +903,122 @@ pub async fn download_hf_gguf(packs_dir: &Path, spec: &str, quiet: bool, prog: O
     let mut meta = make_custom_meta(&dest, Some(json!({ "kind": "huggingface", "repo": repo, "revision": sha_rev, "path": path, "sha256": sha256 })))?;
     if let Some(s) = &sha256 { if let Some(f0) = meta["files"].as_array_mut().and_then(|a| a.iter_mut().find(|x| x["path"] == file.as_str())) { f0["sha256"] = json!(s); } }
     std::fs::write(dest.join("sushila-pack.json"), serde_json::to_string_pretty(&meta).map_err(err)?).map_err(err)?;
+    Ok(dest)
+}
+
+// ---------- "Install Unlisted Model Pack": a model the person picks themselves, from Hugging Face, GitHub or Dropbox. It
+// is not in Sushila's catalog (not checked by Sushila): it goes into model-packs/<name>/ with a sushila-pack.json, is found
+// again after a restart, and is listed under "Other models". Only data files are taken: .gguf (chat, code, pictures)
+// and .safetensors (pictures); .ckpt, .pt and .bin are refused because they can carry code. Pictures: one checkpoint
+// file (Stable Diffusion 1.x/2.x, SDXL, or a single-file GGUF) run by the image engine with --model.
+
+/// Where a user-chosen model is: the address to download, its file name, size and sha256 when the source lists them.
+pub struct UserSource { pub url: String, pub file: String, pub bytes: Option<u64>, pub sha256: Option<String>, pub source: Value }
+const USER_EXTS: [&str; 2] = ["gguf", "safetensors"];
+
+fn url_last(path: &str) -> String {
+    let last = path.rsplit('/').next().unwrap_or("");
+    urlencoding_decode(last)
+}
+fn urlencoding_decode(s: &str) -> String {
+    let b = s.as_bytes(); let mut out = vec![]; let mut i = 0;
+    while i < b.len() { if b[i] == b'%' && i + 2 < b.len() { if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) { out.push(v); i += 3; continue; } } out.push(if b[i] == b'+' { b' ' } else { b[i] }); i += 1; }
+    String::from_utf8_lossy(&out).to_string()
+}
+/// Turns what the person pasted into a download: `hf:owner/repo/file[@rev]`, a huggingface.co link (blob or resolve),
+/// a GitHub release-asset, blob or raw link, or a Dropbox shared link (made a direct download).
+pub async fn resolve_user_source(src: &str) -> Result<UserSource, String> {
+    let s = src.trim();
+    if s.is_empty() { return Err("paste a link to the model file".into()); }
+    let ext_ok = |f: &str| { let l = f.to_lowercase(); USER_EXTS.iter().any(|e| l.ends_with(&format!(".{e}"))) };
+    let bad_ext = |f: &str| format!("{f}: Sushila installs .gguf (chat, code, pictures) or .safetensors (pictures) files; .ckpt, .pt and .bin files are refused because they can carry code");
+    // Hugging Face: the exact file at a fixed revision, with the sha256 Hugging Face lists for it
+    let hf = if let Some(x) = s.strip_prefix("hf:") { Some(x.to_string()) } else {
+        reqwest::Url::parse(s).ok().filter(|u| u.host_str().map(|h| h == "huggingface.co" || h == "hf.co" || h == "www.huggingface.co").unwrap_or(false)).and_then(|u| {
+            let seg: Vec<&str> = u.path().trim_matches('/').split('/').collect();
+            // owner/repo/(resolve|blob)/<rev>/<path...>
+            (seg.len() >= 5 && (seg[2] == "resolve" || seg[2] == "blob")).then(|| format!("{}/{}/{}@{}", seg[0], seg[1], seg[4..].join("/"), seg[3]))
+        })
+    };
+    if let Some(spec) = hf {
+        let (body, rev) = match spec.rsplit_once('@') { Some((a, r)) => (a.to_string(), r.to_string()), None => (spec.clone(), "main".into()) };
+        let parts: Vec<&str> = body.splitn(3, '/').collect();
+        if parts.len() < 3 { return Err("Hugging Face: use the file's link, or hf:<owner>/<repo>/<file>".into()); }
+        let (repo, path) = (format!("{}/{}", parts[0], parts[1]), parts[2].to_string());
+        let ok = |x: &str| !x.is_empty() && x.chars().all(|c| c.is_ascii_alphanumeric() || "._-/".contains(c)) && !x.contains("..");
+        if !ok(&repo) || !ok(&path) || !ok(&rev) { return Err("not a valid Hugging Face repository, file or revision".into()); }
+        if !ext_ok(&path) { return Err(bad_ext(&path)); }
+        let c = crate::net::client()?;
+        let info: Value = c.get(format!("https://huggingface.co/api/models/{repo}/revision/{rev}")).send().await.map_err(err)?.json().await.map_err(|e| format!("{repo} at {rev}: {e}"))?;
+        let sha_rev = info["sha"].as_str().ok_or(format!("{repo}: no such repository or revision (or it needs a login)"))?.to_string();
+        let pi: Value = c.post(format!("https://huggingface.co/api/models/{repo}/paths-info/{sha_rev}")).form(&[("paths", path.as_str()), ("expand", "true")]).send().await.map_err(err)?.json().await.map_err(err)?;
+        let f = pi.as_array().and_then(|a| a.first()).cloned().ok_or(format!("{path} is not in {repo}"))?;
+        let (sha256, bytes) = (f["lfs"]["oid"].as_str().map(String::from), f["lfs"]["size"].as_u64().or(f["size"].as_u64()));
+        return Ok(UserSource { url: format!("https://huggingface.co/{repo}/resolve/{sha_rev}/{path}"), file: url_last(&path), bytes, sha256,
+            source: json!({ "kind": "huggingface", "repo": repo, "revision": sha_rev, "path": path, "link": s }) });
+    }
+    let mut u = reqwest::Url::parse(s).map_err(|_| "paste a link from Hugging Face, GitHub or Dropbox (starting with https://)".to_string())?;
+    let host = u.host_str().unwrap_or("").to_ascii_lowercase();
+    let kind = if host == "github.com" || host == "raw.githubusercontent.com" {
+        // a "blob" page is the file's web page: its raw address is the file
+        if host == "github.com" && u.path().contains("/blob/") { let p = u.path().replacen("/blob/", "/raw/", 1); u.set_path(&p); }
+        "github"
+    } else if host == "www.dropbox.com" || host == "dropbox.com" || host == "dl.dropboxusercontent.com" {
+        // a shared link opens a web page (dl=0); dl=1 downloads the file itself
+        let q: Vec<(String, String)> = u.query_pairs().filter(|(k, _)| k != "dl").map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        u.query_pairs_mut().clear().extend_pairs(q.iter().map(|(k, v)| (k.as_str(), v.as_str()))).append_pair("dl", "1");
+        "dropbox"
+    } else { return Err("Sushila installs unlisted models from Hugging Face, GitHub or Dropbox links only".into()); };
+    if !crate::net::allowed_user_host(&u) { return Err("that address is not a GitHub or Dropbox file link".into()); }
+    let file = url_last(u.path());
+    if !ext_ok(&file) { return Err(bad_ext(if file.is_empty() { "the link" } else { &file })); }
+    // the size: asked for the first byte only (Content-Range names the whole size); never the whole file here
+    let url = u.to_string();
+    let bytes = crate::net::USER_SOURCE.scope(true, async {
+        let r = crate::net::client().ok()?.get(&url).header(reqwest::header::RANGE, "bytes=0-0").timeout(std::time::Duration::from_secs(30)).send().await.ok()?;
+        if !r.status().is_success() { return None; }
+        r.headers().get("content-range").and_then(|v| v.to_str().ok()).and_then(|v| v.rsplit('/').next()).and_then(|n| n.parse::<u64>().ok())
+            .or_else(|| r.content_length().filter(|n| *n > 1))
+    }).await;
+    Ok(UserSource { url, file, bytes, sha256: None, source: json!({ "kind": kind, "link": s }) })
+}
+/// A first guess at what the file is (the person can change it before and after installing): .safetensors and GGUF
+/// names of image models (flux, sdxl, stable diffusion ...) are pictures; other GGUF files chat, or code by their name.
+pub fn guess_user_kind(file: &str) -> (&'static str, &'static str) {
+    let l = file.to_lowercase();
+    let image = l.ends_with(".safetensors") || ["flux", "sdxl", "sd1.5", "sd15", "sd_xl", "sd3", "stable-diffusion", "stable_diffusion", "diffusion", "z_image", "z-image", "chroma", "unet", "pony", "juggernaut", "dreamshaper", "realistic"].iter().any(|k| l.contains(k));
+    if image { ("image", "Images") } else if l.contains("coder") || l.contains("code") { ("text", "Code") } else { ("text", "Chat") }
+}
+/// The sushila-pack.json of a user-chosen model: kind text (chat/code, the text engine) or image (the image engine with
+/// --model); custom (not verified by Sushila); where it came from.
+pub fn make_user_meta(dir: &Path, file: &str, kind: &str, category: &str, name: &str, source: Value, sha256: Option<&str>) -> Result<Value, String> {
+    let bytes = std::fs::metadata(dir.join(file)).map(|m| m.len()).unwrap_or(0);
+    let folder = dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "model".into());
+    let id: String = folder.chars().map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' { c.to_ascii_lowercase() } else { '-' }).collect::<String>().trim_matches('-').chars().take(80).collect();
+    let image = kind == "image";
+    let meta = json!({ "id": if id.is_empty() { "my-model".into() } else { id }, "name": if name.trim().is_empty() { folder.clone() } else { name.trim().chars().take(120).collect::<String>() },
+        "kind": if image { "image" } else { "text" }, "category": if image { "Images" } else if category.eq_ignore_ascii_case("code") { "Code" } else { "Chat" }, "custom": true, "unlisted": true,
+        "license": "see the model's own page (not checked by Sushila)",
+        "serve": if image { json!({ "engine": "image", "model": file, "args": ["--model", format!("{{pack}}/{file}")] }) } else { json!({ "engine": "text", "model": file, "args": [] }) },
+        "files": [{ "path": file, "bytes": bytes, "sha256": sha256 }], "source": source });
+    std::fs::write(dir.join("sushila-pack.json"), serde_json::to_string_pretty(&meta).map_err(err)?).map_err(err)?;
+    Ok(meta)
+}
+/// Downloads a user-chosen model into model-packs/<file name>/ (resumes; checked against the source's sha256 when it
+/// lists one) and writes its sushila-pack.json; the folder scan then adopts it like any model put there.
+pub async fn download_user_model(packs_dir: &Path, src: &UserSource, kind: &str, category: &str, name: &str, quiet: bool, prog: Option<&Prog>) -> Result<PathBuf, String> {
+    let stem: String = src.file.rsplitn(2, '.').last().unwrap_or(&src.file).chars().map(|c| if c.is_ascii_alphanumeric() || "._-".contains(c) { c } else { '-' }).collect::<String>().trim_matches(|c| c == '-' || c == '.').chars().take(80).collect();
+    if stem.is_empty() { return Err("the file has no usable name".into()); }
+    let dest = packs_dir.join(&stem);
+    if dest.exists() { return Err(format!("{stem} is installed already (Model packs, Other models): remove it first to install it again")); }
+    if let (Some(b), Some(free)) = (src.bytes, free_disk(packs_dir)) { if free < b + 2_000_000_000 { return Err(format!("not enough disk space: {} needed (plus 2 GB to spare), {} free", human(b), human(free))); } }
+    let tmp = packs_dir.join(format!(".downloading-{stem}"));
+    std::fs::create_dir_all(&tmp).map_err(err)?;
+    log(quiet, &format!("downloading your model {} ({}) from {}", src.file, src.bytes.map(human).unwrap_or_else(|| "size unknown".into()), src.source["kind"].as_str().unwrap_or("?")));
+    let file = src.file.clone();
+    crate::net::USER_SOURCE.scope(true, download_p(&src.url, &tmp.join(&file), src.sha256.as_deref(), src.bytes, &file, quiet, prog)).await?;
+    std::fs::rename(&tmp, &dest).map_err(err)?;
+    make_user_meta(&dest, &file, kind, category, name, src.source.clone(), src.sha256.as_deref())?;
     Ok(dest)
 }
 
@@ -1002,6 +1129,34 @@ impl Ctx {
         self.save()?;
         self.log(&format!("{id}: your own model added (not verified by Sushila; Standard mode, no precomputed files for it)"));
         Ok(Adopted::Registered(id))
+    }
+    /// The person's own model (Other models): another name, or another type (Chat, Code, Images) when Sushila guessed
+    /// wrong. Written to its sushila-pack.json too, so it survives a restart; a running model of another type is stopped.
+    pub async fn edit_custom(&mut self, id: &str, name: Option<&str>, kind: Option<&str>, category: Option<&str>) -> Result<(), String> {
+        let mut rec = self.packs().get(id).cloned().ok_or(format!("{id} is not installed"))?;
+        if rec["custom"] != true { return Err("only your own models (Other models) can be edited; Sushila's packs are set by their catalog".into()); }
+        let model = rec["model"].as_str().unwrap_or("").to_string();
+        let was = rec["kind"].as_str().unwrap_or("text").to_string();
+        let kind = kind.unwrap_or(&was).to_string();
+        if kind != "text" && kind != "image" { return Err("the type is Chat, Code or Images".into()); }
+        if kind == "text" && model.to_lowercase().ends_with(".safetensors") { return Err("a .safetensors file is a picture model: it cannot run as chat or code".into()); }
+        let cat = if kind == "image" { "Images".to_string() } else if category.map(|c| c.eq_ignore_ascii_case("code")).unwrap_or(rec["category"].as_str().map(|c| c.eq_ignore_ascii_case("code")).unwrap_or(false)) { "Code".into() } else { "Chat".into() };
+        if kind != was && self.state["running"][id].is_object() { self.stop_model(id).await; }
+        if let Some(n) = name.map(str::trim).filter(|n| !n.is_empty()) { rec["name"] = json!(n.chars().take(120).collect::<String>()); }
+        let args = if kind == "image" { json!(["--model", format!("{{pack}}/{model}")]) } else if was == "text" { rec["args"].clone() } else { json!([]) };
+        rec["kind"] = json!(kind); rec["engine"] = json!(kind); rec["category"] = json!(cat); rec["args"] = args.clone();
+        // the folder's description follows, so a restart (or another computer) finds the same
+        if let Some(dir) = rec["dir"].as_str() {
+            let f = Path::new(dir).join("sushila-pack.json");
+            if let Ok(mut m) = std::fs::read_to_string(&f).map_err(err).and_then(|t| serde_json::from_str::<Value>(&t).map_err(err)) {
+                m["name"] = rec["name"].clone(); m["kind"] = json!(kind); m["category"] = json!(cat); m["serve"]["engine"] = json!(kind); m["serve"]["args"] = args;
+                std::fs::write(&f, serde_json::to_string_pretty(&m).map_err(err)?).map_err(err)?;
+            }
+        }
+        self.state["packs"][id] = rec;
+        self.save()?;
+        self.log(&format!("{id}: now {} ({cat})", self.state["packs"][id]["name"].as_str().unwrap_or(id)));
+        Ok(())
     }
     /// Without a server: a folder holding the user's GGUF, checked and adopted at once (precomputed files downloaded here).
     pub async fn adopt_folder_now(&mut self, dir: &Path) -> Result<String, String> {
@@ -1210,6 +1365,24 @@ pub fn kill_orphans(data: &Path) -> Vec<String> {
 
 /// Engine options a pack may set: short plain options, or {pack}/<file> naming one of its own files. Never options
 /// that change where the engine listens or what it reads or writes outside the pack (the server sets those itself).
+/// The NVIDIA picture server (hoststation/runtime/image-nunchaku/sushila_image_server.py), carried in this program.
+const NUNCHAKU_SCRIPT: &str = include_str!("../../hoststation/runtime/image-nunchaku/sushila_image_server.py");
+/// Seed variance boost for Z-Image-Turbo on the NVIDIA server (settings seedVariance overrides; 0 turns it off).
+/// 0.2 over the first step, measured 2026-10-09 (results/image_seed_diversity_20261009): CLIP image similarity between
+/// seeds 0.948 -> 0.918, LPIPS 0.48 -> 0.58, prompt score 0.339 -> 0.319; 0.3 already changed who is in the picture.
+pub const SEED_VARIANCE: f64 = 0.2;
+pub const SEED_VARIANCE_STEPS: u32 = 1;
+/// Writes the carried script to <home>/runtime/image-nunchaku/sushila_image_server.engine-<build>.py (once per build)
+/// and returns its path.
+fn nunchaku_script(data: &Path) -> Option<String> {
+    let dir = data.join("runtime").join("image-nunchaku");
+    let p = dir.join(format!("sushila_image_server.engine-{}.py", crate::BUILD));
+    if std::fs::read_to_string(&p).ok().as_deref() != Some(NUNCHAKU_SCRIPT) {
+        std::fs::create_dir_all(&dir).ok()?;
+        std::fs::write(&p, NUNCHAKU_SCRIPT).ok()?;
+    }
+    Some(p.to_string_lossy().to_string())
+}
 pub fn pack_arg_ok(a: &str, files: &[Value]) -> bool {
     if let Some(r) = a.strip_prefix("{pack}/") { return safe_rel_path(r) && files.iter().any(|f| f["path"] == r); }
     // plain values cannot contain '/' or '\\': a name can only mean something inside the pack's own folder (the engine's
@@ -1267,6 +1440,28 @@ pub fn can_turbo(p: &Value) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test] fn unlisted_models() {
+        assert_eq!(guess_user_kind("dreamshaper_8.safetensors"), ("image", "Images"));
+        assert_eq!(guess_user_kind("flux1-schnell-Q4_K.gguf"), ("image", "Images"));
+        assert_eq!(guess_user_kind("Qwen2.5-Coder-7B-Q4_K_M.gguf"), ("text", "Code"));
+        assert_eq!(guess_user_kind("Llama-3.2-3B-Instruct-Q4_K_M.gguf"), ("text", "Chat"));
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        // Dropbox: the shared page link becomes a direct download; the file name comes from the link
+        let d = rt.block_on(resolve_user_source("https://www.dropbox.com/scl/fi/abc123/my-model.safetensors?rlkey=xyz&dl=0")).unwrap();
+        assert!(d.url.contains("dl=1") && !d.url.contains("dl=0") && d.url.contains("rlkey=xyz") && d.file == "my-model.safetensors" && d.source["kind"] == "dropbox");
+        // GitHub: a blob page becomes the raw file
+        let g = rt.block_on(resolve_user_source("https://github.com/someone/models/blob/main/tiny%20model.gguf")).unwrap();
+        assert!(g.url.contains("/raw/main/") && g.file == "tiny model.gguf" && g.source["kind"] == "github");
+        // refused: code-carrying formats, other hosts, plain words
+        assert!(rt.block_on(resolve_user_source("https://github.com/a/b/releases/download/v1/model.ckpt")).err().unwrap().contains("refused"));
+        assert!(rt.block_on(resolve_user_source("https://example.com/model.gguf")).is_err());
+        assert!(rt.block_on(resolve_user_source("not a link")).is_err());
+        // GitHub and Dropbox are allowed for the person's own download only, never for anything else
+        let u = reqwest::Url::parse("https://dl.dropboxusercontent.com/x/model.gguf").unwrap();
+        assert!(!crate::net::allowed_url(&u, false));
+        assert!(rt.block_on(crate::net::USER_SOURCE.scope(true, async { crate::net::allowed_url(&u, false) })));
+    }
+
     use super::*;
     #[test] fn default_by_hardware() {
         assert!(choose_default(Some(24.0), None, false, 32.0).0 && !choose_default(Some(6.0), None, false, 64.0).0);

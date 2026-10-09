@@ -408,6 +408,27 @@ async fn srv_update(axum::extract::State(s): axum::extract::State<Arc<Srv>>, met
     }
 }
 
+/// GET /api/custom/probe?source=<link> (this computer only): before "Install Unlisted Model Pack" downloads anything:
+/// the file it would get, its size, the free disk space, whether that is enough, and a first guess at its type.
+async fn srv_custom_probe(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "this computer only").into_response(); }
+    let src = q.get("source").cloned().unwrap_or_default();
+    match crate::core::resolve_user_source(&src).await {
+        Err(e) => (axum::http::StatusCode::BAD_REQUEST, e).into_response(),
+        Ok(u) => {
+            let packs_dir = st["packsDir"].as_str().map(PathBuf::from).or_else(|| st["public"]["packsDir"].as_str().map(PathBuf::from)).unwrap_or_else(|| s.data_dir.join("model-packs"));
+            let free = crate::core::free_disk(&packs_dir).or_else(|| crate::core::free_disk(&s.data_dir));
+            let (kind, category) = crate::core::guess_user_kind(&u.file);
+            let name = u.file.rsplitn(2, '.').last().unwrap_or(&u.file).replace(['_', '-'], " ");
+            let enough = match (u.bytes, free) { (Some(b), Some(f)) => Some(f >= b + 2_000_000_000), _ => None };
+            axum::Json(json!({ "file": u.file, "bytes": u.bytes, "free": free, "enough": enough, "checksum": u.sha256.is_some(), "source": u.source,
+                "kind": kind, "category": category, "name": name })).into_response()
+        }
+    }
+}
+
 /// GET /api/apps-open: which Generate pages sushila.ai has open ({apps: {images, music, video, coding, chat: true|false}}).
 /// Asked at most every 5 minutes and kept in <home>/apps-open.json; never heard of (or a missing app): open.
 async fn srv_apps_open(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
@@ -1189,7 +1210,7 @@ async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, re
     let Ok(bytes) = axum::body::to_bytes(body, 65536).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let Ok(mut v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("");
-    if !["engine-install", "install", "install-file", "install-hf", "remove", "start", "stop", "settings", "verify", "catalog", "share", "mode"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
+    if !["engine-install", "install", "install-file", "install-hf", "install-url", "edit-custom", "remove", "start", "stop", "settings", "verify", "catalog", "share", "mode"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
     let id = new_id().replacen("job-", "task-", 1);
     v["id"] = json!(id);
     if crate::util::post_request(&s.data_dir, "control-in", &id, &v).is_err() {
@@ -1293,6 +1314,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/prompts/:kind", axum::routing::get(srv_prompts))
         .route("/api/notifications", axum::routing::get(srv_notifications))
         .route("/api/apps-open", axum::routing::get(srv_apps_open))
+        .route("/api/custom/probe", axum::routing::get(srv_custom_probe))
         .route("/api/update", axum::routing::get(srv_update).post(srv_update))
         .route("/station", axum::routing::get(srv_station))
         .route("/station/", axum::routing::get(srv_station))

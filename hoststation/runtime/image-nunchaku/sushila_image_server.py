@@ -32,6 +32,12 @@ os.environ.setdefault('HF_HUB_DISABLE_TELEMETRY', '1')
 TURBO = os.environ.get('SUSHILA', '1') != '0'
 DEFAULT_SIZE, DEFAULT_STEPS = (768, 6) if TURBO else (1024, 8)
 EXTRA = re.compile(r'<sd_cpp_extra_args>(.*?)</sd_cpp_extra_args>', re.S)
+# Seed variance boost: Z-Image-Turbo (a distilled model) draws almost the same person and scene for every seed. For the
+# first VARIANCE_STEPS steps the prompt's embeddings get seeded noise (VARIANCE x their own spread), then the clean
+# embeddings take over: the layout, faces and backgrounds differ from seed to seed, the picture still follows the prompt,
+# and the same seed still gives the same picture. VARIANCE 0 turns it off. A request may set "variance" itself.
+VARIANCE = float(os.environ.get('SUSHILA_SEED_VARIANCE', '0'))
+VARIANCE_STEPS = int(os.environ.get('SUSHILA_SEED_VARIANCE_STEPS', '2'))
 MAX_BODY = 1 << 20
 
 
@@ -63,12 +69,25 @@ class Engine:
         self.generate('warm-up', DEFAULT_SIZE, DEFAULT_SIZE, 1, 0)
         log('ready')
 
-    def generate(self, prompt, width, height, steps, seed):
+    def generate(self, prompt, width, height, steps, seed, variance=None, vsteps=None):
         torch = self.torch
+        variance = VARIANCE if variance is None else variance
+        vsteps = VARIANCE_STEPS if vsteps is None else vsteps
         with self.lock:  # one image at a time on the GPU; other requests wait their turn
             t = time.time()
-            img = self.pipe(prompt=prompt, width=width, height=height, num_inference_steps=steps, guidance_scale=0.0,
-                            generator=torch.Generator('cuda').manual_seed(seed)).images[0]
+            kw = {}
+            if variance > 0 and vsteps > 0 and steps > 1:
+                clean, _ = self.pipe.encode_prompt(prompt, device=self.pipe._execution_device, do_classifier_free_guidance=False)
+                g = torch.Generator('cpu').manual_seed(seed ^ 0x5EED)
+                noisy = [e + variance * e.float().std().to(e.dtype) * torch.randn(e.shape, generator=g).to(e.device, e.dtype) for e in clean]
+                last = min(vsteps, steps - 1) - 1
+                def back(pipe, i, ts, cb):  # after the first steps the clean prompt takes over
+                    return {'prompt_embeds': clean} if i == last else {}
+                kw = dict(prompt_embeds=noisy, callback_on_step_end=back, callback_on_step_end_tensor_inputs=['prompt_embeds'])
+            else:
+                kw = dict(prompt=prompt)
+            img = self.pipe(width=width, height=height, num_inference_steps=steps, guidance_scale=0.0,
+                            generator=torch.Generator('cuda').manual_seed(seed), **kw).images[0]
             torch.cuda.synchronize()
             dt = time.time() - t
         buf = io.BytesIO()
@@ -106,7 +125,9 @@ def parse(body):
         raise ValueError('n must be between 1 and 4')
     seed = req.get('seed', extra.get('seed'))
     seed = random.randrange(2**31) if seed in (None, '', -1) else int(seed)
-    return prompt, w, h, steps, n, seed
+    v = req.get('variance', extra.get('variance'))
+    variance = None if v is None else max(0.0, min(4.0, float(v)))
+    return prompt, w, h, steps, n, seed, variance
 
 
 def handler(engine):
@@ -141,13 +162,13 @@ def handler(engine):
                 length = int(self.headers.get('Content-Length') or 0)
                 if length > MAX_BODY:
                     return self.send(413, {'error': {'message': 'request too large'}})
-                prompt, w, h, steps, n, seed = parse(self.rfile.read(length))
+                prompt, w, h, steps, n, seed, variance = parse(self.rfile.read(length))
             except (ValueError, TypeError) as e:
                 return self.send(400, {'error': {'message': str(e)}})
             try:
                 out, total = [], 0.0
                 for i in range(n):
-                    png, dt = engine.generate(prompt, w, h, steps, seed + i)
+                    png, dt = engine.generate(prompt, w, h, steps, seed + i, variance)
                     total += dt
                     out.append({'b64_json': base64.b64encode(png).decode(), 'seed': seed + i})
                 log(f'{n} x {w}x{h}, {steps} steps: {total:.2f} s')

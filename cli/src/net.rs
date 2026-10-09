@@ -18,7 +18,20 @@ pub fn ua() -> String {
 ///   http://127.0.0.1, localhost                this computer's own model servers (http_text only)
 /// Everything installed must also match a Sushila-signed index (sha256), wherever it comes from.
 pub const OLLAMA_STORAGE: &str = "dd20bb891979d25aebc8bec07b2b3bbc.r2.cloudflarestorage.com";
+tokio::task_local! {
+    /// Set (true) only around a download the person asked for themselves ("Install Unlisted Model Pack"): GitHub and
+    /// Dropbox are allowed too, for that download only. Every other download keeps the list above.
+    pub static USER_SOURCE: bool;
+}
+/// GitHub (release assets, raw files) and Dropbox (shared links) and their file servers: for user-chosen models only.
+pub fn allowed_user_host(u: &reqwest::Url) -> bool {
+    let host = u.host_str().unwrap_or("").to_ascii_lowercase();
+    u.scheme() == "https" && (host == "github.com" || host == "raw.githubusercontent.com" || host == "objects.githubusercontent.com"
+        || host == "release-assets.githubusercontent.com" || host == "www.dropbox.com" || host == "dropbox.com" || host == "dl.dropboxusercontent.com"
+        || (host.ends_with(".dl.dropboxusercontent.com") && host.matches('.').count() == 3))
+}
 pub fn allowed_url(u: &reqwest::Url, local_ok: bool) -> bool {
+    if USER_SOURCE.try_with(|v| *v).unwrap_or(false) && allowed_user_host(u) { return true; }
     let host = u.host_str().unwrap_or("").to_ascii_lowercase();
     if local_ok && u.scheme() == "http" && (host == "127.0.0.1" || host == "localhost") { return true; }
     if u.scheme() != "https" { return false; }

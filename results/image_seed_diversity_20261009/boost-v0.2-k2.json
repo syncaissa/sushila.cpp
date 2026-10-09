@@ -1,0 +1,44 @@
+{
+ "label": "boost-v0.2-k2",
+ "target": [
+  "http://127.0.0.1:8099"
+ ],
+ "variance": "0.2",
+ "variance_steps": "2",
+ "size": "1024x1024",
+ "seeds": [
+  101,
+  102,
+  103,
+  104
+ ],
+ "prompts": [
+  {
+   "prompt": "A futuristic city with a slightly dark neon atmosphere and glowing street lights",
+   "clip_img_sim": 0.8957,
+   "lpips": 0.5774,
+   "clip_score": 0.3239,
+   "sec_per_image": 2.38
+  },
+  {
+   "prompt": "An elderly fisherman mending nets on a wooden dock at sunrise, golden light catc",
+   "clip_img_sim": 0.9214,
+   "lpips": 0.5974,
+   "clip_score": 0.3095,
+   "sec_per_image": 2.35
+  },
+  {
+   "prompt": "A cozy bookshop at night, warm lamps over crowded shelves, a cat asleep on a sta",
+   "clip_img_sim": 0.8959,
+   "lpips": 0.5999,
+   "clip_score": 0.3286,
+   "sec_per_image": 2.38
+  }
+ ],
+ "mean": {
+  "clip_img_sim": 0.9043,
+  "lpips": 0.5916,
+  "clip_score": 0.3207,
+  "sec_per_image": 2.37
+ }
+}

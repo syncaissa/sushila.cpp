@@ -52,6 +52,7 @@ w.__TAURI__ = {
     if (a.path === '/api/notifications') return { ok: true, status: 200, data: { notifications: [{ id: 'n1', title: 'New build', message: 'Get it at https://sushila.ai/install today.', url: 'https://sushila.ai/install', linkText: 'Get it', level: 'info' }] } };
     if (a.path === '/api/prompts/images') return { ok: true, status: 200, data: { prompts: S && S.manyPrompts ? Array.from({ length: 30 }, (_, i) => 'Example prompt ' + i) : ['A red fox in snow', 'A lighthouse at dusk'] } };
     if (a.path === '/api/prompts/videos') return { ok: true, status: 200, data: { prompts: S && S.manyVideos ? Array.from({ length: 12 }, (_, i) => 'Video example ' + i) : ['A paper boat drifting down a rainy street, slow dolly in', 'A kite rising over a beach at sunset, crane up'] } };
+    if (a.path.startsWith('/api/custom/probe')) return { ok: true, status: 200, data: { file: 'dreamshaper_8.safetensors', bytes: 2.1e9, free: 50e9, enough: true, checksum: true, source: { kind: 'huggingface' }, kind: 'image', category: 'Images', name: 'dreamshaper 8' } };
     if (a.path === '/api/apps-open') return { ok: true, status: 200, data: { apps: appsOpen } };
     if (a.path === '/api/share/me') return { ok: true, status: 200, data: { ...me } };
     if (a.path === '/api/share/code') return { ok: true, status: 200, data: { ok: true } };
@@ -241,6 +242,32 @@ await w.eval('loadAppsOpen()'); await tick(150);
   ok(!calls.slice(before).some(([c, a]) => c === 'api' && a.path === '/api/queue'), 'nothing is queued while it is off'); }
 appsOpen = { ...appsOpen, images: true }; S.appsAt = 0; await w.eval('loadAppsOpen()'); await tick(150);
 ok(!$$('#nav .navitem').find((x) => text(x).includes('Generate Images')).classList.contains('off'), 'switched on again: not greyed');
+
+// --- Install Unlisted Model Pack: link -> Check (file, size, free space, type guess) -> Download and install
+await w.eval('go("packs")'); await tick(100);
+ok(text(w.document.getElementById('bargo')).includes('Install Unlisted Model Pack'), 'top right: Install Unlisted Model Pack');
+await w.eval('unlistedDialog()'); await tick(50);
+ok(['Hugging Face', 'GitHub', 'Dropbox'].every((x) => text(w.document.getElementById('sheet')).includes(x)), 'three sources to choose from');
+w.document.getElementById('ulink').value = 'https://huggingface.co/a/b/blob/main/dreamshaper_8.safetensors';
+[...w.document.querySelectorAll('#sheet button')].find((b) => text(b) === 'Check').click(); await tick(100);
+{ const sh = text(w.document.getElementById('sheet'));
+  ok(sh.includes('dreamshaper_8.safetensors') && sh.includes('2.1 GB') && sh.includes('50.0 GB free') && sh.includes('checked against'), 'the check shows the file, its size and the free disk space: ' + sh.slice(0, 200));
+  const sel = w.document.querySelector('#sheet select'); ok(sel && sel.value === 'image|Images', 'type guessed: Images'); }
+const beforeU = calls.length;
+[...w.document.querySelectorAll('#sheet button')].find((b) => text(b).startsWith('Download and install (')).click(); await tick(100);  // the dialog's button: asks first
+[...w.document.querySelectorAll('#sheet button')].find((b) => text(b) === 'Download and install').click(); await tick(150);           // the question's yes
+{ const c = calls.slice(beforeU).find(([k, a]) => k === 'api' && a.path === '/api/control' && a.body && a.body.action === 'install-url');
+  ok(c && c[1].body.kind === 'image' && c[1].body.category === 'Images' && c[1].body.source.includes('dreamshaper') && c[1].body.name === 'dreamshaper 8', 'install-url sent with type and name: ' + JSON.stringify(c && c[1].body)); }
+// installed: listed under Other models, with Edit
+state.packs.push({ id: 'dreamshaper_8', name: 'dreamshaper 8', kind: 'image', category: 'image', custom: true, bytes: 2.1e9 });
+await w.eval('refresh()'); await tick(100); await w.eval('go("packs")'); await tick(100);
+{ const view = text(w.document.getElementById('view')); ok(view.includes('Other models (1)') && view.includes('dreamshaper 8'), 'Model packs: Other models lists it');
+  const edit = [...w.document.querySelectorAll('#view button')].find((b) => text(b) === 'Edit'); ok(edit, 'Edit button on your own model');
+  edit.click(); await tick(50);
+  w.document.querySelector('#sheet input').value = 'DreamShaper 8'; w.document.querySelector('#sheet input').dispatchEvent(new w.Event('input'));
+  const b0 = calls.length; [...w.document.querySelectorAll('#sheet button')].find((b) => text(b) === 'Save').click(); await tick(100);
+  const e = calls.slice(b0).find(([k, a]) => k === 'api' && a.body && a.body.action === 'edit-custom');
+  ok(e && e[1].body.pack === 'dreamshaper_8' && e[1].body.name === 'DreamShaper 8' && e[1].body.kind === 'image', 'Edit saves name and type: ' + JSON.stringify(e && e[1].body)); }
 
 // --- free tag
 ok(w.eval('freeTag({ where: "local" })') && !w.eval('freeTag({ where: "cloud:x" })') && !w.eval('freeTag({})'), 'free tag only for where=local');

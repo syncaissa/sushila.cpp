@@ -296,9 +296,9 @@ async fn main() -> ExitCode {
 }
 
 /// The test-build number (shown by /health): Sushila Station replaces a running engine older than the one it carries.
-pub const BUILD: u32 = 33;
-/// `sushila --version`: "0.1.1 (build 33)" (keep the number equal to BUILD; Station reads it)
-const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 33)");
+pub const BUILD: u32 = 34;
+/// `sushila --version`: "0.1.1 (build 34)" (keep the number equal to BUILD; Station reads it)
+const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 34)");
 
 /// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
 const START_FAILED: u8 = 3;
@@ -1003,6 +1003,20 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
                     let d = ctx.take_gguf(&p)?; ctx.log(&format!("{} copied to {}", p.display(), d.display())); Ok(true)
                 } else { let got = ctx.install_pack_file(&p).await?; ctx.log(&format!("{got} installed from {}", p.display())); Ok(true) }
             }
+            // Install Unlisted Model Pack: a model from a Hugging Face, GitHub or Dropbox link, chosen by the person
+            "install-url" => {
+                let src = r["source"].as_str().unwrap_or("").to_string();
+                let (kind, category, name) = (r["kind"].as_str().unwrap_or("text").to_string(), r["category"].as_str().unwrap_or("Chat").to_string(), r["name"].as_str().unwrap_or("").to_string());
+                if !["text", "image"].contains(&kind.as_str()) { return Err("unlisted models run as Chat, Code or Images".into()); }
+                let (tx, t, pd, q) = (o.tx.clone(), id.clone(), ctx.packs_dir.clone(), ctx.quiet);
+                tokio::spawn(async move {
+                    let r = async { let s = core::resolve_user_source(&src).await?; core::download_user_model(&pd, &s, &kind, &category, &name, q, Some(&prog)).await.map(|_| ()) }.await;
+                    let _ = tx.send(Done::Hf(t, r));
+                });
+                Ok(false)
+            }
+            // your own model: another name or type (Chat, Code, Images); applies at its next start
+            "edit-custom" => { ctx.edit_custom(&pack, r["name"].as_str(), r["kind"].as_str(), r["category"].as_str()).await?; Ok(true) }
             "install-hf" => {
                 let spec = r["spec"].as_str().unwrap_or("").to_string();
                 let (tx, t, pd, q) = (o.tx.clone(), id.clone(), ctx.packs_dir.clone(), ctx.quiet);
@@ -1255,7 +1269,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                             }
                         }
                     }
-                    Done::Hf(t, r) => { if let Err(e) = &r { ctx.log(&format!("Hugging Face download failed: {e}")); } o.finish(&t, &r); last_scan = std::time::Instant::now() - Duration::from_secs(10); }
+                    Done::Hf(t, r) => { if let Err(e) = &r { ctx.log(&format!("download of your model failed: {e}")); } o.finish(&t, &r); last_scan = std::time::Instant::now() - Duration::from_secs(10); }
                     Done::Found(id, dir, res) => {
                         o.checking.remove(&dir);
                         let t = format!("found-{}", dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default());

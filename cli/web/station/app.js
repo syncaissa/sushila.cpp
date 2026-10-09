@@ -918,14 +918,22 @@ VIEWS.packs = {
   render() {
     const st = S.st || {}, installed = st.packs || [], ids = new Set(installed.map((p) => p.id));
     const tasks = (st.tasks || []).filter((t) => t.status === 'running'), now = st.now || [];
-    const inst = h('div', { class: 'group' }, h('h3', {}, 'Installed (' + installed.length + ')'), installed.length ? installed.map((p) => { const r = running(p.id);
+    // Sushila's packs, then the person's own (Other models: installed with Install Unlisted Model Pack or put in the folder)
+    const own = installed.filter((p) => p.custom), listed = installed.filter((p) => !p.custom);
+    const other = h('div', { class: 'group' }, h('div', { class: 'row', style: 'padding:10px 14px 0' }, h('h3', { style: 'margin:0' }, 'Other models (' + own.length + ')'), h('span', { class: 'grow' }),
+        ROLE === 'app' || ROLE === 'local' ? h('button', { class: 'btn small', onclick: () => unlistedDialog() }, '＋ Install Unlisted Model Pack') : null),
+      own.length ? own.map((p) => instRow(p, true)) : h('div', { class: 'item' }, h('span', { class: 'mut' }, 'Your own models appear here: from Hugging Face, GitHub or Dropbox (Install Unlisted Model Pack), or a .gguf put in the model-packs folder. Not checked by Sushila.')));
+    const inst = h('div', { class: 'group' }, h('h3', {}, 'Installed (' + listed.length + ')'), listed.length ? listed.map((p) => instRow(p, false))
+      : h('div', { class: 'item' }, h('div', { class: 'txt' }, h('span', {}, 'No model pack yet: install one below.'))));
+    function instRow(p, mine) { const r = running(p.id);
       return h('div', { class: 'item' }, h('div', { class: 'kicon' }, icon(p.kind === 'image' ? 'pictures' : p.kind === 'text' ? (packKind(p) === 'code' ? 'code' : 'chat') : p.kind)),
         h('div', { class: 'txt' }, h('b', {}, p.name), h('span', {}, [KIND[packKind(p)] || p.kind, human(p.bytes), p.turbo ? 'Accelerated available' : 'Standard'].filter(Boolean).join(' · '))),
         r ? h('span', { class: 'tag on' }, r.ready ? 'running · ' + modeName(r.mode) : 'loading…') : null,
         r ? h('button', { class: 'btn small', onclick: () => useModel('stop', p.id) }, 'Stop') : h('button', { class: 'btn small primary', onclick: () => useModel('start', p.id, p.turbo ? 'turbo' : 'regular') }, 'Start'),
         h('button', { class: 'btn small', onclick: () => post('/api/control', { action: 'verify', pack: p.id }).then(() => toast('Checking every file of ' + p.name + ' (see Logs).', 'ok')).catch((e) => toast(e.message, 'err')) }, 'Verify'),
-        h('button', { class: 'btn small danger', onclick: async () => { if (await ask('Remove ' + p.name + '?', 'Its files (' + human(p.bytes) + ') are deleted from this computer; you can install it again later.', 'Remove', true)) post('/api/control', { action: 'remove', pack: p.id }).then(() => toast('Removed.', 'ok')).catch((e) => toast(e.message, 'err')); } }, 'Remove')); })
-      : h('div', { class: 'item' }, h('div', { class: 'txt' }, h('span', {}, 'No model pack yet: install one below.'))));
+        h('button', { class: 'btn small danger', onclick: async () => { if (await ask('Remove ' + p.name + '?', 'Its files (' + human(p.bytes) + ') are deleted from this computer; you can install it again later.', 'Remove', true)) post('/api/control', { action: 'remove', pack: p.id }).then(() => toast('Removed.', 'ok')).catch((e) => toast(e.message, 'err')); } }, 'Remove'),
+        mine ? h('button', { class: 'btn small', title: 'Its name, and its type (the Generate page that uses it)', onclick: () => editCustom(p) }, 'Edit') : null);
+    }
     const dl = now.length || tasks.length ? h('div', { class: 'group' }, h('h3', {}, 'Downloading'), now.map((d) => h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, d.label || d.target || 'download'),
       h('div', { class: 'pbar' }, h('i', { style: 'width:' + (d.total ? Math.round(100 * d.done / d.total) : 5) + '%' })), h('span', {}, d.total ? human(d.done) + ' of ' + human(d.total) : '')))),
       tasks.filter((t) => !now.length).map((t) => h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, t.action + ' ' + (t.target || '')), h('span', {}, t.label || 'working…'))))) : null;
@@ -939,7 +947,7 @@ VIEWS.packs = {
     }));
     const hf = h('div', { class: 'group' }, h('h3', {}, 'Your own model'), h('div', { class: 'item' }, h('input', { class: 'field grow', id: 'hf', placeholder: 'owner/repo/file.gguf from Hugging Face (optionally @revision)' }),
       h('button', { class: 'btn small', onclick: () => { const v = $('hf').value.trim(); if (v) post('/api/control', { action: 'install-hf', spec: v.startsWith('hf:') ? v : 'hf:' + v }).then(() => toast('Downloading in the background.', 'ok')).catch((e) => toast(e.message, 'err')); } }, 'Add from Hugging Face')));
-    return h('div', {}, dl, inst, avail, hf);
+    return h('div', {}, dl, inst, other, avail, hf);
   },
 };
 async function loadCatalog() { if (S.catalog) return; try { S.catalog = await get('/api/catalog'); } catch (_) { S.catalog = { packs: [] }; } if (S.view === 'packs') render(); }
@@ -1061,7 +1069,66 @@ async function mePanel() {
       : h('div', { class: 'item' }, h('span', { class: 'mut' }, 'No shared links yet: "Upload and get link" on any picture, song or video makes one.'))));
 }
 // top right: "Open in browser" in the app only (a browser is one already), Sign in for those who manage this Sushila
-const topButtons = () => [IN_BROWSER ? null : goButton(), MANAGES ? meButton() : null];
+const topButtons = () => [ROLE === 'app' || ROLE === 'local' ? h('button', { class: 'btn small', title: 'A model that is not in Sushila\'s list: from Hugging Face, GitHub or Dropbox', onclick: () => unlistedDialog() }, '＋ Install Unlisted Model Pack') : null,
+  IN_BROWSER ? null : goButton(), MANAGES ? meButton() : null];
+// ---- Install Unlisted Model Pack: a model file from a Hugging Face, GitHub or Dropbox link, checked first (name, size,
+// free disk space), installed with one click, listed under Other models; its name and type can be changed later (Edit)
+const UNLISTED_SOURCES = {
+  hf: ['Hugging Face', 'On huggingface.co open the model, then Files and versions, click the file and copy the address from the browser.', 'https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/blob/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf'],
+  github: ['GitHub', 'A file attached to a release: Releases, Assets, right-click the file, Copy link address (or the file\'s page in the code).', 'https://github.com/<owner>/<repo>/releases/download/<tag>/<model>.gguf'],
+  dropbox: ['Dropbox', 'In Dropbox: Share the file, Copy link. Sushila downloads the file itself from that link.', 'https://www.dropbox.com/scl/fi/…/<model>.safetensors?rlkey=…&dl=0'],
+};
+const KIND_CHOICES = [['text|Chat', 'Chat'], ['text|Code', 'Code'], ['image|Images', 'Images (pictures)']];
+function unlistedDialog(st = { src: 'hf', link: '' }) {
+  const box = h('div');
+  let close = () => {};
+  const draw = () => {
+    const [label, help, example] = UNLISTED_SOURCES[st.src], p = st.probe;
+    const short = p && p.bytes && p.free != null && p.enough === false;
+    put(box, h('div', { class: 'row', style: 'margin-bottom:6px' }, h('h3', { style: 'margin:0' }, 'Install Unlisted Model Pack'), h('span', { class: 'grow' }), h('button', { class: 'btn small', onclick: () => close() }, 'Close')),
+      h('p', { class: 'mut' }, 'A model that is not in Sushila\'s list. It is not checked by Sushila: install only models you trust. It stays on this computer (also after a restart) under Model packs, Other models.'),
+      h('div', { class: 'seg', style: 'margin:8px 0' }, Object.entries(UNLISTED_SOURCES).map(([k, v]) => h('button', { class: 'segb' + (st.src === k ? ' on' : ''), onclick: () => { st.src = k; st.probe = null; st.err = ''; draw(); } }, v[0]))),
+      h('p', { class: 'small mut' }, help),
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, h('input', { class: 'field grow', id: 'ulink', value: st.link, placeholder: example, oninput: (e) => { st.link = e.target.value; st.probe = null; } , onkeydown: (e) => { if (e.key === 'Enter') check(); } }),
+        h('button', { class: 'btn primary', disabled: !!st.busy, onclick: check }, st.busy ? 'Checking…' : 'Check')),
+      st.err ? h('p', { style: 'color:var(--err);white-space:pre-wrap' }, st.err) : null,
+      p ? h('div', { class: 'group', style: 'margin-top:12px' },
+        h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, p.file), h('span', {}, [p.bytes ? human(p.bytes) : 'size not given by ' + label, p.checksum ? 'checked against ' + label + '\'s checksum while it downloads' : 'no checksum from ' + label + ': only its size is checked'].join(' · ')))),
+        h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', { style: short ? 'color:var(--err)' : '' }, short ? 'Not enough disk space' : 'Disk space'),
+          h('span', {}, (p.bytes ? 'Needs ' + human(p.bytes) + ' (plus 2 GB to spare); ' : '') + (p.free != null ? human(p.free) + ' free' : 'free space unknown') + (short ? ': make space first (Engine, Make space)' : '')))),
+        h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Type'), h('span', {}, 'Where it is used. Sushila guessed from the file; change it if it is wrong (also later, with Edit). Video and music models need several matching files and cannot be installed this way.')),
+          h('select', { class: 'field', style: 'width:auto', onchange: (e) => { st.kind = e.target.value; } }, KIND_CHOICES.map(([v, t]) => h('option', { value: v, selected: (st.kind || (p.kind + '|' + p.category)) === v, disabled: v === 'text|Chat' || v === 'text|Code' ? /\.safetensors$/i.test(p.file) : false }, t)))),
+        h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Name')), h('input', { class: 'field', style: 'width:320px', value: st.name != null ? st.name : p.name, oninput: (e) => { st.name = e.target.value; } })),
+        h('div', { class: 'item' }, h('span', { class: 'grow' }), h('button', { class: 'btn primary', disabled: short || !!st.busy, onclick: install }, 'Download and install' + (p.bytes ? ' (' + human(p.bytes) + ')' : '')))) : null);
+  };
+  const check = async () => {
+    st.link = ($('ulink') || {}).value || st.link; if (!st.link.trim()) return;
+    st.busy = true; st.err = ''; st.probe = null; st.kind = null; st.name = null; draw();
+    try { st.probe = await get('/api/custom/probe?source=' + encodeURIComponent(st.link.trim())); } catch (e) { st.err = e.message; }
+    st.busy = false; draw();
+  };
+  const install = async () => {
+    const p = st.probe; if (!p) return;
+    const [kind, category] = (st.kind || (p.kind + '|' + p.category)).split('|');
+    const name = (st.name != null ? st.name : p.name).trim() || p.name;
+    if (!await ask('Download and install ' + name + '?', (p.bytes ? human(p.bytes) + ' are downloaded' : 'The file is downloaded') + ' into Sushila\'s model-packs folder and listed under Other models (' + (kind === 'image' ? 'Images' : category) + '). It is not checked by Sushila.', 'Download and install')) return unlistedDialog(st);
+    try { await post('/api/control', { action: 'install-url', source: st.link.trim(), kind, category, name }); toast(name + ' is downloading; the progress is on Model packs. It appears under Other models when it is ready.', 'ok', 'Installing your model'); go('packs'); }
+    catch (e) { st.err = e.message; unlistedDialog(st); }
+  };
+  draw(); close = sheet(box, true);
+}
+// Edit an Other model: its name and type (where it is used)
+function editCustom(p) {
+  const box = h('div'); let close = () => {};
+  const st = { name: p.name, kind: (p.kind === 'image' ? 'image|Images' : packKind(p) === 'code' ? 'text|Code' : 'text|Chat') };
+  put(box, h('h3', {}, 'Edit ' + p.name), h('p', { class: 'mut' }, 'Your own model (Other models). The type decides the Generate page that uses it.'),
+    h('label', { class: 'lbl' }, 'Name'), h('input', { class: 'field', style: 'width:100%', value: st.name, oninput: (e) => { st.name = e.target.value; } }),
+    h('label', { class: 'lbl' }, 'Type'), h('select', { class: 'field', style: 'width:100%', onchange: (e) => { st.kind = e.target.value; } }, KIND_CHOICES.map(([v, t]) => h('option', { value: v, selected: st.kind === v }, t))),
+    h('div', { class: 'row end', style: 'margin-top:12px' }, h('button', { class: 'btn', onclick: () => close() }, 'Cancel'),
+      h('button', { class: 'btn primary', onclick: async () => { const [kind, category] = st.kind.split('|');
+        try { await post('/api/control', { action: 'edit-custom', pack: p.id, name: st.name, kind, category }); toast('Saved.', 'ok'); close(); setTimeout(refresh, 800); } catch (e) { toast(e.message, 'err'); } } }, 'Save')));
+  close = sheet(box);
+}
 function goButton() {
   return h('button', { class: 'btn small gobtn', title: 'See Sushila in a web browser: on this computer, or through your internet link', onclick: goPanel }, '🌐 Open in browser ▾');
 }
