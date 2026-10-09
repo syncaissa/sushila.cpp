@@ -927,16 +927,18 @@ VIEWS.packs = {
       : h('div', { class: 'item' }, h('div', { class: 'txt' }, h('span', {}, 'No model pack yet: install one below.'))));
     function instRow(p, mine) { const r = running(p.id);
       return h('div', { class: 'item' }, h('div', { class: 'kicon' }, icon(p.kind === 'image' ? 'pictures' : p.kind === 'text' ? (packKind(p) === 'code' ? 'code' : 'chat') : p.kind)),
-        h('div', { class: 'txt' }, h('b', {}, p.name), h('span', {}, [KIND[packKind(p)] || p.kind, human(p.bytes), p.turbo ? 'Accelerated available' : 'Standard'].filter(Boolean).join(' · '))),
+        h('div', { class: 'txt' }, h('b', {}, p.name), h('span', {}, [KIND[packKind(p)] || p.kind, human(p.bytes), p.turbo ? 'Accelerated available' : 'Standard'].filter(Boolean).join(' · ')),
+          mine && p.accel ? h('span', { class: 'mut' }, p.accel.summary) : null),
         r ? h('span', { class: 'tag on' }, r.ready ? 'running · ' + modeName(r.mode) : 'loading…') : null,
         r ? h('button', { class: 'btn small', onclick: () => useModel('stop', p.id) }, 'Stop') : h('button', { class: 'btn small primary', onclick: () => useModel('start', p.id, p.turbo ? 'turbo' : 'regular') }, 'Start'),
         h('button', { class: 'btn small', onclick: () => post('/api/control', { action: 'verify', pack: p.id }).then(() => toast('Checking every file of ' + p.name + ' (see Logs).', 'ok')).catch((e) => toast(e.message, 'err')) }, 'Verify'),
         h('button', { class: 'btn small danger', onclick: async () => { if (await ask('Remove ' + p.name + '?', 'Its files (' + human(p.bytes) + ') are deleted from this computer; you can install it again later.', 'Remove', true)) post('/api/control', { action: 'remove', pack: p.id }).then(() => toast('Removed.', 'ok')).catch((e) => toast(e.message, 'err')); } }, 'Remove'),
+        mine && (ROLE === 'app' || ROLE === 'local') && (p.kind === 'image' || p.kind === 'text') ? h('button', { class: 'btn small', title: 'Measure it on this computer and keep Accelerated only if it is faster', onclick: () => accelCustom(p) }, p.accel ? 'Measure again' : 'Make Accelerated') : null,
         mine ? h('button', { class: 'btn small', title: 'Its name, and its type (the Generate page that uses it)', onclick: () => editCustom(p) }, 'Edit') : null);
     }
     const dl = now.length || tasks.length ? h('div', { class: 'group' }, h('h3', {}, 'Downloading'), now.map((d) => h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, d.label || d.target || 'download'),
       h('div', { class: 'pbar' }, h('i', { style: 'width:' + (d.total ? Math.round(100 * d.done / d.total) : 5) + '%' })), h('span', {}, d.total ? human(d.done) + ' of ' + human(d.total) : '')))),
-      tasks.filter((t) => !now.length).map((t) => h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, t.action + ' ' + (t.target || '')), h('span', {}, t.label || 'working…'))))) : null;
+      tasks.filter((t) => !now.length).map((t) => h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, (t.action === 'accelerate-custom' ? 'Measuring for Accelerated:' : t.action) + ' ' + (t.target || '')), h('span', {}, t.label || 'working…'))))) : null;
     const cat = S.catalog ? (S.catalog.packs || []).filter((p) => !p.hidden && !ids.has(p.id)) : null;
     const avail = h('div', { class: 'group' }, h('h3', {}, 'Available'), !cat ? h('div', { class: 'item' }, h('span', { class: 'mut' }, 'Loading the catalog…')) : cat.map((p) => {
       const bytes = p.bytes || (p.files || []).reduce((n, f) => n + (f.bytes || 0), 0);
@@ -1118,6 +1120,16 @@ function unlistedDialog(st = { src: 'hf', link: '' }) {
   draw(); close = sheet(box, true);
 }
 // Edit an Other model: its name and type (where it is used)
+// Accelerated for your own model, measured on this computer (engine accel.rs): pictures get a cache plan calibrated on
+// this GPU; chat and code get a smaller installed model of the same family as a draft. Kept only when it is faster.
+async function accelCustom(p) {
+  const pic = p.kind === 'image';
+  const how = pic ? 'Sushila makes about 30 small test pictures with different cache plans (reusing work between steps), compares each with the picture made without one, and keeps the fastest plan whose pictures stay nearly the same (SSIM 0.95 or more), checked on new prompts.'
+    : 'Sushila looks for a smaller installed chat or code model with the same tokens (the same family), lets it draft words that your model checks one by one (so the answers keep your model\'s quality), and measures the speed with and without it.';
+  if (!await ask('Make ' + p.name + ' Accelerated on this computer?', how + ' It takes a few minutes and uses the GPU: running models stop meanwhile. Accelerated is kept only if it is at least 1.10x faster here; nothing is downloaded or sent.', 'Start measuring')) return;
+  try { await post('/api/control', { action: 'accelerate-custom', pack: p.id }); toast('Measuring ' + p.name + ' (progress on Model packs). The result appears under its name.', 'ok', 'Accelerated'); go('packs'); }
+  catch (e) { toast(e.message, 'err', 'Could not start'); }
+}
 function editCustom(p) {
   const box = h('div'); let close = () => {};
   const st = { name: p.name, kind: (p.kind === 'image' ? 'image|Images' : packKind(p) === 'code' ? 'text|Code' : 'text|Chat') };

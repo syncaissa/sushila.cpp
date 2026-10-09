@@ -1,0 +1,23 @@
+probe 200 {"bytes":4683074240,"category":"Chat","checksum":true,"enough":true,"file":"Qwen2.5-7B-Instruct-Q4_K_M.gguf","free":377205434351616,"kind":"text","name":"Qwen2.5 7B Instruct Q4 K M","source":{"kind":"huggingface","link":"https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/blob/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf","path":"Qwen2.5-7B-Instruct-Q4_K_M.gguf","repo":"bartowski/Qwen2.5-7B-Instruct
+control {'action': 'install-url', 'source': 'https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/blob/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf', 'kind': 'text', 'category': 'Chat', 'name': 'Qwen2.5 7B'} 202 {"id":"task-039e3fcbf80ac37848"}
+task {"action": "install-url", "done": 4627621387, "error": "", "finished": "2026-10-09T09:21:30Z", "id": "task-039e3fcbf80ac37848", "label": "Qwen2.5-7B-Instruct-Q4_K_M.gguf", "source": "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/blob/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf", "started": "2026-10-09T09:21:15Z", "status": "done", "target": "", "total": 4683074240}
+installed {"accel": null, "bytes": 4683074240, "category": "chat", "custom": true, "default": false, "id": "qwen2.5-7b-instruct-q4_k_m", "installedAt": "2026-10-09T09:21:37Z", "kind": "text", "mode": "regular", "name": "Qwen2.5 7B", "source": {"kind": "huggingface", "link": "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/blob/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf", "path": "Qwen2.5-7B-Instruct-Q4_
+control {'action': 'accelerate-custom', 'pack': 'qwen2.5-7b-instruct-q4_k_m'} 202 {"id":"task-50fe01d6e056a0f8b2"}
+  ...  0 0
+task {"action": "accelerate-custom", "done": 1, "error": "", "finished": "2026-10-09T09:21:47Z", "id": "task-50fe01d6e056a0f8b2", "label": "measuring with Qwen2.5 0.5B Instruct (4-bit) drafting", "source": "api", "started": "2026-10-09T09:21:41Z", "status": "done", "target": "qwen2.5-7b-instruct-q4_k_m", "total": 2}
+ACCEL Qwen2.5 7B {"at": "2026-10-09T09:21:41Z", "kept": false, "summary": "Checked on this computer: stays Standard (no draft model ran with it)"} turbo False 10s
+control {'action': 'start', 'pack': 'qwen2.5-7b-instruct-q4_k_m', 'mode': 'regular'} 202 {"id":"task-3a4bef4eae3bc17544"}
+control {'action': 'stop', 'pack': 'qwen2.5-7b-instruct-q4_k_m'} 202 {"id":"task-6e2a64fac33dbb9e79"}
+stop task-6e2a64fac33dbb9e79
+probe 200 {"bytes":4265146304,"category":"Images","checksum":true,"enough":true,"file":"v1-5-pruned-emaonly.safetensors","free":377178988544000,"kind":"image","name":"v1 5 pruned emaonly","source":{"kind":"huggingface","link":"https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/blob/main/v1-5-pruned-emaonly.safetensors","path":"v1-5-pruned-emaonly.safetensors","repo":"stable-diffusion-v1-5/st
+control {'action': 'install-url', 'source': 'https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/blob/main/v1-5-pruned-emaonly.safetensors', 'kind': 'image', 'category': 'Images', 'name': 'SD 1.5'} 202 {"id":"task-1b60706535d2a196ff"}
+  ... v1-5-pruned-emaonly.safetensors 531766417 4265146304
+task {"action": "install-url", "done": 4157425340, "error": "", "finished": "2026-10-09T09:22:13Z", "id": "task-1b60706535d2a196ff", "label": "v1-5-pruned-emaonly.safetensors", "source": "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/blob/main/v1-5-pruned-emaonly.safetensors", "started": "2026-10-09T09:21:56Z", "status": "done", "target": "", "total": 4265146304}
+installed {"accel": null, "bytes": 4265146304, "category": "image", "custom": true, "default": false, "id": "v1-5-pruned-emaonly", "installedAt": "2026-10-09T09:22:20Z", "kind": "image", "mode": "regular", "name": "SD 1.5", "source": {"kind": "huggingface", "link": "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/blob/main/v1-5-pruned-emaonly.safetensors", "path": "v1-5-pruned-emaonly.saf
+control {'action': 'accelerate-custom', 'pack': 'v1-5-pruned-emaonly'} 202 {"id":"task-fc5fe8d1c2704b1220"}
+task {"action": "accelerate-custom", "done": 0, "error": "the engine stopped while loading (Standard, exit status: 0); see the model's log", "finished": "2026-10-09T09:22:22Z", "id": "task-fc5fe8d1c2704b1220", "label": "", "source": "api", "started": "2026-10-09T09:22:21Z", "status": "failed", "target": "v1-5-pruned-emaonly", "total": 0}
+ACCEL SD 1.5 null turbo False 5s
+queue 202 {"id":"job-479a95e7141705d588","status":"queued"}
+control {'action': 'stop', 'pack': 'v1-5-pruned-emaonly'} 202 {"id":"task-497f0b10a33684c6e4"}
+stop task-497f0b10a33684c6e4
+DRIVE_DONE

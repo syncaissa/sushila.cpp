@@ -44,6 +44,7 @@ pub struct Ctx {
     pub procs: Arc<Mutex<HashMap<String, tokio::process::Child>>>,
     /// Packs asked to run on the CPU (-ngl 0, 2 slots); empty unless something sets it.
     pub cpu_only: std::collections::HashSet<String>,
+    pub port_turn: u16,
 }
 
 /// Every action, from any client, goes to one file: <data>/logs/sushila.log ("<time> [source] message").
@@ -128,7 +129,7 @@ impl Ctx {
             let _ = std::fs::remove_dir(&old);
             let _ = write_atomic(&data.join("state.json"), serde_json::to_string_pretty(&s).unwrap_or_default().as_bytes());  // the new folders, at once
         }
-        Ok(Ctx { data, packs_dir, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, other_vram: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())), cpu_only: Default::default() })
+        Ok(Ctx { data, packs_dir, state: s, catalog: None, info: host_info(), gpu: None, other_gpu: None, other_vram: None, quiet, procs: Arc::new(Mutex::new(HashMap::new())), cpu_only: Default::default(), port_turn: 0 })
     }
     pub fn log(&self, line: &str) { log(self.quiet, line) }
     /// The chat model started with the server: settings.assistantPack, else Qwen3 4B, else the small default, if installed.
@@ -159,7 +160,8 @@ impl Ctx {
         let assistant = self.assistant_pack();
         let packs: Vec<Value> = self.packs().values().map(|p| json!({ "id": p["id"], "name": p["name"], "kind": p.get("kind").cloned().unwrap_or(json!("text")), "category": Ctx::category(p), "turbo": can_turbo(p),
             "mode": p["preferredMode"].as_str().filter(|m| *m == "regular" || (*m == "turbo" && can_turbo(p))).unwrap_or(if can_turbo(p) { "turbo" } else { "regular" }),
-            "default": assistant.as_deref() == p["id"].as_str(), "bytes": p["bytes"], "custom": p["custom"] == true, "source": p["source"], "installedAt": p["installedAt"] })).collect();
+            "default": assistant.as_deref() == p["id"].as_str(), "bytes": p["bytes"], "custom": p["custom"] == true, "source": p["source"], "installedAt": p["installedAt"],
+            "accel": if p["accel"].is_object() { json!({ "kept": p["accel"]["kept"], "at": p["accel"]["at"], "summary": crate::accel::summary(&p["accel"]) }) } else { Value::Null } })).collect();
         let engine = self.state.get("engine").filter(|e| e.is_object()).map(|e| json!({ "version": e["version"], "source": e["source"] })).unwrap_or(Value::Null);
         let tasks = self.state.get("tasks").cloned().unwrap_or(json!([]));
         let owner = self.state.get("owner").cloned().unwrap_or(Value::Null);
@@ -605,9 +607,13 @@ impl Ctx {
     }
 
     // ---------- run models
-    fn free_port(&self) -> u16 {
+    /// A free port for a model's engine, never the one handed out just before: a model stopped a moment ago may still
+    /// hold its port, and some engines (stable-diffusion.cpp) then exit at once without listening (seen 2026-10-09)
+    pub fn free_port(&mut self) -> u16 {
         let used: Vec<u64> = self.state["running"].as_object().map(|m| m.values().filter_map(|r| r["port"].as_u64()).collect()).unwrap_or_default();
-        let mut p = self.setting("enginePort").as_u64().unwrap_or(7875);
+        let base = self.setting("enginePort").as_u64().unwrap_or(7875);
+        let mut p = base + (self.port_turn as u64 % 40);
+        self.port_turn = self.port_turn.wrapping_add(1);
         while used.contains(&p) || p == self.setting("port").as_u64().unwrap_or(7874) || std::net::TcpListener::bind(("127.0.0.1", p as u16)).is_err() { p += 1; }
         p as u16
     }
@@ -660,6 +666,9 @@ impl Ctx {
         let key = self.state["engine"]["key"].as_str().unwrap_or("").to_string();
         let engine = self.packs().get(id).map(|p| p["engine"].clone()).unwrap_or(Value::Null);
         if !e.contains("stopped while loading") || engine == "image-nunchaku" { return None; }
+        // not the engine's fault: a clean exit (exit code 0: e.g. its port was still taken) or the person's own model
+        // (a file Sushila never checked); switching the whole engine (CUDA -> Vulkan -> CPU) would only make it slower
+        if e.contains("(exit code 0)") || self.packs().get(id).map(|p| p["custom"] == true).unwrap_or(false) { return None; }
         let _ = self.load_catalog().await;
         let next = self.fallback_key(&key)?;
         self.log(&format!("{id} could not start on the {} engine; switching to the {} engine", Self::gpu_label(&key), Self::gpu_label(&next)));
@@ -692,6 +701,13 @@ impl Ctx {
         let mut pack_args: Vec<String> = p["args"].as_array().into_iter().flatten().chain(if mode == "turbo" { p["turboArgs"].as_array() } else { None }.into_iter().flatten())
             .filter_map(|a| a.as_str()).map(|a| match a.strip_prefix("{pack}/") { Some(r) => join_rel(&dir, r).to_string_lossy().to_string(), None => a.to_string() }).collect();
         let engine = p["engine"].as_str().unwrap_or("text").to_string();
+        // your own chat/code model, Accelerated on this computer: a smaller installed model with the same tokens drafts
+        if engine == "text" && mode == "turbo" { if let Some(d) = p["draftPack"].as_str() {
+            match self.packs().get(d).filter(|q| q["kind"].as_str().unwrap_or("text") == "text").and_then(|q| Some(join_rel(Path::new(q["dir"].as_str()?), q["model"].as_str()?))) {
+                Some(m) if m.exists() => pack_args.extend(crate::accel::draft_args(&m, self.cpu_only.contains(id))),
+                _ => self.log(&format!("{id}: its draft model {d} is not installed any more, so it runs without it (Standard speed)")),
+            }
+        } }
         // images: the whole model stays on the GPU when it fits. Video packs keep offloading: decoding a 5 s 720p video
         // needs far more memory than the model (about 50 GB at 1280x704x121); without the room it decodes in tiny tiles or fails
         if engine == "image" && p["kind"] != "video" && pack_args.iter().any(|a| a == "--offload-to-cpu") && self.gpu_room_for(&p).await {
@@ -758,8 +774,14 @@ impl Ctx {
             let (path, quiet, id2) = (logs.join(format!("{id}.log")), self.quiet, id.to_string());
             tokio::spawn(async move {
                 let mut f = tokio::fs::OpenOptions::new().create(true).append(true).open(&path).await.ok();
-                let mut lines = BufReader::new(pipe).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
+                // raw bytes, line by line: an engine's progress bars are not always valid UTF-8, and a reader that stopped
+                // there closed the pipe, so the engine died at its next write (seen with stable-diffusion.cpp loading a
+                // .safetensors checkpoint: every start "cancelled", started again)
+                let mut r = BufReader::new(pipe); let mut buf = Vec::new();
+                loop {
+                    buf.clear();
+                    match r.read_until(b'\n', &mut buf).await { Ok(0) | Err(_) => break, Ok(_) => {} }
+                    let line = String::from_utf8_lossy(&buf); let line = line.trim_end_matches(['\n', '\r']);
                     if let Some(f) = f.as_mut() { use tokio::io::AsyncWriteExt; let _ = f.write_all(format!("{line}\n").as_bytes()).await; }
                     if let Some(i) = line.find("offloaded ") { if line.contains("layers to GPU") { log(quiet, &format!("{id2}: {}", &line[i..])); } }
                 }
@@ -862,9 +884,25 @@ pub fn verify_custom_folder(data: &Path, dir: &Path, meta: &Value, prog: Option<
     }
     let model = meta["serve"]["model"].as_str().unwrap_or("");
     let kind = if meta["kind"] == "image" { "image" } else { "text" };
-    Ok(json!({ "id": meta["id"], "name": meta["name"], "kind": kind, "engine": kind, "category": meta["category"], "bytes": total, "dir": dir.to_string_lossy(), "model": model,
+    let mut rec = json!({ "id": meta["id"], "name": meta["name"], "kind": kind, "engine": kind, "category": meta["category"], "bytes": total, "dir": dir.to_string_lossy(), "model": model,
         "args": meta["serve"]["args"], "turboArgs": [], "turboRequest": Value::Null, "files": rec_files, "license": meta["license"], "scope": "user",
-        "installedAt": now_iso(), "artifacts": [], "custom": true, "unlisted": meta["unlisted"] == true, "source": meta["source"] }))
+        "installedAt": now_iso(), "artifacts": [], "custom": true, "unlisted": meta["unlisted"] == true, "source": meta["source"] });
+    // Accelerated prepared on this computer (accel.rs) applies only to the very file it was measured with, and its type
+    let sha = rec["files"].as_array().and_then(|a| a.iter().find(|f| f["path"] == model)).map(|f| f["sha256"].clone()).unwrap_or(Value::Null);
+    if meta["accel"]["for"] == sha && meta["accel"]["kind"] == kind { apply_accel(&mut rec, &meta["accel"]); }
+    Ok(rec)
+}
+/// Puts the result of an Accelerated check (accel.rs) on a pack record: the cache plan (pictures) or the draft model
+/// (chat, code) when it was kept; the record of the check either way. Null clears it.
+pub fn apply_accel(rec: &mut Value, a: &Value) {
+    rec["turboRequest"] = Value::Null;
+    if let Some(m) = rec.as_object_mut() { m.remove("draftPack"); m.remove("accel"); }
+    if !a.is_object() { return; }
+    rec["accel"] = a.clone();
+    if a["kept"] == true {
+        if a["kind"] == "image" { if let Some(r) = turbo_request(&json!({ "turboRequest": a["plan"] })) { rec["turboRequest"] = r; } }
+        else if let Some(d) = a["draft"]["pack"].as_str().filter(|d| safe_id_dots(d)) { rec["draftPack"] = json!(d); }
+    }
 }
 
 /// A catalog pack whose model file is exactly this file (same sha256): the user's own download is one we precomputed.
@@ -1145,11 +1183,13 @@ impl Ctx {
         if let Some(n) = name.map(str::trim).filter(|n| !n.is_empty()) { rec["name"] = json!(n.chars().take(120).collect::<String>()); }
         let args = if kind == "image" { json!(["--model", format!("{{pack}}/{model}")]) } else if was == "text" { rec["args"].clone() } else { json!([]) };
         rec["kind"] = json!(kind); rec["engine"] = json!(kind); rec["category"] = json!(cat); rec["args"] = args.clone();
+        if kind != was { apply_accel(&mut rec, &Value::Null); }  // Accelerated was measured for the other type
         // the folder's description follows, so a restart (or another computer) finds the same
         if let Some(dir) = rec["dir"].as_str() {
             let f = Path::new(dir).join("sushila-pack.json");
             if let Ok(mut m) = std::fs::read_to_string(&f).map_err(err).and_then(|t| serde_json::from_str::<Value>(&t).map_err(err)) {
                 m["name"] = rec["name"].clone(); m["kind"] = json!(kind); m["category"] = json!(cat); m["serve"]["engine"] = json!(kind); m["serve"]["args"] = args;
+                if kind != was { if let Some(o) = m.as_object_mut() { o.remove("accel"); } }
                 std::fs::write(&f, serde_json::to_string_pretty(&m).map_err(err)?).map_err(err)?;
             }
         }
@@ -1157,6 +1197,59 @@ impl Ctx {
         self.save()?;
         self.log(&format!("{id}: now {} ({cat})", self.state["packs"][id]["name"].as_str().unwrap_or(id)));
         Ok(())
+    }
+    /// The result of an Accelerated check on this computer (accel.rs): on the record and in the folder's sushila-pack.json
+    /// (kept after a restart); Accelerated becomes the model's mode when it was kept.
+    pub fn set_accel(&mut self, id: &str, a: &Value) -> Result<(), String> {
+        let mut rec = self.packs().get(id).cloned().ok_or(format!("{id} is not installed"))?;
+        if rec["custom"] != true { return Err("only your own models are prepared on this computer".into()); }
+        apply_accel(&mut rec, a);
+        if a["kept"] == true { rec["preferredMode"] = json!("turbo"); } else if rec["preferredMode"] == "turbo" && !can_turbo(&rec) { rec["preferredMode"] = json!("regular"); }
+        if let Some(dir) = rec["dir"].as_str() {
+            let f = Path::new(dir).join("sushila-pack.json");
+            if let Ok(mut m) = std::fs::read_to_string(&f).map_err(err).and_then(|t| serde_json::from_str::<Value>(&t).map_err(err)) {
+                m["accel"] = a.clone();
+                std::fs::write(&f, serde_json::to_string_pretty(&m).map_err(err)?).map_err(err)?;
+            }
+        }
+        self.state["packs"][id] = rec;
+        self.save()?;
+        self.log(&format!("{id}: {}", crate::accel::summary(a)));
+        Ok(())
+    }
+    /// How to run one of your own models for an Accelerated check, outside the running models: its engine program and
+    /// options (Standard), a free port, and for chat/code the other installed chat/code models that may draft for it.
+    pub fn trial_spec(&mut self, id: &str) -> Result<(crate::accel::Trial, PathBuf, u64, Vec<crate::accel::Candidate>), String> {
+        if !self.engine_ok() { return Err("Sushila.cpp is not installed: run `sushila engine install`".into()); }
+        let p = self.packs().get(id).cloned().ok_or(format!("{id} is not installed"))?;
+        if p["custom"] != true { return Err("Sushila's own packs come with their Accelerated files; this is for your own models (Other models)".into()); }
+        let kind = if p["kind"] == "image" { "image" } else { "text" };
+        let dir = PathBuf::from(p["dir"].as_str().unwrap_or(""));
+        let model = join_rel(&dir, p["model"].as_str().unwrap_or(""));
+        let sha = p["files"].as_array().and_then(|a| a.iter().find(|f| f["path"] == p["model"])).and_then(|f| f["sha256"].as_str()).unwrap_or("").to_string();
+        let port = self.free_port();
+        let cpus = self.info["cpus"].as_u64().unwrap_or(2);
+        let threads = self.setting("threads").as_u64().filter(|t| *t > 0).unwrap_or_else(|| (cpus.saturating_sub(1)).clamp(1, 16));
+        let pack_args: Vec<String> = p["args"].as_array().into_iter().flatten().filter_map(|a| a.as_str())
+            .map(|a| match a.strip_prefix("{pack}/") { Some(r) => join_rel(&dir, r).to_string_lossy().to_string(), None => a.to_string() }).collect();
+        let cpu = self.cpu_only.contains(id) || !self.state["engine"]["key"].as_str().map(|k| k.ends_with("-cuda") || k.ends_with("-vulkan") || k.starts_with("macos-aarch64")).unwrap_or(false);
+        let (program, base) = if kind == "image" {
+            (self.state["engine"]["servers"]["image"].as_str().ok_or("this Sushila.cpp has no image engine: run `sushila engine install` to update it")?.to_string(),
+             [vec!["--listen-ip".into(), "127.0.0.1".into(), "--listen-port".into(), port.to_string(), "-t".into(), threads.to_string()], pack_args].concat())
+        } else {
+            let ngl = if self.cpu_only.contains(id) { 0 } else { self.setting("gpuLayers").as_i64().unwrap_or(-1) };
+            (self.state["engine"]["server"].as_str().unwrap_or("").to_string(),
+             [vec!["-m".into(), model.to_string_lossy().into(), "--host".into(), "127.0.0.1".into(), "--port".into(), port.to_string(), "-t".into(), threads.to_string(),
+                   "-c".into(), "4096".into(), "-np".into(), "1".into(), "-ngl".into(), if ngl < 0 { "auto".into() } else { ngl.to_string() }], pack_args].concat())
+        };
+        let ld = if self.info["os"] == "linux" { self.state["engine"]["dir"].as_str().map(String::from) } else { None };
+        let logs = self.data.join("logs"); let _ = std::fs::create_dir_all(&logs);
+        let others: Vec<crate::accel::Candidate> = if kind == "text" { self.packs().values().filter(|q| q["id"] != id && q["kind"].as_str().unwrap_or("text") == "text" && q["engine"].as_str().unwrap_or("text") == "text")
+            .filter_map(|q| { let d = PathBuf::from(q["dir"].as_str()?); let m = join_rel(&d, q["model"].as_str()?);
+                m.to_string_lossy().to_lowercase().ends_with(".gguf").then(|| crate::accel::Candidate { id: q["id"].as_str().unwrap_or("").into(), name: q["name"].as_str().unwrap_or("").into(),
+                    bytes: std::fs::metadata(&m).map(|x| x.len()).unwrap_or(0), model: m }) }).collect() } else { vec![] };
+        let t = crate::accel::Trial { kind: kind.into(), program, base, dir, ld, port, log: logs.join(format!("{id}.log")), cpu, model_sha: sha };
+        Ok((t, model, p["bytes"].as_u64().unwrap_or(0), others))
     }
     /// Without a server: a folder holding the user's GGUF, checked and adopted at once (precomputed files downloaded here).
     pub async fn adopt_folder_now(&mut self, dir: &Path) -> Result<String, String> {
@@ -1262,7 +1355,8 @@ pub async fn wait_ready(procs: Arc<Mutex<HashMap<String, tokio::process::Child>>
         if http_text(&s.health, 3).await.is_ok() { return Ok(()); }
         // the process this start began: gone from the table (stopped, or replaced by a newer start) means cancelled,
         // which is not a failure of the engine and never leads to the engine fallback
-        let ours = { let g = procs.lock().await; g.get(&s.id).and_then(|c| c.id()) == Some(s.pid) };
+        // (a process already reaped has no id any more: it exited, which the check below reports)
+        let ours = { let g = procs.lock().await; g.get(&s.id).map(|c| c.id().map(|p| p == s.pid).unwrap_or(true)).unwrap_or(false) };
         if !ours { return Err(CANCELLED.to_string()); }
         let exited = { let mut g = procs.lock().await; g.get_mut(&s.id).map(|c| c.try_wait().ok().flatten().is_some()).unwrap_or(true) };
         if exited {
@@ -1435,7 +1529,7 @@ pub fn plain_name(n: &str) -> String {
 pub fn can_turbo(p: &Value) -> bool {
     let e = p["engine"].as_str().unwrap_or("text");
     let n = |k: &str| p[k].as_array().map(|a| !a.is_empty()).unwrap_or(false);
-    e == "image-nunchaku" || (e == "image" && turbo_request(p).is_some()) || (e == "music" && n("turboArgs")) || (e == "text" && (n("artifacts") || n("turboArgs")))
+    e == "image-nunchaku" || (e == "image" && turbo_request(p).is_some()) || (e == "music" && n("turboArgs")) || (e == "text" && (n("artifacts") || n("turboArgs") || p["draftPack"].as_str().is_some()))
 }
 
 #[cfg(test)]

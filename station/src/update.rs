@@ -8,7 +8,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
 /// This Station's build number (keep equal to the published build; the release script refuses an older one).
-pub const STATION_BUILD: u64 = 13;
+pub const STATION_BUILD: u64 = 14;
 const SITE: &str = "https://sushila.ai";
 /// Downloads come only from here.
 const FILES: &str = "https://files.sushila.ai/";

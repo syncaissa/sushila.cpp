@@ -1,0 +1,58 @@
+{
+ "Qwen2.5 7B": {
+  "pack": "qwen2.5-7b-instruct-q4_k_m",
+  "seconds": 10.021678924560547,
+  "task": {
+   "action": "accelerate-custom",
+   "done": 1,
+   "error": "",
+   "finished": "2026-10-09T09:21:47Z",
+   "id": "task-50fe01d6e056a0f8b2",
+   "label": "measuring with Qwen2.5 0.5B Instruct (4-bit) drafting",
+   "source": "api",
+   "started": "2026-10-09T09:21:41Z",
+   "status": "done",
+   "target": "qwen2.5-7b-instruct-q4_k_m",
+   "total": 2
+  },
+  "accel": {
+   "at": "2026-10-09T09:21:41Z",
+   "candidates": [
+    {
+     "name": "Qwen2.5 0.5B Instruct (4-bit)",
+     "pack": "qwen2.5-0.5b-q4km",
+     "skipped": "the engine stopped while loading (draft qwen2.5-0.5b-q4km, exit status: 1); see the model's log"
+    }
+   ],
+   "for": "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423",
+   "kept": false,
+   "kind": "text",
+   "standardTps": 174.98046572314445,
+   "why": "no draft model ran with it"
+  },
+  "turbo": false,
+  "after": {
+   "answer": "Snow whispers softly,\nBlanketing earth in silence,\nWinter dreams unfold.",
+   "s": 0.1790297031402588
+  }
+ },
+ "SD 1.5": {
+  "pack": "v1-5-pruned-emaonly",
+  "seconds": 5.0167012214660645,
+  "task": {
+   "action": "accelerate-custom",
+   "done": 0,
+   "error": "the engine stopped while loading (Standard, exit status: 0); see the model's log",
+   "finished": "2026-10-09T09:22:22Z",
+   "id": "task-fc5fe8d1c2704b1220",
+   "label": "",
+   "source": "api",
+   "started": "2026-10-09T09:22:21Z",
+   "status": "failed",
+   "target": "v1-5-pruned-emaonly",
+   "total": 0
+  },
+  "accel": null,
+  "turbo": false
+ }
+}

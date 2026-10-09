@@ -206,7 +206,13 @@ the size plus 2 GB must be free), and a guessed type (Chat, Code or Images) and 
 Download and install. It appears under Model packs, Other models (Edit changes its name or type), stays after a restart,
 and is used by its Generate page. Only .gguf (chat, code, pictures) and .safetensors (pictures: one SD 1.x/2.x or SDXL
 checkpoint) files; .ckpt/.pt/.bin are refused (they can carry code). Video and music models need several files and
-cannot be installed this way. Not checked by Sushila; Standard mode.
+cannot be installed this way. Not checked by Sushila; Standard mode, until Make Accelerated (Model packs, Other models,
+on this computer): Sushila measures it here for a few minutes (nothing downloaded or sent; running models stop meanwhile).
+Pictures: about 30 small test pictures with different cache plans; the fastest plan whose pictures stay nearly the same
+(SSIM 0.95+, checked on new prompts) is kept. Chat/code: a smaller installed model with the same tokens (same family, a
+quarter of the size or less) drafts words that the model checks. Kept only when at least 1.10x faster here; the result or
+the reason it stays Standard is shown under its name. "Measure again" repeats it (e.g. after installing a smaller model
+of the same family).
 
 ## Updating Sushila
 `sushila update` installs the newest Sushila from sushila.ai: the file is checked (size, SHA-256 and the Sushila

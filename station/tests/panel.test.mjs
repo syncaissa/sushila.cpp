@@ -269,6 +269,18 @@ await w.eval('refresh()'); await tick(100); await w.eval('go("packs")'); await t
   const e = calls.slice(b0).find(([k, a]) => k === 'api' && a.body && a.body.action === 'edit-custom');
   ok(e && e[1].body.pack === 'dreamshaper_8' && e[1].body.name === 'DreamShaper 8' && e[1].body.kind === 'image', 'Edit saves name and type: ' + JSON.stringify(e && e[1].body)); }
 
+// Make Accelerated (measured on this computer): asks first, then accelerate-custom; the result is shown under its name
+{ const mk = [...w.document.querySelectorAll('#view button')].find((b) => text(b) === 'Make Accelerated'); ok(mk, 'Make Accelerated on your own model');
+  const b0 = calls.length; mk.click(); await tick(80);
+  ok(text(w.document.getElementById('sheet')).includes('1.10x'), 'it says when Accelerated is kept');
+  [...w.document.querySelectorAll('#sheet button')].find((b) => text(b) === 'Start measuring').click(); await tick(120);
+  const c = calls.slice(b0).find(([k, a]) => k === 'api' && a.body && a.body.action === 'accelerate-custom');
+  ok(c && c[1].body.pack === 'dreamshaper_8', 'accelerate-custom sent: ' + JSON.stringify(c && c[1].body));
+  state.packs.find((p) => p.id === 'dreamshaper_8').accel = { kept: true, summary: 'Accelerated on this computer: 1.42x faster pictures (cache plan easycache threshold=0.2; SSIM 0.972 on new prompts)' };
+  await w.eval('refresh()'); await tick(100); await w.eval('go("packs")'); await tick(100);
+  const v = text(w.document.getElementById('view'));
+  ok(v.includes('1.42x faster pictures') && [...w.document.querySelectorAll('#view button')].some((b) => text(b) === 'Measure again'), 'the result is listed, with Measure again'); }
+
 // --- free tag
 ok(w.eval('freeTag({ where: "local" })') && !w.eval('freeTag({ where: "cloud:x" })') && !w.eval('freeTag({})'), 'free tag only for where=local');
 ok(text(w.eval('freeTag({ where: "local" })')) === '100% FREE, generated locally!', 'free tag text');

@@ -1,0 +1,95 @@
+control {'action': 'start', 'pack': 'v1-5-pruned-emaonly', 'mode': 'regular'} 202 {"id":"task-758ec96dd9ac2c6dc8"}
+SD start 5.043546199798584 cancelled 0
+control {'action': 'stop', 'pack': 'v1-5-pruned-emaonly'} 202 {"id":"task-7de21a09777358d621"}
+control {'action': 'accelerate-custom', 'pack': 'qwen2.5-7b-instruct-q4_k_m'} 202 {"id":"task-261405731d57b2aec2"}
+      3s measuring Standard 0 2
+     15s measuring with Qwen2.5 0.5B Instruct (4-bit) drafting 1 2
+task {"action": "accelerate-custom", "done": 1, "error": "", "finished": "2026-10-09T09:51:46Z", "id": "task-261405731d57b2aec2", "label": "measuring with Qwen2.5 0.5B Instruct (4-bit) drafting", "source": "api", "started": "2026-10-09T09:51:26Z", "status": "done", "target": "qwen2.5-7b-instruct-q4_k_m", "total": 2}
+ACCEL qwen2.5-7b-instruct-q4_k_m {"at": "2026-10-09T09:51:27Z", "kept": false, "summary": "Checked on this computer: stays Standard (with Qwen2.5 0.5B Instruct (4-bit) drafting it was 0.99x as fast: not enough)"} turbo False 27s
+control {'action': 'accelerate-custom', 'pack': 'v1-5-pruned-emaonly'} 202 {"id":"task-66c8428056129c1c95"}
+      3s loading and a first picture 0 1
+      6s pictures without a plan 0 46
+     18s trying ucache threshold=0.1 5 46
+     21s trying ucache threshold=0.2 8 46
+     30s trying ucache threshold=0.3 12 46
+     36s trying ucache threshold=0.5 14 46
+     39s trying easycache threshold=0.1 18 46
+     45s trying easycache threshold=0.2 20 46
+     51s trying easycache threshold=0.3 23 46
+     57s trying dbcache threshold=0.08,warmup=2 26 46
+     66s trying dbcache threshold=0.15,warmup=2 30 46
+     72s trying taylorseer 32 46
+     78s trying cache-dit warmup=2 35 46
+task {"action": "accelerate-custom", "done": 41, "error": "", "finished": "2026-10-09T09:53:20Z", "id": "task-66c8428056129c1c95", "label": "trying spectrum window=2,warmup=4", "source": "api", "started": "2026-10-09T09:51:53Z", "status": "done", "target": "v1-5-pruned-emaonly", "total": 46}
+ACCEL v1-5-pruned-emaonly {"at": "2026-10-09T09:53:20Z", "kept": false, "summary": "Checked on this computer: stays Standard (no plan was 1.10x faster with pictures as close as SSIM 0.95)"} turbo False 87s
+control {'action': 'start', 'pack': 'qwen2.5-7b-instruct-q4_k_m'} 202 {"id":"task-3e6f8abb24aed05e7a"}
+chat {"answer": "Snow whispers softly,\nBlanketing earth in silence,\nWinter's gentle hug.", "s": 0.13523387908935547, "timings": {"cache_n": 0, "prompt_n": 36, "prompt_ms": 26.454, "prompt_per_token_ms": 0.7348333333333333, "prompt_per_second": 1360.852801088682, "predicted_n": 16, "predicted_ms": 95.596, "predicted_per_token_ms": 6.373066666666667, "predicted_per_second": 156.91033097619146}, "mode": "regular"}
+control {'action': 'stop', 'pack': 'qwen2.5-7b-instruct-q4_k_m'} 202 {"id":"task-cff40b6a037f3ee226"}
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/connection.py", line 199, in _new_conn
+    sock = connection.create_connection(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/connectionpool.py", line 789, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/connectionpool.py", line 495, in _make_request
+    conn.request(
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/connection.py", line 441, in request
+    self.endheaders()
+  File "/usr/lib/python3.11/http/client.py", line 1298, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/usr/lib/python3.11/http/client.py", line 1058, in _send_output
+    self.send(msg)
+  File "/usr/lib/python3.11/http/client.py", line 996, in send
+    self.connect()
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/connection.py", line 279, in connect
+    self.sock = self._new_conn()
+                ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/connection.py", line 214, in _new_conn
+    raise NewConnectionError(
+urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPConnection object at 0x7349fa544610>: Failed to establish a new connection: [Errno 111] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/dist-packages/requests/adapters.py", line 667, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/connectionpool.py", line 843, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/urllib3/util/retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=7874): Max retries exceeded with url: /api/queue (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7349fa544610>: Failed to establish a new connection: [Errno 111] Connection refused'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/accel/drive2.py", line 45, in <module>
+    jobs = requests.get(H + '/api/queue', headers=hd(), timeout=20).json()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/requests/api.py", line 73, in get
+    return request("get", url, params=params, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/requests/adapters.py", line 700, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=7874): Max retries exceeded with url: /api/queue (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7349fa544610>: Failed to establish a new connection: [Errno 111] Connection refused'))

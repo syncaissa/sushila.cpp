@@ -1,0 +1,137 @@
+{
+ "qwen2.5-7b-instruct-q4_k_m": {
+  "at": "2026-10-09T10:05:22Z",
+  "candidates": [
+   {
+    "name": "Qwen2.5 0.5B Instruct (4-bit)",
+    "pack": "qwen2.5-0.5b-q4km",
+    "speedup": 1.0011896645096328,
+    "tps": 175.24641638011815
+   }
+  ],
+  "for": "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423",
+  "kept": false,
+  "kind": "text",
+  "standardTps": 175.03817966993412,
+  "why": "with Qwen2.5 0.5B Instruct (4-bit) drafting it was 1.00x as fast: not enough"
+ },
+ "v1-5-pruned-emaonly": {
+  "at": "2026-10-09T10:07:04Z",
+  "candidates": [
+   {
+    "plan": {
+     "cache_mode": "ucache",
+     "cache_option": "threshold=0.1"
+    },
+    "skipped": "not supported by this model (no change)"
+   },
+   {
+    "plan": {
+     "cache_mode": "ucache",
+     "cache_option": "threshold=0.2"
+    },
+    "s": 2.295229138,
+    "speedup": 0.9905063622453891,
+    "ssim": 1.0
+   },
+   {
+    "plan": {
+     "cache_mode": "ucache",
+     "cache_option": "threshold=0.3"
+    },
+    "s": 2.236218556,
+    "speedup": 1.0166443963628393,
+    "ssim": 1.0
+   },
+   {
+    "plan": {
+     "cache_mode": "ucache",
+     "cache_option": "threshold=0.5"
+    },
+    "s": 2.219394899,
+    "speedup": 1.0243508557329526,
+    "ssim": 1.0
+   },
+   {
+    "plan": {
+     "cache_mode": "easycache",
+     "cache_option": "threshold=0.1"
+    },
+    "s": 2.218684692,
+    "speedup": 1.0246787532259225,
+    "ssim": 1.0
+   },
+   {
+    "plan": {
+     "cache_mode": "easycache",
+     "cache_option": "threshold=0.2"
+    },
+    "s": 2.2303926179999998,
+    "speedup": 1.0192999410294858,
+    "ssim": 1.0
+   },
+   {
+    "plan": {
+     "cache_mode": "easycache",
+     "cache_option": "threshold=0.3"
+    },
+    "s": 2.214039176,
+    "speedup": 1.0268287429797494,
+    "ssim": 1.0
+   },
+   {
+    "plan": {
+     "cache_mode": "dbcache",
+     "cache_option": "threshold=0.08,warmup=2"
+    },
+    "s": 2.245477926,
+    "speedup": 1.012452199006832,
+    "ssim": 1.0
+   },
+   {
+    "plan": {
+     "cache_mode": "dbcache",
+     "cache_option": "threshold=0.15,warmup=2"
+    },
+    "s": 2.237277526,
+    "speedup": 1.016163188330351,
+    "ssim": 1.0
+   },
+   {
+    "plan": {
+     "cache_mode": "taylorseer"
+    },
+    "s": 2.289365491,
+    "speedup": 0.9930433008348339,
+    "ssim": 1.0
+   },
+   {
+    "plan": {
+     "cache_mode": "cache-dit",
+     "cache_option": "warmup=2"
+    },
+    "skipped": "not supported by this model (no change)"
+   },
+   {
+    "plan": {
+     "cache_mode": "spectrum",
+     "cache_option": "window=2,warmup=2"
+    },
+    "skipped": "SSIM 0.71"
+   },
+   {
+    "plan": {
+     "cache_mode": "spectrum",
+     "cache_option": "window=2,warmup=4"
+    },
+    "skipped": "SSIM 0.76"
+   }
+  ],
+  "for": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa",
+  "kept": false,
+  "kind": "image",
+  "size": "512x512",
+  "uncachedS": 2.273439064,
+  "why": "no plan was 1.10x faster with pictures as close as SSIM 0.95"
+ }
+}

@@ -1,0 +1,27 @@
+control {'action': 'start', 'pack': 'v1-5-pruned-emaonly', 'mode': 'regular'} 202 {"id":"task-e14e2d84bdd5876558"}
+SD start 1.009495496749878 cancelled 0
+control {'action': 'stop', 'pack': 'v1-5-pruned-emaonly'} 202 {"id":"task-61494af799eee58bb4"}
+control {'action': 'accelerate-custom', 'pack': 'qwen2.5-7b-instruct-q4_k_m'} 202 {"id":"task-275c8975c15fd89104"}
+      6s measuring with Qwen2.5 0.5B Instruct (4-bit) drafting 1 2
+task {"action": "accelerate-custom", "done": 1, "error": "", "finished": "2026-10-09T10:05:33Z", "id": "task-275c8975c15fd89104", "label": "measuring with Qwen2.5 0.5B Instruct (4-bit) drafting", "source": "api", "started": "2026-10-09T10:05:22Z", "status": "done", "target": "qwen2.5-7b-instruct-q4_k_m", "total": 2}
+ACCEL qwen2.5-7b-instruct-q4_k_m {"at": "2026-10-09T10:05:22Z", "kept": false, "summary": "Checked on this computer: stays Standard (with Qwen2.5 0.5B Instruct (4-bit) drafting it was 1.00x as fast: not enough)"} turbo False 18s
+control {'action': 'accelerate-custom', 'pack': 'v1-5-pruned-emaonly'} 202 {"id":"task-b17615f1b583c9a6b1"}
+      3s loading and a first picture 0 1
+      6s pictures without a plan 0 46
+     18s trying ucache threshold=0.1 5 46
+     21s trying ucache threshold=0.2 8 46
+     27s trying ucache threshold=0.3 11 46
+     33s trying ucache threshold=0.5 14 46
+     42s trying easycache threshold=0.1 18 46
+     48s trying easycache threshold=0.2 20 46
+     54s trying easycache threshold=0.3 23 46
+     60s trying dbcache threshold=0.08,warmup=2 26 46
+     69s trying dbcache threshold=0.15,warmup=2 30 46
+     75s trying taylorseer 32 46
+     81s trying cache-dit warmup=2 35 46
+     84s trying spectrum window=2,warmup=4 41 46
+task {"action": "accelerate-custom", "done": 41, "error": "", "finished": "2026-10-09T10:07:05Z", "id": "task-b17615f1b583c9a6b1", "label": "trying spectrum window=2,warmup=4", "source": "api", "started": "2026-10-09T10:05:40Z", "status": "done", "target": "v1-5-pruned-emaonly", "total": 46}
+ACCEL v1-5-pruned-emaonly {"at": "2026-10-09T10:07:04Z", "kept": false, "summary": "Checked on this computer: stays Standard (no plan was 1.10x faster with pictures as close as SSIM 0.95)"} turbo False 87s
+control {'action': 'start', 'pack': 'qwen2.5-7b-instruct-q4_k_m'} 202 {"id":"task-4d4f0ce9273d504c03"}
+chat {"answer": "Snow whispers softly,\nBlanketing earth in silence,\nWinter's gentle hug.", "s": 1.3248686790466309, "timings": {"cache_n": 0, "prompt_n": 36, "prompt_ms": 1205.786, "prompt_per_token_ms": 33.494055555555555, "prompt_per_second": 29.856044107329158, "predicted_n": 16, "predicted_ms": 106.289, "predicted_per_token_ms": 7.085933333333333, "predicted_per_second": 141.12466953306551}, "mode": "regular"}
+control {'action': 'stop', 'pack': 'qwen2.5-7b-instruct-q4_k_m'} 202 {"id":"task-fc1b7627c5309d7677"}

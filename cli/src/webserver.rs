@@ -1210,7 +1210,7 @@ async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, re
     let Ok(bytes) = axum::body::to_bytes(body, 65536).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let Ok(mut v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("");
-    if !["engine-install", "install", "install-file", "install-hf", "install-url", "edit-custom", "remove", "start", "stop", "settings", "verify", "catalog", "share", "mode"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
+    if !["engine-install", "install", "install-file", "install-hf", "install-url", "edit-custom", "accelerate-custom", "remove", "start", "stop", "settings", "verify", "catalog", "share", "mode"].contains(&action) { return (axum::http::StatusCode::BAD_REQUEST, "unknown action").into_response(); }
     let id = new_id().replacen("job-", "task-", 1);
     v["id"] = json!(id);
     if crate::util::post_request(&s.data_dir, "control-in", &id, &v).is_err() {

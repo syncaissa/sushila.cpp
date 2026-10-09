@@ -7,7 +7,7 @@ use std::path::Path;
 
 /// Known lines in an engine's log and what they mean.
 const PATTERNS: [(&[&str], &str, &str); 7] = [
-    (&["out of memory", "cudamalloc", "cuda error 2", "failed to allocate", "outofmemoryerror", "cudaerrormemoryallocation", "not enough memory", "vram"],
+    (&["out of memory", "cudamalloc", "cuda error 2", "failed to allocate", "outofmemoryerror", "cudaerrormemoryallocation", "not enough memory"],
      "gpu-memory", "ran out of GPU memory"),
     (&["no space left", "disk full", "there is not enough space"], "disk", "the disk is full"),
     (&["cannot allocate memory", "memoryerror", "bad_alloc", "std::bad_alloc"], "ram", "ran out of system memory (RAM)"),

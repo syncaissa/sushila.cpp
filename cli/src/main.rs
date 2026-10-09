@@ -28,6 +28,7 @@ mod library;
 mod share;
 mod tunnel;
 mod update;
+mod accel;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -296,9 +297,9 @@ async fn main() -> ExitCode {
 }
 
 /// The test-build number (shown by /health): Sushila Station replaces a running engine older than the one it carries.
-pub const BUILD: u32 = 34;
-/// `sushila --version`: "0.1.1 (build 34)" (keep the number equal to BUILD; Station reads it)
-const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 34)");
+pub const BUILD: u32 = 35;
+/// `sushila --version`: "0.1.1 (build 35)" (keep the number equal to BUILD; Station reads it)
+const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 35)");
 
 /// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
 const START_FAILED: u8 = 3;
@@ -814,6 +815,7 @@ enum Done {
     Job(String, Result<jobs::Output, String>),                               // queue job id
     Found(String, PathBuf, Result<Value, String>),                           // a pack folder dropped into model-packs, checked
     Hf(String, Result<(), String>),                                          // a GGUF downloaded from Hugging Face (the scan adopts it)
+    Accel(String, String, Result<Value, String>),                            // task id, pack: an Accelerated check on this computer
 }
 
 struct Owner {
@@ -825,6 +827,7 @@ struct Owner {
     busy_model: Option<String>,                          // the model of the queue's current job (never stopped to make room)
     checking: std::collections::HashSet<PathBuf>,        // pack folders being verified
     rejected: std::collections::HashMap<PathBuf, std::time::SystemTime>,  // folders that failed (checked again when they change)
+    accel_busy: Option<String>,                          // your own model being measured for Accelerated (it uses the GPU)
 }
 impl Owner {
     fn task(&mut self, id: &str, action: &str, target: &str, source: &str) -> Prog {
@@ -870,6 +873,7 @@ impl Owner {
 /// The one admission rule, for every start (page, commands, queue): a model that is working (the queue's current job,
 /// or requests being answered) is never stopped to make room; the start waits or is refused, with the reason.
 async fn make_room(ctx: &mut Ctx, o: &mut Owner, pack: &str) -> Result<(), String> {
+    if let Some(a) = &o.accel_busy { return Err(format!("Sushila is measuring {a} on this computer for Accelerated (a few minutes; see Model packs); {pack} can start when it is done")); }
     let running: Vec<String> = ctx.state["running"].as_object().map(|m| m.keys().cloned().collect()).unwrap_or_default();
     if let Some(busy) = running.iter().find(|id| id.as_str() != pack && (o.busy_model.as_deref() == Some(id.as_str()) || webserver::in_flight(id) > 0)) {
         return Err(format!("{busy} is busy (a queued job or a request is running); {pack} starts when it is done, or stop {busy} first"));
@@ -1015,6 +1019,23 @@ async fn control(ctx: &mut Ctx, o: &mut Owner, r: Value) {
                 });
                 Ok(false)
             }
+            // your own model, Accelerated on this computer: measured here (accel.rs), kept only when it is faster
+            "accelerate-custom" => {
+                if let Some(a) = &o.accel_busy { return Err(format!("{a} is being measured already; one at a time")); }
+                if o.busy_model.is_some() { return Err("the queue is working: try again when its job is done".into()); }
+                let (t, model, bytes, others) = ctx.trial_spec(&pack)?;
+                // the GPU is needed for the measurement: every model stops for these minutes (none is busy, checked above)
+                make_room(ctx, o, &pack).await?;
+                if ctx.state["running"][&pack].is_object() { ctx.stop_model(&pack).await; o.cancel_start(&pack); }
+                o.accel_busy = Some(pack.clone());
+                ctx.log(&format!("{pack}: measuring it on this computer for Accelerated ({})", if t.kind == "image" { "cache plans for pictures; a few minutes" } else { "smaller models of the same family drafting; a few minutes" }));
+                let (tx, tid, pk) = (o.tx.clone(), id.clone(), pack.clone());
+                tokio::spawn(async move {
+                    let r = if t.kind == "image" { accel::calibrate_image(&t, Some(&prog)).await } else { accel::calibrate_text(&t, &model, bytes, others, Some(&prog)).await };
+                    let _ = tx.send(Done::Accel(tid, pk, r));
+                });
+                Ok(false)
+            }
             // your own model: another name or type (Chat, Code, Images); applies at its next start
             "edit-custom" => { ctx.edit_custom(&pack, r["name"].as_str(), r["kind"].as_str(), r["category"].as_str()).await?; Ok(true) }
             "install-hf" => {
@@ -1150,7 +1171,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     if let Err(e) = ctx.write_catalog_cache().await { ctx.log(&format!("catalog: {e}")); }
     let page = if network { format!("http://localhost:{port}/ here; http://{}:{port}/ on the network; http://<public IP>:{port}/ from the internet if the firewall allows port {port} (use HTTPS in front for real internet use)", local_ip().unwrap_or_else(|| "<this machine's address>".into())) } else { format!("http://localhost:{port}/") };
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Done>();
-    let mut o = Owner { tasks: vec![], prog: Default::default(), tx, starting: Default::default(), after_engine: vec![], busy_model: None, checking: Default::default(), rejected: Default::default() };
+    let mut o = Owner { tasks: vec![], prog: Default::default(), tx, starting: Default::default(), after_engine: vec![], busy_model: None, checking: Default::default(), rejected: Default::default(), accel_busy: None };
     let mut last_scan = std::time::Instant::now() - Duration::from_secs(10);
     // at start: what ran before a restart or handover in the last 30 minutes (resume.json: packs and modes); else the
     // chat model (Qwen3 4B or the small default) if installed, else the first installed pack
@@ -1268,6 +1289,11 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                                 }
                             }
                         }
+                    }
+                    Done::Accel(t, pack, r) => {
+                        o.accel_busy = None;
+                        let r = match r { Ok(a) => ctx.set_accel(&pack, &a), Err(e) => { ctx.log(&format!("{pack}: the Accelerated check stopped: {e}")); Err(e) } };
+                        o.finish(&t, &r);
                     }
                     Done::Hf(t, r) => { if let Err(e) = &r { ctx.log(&format!("download of your model failed: {e}")); } o.finish(&t, &r); last_scan = std::time::Instant::now() - Duration::from_secs(10); }
                     Done::Found(id, dir, res) => {
