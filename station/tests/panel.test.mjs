@@ -223,10 +223,12 @@ ok([...w.document.querySelectorAll('#view button')].some((b) => text(b) === 'Str
   ok(q.length === 5 && new Set(q.map((b) => b.params.prompt)).size === 5 && q.every((b) => b.kind === 'video' && /^wan/.test(b.model) && b.params.seed === ''), 'Stress test: 5 video jobs, 5 different prompts, random seeds ' + JSON.stringify(q[0])); }
 
 // --- prompt history: typed here + saved with every file + still in the queue, newest first, each prompt once
-S.lib = { items: [{ kind: 'image', name: 'x.png', rel: 'Images/x.png', created: '2026-10-09T12:00:00Z', where: 'local', prompt: 'made in the browser', size: '1024x1024', seed: 7 },
-  { kind: 'image', name: 'y.png', rel: 'Images/y.png', created: '2026-10-09T11:00:00Z', where: 'local', prompt: 'made in the browser' },
-  { kind: 'music', name: 's.mp3', rel: 'Music/s.mp3', created: '2026-10-09T11:30:00Z', prompt: 'a song' }], trash: [] };
-S.queue = { jobs: [{ id: 'q1', kind: 'image', status: 'queued', created: '2026-10-09T13:00:00Z', params: { prompt: 'still queued', size: '768x768' } }] };
+// (times are in the future of the test run, so prompts typed earlier in this test are older than these)
+const at = (h) => new Date(Date.now() + h * 3600e3).toISOString();
+S.lib = { items: [{ kind: 'image', name: 'x.png', rel: 'Images/x.png', created: at(2), where: 'local', prompt: 'made in the browser', size: '1024x1024', seed: 7 },
+  { kind: 'image', name: 'y.png', rel: 'Images/y.png', created: at(1), where: 'local', prompt: 'made in the browser' },
+  { kind: 'music', name: 's.mp3', rel: 'Music/s.mp3', created: at(1.5), prompt: 'a song' }], trash: [] };
+S.queue = { jobs: [{ id: 'q1', kind: 'image', status: 'queued', created: at(3), params: { prompt: 'still queued', size: '768x768' } }] };
 { const h = await w.eval('histAll("pictures")');
   ok(h[0].f.ip === 'still queued' && h.some((e) => e.f.ip === 'made in the browser' && e.f.isize === '1024x1024' && e.f.iseed === '7') && h.filter((e) => e.f.ip === 'made in the browser').length === 1 && !h.some((e) => e.f.ip === 'a song'),
     'prompt history: queued + saved with files, newest first, once each: ' + h.map((e) => e.f.ip).join(' | ')); }

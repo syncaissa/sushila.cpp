@@ -1372,4 +1372,17 @@ async function installFromAddress() {
   ensureEngine();  // Station starts Sushila when it opens (it keeps running when the window closes); an older engine is replaced
   setInterval(() => { if (!document.hidden) refresh(); }, 2500);
   installFromAddress();
+  licenseCheck();
 })();
+// LICENSE CHECK: checking the license status of the application and location enforcement. Every start of Sushila
+// Station and every time this page is opened or refreshed, a small message goes to sushila.ai for audit purposes and
+// license enforcement: which app (station or page), start or refresh; the Sushila engine adds the version, build,
+// operating system and, only when you are signed in, your account; the server adds your IP address (and its country,
+// for license enforcement by location) and the time. No prompts, files or other content are sent. The engine's
+// share.rs (license_check) explains it in full. Station may open before its engine is up, so it tries again for up to
+// two minutes; nothing waits for it.
+async function licenseCheck() {
+  let reload = false; try { const n = performance.getEntriesByType('navigation')[0]; reload = !!n && n.type === 'reload'; } catch (_) {}
+  const body = { client: ROLE === 'app' ? 'station' : 'page', event: reload ? 'refresh' : 'startup' };
+  for (let i = 0; i < 12; i++) { try { await post('/api/license/check', body); return; } catch (_) { await new Promise((r) => setTimeout(r, 10000)); } }
+}

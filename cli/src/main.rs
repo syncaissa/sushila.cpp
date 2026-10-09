@@ -297,9 +297,9 @@ async fn main() -> ExitCode {
 }
 
 /// The test-build number (shown by /health): Sushila Station replaces a running engine older than the one it carries.
-pub const BUILD: u32 = 36;
-/// `sushila --version`: "0.1.1 (build 36)" (keep the number equal to BUILD; Station reads it)
-const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 36)");
+pub const BUILD: u32 = 37;
+/// `sushila --version`: "0.1.1 (build 37)" (keep the number equal to BUILD; Station reads it)
+const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 37)");
 
 /// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
 const START_FAILED: u8 = 3;
@@ -1238,6 +1238,10 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     // a newer Sushila on sushila.ai: first asked ~30 s after the start, then every 6 hours; one line in the window (the
     // page shows it too). Not when Sushila Station runs this server: Station updates the engine it carries itself.
     let mut last_update = std::time::Instant::now() - Duration::from_secs(6 * 3600 - 30);
+    // LICENSE CHECK (share.rs explains it): checking the license status of the application and location enforcement;
+    // at every start of the server (sushila.exe, or the engine inside Station) a small message goes to sushila.ai for
+    // audit purposes and license enforcement
+    crate::share::license_check_bg(&ctx.data, "engine", "startup");
     let station_runs_it = std::env::var_os("SUSHILA_STATION").is_some();
     let mut popular_failed: std::collections::HashMap<String, std::time::Instant> = Default::default();
     let mut crash_counts: std::collections::HashMap<String, Vec<std::time::Instant>> = Default::default();

@@ -37,6 +37,52 @@ async fn call(dir: &Path, method: reqwest::Method, path: &str, body: Option<(Vec
     Ok(v)
 }
 
+// ===================================================================================================================
+// LICENSE CHECK (sent to sushila.ai; please read)
+//
+// What it is: Sushila checks the license status of the application and enforces its license, including where (in
+// which country) it may be used. To do that, this program sends a small message to sushila.ai, the Sushila server,
+// for audit purposes and license enforcement:
+//   - when sushila.exe (the Sushila server) starts,
+//   - when Sushila Station (the desktop app) starts,
+//   - every time the Sushila page (http://localhost:7874/) is opened or refreshed.
+// What is sent: which app it is (engine, station or page), whether it is a start or a refresh, the version and build
+// number, the operating system (windows, linux, macos), and, only if you are signed in to sushila.ai, your account
+// token (so the record names your user id). Nothing else: no prompts, no pictures, songs, videos or other files, no
+// file names, no model names, no hardware details.
+// What the server adds: the IP address the message comes from (and the country that address belongs to, for license
+// enforcement by location) and the time. It stores one row per check (license type, user id or "-", IP address,
+// country, time, app, start or refresh, build, operating system) in its audit table, which the owner clears every
+// month.
+// The check never blocks Sushila: it is sent in the background, and if sushila.ai cannot be reached, Sushila works on.
+// The code that sends it is below (license_check); the server's side is licenseCheck in website/worker.js.
+// ===================================================================================================================
+
+/// One license check (see LICENSE CHECK above). client: engine | station | page; event: startup | refresh.
+pub async fn license_check(dir: &Path, client: &str, event: &str) -> Result<Value, String> {
+    let url = format!("{}/api/app/license", site(dir));
+    crate::net::check_url(&url, false)?;
+    let body = json!({ "client": client, "event": event, "build": crate::BUILD, "version": env!("CARGO_PKG_VERSION"), "os": std::env::consts::OS,
+                       "inStation": std::env::var("SUSHILA_STATION").is_ok() });
+    let mut r = crate::net::client()?.post(&url).timeout(std::time::Duration::from_secs(20)).json(&body);
+    if let Some(t) = account(dir)["token"].as_str() { r = r.header("authorization", format!("Bearer {t}")); }
+    let resp = r.send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() { return Err(format!("HTTP {}", resp.status())); }
+    Ok(resp.json().await.unwrap_or(json!({})))
+}
+/// The license check in the background (a start or a page load never waits for it); at most once per app and event
+/// every 5 seconds, so a burst of refreshes is sent once.
+pub fn license_check_bg(dir: &Path, client: &str, event: &str) {
+    static LAST: std::sync::Mutex<Vec<(String, std::time::Instant)>> = std::sync::Mutex::new(Vec::new());
+    let key = format!("{client}/{event}");
+    if let Ok(mut g) = LAST.lock() {
+        g.retain(|(_, t)| t.elapsed() < std::time::Duration::from_secs(5));
+        if g.iter().any(|(k, _)| *k == key) { return; }
+        g.push((key, std::time::Instant::now()));
+    }
+    let (d, c, e) = (dir.to_path_buf(), client.to_string(), event.to_string());
+    tokio::spawn(async move { if let Err(er) = license_check(&d, &c, &e).await { crate::core::log(true, &format!("license check not sent ({c} {e}): {er}")); } });
+}
 /// Sends the sign-in code (purpose SIGN_IN; SIGN_UP for a new account).
 pub async fn send_code(dir: &Path, email: &str, purpose: &str) -> Result<Value, String> {
     let p = if purpose == "SIGN_UP" { "SIGN_UP" } else { "SIGN_IN" };

@@ -214,6 +214,15 @@ quarter of the size or less) drafts words that the model checks. Kept only when 
 the reason it stays Standard is shown under its name. "Measure again" repeats it (e.g. after installing a smaller model
 of the same family).
 
+## License check (what Sushila sends to sushila.ai, and why)
+Sushila checks the license status of the application and enforces its license, including where (in which country) it
+may be used: when sushila.exe starts, when Sushila Station starts, and every time the page is opened or refreshed, a
+small message goes to sushila.ai for audit purposes and license enforcement. It says which app (engine, Station, page),
+start or refresh, version, build and operating system, and, only when signed in to sushila.ai, the account. The server
+adds the IP address it comes from (and its country, for enforcement by location) and the time. No prompts, files or
+other content are sent. It runs in the background and never stops Sushila; offline, Sushila works as before. The audit
+records are cleared monthly. Code: license_check in cli/src/share.rs, licenseCheck in website/worker.js.
+
 ## Updating Sushila
 `sushila update` installs the newest Sushila from sushila.ai: the file is checked (size, SHA-256 and the Sushila
 signature) before it replaces the program, and a running server restarts with it. `sushila update --check` only says

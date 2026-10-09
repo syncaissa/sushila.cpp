@@ -1219,6 +1219,21 @@ async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, re
     with_cors_for((axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "id": id }))).into_response(), &st, origin.as_deref())
 }
 
+/// POST /api/license/check {client: "station"|"page", event: "startup"|"refresh"}: the LICENSE CHECK (share.rs explains
+/// it in full): checking the license status of the application and location enforcement. Sushila Station's start and
+/// every load or refresh of the page; this server passes it on to sushila.ai for audit purposes and license
+/// enforcement (share::license_check). Answers at once; nothing waits for sushila.ai.
+async fn srv_license_check(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap, body: axum::body::Bytes) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    let v: Value = serde_json::from_slice(&body).unwrap_or(json!({}));
+    let client = match v["client"].as_str() { Some("station") => "station", _ => "page" };
+    let event = match v["event"].as_str() { Some("refresh") => "refresh", _ => "startup" };
+    crate::share::license_check_bg(&s.data_dir, client, event);
+    (axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "ok": true }))).into_response()
+}
+
 /// GET /api/logs?since=<byte offset>: the shared log (logs/sushila.log) from that offset, for this computer only.
 async fn srv_logs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum::extract::Query(q): axum::extract::Query<HashMap<String, String>>,
                   headers: axum::http::HeaderMap) -> axum::response::Response {
@@ -1313,6 +1328,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/docs", axum::routing::get(srv_docs))
         .route("/api/prompts/:kind", axum::routing::get(srv_prompts))
         .route("/api/notifications", axum::routing::get(srv_notifications))
+        .route("/api/license/check", axum::routing::post(srv_license_check))
         .route("/api/apps-open", axum::routing::get(srv_apps_open))
         .route("/api/custom/probe", axum::routing::get(srv_custom_probe))
         .route("/api/update", axum::routing::get(srv_update).post(srv_update))
