@@ -906,6 +906,12 @@ time under your account and is public to anyone with its link until you delete i
 number, how many visitors opened its page (one per visitor per 24 hours); each opening is logged with the link, your IP address,
 country, browser user agent and time, kept for at most a few weeks to count views and prevent abuse. Uploads for free accounts may be deleted at any time; inappropriate uploads are deleted and
 reported.</li>
+<li><b>License checks:</b> Sushila checks the license status of the application and enforces its license, including where (in
+which country) it may be used. Each time sushila.exe or Sushila Station starts, and each time the Sushila page is opened or refreshed,
+the program sends a license check: which app it is, start or refresh, the version, build and operating system, and your user id if you
+are signed in. We record it with the IP address it came from, that address's country and the time, for audit purposes and license
+enforcement, and delete these records every month. No prompts, files or other content are sent. The code is open (license_check in
+the Sushila program, licenseCheck on the server).</li>
 <li><b>Abuse reports:</b> what you enter at sushila.ai/reportabuse (the link, the reason, the details and, if you give it, your
 e-mail), with the time, your IP address, country and browser user agent, so we can act on the report and prevent misuse.</li>
 <li><b>Early-access sign-up:</b> the e-mail address and the optional list of models you enter, the time of sign-up and the country
@@ -925,6 +931,7 @@ clipboard locally.</p>
 <li>to provide the website, downloads and API, and to bill for the API (performance of a contract);</li>
 <li>to contact you about the early access you asked for (your consent, which you can withdraw at any time);</li>
 <li>to secure the Services, prevent abuse and fix problems (our legitimate interests);</li>
+<li>to check the license status of the Sushila application and enforce its license, including by location (our legitimate interests);</li>
 <li>to meet legal, tax and accounting duties (legal obligation).</li>
 </ul>
 
@@ -1657,7 +1664,7 @@ const ADMIN = () => () => `${FORM_CSS}
 .ccard.sus{border-color:var(--acc)}.cnum{margin:8px 0;font-size:14px}.ctext{max-height:360px;overflow:auto;white-space:pre-wrap;font-size:13px}
 .cspeed{margin-top:16px;font-size:28px;color:var(--acc)}#cres .ok,.ok{color:var(--acc)}textarea{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;box-sizing:border-box}</style>
 <h1>Admin</h1>
-<div class="admtabs" role="tablist"><button class="tab" data-t="users" aria-selected="true">Users</button><button class="tab" data-t="models" aria-selected="false">Models</button><button class="tab" data-t="compare" aria-selected="false">Compare Speeds</button><a class="tab" href="/bugs" style="text-decoration:none">Bugs</a></div>
+<div class="admtabs" role="tablist"><button class="tab" data-t="users" aria-selected="true">Users</button><button class="tab" data-t="models" aria-selected="false">Models</button><button class="tab" data-t="compare" aria-selected="false">Compare Speeds</button><button class="tab" data-t="pings" aria-selected="false">License checks</button><button class="tab" data-t="packs" aria-selected="false">Model packs</button><a class="tab" href="/bugs" style="text-decoration:none">Bugs</a></div>
 
 <div id="t-users">
   <div class="admin-tools"><input id="q" type="search" placeholder="Filter by e-mail, name, organization or user id">
@@ -1702,6 +1709,44 @@ const ADMIN = () => () => `${FORM_CSS}
   <div class="tablewrap"><table><thead><tr><th>When (UTC)</th><th>Model</th><th>GPU</th><th>Status</th><th class="num">Prompts</th><th class="num">Last speedup</th><th class="num">Cost</th><th></th></tr></thead>
   <tbody id="crb"><tr><td colspan="8" class="sub">Loading…</td></tr></tbody></table></div>
 </div>
+<div id="t-packs" class="hidden">
+  <p class="lead" style="margin-bottom:8px">Every model pack the apps can install (sushilaai-model-packs). Turning one off hides it from the apps; deleting removes the row only (the files in B2 stay; the row is copied to the audit log). A row is saved only if it passes the apps' own check. After changing files or sources, run <code>scripts/model_packs.py check</code> (signed index).</p>
+  <div class="admin-tools"><input id="kq" type="search" placeholder="Search id, name, B2 prefix, notes, description" style="flex:1 1 240px">
+    <select id="kkind"><option value="">every type</option></select>
+    <select id="kact"><option value="">active and off</option><option value="on">active only</option><option value="off">off only</option><option value="bad">failing the check</option></select>
+    <select id="ksort"><option value="order">catalog order</option><option value="name">name</option><option value="updated">last changed</option><option value="id">pack id</option></select>
+    <button class="btn" id="knew">Add a pack</button></div>
+  <div class="tablewrap"><table><thead><tr><th class="num">Order</th><th>Pack</th><th>Type</th><th>B2 prefix</th><th class="num">Files</th><th>Active</th><th>Check</th><th>Changed</th><th></th></tr></thead>
+  <tbody id="kb"><tr><td colspan="9" class="sub">Loading…</td></tr></tbody></table></div>
+  <div class="pager"><span id="kinfo"></span></div>
+  <div id="kform" class="hidden" style="margin-top:16px">
+    <h2 id="ktitle">Add a pack</h2>
+    <div class="mform"><div><label for="k-id">Pack id</label><input id="k-id" placeholder="e.g. qwen3-8b-q4km"></div>
+      <div><label for="k-order">Order (catalog position)</label><input id="k-order" type="number" min="0" max="9999" value="200"></div>
+      <div><label for="k-prefix">B2 prefix</label><input id="k-prefix" placeholder="precomputed/qwen3-8b"></div>
+      <div><label><input type="checkbox" id="k-active" style="flex:none;width:auto"> Active (shown in the apps)</label></div></div>
+    <label for="k-notes" style="font-weight:600;font-size:13px">Notes</label><input id="k-notes" style="width:100%">
+    <label for="k-def" style="font-weight:600;font-size:13px;display:block;margin-top:8px">Definition (JSON: name, kind, category, description, files [[B2 path, file, role]], serve {args, model, engine}, license, ...)</label>
+    <textarea id="k-def" rows="16" style="width:100%;font-family:ui-monospace,monospace;font-size:12px"></textarea>
+    <label for="k-src" style="font-weight:600;font-size:13px;display:block;margin-top:8px">Sources (JSON list: where each file comes from: type, repo, revision, url, sha256)</label>
+    <textarea id="k-src" rows="8" style="width:100%;font-family:ui-monospace,monospace;font-size:12px"></textarea>
+    <div style="margin-top:8px"><button class="btn" id="ksave">Save</button> <button class="btn ghost" id="kcancel">Cancel</button></div>
+    <div class="msg" id="kmsg" role="status"></div>
+  </div>
+</div>
+<div id="t-pings" class="hidden">
+  <p class="lead" style="margin-bottom:8px">License checks (checking the license status of the application and location enforcement, kept for audit purposes and license enforcement): every start of sushila.exe and Sushila Station, and every load or refresh of the Sushila page (sushilaai-audits, cleared monthly). Times are UTC.</p>
+  <div class="admin-tools"><label class="sub">From <input id="pfrom" type="date" style="flex:none;width:auto"></label><label class="sub">To <input id="pto" type="date" style="flex:none;width:auto"></label>
+    <select id="pclient"><option value="">every app</option><option value="engine">sushila.exe (engine)</option><option value="station">Sushila Station</option><option value="page">page</option></select>
+    <select id="pevent"><option value="">every event</option><option value="startup">startup</option><option value="refresh">refresh</option></select>
+    <select id="plicense"><option value="">every license</option><option>Free</option><option>Paid</option></select>
+    <input id="puser" type="search" placeholder="user id contains" style="flex:1 1 140px"><input id="pip" type="search" placeholder="IP contains" style="flex:1 1 120px">
+    <select id="porder"><option value="desc">newest first</option><option value="asc">oldest first</option></select>
+    <select id="psize"><option>25</option><option selected>50</option><option>100</option><option>200</option></select></div>
+  <div class="tablewrap"><table><thead><tr><th>Timestamp (UTC)</th><th>Message</th><th>License</th><th>User</th><th>IP</th><th>Country</th><th>App</th><th>Event</th><th>Build</th><th>OS</th></tr></thead>
+  <tbody id="pb"><tr><td colspan="10" class="sub">Loading…</td></tr></tbody></table></div>
+  <div class="pager"><button class="btn ghost small" id="pprev">Previous</button><span id="ppinfo"></span><button class="btn ghost small" id="pnext">Next</button></div>
+</div>
 ${CLIENT}
 <script>
 (function(){
@@ -1709,8 +1754,74 @@ ${CLIENT}
   const FIELDS = ${JSON.stringify(MODEL_FIELDS.map((f) => f[0]))};
   document.querySelectorAll('.tab[data-t]').forEach(t => t.onclick = () => {
     document.querySelectorAll('.tab[data-t]').forEach(x => x.setAttribute('aria-selected', x === t));
-    ['users', 'models', 'compare'].forEach(k => $('t-' + k).classList.toggle('hidden', t.dataset.t !== k));
-    if (t.dataset.t === 'models') loadModels(); if (t.dataset.t === 'compare') loadCompare(); });
+    ['users', 'models', 'compare', 'pings', 'packs'].forEach(k => $('t-' + k).classList.toggle('hidden', t.dataset.t !== k));
+    if (t.dataset.t === 'packs') loadPacks();
+    if (t.dataset.t === 'models') loadModels(); if (t.dataset.t === 'compare') loadCompare(); if (t.dataset.t === 'pings') { ppage = 1; loadPings(); } });
+  // model packs: every row; search, filters and sorting here (a few hundred rows at most); add, edit, switch, delete
+  let packs = [], kNew = true;
+  async function loadPacks(){
+    const r = await fetch('/api/admin/packs'); const d = await r.json();
+    if (!r.ok) { $('kb').innerHTML = '<tr><td colspan="9">' + E(d.error) + '</td></tr>'; return; }
+    packs = d.packs; const kinds = [...new Set(packs.map(p => p.kind).filter(Boolean))].sort(), cur = $('kkind').value;
+    $('kkind').innerHTML = '<option value="">every type</option>' + kinds.map(k => '<option' + (k === cur ? ' selected' : '') + '>' + E(k) + '</option>').join('');
+    drawPacks();
+  }
+  function drawPacks(){
+    const q = $('kq').value.trim().toLowerCase(), kind = $('kkind').value, act = $('kact').value, sort = $('ksort').value;
+    let list = packs.filter(p => (!kind || p.kind === kind) && (!act || (act === 'on' ? p.active : act === 'off' ? !p.active : !p.valid)) &&
+      (!q || [p.packId, p.name, p.b2Prefix, p.notes, p.definition && p.definition.description].join(' ').toLowerCase().includes(q)));
+    list.sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : sort === 'updated' ? String(b.updatedAt).localeCompare(String(a.updatedAt)) : sort === 'id' ? a.packId.localeCompare(b.packId) : a.order - b.order);
+    $('kb').innerHTML = list.length ? list.map(p => '<tr><td class="num">' + p.order + '</td><td><b>' + E(p.name) + '</b><div class="sub">' + E(p.packId) + '</div></td><td>' + E(p.kind) +
+      '</td><td class="wrap">' + E(p.b2Prefix) + '</td><td class="num">' + ((p.definition && p.definition.files) || []).length +
+      '</td><td><button class="switch' + (p.active ? ' on' : '') + '" data-ka="' + E(p.packId) + '">' + (p.active ? 'active' : 'off') + '</button></td><td>' + (p.valid ? '<span class="ok">ok</span>' : '<b>fails</b>') +
+      '</td><td>' + E((p.updatedAt || '').slice(0, 16).replace('T', ' ')) + '</td><td><button class="btn ghost small" data-ke="' + E(p.packId) + '">Edit</button> <button class="btn ghost small" data-kd="' + E(p.packId) + '">Delete</button></td></tr>').join('')
+      : '<tr><td colspan="9" class="sub">No packs match.</td></tr>';
+    $('kinfo').textContent = list.length + ' of ' + packs.length + ' packs · ' + packs.filter(p => p.active).length + ' active';
+  }
+  ['kq'].forEach(k => $(k).oninput = drawPacks); ['kkind', 'kact', 'ksort'].forEach(k => $(k).onchange = drawPacks);
+  function packForm(p){
+    kNew = !p; $('kform').classList.remove('hidden'); $('ktitle').textContent = p ? 'Edit ' + p.packId : 'Add a pack'; $('k-id').readOnly = !!p;
+    $('k-id').value = p ? p.packId : ''; $('k-order').value = p ? p.order : (Math.max(0, ...packs.map(x => x.order)) + 10); $('k-prefix').value = p ? p.b2Prefix : '';
+    $('k-active').checked = p ? p.active : false; $('k-notes').value = p ? p.notes : '';
+    $('k-def').value = JSON.stringify(p ? p.definition : { name: '', kind: 'text', category: 'Text (LLM)', description: '', license: '', files: [], serve: { args: [], model: '' } }, null, 2);
+    $('k-src').value = JSON.stringify(p ? p.sources : [], null, 2); say('kmsg', ''); $('kform').scrollIntoView({ behavior: 'smooth' });
+  }
+  $('knew').onclick = () => packForm(null); $('kcancel').onclick = () => $('kform').classList.add('hidden');
+  $('k-id').oninput = () => { if (kNew && !$('k-prefix').value.trim()) $('k-prefix').placeholder = 'precomputed/' + $('k-id').value.trim(); };
+  $('kb').onclick = async (e) => {
+    const t = e.target, a = t.dataset.ka, ed = t.dataset.ke, dl = t.dataset.kd;
+    if (ed) packForm(packs.find(p => p.packId === ed));
+    if (a) { const p = packs.find(x => x.packId === a); try { await api('/api/admin/packs', { action: 'active', packId: a, active: !p.active }); loadPacks(); } catch (er) { alert(er.message); } }
+    if (dl && confirm('Delete the pack ' + dl + '? The apps stop offering it. Its files in B2 are NOT deleted, and the row is copied to the audit log.')) {
+      try { await api('/api/admin/packs', { action: 'delete', packId: dl }); loadPacks(); } catch (er) { alert(er.message); } }
+  };
+  $('ksave').onclick = async () => {
+    let def, src; try { def = JSON.parse($('k-def').value); } catch (er) { say('kmsg', 'The definition is not valid JSON: ' + er.message); return; }
+    try { src = JSON.parse($('k-src').value || '[]'); } catch (er) { say('kmsg', 'The sources are not valid JSON: ' + er.message); return; }
+    const row = { packId: $('k-id').value.trim(), order: Number($('k-order').value), b2Prefix: $('k-prefix').value.trim() || ('precomputed/' + $('k-id').value.trim()), active: $('k-active').checked, notes: $('k-notes').value, definition: def, sources: src };
+    try { await api('/api/admin/packs', { action: 'save', isNew: kNew, row }); say('kmsg', 'Saved.', true); kNew = false; $('k-id').readOnly = true; loadPacks(); } catch (er) { say('kmsg', er.message); }
+  };
+  // license checks: filters, order, pages (pcursors[n] = where page n+1 starts)
+  let ppage = 1, ptimer = null; const pcursors = [''];
+  const day0 = new Date(), iso = (d) => d.toISOString().slice(0, 10);
+  $('pto').value = iso(day0); $('pfrom').value = iso(new Date(day0 - 6 * 864e5));
+  async function loadPings(){
+    const qs = new URLSearchParams({ from: $('pfrom').value, to: $('pto').value, client: $('pclient').value, event: $('pevent').value, license: $('plicense').value,
+      user: $('puser').value.trim(), ip: $('pip').value.trim(), order: $('porder').value, size: $('psize').value, cursor: pcursors[ppage - 1] || '' });
+    $('pb').innerHTML = '<tr><td colspan="10" class="sub">Loading…</td></tr>';
+    const r = await fetch('/api/admin/pings?' + qs); const d = await r.json();
+    if (!r.ok) { $('pb').innerHTML = '<tr><td colspan="10">' + E(d.error) + '</td></tr>'; return; }
+    const app = { engine: 'sushila.exe', station: 'Sushila Station', page: 'page' };
+    $('pb').innerHTML = d.items.length ? d.items.map(x => '<tr><td>' + E(x.timestamp.replace('T', ' ').replace('Z', '')) + '</td><td>' + E(x.message) + '</td><td>' + E(x.licenseType) +
+      '</td><td class="wrap">' + E(x.userId) + '</td><td>' + E(x.ip) + '</td><td>' + E(x.country) + '</td><td>' + E((app[x.client] || x.client) + (x.inStation === 'true' && x.client === 'engine' ? ' (in Station)' : '')) +
+      '</td><td>' + E(x.event) + '</td><td>' + E(x.build) + '</td><td>' + E(x.os) + '</td></tr>').join('') : '<tr><td colspan="10" class="sub">No license checks match.</td></tr>';
+    pcursors[ppage] = d.next || '';
+    $('ppinfo').textContent = d.items.length + ' license check' + (d.items.length === 1 ? '' : 's') + ' · page ' + ppage + (d.next ? '' : ' (last)') + ' · ' + d.from + ' to ' + d.to;
+    $('pprev').disabled = ppage <= 1; $('pnext').disabled = !d.next;
+  }
+  ['pfrom', 'pto', 'pclient', 'pevent', 'plicense', 'porder', 'psize'].forEach(k => $(k).onchange = () => { ppage = 1; pcursors.length = 1; loadPings(); });
+  ['puser', 'pip'].forEach(k => $(k).oninput = () => { clearTimeout(ptimer); ptimer = setTimeout(() => { ppage = 1; pcursors.length = 1; loadPings(); }, 300); });
+  $('pprev').onclick = () => { ppage--; loadPings(); }; $('pnext').onclick = () => { ppage++; loadPings(); };
   // users
   let page = 1, timer = null;
   async function loadUsers(){
@@ -1846,6 +1957,7 @@ const TABLES = {
   modelPacks: 'sushilaai-model-packs', // PK packId: every pack the apps can install (definition JSON, b2Prefix, sources, active); index list-index (listKey "pack", sortKey); written by scripts/model_packs.py
   versions: 'sushilaai-versions',   // PK app ("station"), SK releasedAt: build, version, latest (true on the newest), releaseNotes, files (JSON, signed per file)
   notifications: 'sushilaai-notifications', // PK id: messages the Sushila apps show at start (title, message, url, linkText, level, active, listKey "notification", createdAt, startAt?, endAt?); index list-index
+  audits: 'sushilaai-audits',       // PK day, SK at: license checks (every start of sushila.exe / Sushila Station, every load of its page): license type, userId, IP, time; cleared monthly by the owner
   fileViews: 'sushilaai-file-views',    // PK url (a shared link, "/c/<12 hex>") -> userId (its owner) and views (one per visitor per 24 h; log in audit)
 };
 const OTP_TTL_MS = 5 * 60 * 1000;      // a code is valid for 5 minutes
@@ -2150,6 +2262,32 @@ async function shareList(b2, uid) {
   }));
   return { files, items: items.filter(Boolean).sort((a, b) => (b.created || '').localeCompare(a.created || '')) };
 }
+// LICENSE CHECK: checking the license status of the application and location enforcement. POST /api/app/license
+// {client: engine|station|page, event: startup|refresh, build, version, os} comes from a Sushila engine at every start
+// of sushila.exe and Sushila Station and every load or refresh of the Sushila page (the engine's share.rs explains
+// what it sends and why), with the user's sign-in token only when they are signed in. It is kept for audit purposes
+// and license enforcement: one row in sushilaai-audits with the license type (Free unless the account says otherwise),
+// the signed-in userId ("-" when not signed in), the IP address it came from, that address's country (license
+// enforcement by location), the time, and the app, event, build and operating system. Nothing else is stored. The
+// owner clears the table monthly; the Admin page's "License checks" tab lists, filters and pages it.
+async function licenseCheck(request, env, db) {
+  if (!db.configured) return json({ ok: false }, 503);
+  let b = {}; try { b = await request.json(); } catch { b = {}; }
+  const pick = (v, ok, d) => (ok.includes(v) ? v : d);
+  const app = await readAppToken(request, env);
+  let license = 'Free';
+  if (app) { try { const u = await db.get(TABLES.users, { userId: S(app.userId) }); license = str(u, 'licenseType') || 'Free'; } catch { /* Free */ } }
+  const now = new Date().toISOString();
+  const ip = request.headers.get('CF-Connecting-IP') || '-';
+  const row = { day: S(now.slice(0, 10)), at: S(`${now}#${randomId()}`), message: S('License Check'), licenseType: S(license),
+    userId: S(app ? app.userId : '-'), ip: S(ip), timestamp: S(now), country: S((request.cf && request.cf.country) || '-'),
+    client: S(pick(String(b.client || ''), ['engine', 'station', 'page'], 'engine')), event: S(pick(String(b.event || ''), ['startup', 'refresh'], 'startup')),
+    build: S(String(Number(b.build) || 0)), version: S(String(b.version || '').slice(0, 20) || '-'), os: S(String(b.os || '').slice(0, 20) || '-'),
+    inStation: S(b.inStation ? 'true' : 'false') };
+  try { await db.put(TABLES.audits, row); } catch (e) { console.error('license', e.message); return json({ ok: false }, 500); }
+  return json({ ok: true, licenseType: license });
+}
+
 async function shareApi(request, env, db, b2, p, url) {
   const app = await readAppToken(request, env);
   if (!app) return json({ error: 'Please sign in (Share link asks for your e-mail).' }, 401);
@@ -3903,11 +4041,90 @@ async function servePack(request, env, b2, db, ctx, origin, id) {
   return new Response(body, { status: from ? 206 : 200, headers: h });
 }
 
+// License checks (sushilaai-audits) for the Admin tab: no scan. Each day is one partition and its rows sort by time
+// ("at" starts with the ISO timestamp), so a page is read day by day, newest or oldest first, within from..to (UTC
+// dates, at most 92 days), with the filters applied in DynamoDB. Continued with the "next" cursor ({day, key}).
+async function adminPings(db, url) {
+  const g = (k, n = 80) => clean(url.searchParams.get(k), n);
+  const today = new Date().toISOString().slice(0, 10), isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+  let to = isDay(g('to')) ? g('to') : today, from = isDay(g('from')) ? g('from') : new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
+  if (from > to) [from, to] = [to, from];
+  const days = []; for (let d = new Date(to + 'T00:00:00Z'); d.toISOString().slice(0, 10) >= from && days.length < 92; d = new Date(d - 864e5)) days.push(d.toISOString().slice(0, 10));
+  const asc = g('order') === 'asc'; if (asc) days.reverse();
+  const size = Math.min(Math.max(Number(url.searchParams.get('size')) || 50, 10), 200);
+  const conds = [], vals = {}, names = {};
+  for (const [k, f] of [['client', 'client'], ['event', 'event'], ['license', 'licenseType']]) { const v = g(k, 20); if (v) { conds.push(`#${f} = :${f}`); names['#' + f] = f; vals[':' + f] = S(v); } }
+  for (const [k, f] of [['user', 'userId'], ['ip', 'ip']]) { const v = g(k); if (v) { conds.push(`contains(#${f}, :${f})`); names['#' + f] = f; vals[':' + f] = S(v); } }
+  let cur = null; try { const c = url.searchParams.get('cursor'); if (c) cur = JSON.parse(atob(c)); } catch { cur = null; }
+  let i = cur ? Math.max(days.indexOf(cur.day), 0) : 0, start = cur ? cur.key : undefined;
+  const items = [];
+  for (let reads = 0; i < days.length && items.length < size && reads < 40; reads++) {
+    const r = await db.request('Query', { TableName: TABLES.audits, KeyConditionExpression: '#day = :day', ScanIndexForward: asc,
+      ExpressionAttributeNames: { '#day': 'day', ...names }, ExpressionAttributeValues: { ':day': S(days[i]), ...vals },
+      ...(conds.length ? { FilterExpression: conds.join(' AND ') } : {}), Limit: size - items.length, ...(start ? { ExclusiveStartKey: start } : {}) });
+    items.push(...(r.Items || []).map((it) => Object.fromEntries(['timestamp', 'message', 'licenseType', 'userId', 'ip', 'country', 'client', 'event', 'build', 'version', 'os', 'inStation'].map((k) => [k, str(it, k)]))));
+    if (r.LastEvaluatedKey) start = r.LastEvaluatedKey; else { i++; start = undefined; }
+  }
+  const next = i < days.length ? btoa(JSON.stringify({ day: days[i], key: start })) : null;
+  return { items, next, from, to, order: asc ? 'asc' : 'desc' };
+}
+
+// Model packs (sushilaai-model-packs) for the Admin tab: GET lists every row (list-index, no scan; with "valid": the
+// apps' own check, packFromRow); POST {action: save|active|delete}. A row is written in exactly the format of
+// scripts/model_packs.py (to_item) and only when it passes packFromRow, so the apps never get a pack they cannot use.
+// delete removes the ROW only (the pack disappears from the apps); its files in B2 precomputed/ and public/ are never
+// touched, and the deleted row is copied into the audit log so it can be put back.
+async function adminPacks(request, db, user) {
+  const rows = async () => (await db.queryAll(TABLES.modelPacks, 'list-index', 'listKey = :k', { ':k': S('pack') }, {}, 500)).map((r) => {
+    let definition = null, sources = []; try { definition = JSON.parse(str(r, 'definition')); } catch { /* shown as invalid */ } try { sources = JSON.parse(str(r, 'sources') || '[]'); } catch { sources = []; }
+    return { packId: str(r, 'packId'), order: Number(str(r, 'sortKey').split('-')[0]) || 0, active: bool(r, 'active'), name: str(r, 'name'), kind: str(r, 'kind'),
+      b2Prefix: str(r, 'b2Prefix'), definition, sources, notes: str(r, 'notes'), updatedAt: str(r, 'updatedAt'), valid: !!packFromRow(r) };
+  });
+  if (request.method === 'GET') return json({ packs: await rows() });
+  let b = {}; try { b = await request.json(); } catch { return json({ error: 'bad request' }, 400); }
+  const id = String(b.packId || (b.row && b.row.packId) || '');
+  if (!PACK_ID.test(id)) return json({ error: 'The pack id must be lower-case letters, digits, dots, dashes or underscores (2-81 characters).' }, 400);
+  const key = { packId: S(id) }, now = new Date().toISOString();
+  if (b.action === 'active') {
+    try {
+      await db.request('UpdateItem', { TableName: TABLES.modelPacks, Key: key, ConditionExpression: 'attribute_exists(packId)', UpdateExpression: 'SET active = :a, updatedAt = :u',
+        ExpressionAttributeValues: { ':a': { BOOL: !!b.active }, ':u': S(now) } });
+    } catch (e) { if (/ConditionalCheckFailed/.test(e.message)) return json({ error: 'No such pack.' }, 404); throw e; }
+    await audit(db, b.active ? 'pack-activate' : 'pack-deactivate', user.userId, request, { packId: id });
+    return json({ ok: true });
+  }
+  if (b.action === 'delete') {
+    const old = await db.get(TABLES.modelPacks, key);
+    if (!old) return json({ error: 'No such pack.' }, 404);
+    await db.request('DeleteItem', { TableName: TABLES.modelPacks, Key: key });
+    await audit(db, 'pack-delete', user.userId, request, { packId: id, row: JSON.stringify(old).slice(0, 300000) });
+    return json({ ok: true });
+  }
+  if (b.action === 'save') {
+    const r = b.row || {}, d = r.definition, order = Math.max(0, Math.min(9999, Math.round(Number(r.order) || 0)));
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return json({ error: 'The definition must be a JSON object.' }, 400);
+    if (!Array.isArray(r.sources || [])) return json({ error: 'Sources must be a JSON list.' }, 400);
+    const sortObj = (o) => Array.isArray(o) ? o.map(sortObj) : o && typeof o === 'object' ? Object.fromEntries(Object.keys(o).sort().map((k) => [k, sortObj(o[k])])) : o;
+    const item = { packId: S(id), listKey: S('pack'), sortKey: S(`${String(order).padStart(4, '0')}-${id}`), active: { BOOL: !!r.active }, name: S(String(d.name || id)),
+      kind: S(String(d.kind || d.category || '')), b2Prefix: S(String(r.b2Prefix || '')), definition: S(JSON.stringify(sortObj(d))), sources: S(JSON.stringify(sortObj(r.sources || []))),
+      notes: S(String(r.notes || '').slice(0, 2000)), updatedAt: S(now) };
+    if (!packFromRow(item)) return json({ error: 'This pack would not pass the apps\' check: the B2 prefix must be precomputed/<id>, the definition needs a name, files as [B2 path, file, role] lists (or ollamaGguf) and serve.args as text.' }, 400);
+    try {
+      await db.request('PutItem', { TableName: TABLES.modelPacks, Item: item, ...(b.isNew ? { ConditionExpression: 'attribute_not_exists(packId)' } : {}) });
+    } catch (e) { if (/ConditionalCheckFailed/.test(e.message)) return json({ error: 'A pack with this id exists already.' }, 409); throw e; }
+    await audit(db, b.isNew ? 'pack-add' : 'pack-edit', user.userId, request, { packId: id });
+    return json({ ok: true });
+  }
+  return json({ error: 'unknown action' }, 400);
+}
+
 // --- Admin APIs (isAdmin on the user's row; set it with makeUserAdmin.py) ---
 async function adminApi(request, env, db, user, path) {
   if (!user || !user.isAdmin) return json({ error: 'Admins only.' }, 403);
   const url = new URL(request.url);
   if (path.startsWith('/api/admin/compare/')) return await compareApi(request, env, db, new B2(env), user, path);
+  if (path === '/api/admin/pings' && request.method === 'GET') return json(await adminPings(db, url));
+  if (path === '/api/admin/packs') return await adminPacks(request, db, user);
   if (path === '/api/admin/users' && request.method === 'GET') {
     // no scan: an e-mail or user id is looked up directly; otherwise one page of the newest accounts from list-index
     // (or admin-index), continued with the "next" cursor; a name filter reads at most 10 index pages per request
@@ -4048,7 +4265,7 @@ async function health(env, db, b2) {
     dynamodb: { configured: db.configured, region: env.AWS_REGION || null, tables: {} }, b2: { configured: b2.configured, bucket: env.B2_BUCKET_NAME || null } };
   if (db.configured) {
     const keys = { users: { userId: S('-') }, emails: { email: S('-') }, otps: { email: S('-') }, downloads: { userId: S('-'), downloadedAt: S('-') },
-      models: { modelId: S('-') }, bugs: { bugId: S('-'), item: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') },
+      models: { modelId: S('-') }, bugs: { bugId: S('-'), item: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') }, audits: { day: S('-'), at: S('-') },
       download: { file: S('-'), at: S('-') }, compare: { runId: S('-') }, reportabuse: { reportId: S('-') }, localhostLinks: { id: S('-') },
       fileViews: { url: S('-') }, versions: { app: S('-'), releasedAt: S('-') }, notifications: { id: S('-') }, modelPacks: { packId: S('-') }, appsOpen: { app: S('-') } };
     // every table is read once with a key that does not exist: "ok" means the table is there and readable
@@ -4088,6 +4305,7 @@ export default {
         if (p === '/api/app/upload' || p === '/api/app/delete') return await shareApi(request, env, db, b2, p, url);
         if (p === '/api/reportabuse') return await reportAbuse(request, env, db);
         if (p === '/api/app/tunnel' || p === '/api/app/tunnel/stop') return await tunnelApi(request, env, db, p, url);
+        if (p === '/api/app/license') return await licenseCheck(request, env, db);  // LICENSE CHECK (sushilaai-audits)
         if (p === '/api/mycontent/link-delete') {  // My content -> Internet links: the account's own link stops at once
           if (!session) return json({ error: 'Please sign in.' }, 401);
           if (!sameOriginJson(request)) return json({ error: 'Bad request.' }, 400);
