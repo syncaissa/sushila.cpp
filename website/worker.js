@@ -1229,7 +1229,10 @@ bash scripts/reproduce/retest.sh qwen3-32b     # or kimi-dev-72b, deepseek-r1-di
   browser for chat, code, images, music and video. It uses your GPU (NVIDIA, AMD, Intel, Apple) automatically, and the CPU otherwise.</p>
   <ol class="steps3">
     <li><b>Download</b> Sushila for your system (one file). <span class="sub">The downloads open when the Sushila paper is published:
-      <a href="#" id="getnotify">email me when they are ready</a>.</span></li>
+      <a href="#" id="getnotify">email me when they are ready</a>.
+      <b>Can't wait?</b> Download the demo builds from here:
+      <a href="https://github.com/syncaissa/sushila.cpp/tree/main/downloads" target="_blank" rel="noopener">github.com/syncaissa/sushila.cpp/tree/main/downloads</a>
+      (Sushila Station and <code>sushila</code> for Windows and Linux; macOS soon).</span></li>
     <li><b>Run it</b> Double-click it; the first time it sets itself up for your GPU and asks you to choose an admin password.
       Or in a terminal: <code>sushila serve</code>. Your browser opens <code>http://localhost:7874</code>.</li>
     <li><b>Choose a model pack</b> Below (<b>Install</b>), or on its Admin tab. Everything runs on your computer: free, private, offline once installed.</li>
