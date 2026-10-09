@@ -1842,6 +1842,7 @@ const TABLES = {
   audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes; views of shared links (at "view#<id>#<visitor>")
   reportabuse: 'sushilaai-reportabuse', // PK reportId: every report sent from sushila.ai/reportabuse (link, reason, details, e-mail, time, IP)
   localhostLinks: 'sushilaai-localhost-links', // PK id (20 hex): a temporary internet URL -> target (trycloudflare), userId, ip, time, status; index user-index (cleared monthly)
+  modelPacks: 'sushilaai-model-packs', // PK packId: every pack the apps can install (definition JSON, b2Prefix, sources, active); index list-index (listKey "pack", sortKey); written by scripts/model_packs.py
   versions: 'sushilaai-versions',   // PK app ("station"), SK releasedAt: build, version, latest (true on the newest), releaseNotes, files (JSON, signed per file)
   notifications: 'sushilaai-notifications', // PK id: messages the Sushila apps show at start (title, message, url, linkText, level, active, listKey "notification", createdAt, startAt?, endAt?); index list-index
   fileViews: 'sushilaai-file-views',    // PK url (a shared link, "/c/<12 hex>") -> userId (its owner) and views (one per visitor per 24 h; log in audit)
@@ -3395,6 +3396,30 @@ const HOST_PACKS = [
     license: 'MIT and the Llama 3.3 Community License', licenseUrl: 'https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B', artifacts: [],
     serve: { model: 'deepseek-r1-distill-llama-70b-q4km.gguf', args: [] } },
 ];
+// The packs come from the table sushilaai-model-packs (scripts/model_packs.py): active rows, in their order, each checked
+// like the script checks it. HOST_PACKS above is only the fallback when the table cannot be read or is empty.
+const PACK_ID = /^[a-z0-9][a-z0-9._-]{1,80}$/, PACK_PREFIX = /^precomputed\/[a-z0-9][a-z0-9._-]{1,80}$/, PACK_REL = /^(?!\/)(?!.*\.\.)[\w.+@-]+(\/[\w.+@-]+)*$/;
+function packFromRow(r) {
+  let d; try { d = JSON.parse(str(r, 'definition')); } catch (_) { return null; }
+  const id = str(r, 'packId'), model = str(r, 'b2Prefix');
+  if (!PACK_ID.test(id) || !PACK_PREFIX.test(model) || !d || typeof d !== 'object' || typeof d.name !== 'string') return null;
+  const files = Array.isArray(d.files) ? d.files : [];
+  if (!files.every((f) => Array.isArray(f) && f.length === 3 && f.every((x) => typeof x === 'string') && PACK_REL.test(f[0]) && PACK_REL.test(f[1]))) return null;
+  if (!files.length && !d.ollamaGguf) return null;
+  if (!d.serve || typeof d.serve !== 'object' || !(d.serve.args || []).every((x) => typeof x === 'string')) return null;
+  const { id: _i, model: _m, hidden: _h, ...rest } = d;
+  return { id, model, ...rest, hidden: !bool(r, 'active') };
+}
+async function packList(env) {
+  const db = new DynamoDB(env);
+  if (!db.configured) return HOST_PACKS;
+  try {
+    const rows = await db.queryAll(TABLES.modelPacks, 'list-index', 'listKey = :k', { ':k': S('pack') }, {}, 500);
+    const packs = rows.map(packFromRow).filter(Boolean);
+    if (rows.length !== packs.length) console.error('model packs: rows that fail the checks are left out', rows.length - packs.length);
+    return packs.length ? packs : HOST_PACKS;
+  } catch (e) { console.error('model packs: the table could not be read; the built-in list is used', e.message); return HOST_PACKS; }
+}
 let hostCatalogCache = null;  // per isolate, 10 minutes (links stay valid for 24 hours)
 // Every file users download is served from the bucket's public/ folder through files.sushila.ai (a Cloudflare Worker
 // that lets nothing else out of the private bucket; Bandwidth Alliance: no B2 egress). Copies are made with
@@ -3428,8 +3453,8 @@ async function buildHostCatalog(env, b2, origin) {
   };
   const getJson = async (key) => { const t = await getText(key); return t ? JSON.parse(t) : null; };
   const packs = [];
-  for (const p of HOST_PACKS) {
-    if (p.hidden && env.SHOW_HIDDEN_PACKS !== '1') continue;  // packs not released yet
+  for (const p of await packList(env)) {
+    if (p.hidden && env.SHOW_HIDDEN_PACKS !== '1') continue;  // inactive in the table (or not released yet)
     try {
       // the signed index travels with the pack: the app checks the signature, then every file against the index
       const text = await getText(`${p.model}/CHECKSUMS.json`), signature = await getText(`${p.model}/CHECKSUMS.json.sig`);
@@ -4010,7 +4035,7 @@ async function health(env, db, b2) {
     const keys = { users: { userId: S('-') }, emails: { email: S('-') }, otps: { email: S('-') }, downloads: { userId: S('-'), downloadedAt: S('-') },
       models: { modelId: S('-') }, bugs: { bugId: S('-'), item: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') },
       download: { file: S('-'), at: S('-') }, compare: { runId: S('-') }, reportabuse: { reportId: S('-') }, localhostLinks: { id: S('-') },
-      fileViews: { url: S('-') }, versions: { app: S('-'), releasedAt: S('-') }, notifications: { id: S('-') } };
+      fileViews: { url: S('-') }, versions: { app: S('-'), releasedAt: S('-') }, notifications: { id: S('-') }, modelPacks: { packId: S('-') } };
     // every table is read once with a key that does not exist: "ok" means the table is there and readable
     await Promise.all(Object.entries(TABLES).map(async ([k, t]) => {
       if (!keys[k]) { out.dynamodb.tables[t] = 'no health probe (add its key above)'; return; }

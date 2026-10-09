@@ -22,7 +22,19 @@ from b2_save import B2  # noqa: E402
 
 PUBLIC = 'public/'
 PART = 4 * 1024 ** 3  # copy-part size for large files (B2: 5 MB .. 5 GB)
-CATALOG_PACKS = [  # whole folders (also training data and server weights): prefer --keys-file with the catalog's files
+def catalog_packs():
+    """The B2 folders of the packs the apps install: from the table sushilaai-model-packs (model_packs.py), else the list below."""
+    try:
+        import model_packs
+        rows = model_packs.all_rows(model_packs.ddb())
+        if rows:
+            return [r['b2Prefix'] for r in rows]
+    except Exception as e:  # noqa: BLE001
+        print(f'(model packs table not readable: {e}; using the built-in list)')
+    return CATALOG_PACKS
+
+
+CATALOG_PACKS = [  # fallback only (the table is the list); whole folders: prefer --keys-file / model_packs.py publish
    'precomputed/qwen2.5-0.5b-q4km', 'precomputed/qwen3-4b-instruct-2507', 'precomputed/qwen3-coder-30b-a3b',
                  'precomputed/qwen2.5-coder-7b', 'precomputed/wan2.2-ti2v-5b', 'precomputed/ace-step-15', 'precomputed/z-image-turbo',
                  'precomputed/z-image-turbo-nvidia', 'precomputed/z-image-turbo-nvidia-fp4', 'precomputed/z-image-turbo-q8',
@@ -72,7 +84,7 @@ def main():
     ap.add_argument('--keys-file', help='a file with exact keys to publish, one per line (e.g. the files the catalog lists)')
     ap.add_argument('--dry-run', action='store_true')
     a = ap.parse_args()
-    prefixes = list(a.prefixes) + (['hoststation/'] + [p + '/' for p in CATALOG_PACKS] if a.catalog else [])
+    prefixes = list(a.prefixes) + (['hoststation/'] + [p + '/' for p in catalog_packs()] if a.catalog else [])
     keys = [l.strip() for l in open(a.keys_file) if l.strip()] if a.keys_file else []
     if not prefixes and not keys:
         sys.exit(__doc__)

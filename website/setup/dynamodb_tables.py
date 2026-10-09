@@ -56,6 +56,11 @@ SCHEMA = {
         'indexes': {'day-index': {'hash': 'day', 'range': 'at', 'projection': 'ALL'}},
         'ttl': 'ttl', 'pitr': True,
     },
+    'sushilaai-model-packs': {           # every model pack the apps can install (the worker's catalog), its B2 folder, where each
+        'hash': 'packId',                # file came from (sources), active flag; written by scripts/model_packs.py
+        'indexes': {'list-index': {'hash': 'listKey', 'range': 'sortKey', 'projection': 'ALL'}},  # listKey "pack", sortKey "<order>-<id>"
+        'pitr': True, 'protect': True,
+    },
     'sushilaai-versions': {              # published app versions: app ("station"), releasedAt; build, version, latest (true on the
         'hash': 'app', 'range': 'releasedAt',  # newest only), releaseNotes, files (JSON: {"windows-x64": {url, sha256, bytes,
         'pitr': True,                    # signature}, ...}). Written by setup/release_station.py, which signs every file.
