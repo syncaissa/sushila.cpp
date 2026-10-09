@@ -56,6 +56,10 @@ SCHEMA = {
         'indexes': {'day-index': {'hash': 'day', 'range': 'at', 'projection': 'ALL'}},
         'ttl': 'ttl', 'pitr': True,
     },
+    'sushilaai-apps-open': {             # which Generate pages the apps open: one row per app (images, music, video, coding, chat)
+        'hash': 'app',                   # with active (true/false); false greys the page out in Station and the browser page.
+        'pitr': True,                    # A missing row counts as open. Read by the worker with one BatchGetItem (no scan).
+    },
     'sushilaai-model-packs': {           # every model pack the apps can install (the worker's catalog), its B2 folder, where each
         'hash': 'packId',                # file came from (sources), active flag; written by scripts/model_packs.py
         'indexes': {'list-index': {'hash': 'listKey', 'range': 'sortKey', 'projection': 'ALL'}},  # listKey "pack", sortKey "<order>-<id>"

@@ -1842,6 +1842,7 @@ const TABLES = {
   audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes; views of shared links (at "view#<id>#<visitor>")
   reportabuse: 'sushilaai-reportabuse', // PK reportId: every report sent from sushila.ai/reportabuse (link, reason, details, e-mail, time, IP)
   localhostLinks: 'sushilaai-localhost-links', // PK id (20 hex): a temporary internet URL -> target (trycloudflare), userId, ip, time, status; index user-index (cleared monthly)
+  appsOpen: 'sushilaai-apps-open',  // PK app (images, music, video, coding, chat): active false greys that Generate page out in the apps
   modelPacks: 'sushilaai-model-packs', // PK packId: every pack the apps can install (definition JSON, b2Prefix, sources, active); index list-index (listKey "pack", sortKey); written by scripts/model_packs.py
   versions: 'sushilaai-versions',   // PK app ("station"), SK releasedAt: build, version, latest (true on the newest), releaseNotes, files (JSON, signed per file)
   notifications: 'sushilaai-notifications', // PK id: messages the Sushila apps show at start (title, message, url, linkText, level, active, listKey "notification", createdAt, startAt?, endAt?); index list-index
@@ -2116,6 +2117,20 @@ async function latestVersion(db, app) {
   } catch (e) { console.error('versions', e.message); if (c) return c.v; }
   versionsCache.set(app, { v, until: Date.now() + 60000 });
   return v;
+}
+// --- Which Generate pages the apps open (sushilaai-apps-open: one row per app, active true/false). One BatchGetItem of
+// the five known keys (no scan), kept 60 s. A missing row, or a table that cannot be read, counts as open.
+const APPS = ['images', 'music', 'video', 'coding', 'chat'];
+let appsOpenCache = null;
+async function appsOpen(db) {
+  if (appsOpenCache && appsOpenCache.until > Date.now()) return appsOpenCache.apps;
+  const apps = Object.fromEntries(APPS.map((a) => [a, true]));
+  try {
+    const r = await db.request('BatchGetItem', { RequestItems: { [TABLES.appsOpen]: { Keys: APPS.map((a) => ({ app: S(a) })) } } });
+    for (const it of ((r.Responses || {})[TABLES.appsOpen] || [])) { const a = str(it, 'app'); if (APPS.includes(a) && it.active && it.active.BOOL === false) apps[a] = false; }
+  } catch (e) { console.error('apps-open', e.message); if (appsOpenCache) return appsOpenCache.apps; }
+  appsOpenCache = { apps, until: Date.now() + 60000 };
+  return apps;
 }
 async function purgeTrash(env) {  // the cron: files in the trash for more than TRASH_DAYS
   const db = new DynamoDB(env), b2 = new B2(env);
@@ -4035,7 +4050,7 @@ async function health(env, db, b2) {
     const keys = { users: { userId: S('-') }, emails: { email: S('-') }, otps: { email: S('-') }, downloads: { userId: S('-'), downloadedAt: S('-') },
       models: { modelId: S('-') }, bugs: { bugId: S('-'), item: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') },
       download: { file: S('-'), at: S('-') }, compare: { runId: S('-') }, reportabuse: { reportId: S('-') }, localhostLinks: { id: S('-') },
-      fileViews: { url: S('-') }, versions: { app: S('-'), releasedAt: S('-') }, notifications: { id: S('-') }, modelPacks: { packId: S('-') } };
+      fileViews: { url: S('-') }, versions: { app: S('-'), releasedAt: S('-') }, notifications: { id: S('-') }, modelPacks: { packId: S('-') }, appsOpen: { app: S('-') } };
     // every table is read once with a key that does not exist: "ok" means the table is there and readable
     await Promise.all(Object.entries(TABLES).map(async ([k, t]) => {
       if (!keys[k]) { out.dynamodb.tables[t] = 'no health probe (add its key above)'; return; }
@@ -4105,6 +4120,7 @@ export default {
         if (!/^[a-z0-9-]{2,30}$/.test(app)) return json({ error: 'Bad request.' }, 400);
         return json({ latest: db.configured ? await latestVersion(db, app) : null }, 200, { 'cache-control': 'public, max-age=60' });
       }
+      if (p === '/api/apps-open') return json({ apps: db.configured ? await appsOpen(db) : Object.fromEntries(APPS.map((a) => [a, true])) }, 200, { 'cache-control': 'public, max-age=60' });
       if (p === '/api/notifications') return json({ notifications: db.configured ? await activeNotifications(db) : [] }, 200, { 'cache-control': 'public, max-age=60', 'access-control-allow-origin': '*' });
       const user = session ? await loadUser(db, session) : null;
       if (p.startsWith('/api/admin/')) return await adminApi(request, env, db, user, p);
