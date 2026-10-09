@@ -132,7 +132,8 @@ pub async fn health(c: &reqwest::Client) -> Value {
 pub fn start() -> Result<Value, String> {
     let p = program()?;
     let mut c = hidden(std::process::Command::new(&p));
-    c.arg("serve").env("SUSHILA_NO_BROWSER", "1").stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    // SUSHILA_STATION: the engine leaves updating to Station (Station's upgrades carry the engine)
+    c.arg("serve").env("SUSHILA_NO_BROWSER", "1").env("SUSHILA_STATION", "1").stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
     #[cfg(windows)] { use std::os::windows::process::CommandExt; c.creation_flags(0x0800_0000 | 0x0000_0008 | 0x0000_0200); }  // no window, detached, own group
     #[cfg(unix)] { use std::os::unix::process::CommandExt; c.process_group(0); }  // not stopped with Station
     let child = c.spawn().map_err(|e| format!("could not start {}: {e}", p.display()))?;

@@ -275,8 +275,10 @@ pub fn list(dir: &Path) -> Vec<Value> {
             let mut v = json!({ "rel": rel, "path": p.to_string_lossy(), "name": p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
                 "kind": m["kind"].as_str().unwrap_or(kind), "bytes": md.map(|m| m.len()).unwrap_or(0), "created": m["created"].as_str().map(String::from).unwrap_or(modified) });
             for k in ["pack", "mode", "prompt", "lyrics", "seed", "size", "duration", "frames", "source", "remote", "details"] { if !m[k].is_null() { v[k] = m[k].clone(); } }
-            // files made before this field existed were all made here; a file nothing knows about gets no claim
-            if !m["where"].is_null() { v["where"] = m["where"].clone(); } else if !m.as_object().map(|o| o.is_empty()).unwrap_or(true) { v["where"] = json!(WHERE_LOCAL); }
+            // where it was made: its record says so; files in Sushila's own folders without a record (made before records,
+            // or whose index line was lost when the folder moved) were made by this Sushila here. Files from remote or
+            // cloud models always carry their own record ("cloud:<provider>"), so they never get "local" by default.
+            v["where"] = if m["where"].is_null() { json!(WHERE_LOCAL) } else { m["where"].clone() };
             items.push(v);
         }
     }
@@ -480,9 +482,9 @@ mod tests {
         // every plain detail of the request is kept; a start picture and huge fields are not
         let d = prompt_details(&json!({ "style": DEFAULT_MUSIC_STYLE, "lyrics": "[Instrumental]", "duration": 60, "seed": -1, "bpm": 120, "init_image": "AAAA", "big": "x".repeat(30_000), "list": [1] }));
         assert_eq!(d, json!({ "style": "Loud Drums, Guitar, Violin", "lyrics": "[Instrumental]", "duration": 60, "seed": -1, "bpm": 120 }));
-        // "100% FREE, generated locally!" is shown for "where": "local" only: made here yes, unknown file and cloud file no
+        // "100% FREE, generated locally!" is shown for "where": "local" only: made here (with or without a record) yes, cloud no
         assert_eq!(song["where"], "local");
-        assert!(l.iter().any(|x| x["name"] == "old.png" && x["where"].is_null()));
+        assert!(l.iter().any(|x| x["name"] == "old.png" && x["where"] == "local"), "a file in Sushila's folder without a record: made here");
         let c = save(&dir, "image", "png", b"png", "from a cloud model", json!({ "pack": "some-cloud-model", "where": "cloud:example" })).unwrap();
         let l = list(&dir);
         assert_eq!(l.iter().find(|x| x["path"] == c.to_string_lossy().as_ref()).unwrap()["where"], "cloud:example");

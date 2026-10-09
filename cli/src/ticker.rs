@@ -207,7 +207,7 @@ pub const SENTENCES: [(&str, &str, &str); 70] = [
     ("Settings, sharing and security", "service", "To stop starting it automatically: sushila service remove"),
     ("Settings, sharing and security", "backup", "To back up settings, keys and the queue: sushila backup <file.zip>"),
     ("Settings, sharing and security", "restore", "To restore a backup (server stopped): sushila restore <file.zip>"),
-    ("Housekeeping", "update", "To get a newer engine and updated packs: sushila update (--check only lists)"),
+    ("Housekeeping", "update", "To get the newest Sushila, engine and packs (all signed): sushila update (--check lists)"),
     ("Housekeeping", "clean", "To remove leftovers and old engines: sushila clean (--dry-run first)"),
     ("Housekeeping", "du", "To see the disk space each pack uses: sushila du"),
     ("Housekeeping", "report", "To make a bug report without secrets: sushila report"),

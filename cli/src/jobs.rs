@@ -22,6 +22,13 @@ async fn post(base: &str, path: &str, body: &Value) -> Result<reqwest::Response,
     if !r.status().is_success() { let st = r.status(); return Err(format!("{st} {}", r.text().await.unwrap_or_default().chars().take(300).collect::<String>())); }
     Ok(r)
 }
+/// The seed for a picture or video: the one asked for (a number 0 or more), else a fresh random one for every job, so
+/// the same prompt gives very different faces and backgrounds each time. Without it the engines use a fixed default seed
+/// and repeat themselves. The seed used is saved with the file (repeat a result by typing it).
+pub fn seed_of(p: &Value) -> i64 {
+    let asked = p.get("seed").and_then(|s| s.as_i64().or_else(|| s.as_str().and_then(|x| x.trim().parse::<i64>().ok())));
+    match asked { Some(s) if s >= 0 => s, _ => { let mut b = [0u8; 4]; let _ = getrandom::getrandom(&mut b); (u32::from_le_bytes(b) & 0x7fff_ffff) as i64 } }
+}
 fn b64(s: &str) -> Result<Vec<u8>, String> { use base64::Engine; base64::engine::general_purpose::STANDARD.decode(s.trim()).map_err(err) }
 
 /// The first audio/* part of a multipart answer (acestep.cpp's /synth result).
@@ -63,17 +70,20 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
         "image" => {
             tick("drawing");
             let mut extra = accel.and_then(|a| a.as_object().cloned()).unwrap_or_default();
-            if let Some(s) = p.get("seed").filter(|s| !s.is_null() && *s != "") { extra.insert("seed".into(), json!(s.as_i64().or_else(|| s.as_str().and_then(|x| x.parse().ok())).unwrap_or(0))); }
+            let seed = seed_of(p);
+            extra.insert("seed".into(), json!(seed));
             let mut prompt = p["prompt"].as_str().unwrap_or("").to_string();
             if !extra.is_empty() { prompt += &format!(" <sd_cpp_extra_args>{}</sd_cpp_extra_args>", Value::Object(extra)); }
             let j: Value = post(&base, "/v1/images/generations", &json!({ "model": model, "prompt": prompt, "size": p["size"].as_str().unwrap_or("1024x1024"), "n": 1, "output_format": "png" })).await?.json().await.map_err(err)?;
             let d = j["data"][0]["b64_json"].as_str().ok_or("the server returned no image")?;
-            Ok(Output { ext: "png".into(), mime: "image/png".into(), bytes: b64(d)?, info: Value::Null })
+            Ok(Output { ext: "png".into(), mime: "image/png".into(), bytes: b64(d)?, info: json!({ "seed": seed }) })
         }
         "video" => {
             let mut body = json!({ "negative_prompt": WAN_NEGATIVE_PROMPT, "fps": 24, "seed": -1, "output_format": "webm",
                                    "sample_params": WAN_SAMPLING.clone() });
             for src in [accel.unwrap_or(json!({})), p.clone()] { if let Some(o) = src.as_object() { for (k, v) in o { body[k] = v.clone(); } } }
+            let seed = seed_of(p);
+            body["seed"] = json!(seed);
             let j: Value = post(&base, "/sdcpp/v1/vid_gen", &body).await?.json().await.map_err(err)?;
             let id = j["id"].as_str().ok_or("the video server returned no job")?.to_string();
             let t0 = std::time::Instant::now();
@@ -88,7 +98,7 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
                 let st: Value = http().get(format!("{base}/sdcpp/v1/jobs/{id}")).timeout(Duration::from_secs(30)).send().await.map_err(err)?.json().await.map_err(err)?;
                 match st["status"].as_str() {
                     Some("completed") => { let r = &st["result"]; let ext = r["output_format"].as_str().unwrap_or("webm").to_string();
-                        return Ok(Output { mime: r["mime_type"].as_str().map(String::from).unwrap_or(format!("video/{ext}")), ext, bytes: b64(r["b64_json"].as_str().unwrap_or(""))?, info: Value::Null }); }
+                        return Ok(Output { mime: r["mime_type"].as_str().map(String::from).unwrap_or(format!("video/{ext}")), ext, bytes: b64(r["b64_json"].as_str().unwrap_or(""))?, info: json!({ "seed": seed }) }); }
                     Some("failed") | Some("cancelled") => return Err(st["error"]["message"].as_str().unwrap_or("the video job failed").to_string()),
                     _ => {}
                 }
@@ -122,5 +132,17 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
             Ok(Output { ext: "mp3".into(), mime: "audio/mpeg".into(), bytes: audio.ok_or("the server returned no audio")?, info })
         }
         k => Err(format!("unknown kind {k}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test] fn seeds() {
+        // a seed asked for is kept (the same picture again); none, "" or -1: a different random seed every time
+        assert_eq!(seed_of(&json!({ "seed": 20 })), 20);
+        assert_eq!(seed_of(&json!({ "seed": "20" })), 20);
+        let r: std::collections::HashSet<i64> = (0..20).map(|_| seed_of(&json!({ "seed": "" }))).chain((0..20).map(|_| seed_of(&json!({})))).chain((0..20).map(|_| seed_of(&json!({ "seed": -1 })))).collect();
+        assert!(r.len() > 55 && r.iter().all(|s| *s >= 0), "random seeds differ: {}", r.len());
     }
 }

@@ -51,7 +51,7 @@ w.__TAURI__ = {
     if (a.path === '/api/crashes') return { ok: true, status: 200, data: [] };
     if (a.path === '/api/notifications') return { ok: true, status: 200, data: { notifications: [{ id: 'n1', title: 'New build', message: 'Get it at https://sushila.ai/install today.', url: 'https://sushila.ai/install', linkText: 'Get it', level: 'info' }] } };
     if (a.path === '/api/prompts/images') return { ok: true, status: 200, data: { prompts: S && S.manyPrompts ? Array.from({ length: 30 }, (_, i) => 'Example prompt ' + i) : ['A red fox in snow', 'A lighthouse at dusk'] } };
-    if (a.path === '/api/prompts/videos') return { ok: true, status: 200, data: { prompts: ['A paper boat drifting down a rainy street, slow dolly in', 'A kite rising over a beach at sunset, crane up'] } };
+    if (a.path === '/api/prompts/videos') return { ok: true, status: 200, data: { prompts: S && S.manyVideos ? Array.from({ length: 12 }, (_, i) => 'Video example ' + i) : ['A paper boat drifting down a rainy street, slow dolly in', 'A kite rising over a beach at sunset, crane up'] } };
     if (a.path === '/api/apps-open') return { ok: true, status: 200, data: { apps: appsOpen } };
     if (a.path === '/api/share/me') return { ok: true, status: 200, data: { ...me } };
     if (a.path === '/api/share/code') return { ok: true, status: 200, data: { ok: true } };
@@ -210,6 +210,16 @@ await w.eval('go("video")'); await tick(100);
 w.document.getElementById('vp').value = 'A paper boat drifting down a rainy street, slow dolly in';
 [...w.document.querySelectorAll('#view button')].find((b) => text(b).includes('Random')).click(); await tick(100);
 ok(w.document.getElementById('vp').value === 'A kite rising over a beach at sunset, crane up', 'video page: Random fills another video example: ' + w.document.getElementById('vp').value);
+
+// --- Stress test on Generate Video: 5 different example prompts queued as 5 videos (needs a video pack)
+state.packs.push({ id: 'wan', name: 'Wan Video', kind: 'video', turbo: false, bytes: 1e10 }); await w.eval('refresh()'); await tick(100);
+S.manyVideos = true; S.promptLists = {};
+await w.eval('go("video")'); await tick(100);
+ok([...w.document.querySelectorAll('#view button')].some((b) => text(b) === 'Stress test: generate 5 videos'), 'Video: the Stress test button');
+{ const before = calls.length; const p0 = w.eval('stressVideos()'); await tick(100);
+  [...w.document.querySelectorAll('#sheet button')].find((b) => text(b).startsWith('Queue 5')).click(); await p0; await tick(100);
+  const q = calls.slice(before).filter(([c, a]) => c === 'api' && a.path === '/api/queue' && a.method === 'POST').map(([, a]) => a.body);
+  ok(q.length === 5 && new Set(q.map((b) => b.params.prompt)).size === 5 && q.every((b) => b.kind === 'video' && /^wan/.test(b.model) && b.params.seed === ''), 'Stress test: 5 video jobs, 5 different prompts, random seeds ' + JSON.stringify(q[0])); }
 
 // --- prompt history: typed here + saved with every file + still in the queue, newest first, each prompt once
 S.lib = { items: [{ kind: 'image', name: 'x.png', rel: 'Images/x.png', created: '2026-10-09T12:00:00Z', where: 'local', prompt: 'made in the browser', size: '1024x1024', seed: 7 },

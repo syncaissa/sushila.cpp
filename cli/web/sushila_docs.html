@@ -80,7 +80,7 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila list</code></td><td>Installed packs.</td></tr>
 <tr><td><code>sushila verify [&lt;pack&gt;]</code></td><td>Checks every file of installed packs against its SHA-256.</td></tr>
 <tr><td><code>sushila remove &lt;pack&gt;</code></td><td>Removes a pack and its files.</td></tr>
-<tr><td><code>sushila update [--check]</code></td><td>A newer signed engine and packs whose files changed in the catalog: <code>--check</code> lists them, without it they are installed (only changed files are downloaded).</td></tr>
+<tr><td><code>sushila update [--check]</code></td><td>Everything newer from sushila.ai, all signed: the inference engine, packs whose files changed in the catalog, and <b>this program itself</b> (downloaded from files.sushila.ai and checked: size, SHA-256 and the Sushila signature; a running server restarts with it, and a running Sushila also says so in its window and on its page with Update now; inside Sushila Station, Station's own upgrade brings it): <code>--check</code> lists them, without it they are installed (only changed files are downloaded).</td></tr>
 <tr><td><code>sushila clean [--dry-run]</code></td><td>Removes leftovers: unfinished downloads (only while no server runs), old engine versions, outputs of removed queue jobs, stale checksum cache entries; prints the space freed.</td></tr>
 <tr><td><code>sushila du</code></td><td>Disk use per pack, engine, logs, outputs and in total.</td></tr>
 <tr><td><code>sushila export &lt;pack&gt; &lt;file.zip|.tar|.sushilapack&gt;</code></td><td>The pack as one file for another computer (with <code>sushila-pack.json</code>).</td></tr>

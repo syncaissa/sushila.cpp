@@ -27,6 +27,7 @@ mod diag;
 mod library;
 mod share;
 mod tunnel;
+mod update;
 
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 use clap::{Parser, Subcommand};
@@ -179,7 +180,8 @@ enum Cmd {
     Share { #[command(subcommand)] act: ShareCmd },
     /// HTTPS for a domain: writes a Caddyfile (reverse proxy to this server) and prints the commands
     Https { domain: String },
-    /// Newer signed engine and changed packs: `update --check` lists them, `update` installs them
+    /// Everything newer from sushila.ai, all checked and signed: the inference engine, changed packs, and this program
+    /// itself (a running server restarts with it). `update --check` lists them, `update` installs them
     Update { #[arg(long)] check: bool },
     /// Removes leftovers: unfinished downloads, old engine versions, outputs of removed jobs (`--dry-run` only lists)
     Clean { #[arg(long)] dry_run: bool },
@@ -282,6 +284,8 @@ async fn main() -> ExitCode {
     }
     let mut ctx = match Ctx::load(data, cli.quiet) { Ok(c) => c, Err(e) => { eprintln!("error: {e}"); return ExitCode::from(1); } };
     match dispatch(&cli, &mut ctx).await {
+        // a server ended to run the updated program: its supervisor starts it again at once
+        Ok(()) if update::RESTART.load(std::sync::atomic::Ordering::SeqCst) => ExitCode::from(update::UPDATED as u8),
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             if cli.json { println!("{}", json!({ "ok": false, "error": e })); } else { eprintln!("error: {e}"); }
@@ -292,9 +296,9 @@ async fn main() -> ExitCode {
 }
 
 /// The test-build number (shown by /health): Sushila Station replaces a running engine older than the one it carries.
-pub const BUILD: u32 = 32;
-/// `sushila --version`: "0.1.1 (build 32)" (keep the number equal to BUILD; Station reads it)
-const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 32)");
+pub const BUILD: u32 = 33;
+/// `sushila --version`: "0.1.1 (build 33)" (keep the number equal to BUILD; Station reads it)
+const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 33)");
 
 /// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
 const START_FAILED: u8 = 3;
@@ -311,6 +315,7 @@ fn hold_window() {
 /// Runs `sushila serve` as a child and restarts it when it crashes (not when it stops normally: `sushila stop`, Ctrl+C).
 /// A start-up error (port busy, another server owns the folder) is reported, not retried.
 async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
+    update::clean_leftovers();  // what an update left behind (the old program, an unfinished download)
     let exe = match std::env::current_exe() { Ok(e) => e, Err(e) => { eprintln!("error: {e}"); return ExitCode::from(1); } };
     let args: Vec<String> = std::env::args().skip(1).collect();
     let _ = std::fs::create_dir_all(data.join("logs"));
@@ -331,6 +336,8 @@ async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
         let up = t0.elapsed();
         // a server that died (killed, crashed) could not reset its ticker line: done here
         if !status.success() && ticker::wanted(false, quiet, &read_json(&data.join("state.json")).map(|s| s["settings"]["ticker"].clone()).unwrap_or_default()) { ticker::hard_reset(); }
+        // updated (sushila update, or Update now on the page): the same path holds the new program; start it at once
+        if status.code() == Some(update::UPDATED) && !stopping.load(std::sync::atomic::Ordering::SeqCst) { core::log(quiet, "Sushila was updated: starting the new version"); continue; }
         if status.success() || stopping.load(std::sync::atomic::Ordering::SeqCst) { return ExitCode::SUCCESS; }
         // did not start (engine download failed, port busy...): the error is already printed; retrying would loop
         if status.code() == Some(START_FAILED as i32) || (restarts == 0 && up < Duration::from_secs(8) && status.code() == Some(1)) {
@@ -556,6 +563,33 @@ async fn local(cli: &Cli, ctx: &mut Ctx) -> Result<(), String> {
             let r = reqwest::Client::new().post(format!("http://127.0.0.1:{port}/api/shutdown")).header("x-sushila-token", token).header("x-sushila-admin", webserver::cli_token(&ctx.data)).send().await;
             match r { Ok(r) if r.status().is_success() => out(j, json!({ "ok": true }), || "stopping sushila serve".into()),
                       _ => { std::fs::write(ctx.data.join("shutdown-request.json"), "{}").map_err(err)?; out(j, json!({ "ok": true, "note": "no server answered; a stop request was left for it" }), || "no server answered on this computer".into()) } }
+        }
+        Cmd::Update { check } => {
+            // first the inference engine and the packs (as before), then this program itself
+            if let Err(e) = cmds::update(ctx, *check, j).await { if !ctx.quiet { eprintln!("engine and packs: {e}"); } }
+            let port = ctx.setting("port").as_u64().unwrap_or(7874);
+            let v = update::check(&ctx.data).await;
+            if !v["available"].as_bool().unwrap_or(false) { out(j, v.clone(), || format!("The sushila program (build {}) is the newest.", BUILD)); return Ok(()); }
+            let b = v["build"].as_u64().unwrap_or(0);
+            if *check { out(j, v.clone(), || format!("A new version of Sushila is available: build {b} (you have build {BUILD}). Update: sushila update\n{}", v["releaseNotes"].as_str().unwrap_or(""))); return Ok(()); }
+            // a running server updates itself (it owns the program) and restarts with the new build
+            let token = ctx.state["token"].as_str().unwrap_or("").to_string();
+            let running = reqwest::Client::new().get(format!("http://127.0.0.1:{port}/health")).timeout(Duration::from_secs(2)).send().await.map(|r| r.status().is_success()).unwrap_or(false);
+            if running {
+                if !ctx.quiet { eprintln!("updating the running Sushila to build {b}…"); }
+                let r = reqwest::Client::new().post(format!("http://127.0.0.1:{port}/api/update")).header("x-sushila-token", &token).header("x-sushila-admin", webserver::cli_token(&ctx.data))
+                    .timeout(Duration::from_secs(1800)).send().await.map_err(err)?;
+                let ok = r.status().is_success(); let t = r.text().await.unwrap_or_default();
+                if !ok { return Err(format!("the update did not happen: {t}")); }
+                for _ in 0..90 { tokio::time::sleep(Duration::from_secs(1)).await;
+                    if let Ok(h) = reqwest::Client::new().get(format!("http://127.0.0.1:{port}/health")).timeout(Duration::from_secs(2)).send().await { if let Ok(h) = h.json::<Value>().await { if h["build"].as_u64() == Some(b) { break; } } } }
+                out(j, json!({ "ok": true, "build": b }), || format!("Sushila is now build {b} (the server restarted with it)."));
+            } else {
+                let quiet = ctx.quiet;
+                let b = update::apply(&ctx.data, move |d, t| { if !quiet { eprint!("\r  downloading {} of {}   ", human(d), human(t)); } }).await?;
+                if !ctx.quiet { eprintln!(); }
+                out(j, json!({ "ok": true, "build": b }), || format!("Sushila is now build {b}. Start it as usual."));
+            }
         }
         Cmd::Url => {
             let port = ctx.setting("port").as_u64().unwrap_or(7874);
@@ -1166,6 +1200,10 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     let mut last_pub = std::time::Instant::now();
     let mut last_idle = std::time::Instant::now();
     let mut last_popular = std::time::Instant::now() - Duration::from_secs(50);  // first check ~10 s after the start
+    // a newer Sushila on sushila.ai: first asked ~30 s after the start, then every 6 hours; one line in the window (the
+    // page shows it too). Not when Sushila Station runs this server: Station updates the engine it carries itself.
+    let mut last_update = std::time::Instant::now() - Duration::from_secs(6 * 3600 - 30);
+    let station_runs_it = std::env::var_os("SUSHILA_STATION").is_some();
     let mut popular_failed: std::collections::HashMap<String, std::time::Instant> = Default::default();
     let mut crash_counts: std::collections::HashMap<String, Vec<std::time::Instant>> = Default::default();
     loop {
@@ -1261,10 +1299,13 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                                         let pp = &jb["params"];
                                         // what was asked, plus what the model decided (a song's written lyrics, bpm, key, ...)
                                         let mut details = library::prompt_details(pp);
-                                        if let (Some(d), Some(i)) = (details.as_object_mut(), o2.info.as_object()) { for (k, v) in i { if k != "output_format" { d.insert(format!("model_{k}"), v.clone()); } } }
+                                        if let (Some(d), Some(i)) = (details.as_object_mut(), o2.info.as_object()) { for (k, v) in i { if k != "output_format" && k != "seed" { d.insert(format!("model_{k}"), v.clone()); } } }
+                                        // the seed actually used (random when none was asked for): saved, so the result can be repeated
+                                        let seed = if o2.info["seed"].is_null() { pp["seed"].clone() } else { o2.info["seed"].clone() };
+                                        if let Some(d) = details.as_object_mut() { if !seed.is_null() { d.insert("seed".into(), seed.clone()); } }
                                         let lyrics = o2.info["lyrics"].as_str().filter(|l| !l.trim().is_empty()).map(|l| json!(l)).unwrap_or(pp["lyrics"].clone());
                                         let meta = json!({ "pack": mark_pack, "prompt": mark_prompt, "remote": mark_remote, "source": "queue", "lyrics": lyrics, "duration": pp["duration"],
-                                            "seed": pp["seed"], "frames": pp["video_frames"], "size": pp["width"].as_u64().map(|w| format!("{w}x{}", pp["height"].as_u64().unwrap_or(0))),
+                                            "seed": seed, "frames": pp["video_frames"], "size": pp["width"].as_u64().map(|w| format!("{w}x{}", pp["height"].as_u64().unwrap_or(0))),
                                             "details": details });
                                         let p = library::save(&ctx.data, k, &o2.ext, &o2.bytes, &mark_prompt, meta).ok_or_else(|| format!("could not save the result in {}", out.display()))?;
                                         p.strip_prefix(&out).map(|r| r.to_string_lossy().replace('\\', "/")).map_err(err)?
@@ -1331,6 +1372,16 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
             }
         }
         if last_popular.elapsed() > Duration::from_secs(if ctx.setting("installQueue").as_array().map(|a| !a.is_empty()).unwrap_or(false) { 5 } else { 60 }) { last_popular = std::time::Instant::now(); keep_popular(ctx, &mut o, &mut popular_failed).await; }
+        if !station_runs_it && last_update.elapsed() > Duration::from_secs(6 * 3600) {
+            last_update = std::time::Instant::now();
+            let (data, quiet) = (ctx.data.clone(), ctx.quiet);
+            tokio::spawn(async move {
+                let v = update::check(&data).await;
+                if v["available"].as_bool().unwrap_or(false) {
+                    core::log(quiet, &format!("A new version of Sushila is available: build {} (this is build {BUILD}). Update: type update here, run sushila update, or Update now on the page", v["build"]));
+                }
+            });
+        }
         // idle models are unloaded (settings.idleMinutes); a request for one loads it again (webserver::reload_idle)
         let idle = ctx.setting("idleMinutes").as_u64().unwrap_or(0);
         if idle > 0 && last_idle.elapsed() > Duration::from_secs(5) {

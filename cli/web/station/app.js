@@ -612,6 +612,23 @@ async function stressTest() {
   if (n) toast(n + ' pictures are in the queue. A notice says when each is ready; they appear here and in myContent.', 'ok', 'Stress test queued');
   loadQueue();
 }
+// Stress test on Generate Video: 5 different example prompts, picked at random, queued as 5 videos (size and length of
+// this page; each its own random seed)
+async function stressVideos() {
+  if (isOff('video')) return offToast('video');
+  const m = currentModel('video'); if (!m) { missingPack('video'); return; }
+  S.promptLists = S.promptLists || {};
+  if (!S.promptLists.videos) { try { S.promptLists.videos = (await get('/api/prompts/videos')).prompts || []; } catch (e) { toast(e.message, 'err', 'Could not get the example prompts'); return; } }
+  const pool = S.promptLists.videos.slice(), picks = [];
+  while (picks.length < 5 && pool.length) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  const [w, hh] = ($('vsize') ? $('vsize').value : '832x480').split('x').map(Number), frames = +($('vlen') ? $('vlen').value : 49);
+  if (!await ask('Stress test: generate ' + picks.length + ' videos?', picks.length + ' different example prompts, one video each with ' + (m.pack ? m.pack.name : m.id) + ' at ' + w + 'x' + hh + ', go to the queue and run one after another. Videos take minutes each.', 'Queue ' + picks.length + ' videos')) return;
+  let n = 0;
+  try { for (const prompt of picks) { await post('/api/queue', { kind: 'video', model: m.id, title: 'Stress test ' + (n + 1) + '/' + picks.length + ': ' + prompt.slice(0, 150), params: { prompt, width: w, height: hh, video_frames: frames, fps: 24, seed: '' } }); n++; } }
+  catch (e) { toast(e.message, 'err', 'Queued ' + n + ' of ' + picks.length); }
+  if (n) toast(n + ' videos are in the queue. A notice says when each is ready; they appear here and in myContent.', 'ok', 'Stress test queued');
+  loadQueue();
+}
 // pictures go to the queue like songs and videos: the engine makes them (starting the model when it is not running), so
 // the window can be closed; a notice says when they are ready and they appear here and in myContent
 async function makePictures() {
@@ -633,7 +650,8 @@ function queueForm(view) {
     h('label', { class: 'lbl' }, 'Lyrics (empty: instrumental)'), h('textarea', { class: 'field', id: 'mlyrics', rows: 8, style: 'width:100%', placeholder: '[Verse]\n…\n[Chorus]\n…' }),
     h('label', { class: 'lbl' }, 'Length'), h('select', { class: 'field', id: 'mdur', style: 'width:100%' }, ...[[30, '30 seconds'], [60, '1 minute'], [120, '2 minutes'], [180, '3 minutes']].map(([v, t]) => h('option', { value: v, selected: v === 60 }, t)))]
     : [h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', { class: 'lbl' }, 'Describe the video'),
-        h('span', { class: 'row', style: 'gap:6px' }, h('button', { class: 'btn small', title: 'Fill in one of the example prompts, picked at random', onclick: () => randomPrompt('video') }, '🎲 Random'), histButton('video'))), h('textarea', { class: 'field', id: 'vp', rows: 5, style: 'width:100%', placeholder: 'A paper boat drifting down a rainy street, cinematic' }),
+        h('span', { class: 'row', style: 'gap:6px' }, h('button', { class: 'btn small', title: 'Fill in one of the example prompts, picked at random', onclick: () => randomPrompt('video') }, '🎲 Random'), histButton('video'),
+          h('button', { class: 'btn small', title: '5 different example prompts, one video each, in the queue', onclick: stressVideos }, 'Stress test: generate 5 videos'))), h('textarea', { class: 'field', id: 'vp', rows: 5, style: 'width:100%', placeholder: 'A paper boat drifting down a rainy street, cinematic' }),
       h('div', { class: 'row' }, h('div', { class: 'grow' }, h('label', { class: 'lbl' }, 'Size'), h('select', { class: 'field', id: 'vsize', style: 'width:100%' }, ...[['1280x704', 'Landscape 720p'], ['704x1280', 'Portrait 720p'], ['832x480', 'Small, faster']].map(([v, t]) => h('option', { value: v }, t)))),
         h('div', { class: 'grow' }, h('label', { class: 'lbl' }, 'Length'), h('select', { class: 'field', id: 'vlen', style: 'width:100%' }, ...[[49, '2 seconds'], [81, '3 seconds'], [121, '5 seconds']].map(([v, t]) => h('option', { value: v }, t))))),
       h('label', { class: 'lbl' }, 'Start from a picture (optional)'), h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: pickStart }, 'Choose picture…'), h('span', { class: 'small mut', id: 'vstartname' }, S.vstart ? S.vstart.name : 'none'),
@@ -859,7 +877,8 @@ async function openOutput(j) {
   const url = await invoke('media_url', { kind: 'output', id: j.id }).catch(() => null); if (!url) return;
   const mime = (j.output && j.output.mime) || '';
   const el = mime.startsWith('image') ? h('img', { src: url }) : mime.startsWith('video') ? h('video', { src: url, controls: true, autoplay: true }) : mime.startsWith('audio') ? h('audio', { src: url, controls: true, autoplay: true, style: 'width:100%' }) : h('pre', { class: 'selectable', style: 'white-space:pre-wrap;max-height:60vh;overflow:auto' }, (j.output && j.output.text) || 'Saved in myContent.');
-  sheet([h('h3', {}, j.title || 'Result'), el, h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => $('sheet').click() }, 'Close'))], true);
+  const made = ['image', 'music', 'video'].includes(j.kind) ? freeTag({ where: j.where || 'local' }) : null;  // the queue runs here
+  sheet([h('h3', {}, j.title || 'Result'), el, h('div', { class: 'row end' }, made, h('button', { class: 'btn', onclick: () => saveOutput(j) }, 'Download'), h('button', { class: 'btn primary', onclick: () => $('sheet').click() }, 'Close'))], true);
 }
 // a finished job's file: saved where you choose (the browser: Downloads); uploaded like a myContent file (found by its path)
 async function saveOutput(j) {
@@ -1158,7 +1177,7 @@ async function refresh() {
   if (S.eng.running) { try { S.st = await get('/api/state'); } catch (_) {} loadQueue(); if (S.view === 'logs') loadLog(); autoStartCheck(); loadMe();
     if (!S.notesShown) { S.notesShown = true; showNotifications(); }
     loadAppsOpen(); }
-  if (!S.updateChecked) { S.updateChecked = true; checkUpdate(); }
+  if (!S.updateChecked) { S.updateChecked = true; checkUpdate(); checkEngineUpdate(); }
   const typing = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
   const streaming = (S.chats.chat.concat(S.chats.code)).some((x) => x.streaming);
   const media = document.querySelector('#view video:not([paused]), #view audio');
@@ -1192,6 +1211,29 @@ async function checkUpdate() {
     h('div', { class: 'row', style: 'margin-top:8px;gap:6px' },
       h('button', { class: 'btn small primary', onclick: () => { close(); upgradeNow(u); } }, 'Upgrade now' + (u.bytes ? ' (' + human(u.bytes) + ')' : '')),
       h('button', { class: 'btn small', onclick: () => close() }, 'Later'))), 'ok', 'A new version of Sushila Station is available', 0);
+}
+// the browser page on this computer: a newer sushila (sushila.exe) on sushila.ai; Update now installs it (checked and
+// signed), the server restarts with it and the page reloads. (The app has its own upgrade, above, which carries the engine.)
+async function checkEngineUpdate() {
+  if (ROLE !== 'local') return;
+  let u; try { u = await get('/api/update'); } catch (_) { return; }
+  if (!u || !u.available) return;
+  let close = () => {};
+  close = toast(h('div', {}, h('div', {}, 'Build ' + u.build + ' is ready; you have build ' + u.current + '.'),
+    u.releaseNotes ? h('div', { class: 'selectable', style: 'white-space:pre-wrap;margin-top:6px;max-height:40vh;overflow:auto' }, linkified(u.releaseNotes)) : null,
+    h('div', { class: 'row', style: 'margin-top:8px;gap:6px' },
+      h('button', { class: 'btn small primary', onclick: () => { close(); updateEngineNow(u); } }, 'Update now' + (u.bytes ? ' (' + human(u.bytes) + ')' : '')),
+      h('button', { class: 'btn small', onclick: () => close() }, 'Later'))), 'ok', 'A new version of Sushila is available', 0);
+}
+async function updateEngineNow(u) {
+  const close = toast(h('span', {}, h('span', { class: 'spin' }, '⏳'), ' Downloading and checking build ' + u.build + '; Sushila then restarts with it and this page reloads.'), '', 'Updating Sushila', 0);
+  try { await post('/api/update', {}); }
+  catch (e) { close(); toast(String(e.message || e), 'err', 'The update did not happen', 0); return; }
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    try { const e = await invoke('engine_status'); if (e.running && e.build === u.build) { location.reload(); return; } } catch (_) {}
+  }
+  close(); toast('Sushila did not come back with build ' + u.build + ' within two minutes; start it again (it is installed).', 'err', '', 0);
 }
 async function upgradeNow(u) {
   const bar = h('i', { style: 'width:2%' }), label = h('span', {}, 'Downloading…');

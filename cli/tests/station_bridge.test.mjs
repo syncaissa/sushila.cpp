@@ -36,7 +36,9 @@ async function boot(who) {
     u = String(u); const h = o.headers || {}; sent.push({ u, method: o.method || 'GET', h, body: o.body });
     const p = u.replace(/^\/localhost\/[0-9a-f]{20}/, '');
     const authed = h['x-sushila-token'] || (h.authorization === 'Bearer k123');
-    if (p === '/health') return json({ app: 'sushila', build: 31, version: '0.1.1', ok: true, port: 7874 });
+    if (p === '/health') return json({ app: 'sushila', build: who.updated ? 34 : 33, version: '0.1.1', ok: true, port: 7874 });
+    if (p === '/api/update' && (o.method || 'GET') === 'GET') return json(who.offerUpdate ? { available: true, build: 34, current: 33, version: '0.1.1', releaseNotes: 'Faster start. See https://sushila.ai/install', bytes: 9e6 } : { available: false, current: 33 });
+    if (p === '/api/update') { who.updated = true; return json({ ok: true, build: 34 }); }
     if (!authed && p.startsWith('/api/') && !['/api/notifications', '/api/prompts/images'].includes(p)) return json('unauthorized', 401);
     if (p === '/api/state') return json(h['x-sushila-token'] ? state() : visitorState());
     if (p === '/api/catalog') return json({ packs: [{ id: 'z-image', name: 'Z-Image Turbo', kind: 'image', bytes: 6e9, popular: true }, { id: 'qwen3-4b', name: 'Qwen3 4B', kind: 'text', bytes: 2.5e9 }, { id: 'ace', name: 'ACE-Step', kind: 'music', bytes: 7e9 }] });
@@ -96,6 +98,17 @@ async function boot(who) {
   await w.eval('go("engine")'); await sleep(150);
   ok(text(d.getElementById('view')).includes('Make space') && !text(d.getElementById('view')).includes('The sushila command'), 'Engine page: Make space; no desktop-only groups');
 }
+// --- a newer sushila on sushila.ai: this computer's page offers it; Update now installs it and the page waits for it
+{ const who = { token: 'tok123', offerUpdate: true };
+  const { w, d, sent } = await boot(who); await sleep(200);
+  const t = [...d.querySelectorAll('#toasts .toast')].find((x) => text(x).includes('A new version of Sushila is available'));
+  ok(t && text(t).includes('Build 34') && text(t).includes('you have build 33') && t.querySelector('a'), 'this computer: the update notice with release notes and a link');
+  [...t.querySelectorAll('button')].find((b) => text(b).startsWith('Update now')).click(); await sleep(1500);
+  ok(sent.some((x) => x.u === '/api/update' && x.method === 'POST' && x.h['x-sushila-token'] === 'tok123'), 'Update now asks the engine to update itself');
+  ok(who.updated, 'the engine reported build 34 afterwards (the page then reloads)'); }
+{ const { d } = await boot({ key: 'k123', offerUpdate: true }); await sleep(200);
+  ok(![...d.querySelectorAll('#toasts .toast')].some((x) => text(x).includes('A new version of Sushila')), 'a visitor is never offered the update'); }
+
 // --- /install/<pack> from sushila.ai: Model packs, then the question
 { const { d, S, sent } = await boot({ token: 'tok123', url: 'http://localhost:7874/?install=ace#admin/packs' });
   await sleep(300);

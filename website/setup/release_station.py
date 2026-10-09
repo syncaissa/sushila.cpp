@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Publish a Sushila Station build as the latest version (table sushilaai-versions), so every older Station offers
-"A new version is available" at start and can upgrade itself in place.
+"""Publish a Sushila Station build (--app station, the default) or a sushila program build (--app engine) as the latest
+version (table sushilaai-versions): every older Station offers "A new version is available" at start and upgrades
+itself in place; every older sushila.exe says so in its window and on its page, and `sushila update` installs it.
 
 For each platform file it:
   - computes the size and SHA-256 of the local file and checks that the public URL serves exactly the same bytes;
-  - signs "sushila-release|app=station|build=N|os=<os>|sha256=<hex>|bytes=<n>" with the Sushila signing key
+  - signs "sushila-release|app=<app>|build=N|os=<os>|sha256=<hex>|bytes=<n>" with the Sushila signing key
     (~/.sushila_signing_key; the same key as the engine and pack indexes; Station has its public half built in and
     refuses an unsigned or changed file);
 then writes the row (latest = true) and sets latest = false on the row that was latest before. A build that is not
@@ -32,8 +33,8 @@ KEY = os.path.expanduser('~/.sushila_signing_key')
 PUBLIC = 'Z1PIla052/oI3aZmZvsgB/V3lZUrqnjEoJEeYv4OwTs='  # Station's built-in key: the private key must match it
 
 
-def signed_text(build, os_key, sha, size):
-    return f'sushila-release|app=station|build={build}|os={os_key}|sha256={sha}|bytes={size}'
+def signed_text(build, os_key, sha, size, app='station'):
+    return f'sushila-release|app={app}|build={build}|os={os_key}|sha256={sha}|bytes={size}'
 
 
 def sha_of(data):
@@ -42,6 +43,7 @@ def sha_of(data):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('--app', choices=['station', 'engine'], default='station', help='station: Sushila Station; engine: the sushila program')
     ap.add_argument('--build', type=int, required=True)
     ap.add_argument('--version', default='')
     ap.add_argument('--notes-file', required=True, help='release notes (plain text; https:// links become clickable)')
@@ -64,19 +66,19 @@ def main():
         served = urllib.request.urlopen(urllib.request.Request(url, headers={'user-agent': 'sushila-release'}), timeout=600).read()
         if sha_of(served) != sha:
             sys.exit(f'{os_key}: {url} does not serve the same bytes as {path}')
-        sig = base64.b64encode(key.sign(signed_text(a.build, os_key, sha, size).encode())).decode()
+        sig = base64.b64encode(key.sign(signed_text(a.build, os_key, sha, size, a.app).encode())).decode()
         files[os_key] = {'url': url, 'sha256': sha, 'bytes': size, 'signature': sig}
         print(f'{os_key}: {size} bytes, sha256 {sha[:16]}…, signed')
 
     ddb = botocore.session.get_session().create_client('dynamodb', region_name=a.region)
     rows = ddb.query(TableName=TABLE, KeyConditionExpression='#a = :a', ExpressionAttributeNames={'#a': 'app'},
-                     ExpressionAttributeValues={':a': {'S': 'station'}}, ScanIndexForward=False).get('Items', [])
+                     ExpressionAttributeValues={':a': {'S': a.app}}, ScanIndexForward=False).get('Items', [])
     latest = [r for r in rows if r.get('latest', {}).get('BOOL')]
     for r in latest:
         if int(r['build']['N']) >= a.build:
             sys.exit(f"build {a.build} is not newer than the latest published build {r['build']['N']}")
     now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-    item = {'app': {'S': 'station'}, 'releasedAt': {'S': now}, 'build': {'N': str(a.build)}, 'version': {'S': a.version},
+    item = {'app': {'S': a.app}, 'releasedAt': {'S': now}, 'build': {'N': str(a.build)}, 'version': {'S': a.version},
             'latest': {'BOOL': True}, 'releaseNotes': {'S': open(a.notes_file, encoding='utf-8').read().strip()[:5000]},
             'files': {'S': json.dumps(files, sort_keys=True)}}
     print(json.dumps({k: v for k, v in item.items() if k != 'files'}, indent=1)[:2000])
@@ -90,7 +92,7 @@ def main():
         ddb = botocore.session.get_session().create_client('dynamodb', region_name=a.region)  # fresh for each write
         ddb.update_item(TableName=TABLE, Key={'app': r['app'], 'releasedAt': r['releasedAt']},
                         UpdateExpression='SET latest = :f', ExpressionAttributeValues={':f': {'BOOL': False}})
-    print(f'published build {a.build} as the latest Sushila Station ({len(latest)} older row(s) no longer latest)')
+    print(f"published build {a.build} as the latest {'Sushila Station' if a.app == 'station' else 'sushila program'} ({len(latest)} older row(s) no longer latest)")
 
 
 if __name__ == '__main__':

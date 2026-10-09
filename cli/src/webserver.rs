@@ -377,6 +377,37 @@ async fn srv_notifications(axum::extract::State(s): axum::extract::State<Arc<Srv
     ([("cache-control", "no-store")], axum::Json(v)).into_response()
 }
 
+/// GET /api/update: is there a newer Sushila? ({available, build, version, releaseNotes, bytes, current}; asked from
+/// sushila.ai at most every 6 hours, kept in <home>/update.json). POST /api/update (this computer only): download, check
+/// and install it, then this server ends with update::UPDATED and its supervisor starts the new program. Under Sushila
+/// Station nothing is offered: Station's own upgrades bring the engine.
+async fn srv_update(axum::extract::State(s): axum::extract::State<Arc<Srv>>, method: axum::http::Method, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    let station = std::env::var_os("SUSHILA_STATION").is_some();
+    if method == axum::http::Method::GET {
+        if station { return axum::Json(json!({ "available": false, "current": crate::BUILD, "station": true })).into_response(); }
+        let file = s.data_dir.join("update.json");
+        let fresh = std::fs::metadata(&file).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map(|e| e < Duration::from_secs(6 * 3600)).unwrap_or(false);
+        let v = if fresh { std::fs::read_to_string(&file).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()) } else { None };
+        let v = match v { Some(v) if v["current"].as_u64() == Some(crate::BUILD as u64) => v, _ => crate::update::check(&s.data_dir).await };
+        return ([("cache-control", "no-store")], axum::Json(v)).into_response();
+    }
+    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "this computer only: open Sushila on this computer (http://localhost:7874/) or use the sushila command").into_response(); }
+    if station { return (axum::http::StatusCode::CONFLICT, "Sushila Station updates this engine: use Upgrade now in Sushila Station").into_response(); }
+    crate::core::log(true, "update: downloading the newest Sushila");
+    match crate::update::apply(&s.data_dir, |_, _| {}).await {
+        Ok(b) => {
+            crate::core::log(true, &format!("update: build {b} installed; restarting with it"));
+            crate::update::RESTART.store(true, std::sync::atomic::Ordering::SeqCst);
+            let _ = std::fs::write(s.data_dir.join("shutdown-request.json"), "{}");
+            axum::Json(json!({ "ok": true, "build": b })).into_response()
+        }
+        Err(e) => { crate::core::log(true, &format!("update failed: {e}")); (axum::http::StatusCode::BAD_GATEWAY, e).into_response() }
+    }
+}
+
 /// GET /api/apps-open: which Generate pages sushila.ai has open ({apps: {images, music, video, coding, chat: true|false}}).
 /// Asked at most every 5 minutes and kept in <home>/apps-open.json; never heard of (or a missing app): open.
 async fn srv_apps_open(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
@@ -1262,6 +1293,7 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/api/prompts/:kind", axum::routing::get(srv_prompts))
         .route("/api/notifications", axum::routing::get(srv_notifications))
         .route("/api/apps-open", axum::routing::get(srv_apps_open))
+        .route("/api/update", axum::routing::get(srv_update).post(srv_update))
         .route("/station", axum::routing::get(srv_station))
         .route("/station/", axum::routing::get(srv_station))
         .route("/station/:file", axum::routing::get(srv_station))

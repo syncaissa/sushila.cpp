@@ -412,6 +412,8 @@ fn run(s: &mut Screen, data: &Path, exe: &Path, args: &[String]) -> ExitCode {
         let until = Instant::now() + Duration::from_millis(400);
         while Instant::now() < until { s.pump(Duration::from_millis(20), None); }
         let up = t0.elapsed();
+        // updated (sushila update, or Update now on the page): the same path holds the new program; start it at once
+        if status.code() == Some(crate::update::UPDATED) && !s.stopping { s.note("Sushila was updated: starting the new version"); continue; }
         if status.success() || s.stopping { s.note("Sushila stopped."); return ExitCode::SUCCESS; }
         if status.code() == Some(crate::START_FAILED as i32) || (restarts == 0 && up < Duration::from_secs(8) && status.code() == Some(1)) {
             s.note("Sushila did not start. Fix the problem above and start it again (downloads resume where they stopped).");

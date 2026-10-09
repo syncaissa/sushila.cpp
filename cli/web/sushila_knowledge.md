@@ -199,6 +199,14 @@ first) with Delete permanently, and the trash with Empty trash. Before deleting 
 recommended: a copy stays on sushila.ai. Every file says where it was made: on the user's own computer, or on a remote
 Sushila Engine for someone on another device.
 
+## Updating Sushila
+`sushila update` installs the newest Sushila from sushila.ai: the file is checked (size, SHA-256 and the Sushila
+signature) before it replaces the program, and a running server restarts with it. `sushila update --check` only says
+whether there is one. A running Sushila checks every 6 hours and says so in its window and on its page (Update now).
+Sushila Station shows "A new version of Sushila Station is available" and upgrades itself (with the engine inside).
+Pictures and videos: an empty Seed means a new random seed for every picture or video (very different results for the
+same prompt); the seed used is saved with the file, so typing it again repeats the result.
+
 ## Temporary internet URL
 The Internet link page (on this computer) gives a link like https://sushila.ai/localhost/<20
 hex characters>/ that reaches this Sushila Engine from anywhere, through a Cloudflare quick tunnel (cloudflared, fetched

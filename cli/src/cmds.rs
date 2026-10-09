@@ -253,7 +253,6 @@ pub async fn run(cmd: &Cmd, ctx: &mut Ctx, j: bool) -> Result<(), String> {
         Cmd::Chat { pack, standard } => chat_cmd(ctx, pack.clone(), *standard, j).await,
         Cmd::Ps => ps(ctx, j).await,
         Cmd::Show { pack } => show(ctx, pack, j).await,
-        Cmd::Update { check } => update(ctx, *check, j).await,
         Cmd::Queue { act } => queue(ctx, act.as_ref(), j).await,
         Cmd::Clean { dry_run } => clean(ctx, *dry_run, j).await,
         Cmd::Du => { du(ctx, j); Ok(()) }
@@ -569,7 +568,8 @@ async fn show(ctx: &mut Ctx, pack: &str, j: bool) -> Result<(), String> {
 }
 
 // 6 update
-async fn update(ctx: &mut Ctx, check: bool, j: bool) -> Result<(), String> {
+/// The inference engine and the packs (the program itself: main.rs, update.rs).
+pub async fn update(ctx: &mut Ctx, check: bool, j: bool) -> Result<(), String> {
     ctx.load_catalog().await?;
     let cat = ctx.catalog.clone().unwrap();
     let have = ctx.state["engine"]["version"].as_str().unwrap_or("").to_string();
