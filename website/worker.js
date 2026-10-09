@@ -4008,8 +4008,12 @@ async function health(env, db, b2) {
     dynamodb: { configured: db.configured, region: env.AWS_REGION || null, tables: {} }, b2: { configured: b2.configured, bucket: env.B2_BUCKET_NAME || null } };
   if (db.configured) {
     const keys = { users: { userId: S('-') }, emails: { email: S('-') }, otps: { email: S('-') }, downloads: { userId: S('-'), downloadedAt: S('-') },
-      models: { modelId: S('-') }, bugs: { bugId: S('-'), item: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') } };
+      models: { modelId: S('-') }, bugs: { bugId: S('-'), item: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') },
+      download: { file: S('-'), at: S('-') }, compare: { runId: S('-') }, reportabuse: { reportId: S('-') }, localhostLinks: { id: S('-') },
+      fileViews: { url: S('-') }, versions: { app: S('-'), releasedAt: S('-') }, notifications: { id: S('-') } };
+    // every table is read once with a key that does not exist: "ok" means the table is there and readable
     await Promise.all(Object.entries(TABLES).map(async ([k, t]) => {
+      if (!keys[k]) { out.dynamodb.tables[t] = 'no health probe (add its key above)'; return; }
       try { await db.get(t, keys[k]); out.dynamodb.tables[t] = 'ok'; } catch (e) { out.dynamodb.tables[t] = errorCode(e); }
     }));
   }
