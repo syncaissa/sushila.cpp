@@ -41,6 +41,18 @@ The desktop app for Sushila.cpp: chat, code, pictures, music and video on your o
 - **sushila.ai:** sign-in by e-mail code (no password), Upload and get link, and your internet link (start, stop, new
   key, on at every start).
 
+## Without a window (same file)
+
+`SushilaStation.exe <command>` runs any `sushila` command (`serve`, `status`, `install <pack>`, `run`, `stop`, ...) with
+the engine Station carries, in the terminal it was started from, and opens no window. It works over SSH, from Task
+Scheduler, as a service and on Windows Server Core.
+
+- **Windows Command Prompt:** cmd does not wait for windowed programs, so a short command's output can print after the
+  prompt is back. `start /wait SushilaStation.exe status` waits.
+- **macOS, Linux and other Unix:** Station prints "use sushila.cpp instead" with the same command for the `sushila` program, which has no desktop libraries
+  and suits servers. On a Linux machine without WebKitGTK, the Station file cannot start at all, so the system's own
+  "library not found" message appears; use `sushila` there.
+
 ## Build
 
 The CI workflow `.github/workflows/station.yml` in the sushila.cpp repository builds all three: it builds the `sushila`

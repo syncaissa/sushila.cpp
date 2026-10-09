@@ -3,6 +3,7 @@
 // at http://127.0.0.1:7874 with this computer's token, so the window's page never needs the engine's web page, a
 // browser, a password or an access key.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod cli;
 mod engine;
 
 use futures_util::StreamExt;
@@ -180,6 +181,8 @@ fn notify_os(app: AppHandle, title: String, body: String) -> Result<(), String> 
 fn show_main(app: &AppHandle) { if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.unminimize(); let _ = w.set_focus(); } }
 
 fn main() {
+    // `SushilaStation serve` (status, install, ...): the engine's commands, without a window
+    if let Some(code) = cli::run_if_command() { std::process::exit(code); }
     // started by an older copy that is handing over: let it close first (it holds the one-instance lock)
     if std::env::var_os("SUSHILA_STATION_TAKEOVER").is_some() { std::env::remove_var("SUSHILA_STATION_TAKEOVER"); std::thread::sleep(Duration::from_millis(2500)); }
     let st = Arc::new(St { http: engine::client(), inner: Mutex::new(Inner::default()) });
