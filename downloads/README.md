@@ -14,12 +14,12 @@ Free, open-source AI that runs on your own computer: chat, code, images, music a
 
 ## Files and checksums
 
-| File | Size | SHA-256 |
-|---|---:|---|
-| `windows/SushilaStation.exe` | 23.5 MB | `eba726c6e5f7936fa479d276d014e5e0b1bdc9a9436cbaeddf86468024d0f687` |
-| `linux/SushilaStation` | 20.4 MB | `4f5aaa2519ff81a117a1cbdc251160b1627006c186b7e2558e016cf387f41910` |
-| `headless/windows/sushila.exe` | 10.1 MB | `d850c14ad2cc83ea3ba2a61a726b5f8fdbe882ed719a4c9f264bd2f43aa9bde4` |
-| `headless/linux/sushila` | 8.0 MB | `7331288c76872756fe4226ce28645b76c7057fb8955290539c0482ca842bfc97` |
+| File | Build | Size | SHA-256 |
+|---|---|---:|---|
+| `windows/SushilaStation.exe` | Sushila Station build 16 | 23.5 MB | `eba726c6e5f7936fa479d276d014e5e0b1bdc9a9436cbaeddf86468024d0f687` |
+| `linux/SushilaStation` | Sushila Station build 16 | 20.4 MB | `4f5aaa2519ff81a117a1cbdc251160b1627006c186b7e2558e016cf387f41910` |
+| `headless/windows/sushila.exe` | sushila (headless) build 37 | 10.1 MB | `d850c14ad2cc83ea3ba2a61a726b5f8fdbe882ed719a4c9f264bd2f43aa9bde4` |
+| `headless/linux/sushila` | sushila (headless) build 37 | 8.0 MB | `7331288c76872756fe4226ce28645b76c7057fb8955290539c0482ca842bfc97` |
 
 These are the same files as the signed releases on https://sushila.ai (Ed25519-signed; both programs check their
 own updates the same way and offer newer versions themselves). The models are downloaded on first use, for your GPU.
