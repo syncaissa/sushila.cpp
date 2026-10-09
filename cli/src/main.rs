@@ -291,9 +291,9 @@ async fn main() -> ExitCode {
 }
 
 /// The test-build number (shown by /health): Sushila Station replaces a running engine older than the one it carries.
-pub const BUILD: u32 = 29;
-/// `sushila --version`: "0.1.1 (build 29)" (keep the number equal to BUILD; Station reads it)
-const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 29)");
+pub const BUILD: u32 = 30;
+/// `sushila --version`: "0.1.1 (build 30)" (keep the number equal to BUILD; Station reads it)
+const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 30)");
 
 /// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
 const START_FAILED: u8 = 3;
@@ -1117,7 +1117,15 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
         ctx.load_catalog().await?;
         let (id, why) = ctx.default_pack().await;
         ctx.log(&format!("no packs installed: {why}"));
-        let id = ctx.best_variant(&id).await; ctx.install_pack(&id).await?; ids.push(id);
+        // a stop (sushila stop, Station) during this first download ends the server at once; the download resumes at the
+        // next start. Before, the stop waited until the whole pack was downloaded.
+        let stop_file = ctx.data.join("shutdown-request.json");
+        let stop_asked = async { while !stop_file.exists() { tokio::time::sleep(Duration::from_millis(400)).await; } };
+        tokio::select! {
+            r = async { let id = ctx.best_variant(&id).await; ctx.install_pack(&id).await.map(|_| id) } => ids.push(r?),
+            // the request is left in place: the main loop below sees it on its first pass and stops the usual way
+            _ = stop_asked => ctx.log("stop requested during the first download (it continues at the next start)"),
+        }
     }
     for id in &ids {
         let mode = if standard { Some("regular".to_string()) } else { modes.get(id).cloned().flatten() };
@@ -1250,9 +1258,13 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
                                     let out = crate::locate::outputs(&ctx.data);
                                     let file = if let Some(k) = kind {
                                         let pp = &jb["params"];
-                                        let meta = json!({ "pack": mark_pack, "prompt": mark_prompt, "remote": mark_remote, "source": "queue", "lyrics": pp["lyrics"], "duration": pp["duration"],
+                                        // what was asked, plus what the model decided (a song's written lyrics, bpm, key, ...)
+                                        let mut details = library::prompt_details(pp);
+                                        if let (Some(d), Some(i)) = (details.as_object_mut(), o2.info.as_object()) { for (k, v) in i { if k != "output_format" { d.insert(format!("model_{k}"), v.clone()); } } }
+                                        let lyrics = o2.info["lyrics"].as_str().filter(|l| !l.trim().is_empty()).map(|l| json!(l)).unwrap_or(pp["lyrics"].clone());
+                                        let meta = json!({ "pack": mark_pack, "prompt": mark_prompt, "remote": mark_remote, "source": "queue", "lyrics": lyrics, "duration": pp["duration"],
                                             "seed": pp["seed"], "frames": pp["video_frames"], "size": pp["width"].as_u64().map(|w| format!("{w}x{}", pp["height"].as_u64().unwrap_or(0))),
-                                            "details": library::prompt_details(pp) });
+                                            "details": details });
                                         let p = library::save(&ctx.data, k, &o2.ext, &o2.bytes, &mark_prompt, meta).ok_or_else(|| format!("could not save the result in {}", out.display()))?;
                                         p.strip_prefix(&out).map(|r| r.to_string_lossy().replace('\\', "/")).map_err(err)?
                                     } else {

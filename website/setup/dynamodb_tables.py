@@ -56,6 +56,15 @@ SCHEMA = {
         'indexes': {'day-index': {'hash': 'day', 'range': 'at', 'projection': 'ALL'}},
         'ttl': 'ttl', 'pitr': True,
     },
+    'sushilaai-versions': {              # published app versions: app ("station"), releasedAt; build, version, latest (true on the
+        'hash': 'app', 'range': 'releasedAt',  # newest only), releaseNotes, files (JSON: {"windows-x64": {url, sha256, bytes,
+        'pitr': True,                    # signature}, ...}). Written by setup/release_station.py, which signs every file.
+    },
+    'sushilaai-notifications': {         # messages every Sushila app shows when it starts (Station, localhost page)
+        'hash': 'id',                    # id, title, message (plain text; https:// links become clickable), url + linkText (optional),
+        'indexes': {'list-index': {'hash': 'listKey', 'range': 'createdAt', 'projection': 'ALL'}},  # level (info|warn), active (true/false),
+        'pitr': True,                    # listKey "notification", createdAt; startAt/endAt (optional ISO times). Only active rows are shown.
+    },
     'sushilaai-models': {                # hosted models, their precomputed artifacts, visible flag (admin page)
         'hash': 'modelId',
         'indexes': {'list-index': {'hash': 'listKey', 'range': 'modelId', 'projection': 'ALL'}},    # every model (listKey "model")

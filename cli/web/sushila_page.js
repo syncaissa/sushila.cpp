@@ -411,7 +411,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
     if (local) shareFromInference = async (kind, since, path) => {
       await libLoad();
       const norm = (f) => String(f || '').replace(/\\/g, '/');
-      const x = (lib.items || []).find((i) => path ? norm(i.path) === norm(path) : i.kind === kind && Date.parse(i.created) >= since - 5000);
+      const x = (lib.items || []).find((i) => path ? norm(i.path) === norm(path) || norm(i.rel) === norm(path) : i.kind === kind && Date.parse(i.created) >= since - 5000);
       if (!x) { toast('It is not in the Library yet; try again in a moment.', { kind: 'warn', title: 'Upload and get link' }); return; }
       if (x.link) { try { await copyText(x.link); } catch (_) {} toast(x.link, { kind: 'ok', title: 'Already uploaded. The link is copied.' }); return; }
       if (!lib.acct.signedIn) {
@@ -728,7 +728,7 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
           ['paused', 'failed', 'cancelled'].includes(j.status) ? el('button', { class: 'ghost', onclick: act(j.id, 'resume') }, 'Continue') : null,
           ['queued', 'paused', 'running'].includes(j.status) ? el('button', { class: 'ghost', onclick: act(j.id, 'cancel') }, 'Cancel') : el('button', { class: 'danger', onclick: act(j.id, 'remove') }, 'Remove'))));
       return [el('h2', {}, 'Queue'), el('div', { class: 'row' }, el('button', { class: 'ghost', onclick: act('all', q.paused ? 'resume' : 'pause') }, q.paused ? 'Continue the queue' : 'Pause the queue'),
-          el('span', { class: 'sub' }, 'Jobs are added from the Inference page ("Add to queue"); one runs at a time, also when this page is closed.')),
+          el('span', { class: 'sub' }, 'Pictures, songs and videos (and chat questions sent with "Run in background") are made here, one at a time, also when this page is closed.')),
         rows.length ? el('table', {}, el('tbody', {}, rows)) : el('p', { class: 'sub' }, 'The queue is empty.')];
     }
     async function logsView() {
@@ -1035,6 +1035,19 @@ input,select,textarea{border-radius:10px;border-color:var(--line)}input:focus,se
       poll();
     }
     window.addEventListener('hashchange', route);
+    // messages from sushila.ai (its notifications table: active rows only), shown when the page opens; links in the text
+    // can be clicked; "Don't show again" hides that message for good in this browser
+    (async () => {
+      let list = []; try { list = (await (await fetch('/api/notifications')).json()).notifications || []; } catch (_) { return; }
+      let hidden = []; try { hidden = JSON.parse(localStorage.getItem('sushila-notes-hidden') || '[]'); } catch (_) {}
+      const linked = (text) => String(text || '').split(/(https:\/\/[^\s<>"']+[^\s<>"'.,;:!?)])/g).map((part, i) => i % 2 ? el('a', { href: part, target: '_blank', rel: 'noopener' }, part) : part);
+      for (const n of list.filter((x) => x && x.id && !hidden.includes(x.id)).slice(0, 5).reverse()) {
+        toast(el('span', { style: 'white-space:pre-wrap' }, ...linked(n.message)), { kind: n.level === 'warn' ? 'warn' : 'info', title: n.title || 'Sushila', actions: [
+          ...(n.url ? [{ label: n.linkText || 'Open', primary: true, onclick: () => window.open(n.url, '_blank', 'noopener') }] : []),
+          { label: 'OK' },
+          { label: "Don't show again", onclick: () => { try { localStorage.setItem('sushila-notes-hidden', JSON.stringify(hidden.concat(n.id).slice(-200))); } catch (_) {} } }] });
+      }
+    })();
     setInterval(() => { if (!document.hidden && view) poll(); }, 1500);
     route();
   }
@@ -1336,16 +1349,6 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       b.title = !m ? '' : server ? 'Only the computer running the model can stop it.' : 'Stop ' + m.name + '. ' + (m.turbo && m.kind === 'image' ? 'Accelerated: 768x768 in 6 steps on Nunchaku 4-bit kernels. The speed depends on the GPU: about a second on a large server or desktop GPU, much longer on a PC or laptop GPU with less than 18 GB, because parts of the model are moved between system and GPU memory for each image. Standard: the published 1024x1024, 8 steps. sushila bench measures your computer.' : m.turbo ? 'Accelerated uses this model\'s precomputed Sushila files (landscape, draft model); Standard runs the plain model, as Ollama does.' : '');
     }
     const modelNow = () => model;
-    // a gallery keeps the newest items (the Library keeps everything): older ones leave the page and their blob: URLs
-    // are released, so a page left open for days does not grow without end
-    function capGallery(g, n = 24) {
-      if (!g) return;
-      while (g.children.length > n) {
-        const last = g.lastElementChild;
-        for (const e of last.querySelectorAll('[src^="blob:"],[href^="blob:"]')) { try { URL.revokeObjectURL(e.getAttribute('src') || e.getAttribute('href')); } catch (_) {} }
-        last.remove();
-      }
-    }  // the generators capture it (their own `model` then shadows the page's)
     const kept = {};  // pack id -> {nodes, msgs}: switching models (or tabs in the app) keeps each one's conversation and results
     function pickModel(asked) {
       const [pid, pmode] = (modelSel.value || '').split('|');
@@ -1400,7 +1403,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       catch (e) { $('qsum').textContent = 'Queue'; list.textContent = String(e.message || e); return; }
       const jobs = [...(q.jobs || [])].reverse(), busy = jobs.filter((j) => ['queued', 'running'].includes(j.status)).length, ready = jobs.filter((j) => j.status === 'ready').length;
       $('qsum').textContent = `Queue: ${busy} working, ${ready} ready` + (q.paused ? ' (paused)' : '');
-      if (!jobs.length) { qRows.clear(); list.textContent = 'Nothing queued yet. "Add to queue" lets a job run in the background while you do something else.'; return; }
+      if (!jobs.length) { qRows.clear(); list.textContent = 'Nothing queued yet. Pictures, songs and videos are made here in the background, while you do something else.'; return; }
       const nodes = jobs.map((j) => {
         const sig = JSON.stringify([j.status, j.progress, j.error, j.title, j.output && j.output.file]);
         const had = qRows.get(j.id); if (had && had.sig === sig) return had.node;
@@ -1422,6 +1425,8 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
             ['paused', 'failed', 'cancelled'].includes(j.status) ? el('button', { onclick: qAct(j.id, 'resume') }, 'Continue') : null,
             ['queued', 'running', 'paused'].includes(j.status) ? el('button', { class: 'ghost', onclick: qAct(j.id, 'cancel') }, 'Cancel') : null,
             j.status === 'ready' ? el('a', { href: outUrl(j.id, true), class: 'dlbtn' }, '⬇ Download') : null,
+            // a finished picture, song or video made here: upload it to sushila.ai and copy the link
+            j.status === 'ready' && j.output && j.output.file && ['image', 'music', 'video'].includes(j.kind) ? shareBtn(j.kind, Date.parse(j.created) || 0, j.output.file) : null,
             // finished jobs are kept in the home folder (outputs/): this computer can open that folder
             j.status === 'ready' && !server && j.output && j.output.file ? el('button', { class: 'ghost', onclick: async (e) => {
               const r = await fetch(base() + '/api/reveal', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, auth()), body: JSON.stringify({ path: j.output.file }) });
@@ -1440,7 +1445,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
           el('div', { class: 'sub' }, (server ? 'Runs on ' + server.replace(/^https?:\/\//, '') : 'Runs entirely on this computer: your words never leave it') + ' · ' + model.name))),
         el('div', { class: 'composer' }, el('textarea', { id: 'q', placeholder: 'Ask anything. ' + (server ? 'Runs on ' + server.replace(/^https?:\/\//, '') + '.' : 'Runs entirely on this computer.') }),
           el('div', {}, el('button', { id: 'send', onclick: send }, 'Submit'), el('button', { id: 'stop', class: 'ghost hidden', onclick: () => ctrl && ctrl.abort() }, 'Stop'),
-            el('button', { class: 'ghost', title: 'Run it in the background and keep the answer in the Queue', onclick: () => { const q = $('q').value.trim(); if (q) { addToQueue('text', q, { prompt: q, max_tokens: +$('maxt').value, temperature: +$('temp').value }, $('qmsg')); $('q').value = ''; } } }, 'Add to queue'))),
+            el('button', { class: 'ghost', title: 'Run it in the background and keep the answer in the Queue', onclick: () => { const q = $('q').value.trim(); if (q) { addToQueue('text', q, { prompt: q, max_tokens: +$('maxt').value, temperature: +$('temp').value }, $('qmsg')); $('q').value = ''; } } }, 'Run in background'))),
         el('div', { class: 'msg', id: 'qmsg' }),
         el('div', { class: 'bar2 sub' }, 'Max tokens', el('select', { id: 'maxt' }, [256, 512, 1024, 2048].map((n) => el('option', { selected: n === 512 }, String(n)))),
           'Temperature', el('select', { id: 'temp' }, ['0', '0.3', '0.7', '1.0'].map((t) => el('option', { selected: t === '0.7' }, t))),
@@ -1495,7 +1500,7 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     // ---------- video (video packs: stable-diffusion.cpp's server, native async API behind /v1/video/ -> /sdcpp/v1/)
     // POST /v1/video/vid_gen returns a job; GET /v1/video/jobs/{id} until it completes with the whole WebM file (base64).
     const WAN_NEGATIVE = WAN_NEGATIVE_PROMPT;
-    let videoJob = null, videoModel = '', startImage = null;
+    let startImage = null;
     function videoScreen() {
       startImage = null;
       main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Generate Video, locally or remotely.'),
@@ -1505,58 +1510,21 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
           el('label', {}, 'Shape ', el('select', { id: 'vsize' }, [['832x480', 'Landscape'], ['480x832', 'Portrait'], ['640x640', 'Square']].map(([v, t]) => el('option', { value: v }, t)))),
           el('label', {}, 'Length ', el('select', { id: 'vlen' }, [[49, '2 seconds'], [73, '3 seconds'], [121, '5 seconds']].map(([v, t]) => el('option', { value: v }, t)))),
           el('label', {}, 'Seed ', el('input', { id: 'vseed', type: 'number', placeholder: 'random', style: 'width:110px' }))),
-        el('div', { class: 'row' }, el('button', { id: 'vgo', class: 'big', onclick: makeVideo }, 'Generate'),
-          el('button', { id: 'vstop', class: 'ghost hidden', onclick: cancelVideo }, 'Cancel'),
-          el('button', { class: 'ghost', onclick: () => { const p = $('vprompt').value.trim(); if (!p) return; const [w, h] = $('vsize').value.split('x').map(Number), seed = $('vseed').value.trim();
-            addToQueue('video', p, { prompt: p, width: w, height: h, video_frames: +$('vlen').value, fps: 24, seed: seed ? +seed : -1, init_image: startImage }, $('vmsg')); } }, 'Add to queue')),
+        el('div', { class: 'row' }, el('button', { id: 'vgo', class: 'big', onclick: makeVideo }, 'Generate')),
         el('div', { class: 'msg', id: 'vmsg' }), el('div', { class: 'sub' }, 'Videos take minutes, not seconds: a short clip is about 1-5 minutes on a fast NVIDIA GPU, much longer on smaller ones.'),
-        keyHint(), el('div', { id: 'vgallery' })));
+        keyHint()));
       if (autoPrompt) { $('vprompt').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeVideo(); } }
     }
     function pickStartImage(e) {
       const f = e.target.files && e.target.files[0]; startImage = null; if (!f) return;
       const r = new FileReader(); r.onload = () => { startImage = String(r.result); }; r.readAsDataURL(f);
     }
-    async function makeVideo() {
-      const scr = main.firstElementChild, $ = (id) => (scr && scr.querySelector('#' + id)) || null, model = modelNow();  // this job's screen and model (they stay its own if the page switches models)
-      const prompt = $('vprompt').value.trim();
-      if (!prompt || !model) { $('vmsg').className = 'msg err'; $('vmsg').textContent = 'Describe the video first.'; return; }
-      const [w, h] = $('vsize').value.split('x').map(Number), frames = +$('vlen').value, fps = 24, seed = $('vseed').value.trim();
-      $('vgo').disabled = true; $('vstop').classList.remove('hidden'); $('vmsg').className = 'msg';
-      const started = Date.now(), t0 = performance.now(), tick = () => { $('vmsg').textContent = `Making the video… ${Math.round((performance.now() - t0) / 1000)} s (the first one after starting also loads the model)`; };
-      tick();
-      const hdr = Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth());
-      try {
-        const r = await fetch(base() + '/v1/video/vid_gen', { method: 'POST', headers: hdr, body: JSON.stringify({
-          model: model.packId, prompt, negative_prompt: WAN_NEGATIVE, width: w, height: h, video_frames: frames, fps, seed: seed ? +seed : -1,
-          init_image: startImage, sample_params: { sample_method: 'euler', sample_steps: 50, guidance: { txt_cfg: 5.0 }, flow_shift: 5.0 }, output_format: 'webm',  // Wan 2.2's own settings (fewer steps or 6 / 3 gave poor video)
-          ...(model.request || {}) }) });
-        if (!r.ok) throw new Error(explain(r, await r.text()));
-        videoJob = (await r.json()).id; videoModel = model.packId;
-        for (;;) {
-          await new Promise((res) => setTimeout(res, 2000)); tick();
-          const j = await (await fetch(base() + '/v1/video/jobs/' + encodeURIComponent(videoJob), { headers: hdr })).json();
-          if (j.status === 'completed') {
-            const res = j.result || {}, mime = res.mime_type || 'video/webm', src = `data:${mime};base64,${res.b64_json}`, secs = ((performance.now() - t0) / 1000).toFixed(0);
-            const ext = (res.output_format || 'webm') === 'webp' ? 'webp' : (res.output_format || 'webm');
-            const mi = [model && model.name, model && modeName(model.mode)];  // the model that made it (ⓘ)
-            $('vgallery').prepend(el('figure', { class: 'track' }, el('video', { src, controls: true, loop: true, autoplay: true, muted: true, playsinline: true, style: 'width:100%;border-radius:10px' }),
-              el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${res.frame_count || frames} frames · ${secs} s · `, el('a', { href: src, download: 'sushila-video.' + ext, class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('video', started), ' ',
-              infoBtn(() => showInfo('Video', [['Prompt', prompt, 'pre'], ['Model', mi[0]], ['Mode', mi[1]], ['Size', w + '×' + h], ['Frames', res.frame_count || frames],
-                ['Seed', seed || 'random'], ['Made in', secs + ' s'], ['Made', new Date(started).toISOString(), 'date'], ['Generated on', server ? server.replace(/^https?:\/\//, '') : 'this computer'],
-                ['Saved at', server ? '' : 'the Library (outputs/video)']])))));
-            capGallery($('vgallery'));
-            $('vmsg').textContent = `Done in ${secs} s.`;
-            break;
-          }
-          if (j.status === 'failed' || j.status === 'cancelled') throw new Error(j.status === 'cancelled' ? 'Cancelled.' : 'The video failed: ' + ((j.error && j.error.message) || 'unknown error'));
-        }
-      } catch (e) { $('vmsg').className = 'msg err'; $('vmsg').textContent = String(e.message || e); }
-      finally { videoJob = null; $('vgo').disabled = false; $('vstop').classList.add('hidden'); }
-    }
-    async function cancelVideo() {
-      if (!videoJob) return;
-      await fetch(base() + '/v1/video/jobs/' + encodeURIComponent(videoJob) + '/cancel', { method: 'POST', headers: Object.assign({ 'x-sushila-model': videoModel }, auth()) }).catch(() => {});
+    // pictures, songs and videos always go to the queue: the engine makes them, not this page. Close the page or let
+    // the computer sleep the screen: the result appears in the Queue below and in myContent when it is ready.
+    function makeVideo() {
+      const p = $('vprompt').value.trim(); if (!p) { $('vmsg').className = 'msg err'; $('vmsg').textContent = 'Describe the video first.'; return; }
+      const [w, h] = $('vsize').value.split('x').map(Number), seed = $('vseed').value.trim();
+      addToQueue('video', p, { prompt: p, width: w, height: h, video_frames: +$('vlen').value, fps: 24, seed: seed ? +seed : -1, init_image: startImage }, $('vmsg'));
     }
 
     // ---------- music (music packs, acestep.cpp ace-server behind /v1/music/): 1. Lyrics, 2. Style, Generate.
@@ -1568,10 +1536,8 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
         el('label', { for: 'mstyle' }, '2. Style'), el('input', { id: 'mstyle', placeholder: 'e.g. upbeat acoustic folk, warm male vocals, guitar and fiddle, 110 bpm (left empty: Loud Drums, Guitar, Violin)' }),
         el('div', { class: 'bar2', style: 'margin-top:10px' }, el('label', {}, 'Length ', el('select', { id: 'mdur', onchange: () => showAutoLength() }, ['auto', 30, 60, 90, 120, 150, 180, 210, 240, 270, 300].map((d) => el('option', { value: d, selected: d === 'auto' },
             d === 'auto' ? 'Auto (from the lyrics)' : d < 60 ? d + ' seconds' : (d / 60) + ' min')))), el('span', { class: 'sub', id: 'mautolen' })),
-        el('div', { class: 'row' }, el('button', { id: 'mgo', class: 'big', onclick: makeMusic }, 'Generate'),
-          el('button', { class: 'ghost', onclick: () => { const style = $('mstyle').value.trim(); if (!style) return;
-            addToQueue('music', style, { style, lyrics: $('mlyrics').value.trim(), duration: songLength() }, $('mmsg')); } }, 'Add to queue')),
-        el('div', { class: 'msg', id: 'mmsg' }), keyHint(), el('div', { id: 'tracks' })));
+        el('div', { class: 'row' }, el('button', { id: 'mgo', class: 'big', onclick: makeMusic }, 'Generate')),
+        el('div', { class: 'msg', id: 'mmsg' }), keyHint()));
       $('mlyrics').addEventListener('input', showAutoLength);
       if (autoLyrics) { $('mlyrics').value = autoLyrics; autoLyrics = ''; }
       showAutoLength();
@@ -1583,31 +1549,6 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
       if (!r.ok) throw new Error(explain(r, await r.text()));
       return r;
     };
-    async function musicJob(path, body, label, m = model, msgEl = $('mmsg')) {
-      const { id } = await (await musicCall(path, { method: 'POST', body: JSON.stringify(body) }, m)).json();
-      for (let i = 0; i < 1800; i++) {
-        const st = await (await musicCall('/job?id=' + encodeURIComponent(id), {}, m)).json();
-        if (st.status === 'done') return musicCall('/job?id=' + encodeURIComponent(id) + '&result=1', {}, m);
-        if (st.status === 'failed' || st.status === 'cancelled') throw new Error(label + ' ' + st.status + (st.error ? ': ' + st.error : ''));
-        if (msgEl) msgEl.textContent = `${label}… ${i}s`;
-        await new Promise((r) => setTimeout(r, 1000));
-      }
-      throw new Error(label + ' took too long.');
-    }
-    function audioFromMultipart(buf, ctype) {  // the first part whose Content-Type is audio/*
-      const m = /boundary="?([^";]+)"?/i.exec(ctype || ''); if (!m) return null;
-      const bytes = new Uint8Array(buf), dec = new TextDecoder('latin1'), text = dec.decode(bytes), sep = '--' + m[1];
-      let at = text.indexOf(sep);
-      while (at >= 0) {
-        const start = at + sep.length; if (text.startsWith('--', start)) break;
-        const next = text.indexOf(sep, start); if (next < 0) break;
-        const headEnd = text.indexOf('\r\n\r\n', start);
-        const head = text.slice(start, headEnd), type = (/content-type:\s*([^\r\n;]+)/i.exec(head) || [])[1] || '';
-        if (/^audio\//i.test(type)) { let end = next; if (text.slice(end - 2, end) === '\r\n') end -= 2; return new Blob([bytes.slice(headEnd + 4, end)], { type: type.trim() }); }
-        at = next;
-      }
-      return null;
-    }
     // a broken connection or a lost job means the model's engine stopped or restarted: Sushila finds out why (GPU and
     // memory free, programs on the GPU, disk, the engine's log) and the message says it, with what to do
     async function showProblem(box, e, what) {
@@ -1643,48 +1584,24 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     const fmtLen = (s) => (s < 60 ? s + ' seconds' : (s / 60).toFixed(s % 60 ? 1 : 0).replace('.0', '') + ' min');
     function songLength() { const v = $('mdur').value; return v === 'auto' ? autoLength($('mlyrics').value) : +v; }
     function showAutoLength() { const x = $('mautolen'); if (x) x.textContent = $('mdur').value === 'auto' ? 'about ' + fmtLen(autoLength($('mlyrics').value)) + ' for these lyrics' : ''; }
-    async function makeMusic() {
-      const scr = main.firstElementChild, $ = (id) => (scr && scr.querySelector('#' + id)) || null, model = modelNow();  // this job's screen and model (they stay its own if the page switches models)
-      // no style typed: the default style (shown in the box), and the song starts
+    function makeMusic() {
+      // no style typed: the default style (shown in the box)
       if (!$('mstyle').value.trim()) $('mstyle').value = 'Loud Drums, Guitar, Violin';
-      const style = $('mstyle').value.trim(); let lyrics = $('mlyrics').value.trim();
-      if (!model) { $('mmsg').className = 'msg err'; $('mmsg').textContent = 'Choose a music model first.'; return; }
-      if (!lyrics) lyrics = '[Instrumental]'; else if (lyrics === '[auto]') lyrics = '';
-      $('mgo').disabled = true; $('mmsg').className = 'msg';
-      const t0 = performance.now(), started = Date.now();
-      try {
-        const req = { caption: style, lyrics, duration: songLength(), seed: -1, output_format: 'mp3' };
-        const planned = await (await musicJob('/lm', req, 'Writing the song (step 1 of 2)', model, $('mmsg'))).json();
-        const songs = (Array.isArray(planned) ? planned : [planned]).map((x) => Object.assign({}, x, { output_format: 'mp3' }));
-        const r = await musicJob('/synth', songs, 'Singing it (step 2 of 2)', model, $('mmsg'));
-        const ct = r.headers.get('content-type') || '';
-        const blob = /^audio\//.test(ct) ? await r.blob() : audioFromMultipart(await r.arrayBuffer(), ct);
-        if (!blob) throw new Error('The server returned no audio.');
-        const src = URL.createObjectURL(blob), secs = ((performance.now() - t0) / 1000).toFixed(0);
-        const mi = [model && model.name, model && modeName(model.mode)];  // the model that made it (ⓘ)
-        $('tracks').prepend(el('div', { class: 'track' }, el('b', {}, style), el('div', { class: 'meta' }, `made in ${secs} s` + (lyrics && lyrics !== '[Instrumental]' ? ' · with your lyrics' : '')),
-          el('audio', { controls: true, src }), el('a', { href: src, download: 'sushila-song.mp3', class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('music', started), ' ',
-          infoBtn(() => showInfo('Song', [['Style', style, 'pre'], ['Lyrics', lyrics === '[Instrumental]' ? 'Instrumental' : lyrics || 'written by the model', 'pre'], ['Length', req.duration > 0 ? req.duration + ' s' : 'automatic'],
-            ['Model', mi[0]], ['Mode', mi[1]], ['Made in', secs + ' s'], ['Made', new Date(started).toISOString(), 'date'],
-            ['Generated on', server ? server.replace(/^https?:\/\//, '') : 'this computer'], ['Saved at', server ? '' : 'the Library (outputs/music)']]))));
-        capGallery($('tracks'));
-        $('mmsg').textContent = `Done in ${secs} s.`;
-      } catch (e) { await showProblem($('mmsg'), e, 'making your song'); }
-      finally { $('mgo').disabled = false; }
+      const style = $('mstyle').value.trim();
+      addToQueue('music', style, { style, lyrics: $('mlyrics').value.trim(), duration: songLength() }, $('mmsg'));
     }
 
     // ---------- images (image packs): POST /v1/images/generations (OpenAI format) -> base64 PNG
     function imageScreen() {
       main.replaceChildren(el('div', { class: 'music' }, el('h2', {}, 'Generate Images, locally or remotely.'),
-        el('label', { for: 'iprompt' }, 'Describe the image'), el('textarea', { id: 'iprompt', rows: 4, placeholder: 'e.g. a red fox in fresh snow at sunrise, soft light, photograph' }),
+        el('div', { class: 'row', style: 'justify-content:space-between' }, el('label', { for: 'iprompt' }, 'Describe the image'),
+          el('button', { class: 'ghost', title: 'Fill in one of the example prompts, picked at random', onclick: randomPrompt }, '🎲 Random')), el('textarea', { id: 'iprompt', rows: 4, placeholder: 'e.g. a red fox in fresh snow at sunrise, soft light, photograph' }),
         el('div', { class: 'bar2' },
           el('label', {}, 'Size ', el('select', { id: 'isize' }, imageSizes(model).map(([v, t]) => el('option', { value: v, selected: v === (model && model.mode === 'turbo' ? '768x768' : '1024x1024') }, t)))),
           el('label', {}, 'Images ', el('select', { id: 'in' }, [1, 2, 4].map((n) => el('option', { value: n }, String(n))))),
           el('label', {}, 'Seed ', el('input', { id: 'iseed', type: 'number', placeholder: 'random', style: 'width:110px' }))),
-        el('div', { class: 'row' }, el('button', { id: 'igo', class: 'big', onclick: makeImage }, 'Submit'),
-          el('button', { class: 'ghost', onclick: () => { const p = $('iprompt').value.trim(); if (!p) return; const n = +$('in').value || 1, seed = $('iseed').value.trim();
-            for (let i = 0; i < n; i++) addToQueue('image', p, { prompt: p, size: $('isize').value, seed: seed ? +seed + i : '' }, $('imsg')); } }, 'Add to queue')),
-        el('div', { class: 'msg', id: 'imsg' }), keyHint(), el('div', { id: 'gallery', class: 'gallery' })));
+        el('div', { class: 'row' }, el('button', { id: 'igo', class: 'big', onclick: makeImage }, 'Generate')),
+        el('div', { class: 'msg', id: 'imsg' }), keyHint()));
       $('iprompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) makeImage(); });
       if (autoPrompt) { $('iprompt').value = autoPrompt; autoPrompt = ''; if (autoRun) { autoRun = false; makeImage(); } }
     }
@@ -1708,32 +1625,18 @@ button:not(.ghost):not(.chip):not(.danger):not(.copy){background:linear-gradient
     }
     // stable-diffusion.cpp's OpenAI endpoint takes engine options inside the prompt: <sd_cpp_extra_args>{...}</sd_cpp_extra_args>
     const extraArgs = (o) => (Object.keys(o).length ? ` <sd_cpp_extra_args>${JSON.stringify(o)}</sd_cpp_extra_args>` : '');
-    async function makeImage() {
-      const scr = main.firstElementChild, $ = (id) => (scr && scr.querySelector('#' + id)) || null, model = modelNow();  // this job's screen and model (they stay its own if the page switches models)
-      const prompt = $('iprompt').value.trim();
-      if (!prompt || !model) { $('imsg').className = 'msg err'; $('imsg').textContent = 'Describe the image first.'; return; }
-      $('igo').disabled = true; $('imsg').className = 'msg'; $('imsg').textContent = 'Creating… the first image after starting takes longer while the model loads.';
-      const t0 = performance.now(), started = Date.now(), seed = $('iseed').value.trim();
-      try {
-        const r = await fetch(base() + '/v1/images/generations', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json', 'x-sushila-model': model.packId }, auth()),
-          // stable-diffusion.cpp's OpenAI endpoint: engine options ride inside the prompt as <sd_cpp_extra_args>{...}</sd_cpp_extra_args>
-          body: JSON.stringify({ model: model.packId, prompt: prompt + extraArgs(Object.assign({}, model.request || {}, seed ? { seed: +seed } : {})),
-            size: $('isize').value, n: +$('in').value, output_format: 'png' }) });
-        if (!r.ok) throw new Error(explain(r, await r.text()));
-        const j = await r.json(), secs = ((performance.now() - t0) / 1000).toFixed(1);
-        const safeUrl = (u) => (typeof u === 'string' && /^(https?:|data:image\/|blob:)/i.test(u) ? u : '');  // never javascript: from a server
-        const imgs = (j.data || []).map((d) => ({ src: d.b64_json ? 'data:image/png;base64,' + d.b64_json : safeUrl(d.url), file: d.sushila_file })).filter((x) => x.src);
-        if (!imgs.length) throw new Error('The server returned no image.');
-        const mi = [model && model.name, model && modeName(model.mode)];  // the model that made it (ⓘ)
-        for (const { src, file } of imgs.reverse()) $('gallery').prepend(el('figure', {}, el('img', { src, alt: prompt }), el('figcaption', { class: 'meta' }, `${prompt.slice(0, 80)} · ${secs} s · `,
-          el('a', { href: src, download: file ? file.split(/[\\/]/).pop() : 'sushila-image.png', class: 'dlbtn' }, '⬇ Download'), ' ', shareBtn('image', started, file), ' ',
-          infoBtn(() => showInfo('Picture', [['Prompt', prompt, 'pre'], ['Model', mi[0]], ['Mode', mi[1]], ['Size', $('isize').value], ['Seed', seed || 'random'],
-            ['Made in', secs + ' s'], ['Made', new Date(started).toISOString(), 'date'], ['Generated on', server ? server.replace(/^https?:\/\//, '') : 'this computer'], ['Saved at', file, 'pre']])),
-          file ? ' ' : null, file ? savedAt(file) : null)));
-        capGallery($('gallery'));
-        $('imsg').textContent = `${imgs.length} image${imgs.length > 1 ? 's' : ''} in ${secs} s`;
-      } catch (e) { await showProblem($('imsg'), e, 'making your picture'); }
-      finally { $('igo').disabled = false; }
+    // 🎲 Random: one of the engine's example prompts for new pictures (never the one already in the box)
+    let examplePrompts = null;
+    async function randomPrompt() {
+      if (!examplePrompts) { try { examplePrompts = (await (await fetch(base() + '/api/prompts/images', { headers: auth() })).json()).prompts || []; } catch (_) { examplePrompts = null; return; } }
+      const box = $('iprompt'); if (!box || !examplePrompts.length) return;
+      const others = examplePrompts.filter((p) => p !== box.value.trim());
+      box.value = others[Math.floor(Math.random() * others.length)]; box.focus();
+    }
+    function makeImage() {
+      const p = $('iprompt').value.trim(); if (!p) { $('imsg').className = 'msg err'; $('imsg').textContent = 'Describe the image first.'; return; }
+      const n = +$('in').value || 1, seed = $('iseed').value.trim();
+      for (let i = 0; i < n; i++) addToQueue('image', p, { prompt: p, size: $('isize').value, seed: seed ? +seed + i : '' }, $('imsg'));
     }
 
     fillServers();

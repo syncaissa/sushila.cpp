@@ -4,6 +4,7 @@
 // browser, a password or an access key.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod cli;
+mod update;
 mod engine;
 
 use futures_util::StreamExt;
@@ -51,6 +52,13 @@ impl St {
 // ---------------------------------------------------------------- commands the window calls
 #[tauri::command]
 async fn api(st: S<'_>, method: String, path: String, body: Option<Value>) -> Result<Value, String> { st.call(&method, &path, body).await }
+
+/// Is a newer Sushila Station published? {available, build, version, releaseNotes, bytes, current}
+#[tauri::command]
+async fn update_check(st: S<'_>) -> Result<Value, String> { Ok(update::check(&st.http).await) }
+/// Download, check and install the newer Station, then restart (events "update" {done, total}).
+#[tauri::command]
+async fn update_apply(app: AppHandle, st: S<'_>) -> Result<(), String> { update::apply(app, &st.http).await }
 
 #[tauri::command]
 async fn engine_status(st: S<'_>) -> Result<Value, String> {
@@ -185,6 +193,7 @@ fn main() {
     if let Some(code) = cli::run_if_command() { std::process::exit(code); }
     // started by an older copy that is handing over: let it close first (it holds the one-instance lock)
     if std::env::var_os("SUSHILA_STATION_TAKEOVER").is_some() { std::env::remove_var("SUSHILA_STATION_TAKEOVER"); std::thread::sleep(Duration::from_millis(2500)); }
+    update::clean_leftovers();  // what an upgrade left behind
     let st = Arc::new(St { http: engine::client(), inner: Mutex::new(Inner::default()) });
     tauri::Builder::default()
         // opening Station again shows the window; opening a different copy (a newer download) replaces this one
@@ -206,7 +215,7 @@ fn main() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--hidden"])))
         .manage(st)
-        .invoke_handler(tauri::generate_handler![api, engine_status, engine_ensure, engine_start, engine_stop, engine_restart, install_cli, uninstall_cli, media_url, chat_start, chat_stop, read_picture, save_to, copy_text, notify_os])
+        .invoke_handler(tauri::generate_handler![api, update_check, update_apply, engine_status, engine_ensure, engine_start, engine_stop, engine_restart, install_cli, uninstall_cli, media_url, chat_start, chat_stop, read_picture, save_to, copy_text, notify_os])
         .setup(|app| {
             let hidden = std::env::args().any(|a| a == "--hidden");  // started at login: only the tray icon
             let mut b = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))

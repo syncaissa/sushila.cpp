@@ -1842,6 +1842,8 @@ const TABLES = {
   audit: 'sushilaai-audit',         // PK day, SK at: sign-ups, sign-ins, e-mail changes, downloads, admin changes; views of shared links (at "view#<id>#<visitor>")
   reportabuse: 'sushilaai-reportabuse', // PK reportId: every report sent from sushila.ai/reportabuse (link, reason, details, e-mail, time, IP)
   localhostLinks: 'sushilaai-localhost-links', // PK id (20 hex): a temporary internet URL -> target (trycloudflare), userId, ip, time, status; index user-index (cleared monthly)
+  versions: 'sushilaai-versions',   // PK app ("station"), SK releasedAt: build, version, latest (true on the newest), releaseNotes, files (JSON, signed per file)
+  notifications: 'sushilaai-notifications', // PK id: messages the Sushila apps show at start (title, message, url, linkText, level, active, listKey "notification", createdAt, startAt?, endAt?); index list-index
   fileViews: 'sushilaai-file-views',    // PK url (a shared link, "/c/<12 hex>") -> userId (its owner) and views (one per visitor per 24 h; log in audit)
 };
 const OTP_TTL_MS = 5 * 60 * 1000;      // a code is valid for 5 minutes
@@ -1919,7 +1921,7 @@ class DynamoDB {
   async queryAll(table, index, keyExpr, values, opts = {}, cap = 20000) {
     const items = []; let start;
     do {
-      const r = await this.request('Query', { TableName: table, IndexName: index, KeyConditionExpression: keyExpr, ExpressionAttributeValues: values, ...opts, ...(start ? { ExclusiveStartKey: start } : {}) });
+      const r = await this.request('Query', { TableName: table, ...(index ? { IndexName: index } : {}), KeyConditionExpression: keyExpr, ExpressionAttributeValues: values, ...opts, ...(start ? { ExclusiveStartKey: start } : {}) });
       items.push(...(r.Items || [])); start = r.LastEvaluatedKey;
     } while (start && items.length < cap);
     return items;
@@ -2073,6 +2075,46 @@ async function setTrash(db, uid, id, on) {  // true when the row is this account
       UpdateExpression: on ? 'SET trashedAt = :t, trashKey = :k' : 'REMOVE trashedAt, trashKey', ExpressionAttributeValues: on ? { ':u': S(uid), ':t': S(new Date().toISOString()), ':k': S('trash') } : { ':u': S(uid) } });
     return true;
   } catch (e) { if (/ConditionalCheckFailed/.test(e.message)) return false; throw e; }
+}
+// --- Notifications: rows of sushilaai-notifications with active = true (and inside startAt..endAt when given), newest
+// first; read with a Query on list-index (never a scan), kept 60 s. Plain text only: the apps make https:// links clickable.
+let notificationsCache = null;
+async function activeNotifications(db) {
+  if (notificationsCache && notificationsCache.until > Date.now()) return notificationsCache.items;
+  const now = new Date().toISOString();
+  const httpsUrl = (u) => (/^https:\/\/[^\s<>"']+$/.test(u) ? u : '');
+  let items = [];
+  try {
+    const rows = await db.queryAll(TABLES.notifications, 'list-index', 'listKey = :k', { ':k': S('notification') }, { ScanIndexForward: false, Limit: 50 }, 50);
+    items = rows.filter((r) => bool(r, 'active') && (!str(r, 'startAt') || str(r, 'startAt') <= now) && (!str(r, 'endAt') || str(r, 'endAt') > now))
+      .map((r) => ({ id: str(r, 'id'), title: str(r, 'title').slice(0, 200), message: str(r, 'message').slice(0, 2000), url: httpsUrl(str(r, 'url')),
+        linkText: str(r, 'linkText').slice(0, 80), level: str(r, 'level') === 'warn' ? 'warn' : 'info', createdAt: str(r, 'createdAt') }))
+      .filter((n) => n.id && (n.title || n.message));
+  } catch (e) { console.error('notifications', e.message); if (notificationsCache) return notificationsCache.items; }
+  notificationsCache = { items, until: Date.now() + 60000 };
+  return items;
+}
+// --- Versions: the row of sushilaai-versions with latest = true for an app (a Query on its key, newest first), kept 60 s.
+// No row: {latest: null}, and the apps show nothing. The apps check each file's signature themselves.
+const versionsCache = new Map();
+async function latestVersion(db, app) {
+  const c = versionsCache.get(app); if (c && c.until > Date.now()) return c.v;
+  let v = null;
+  try {
+    const rows = await db.queryAll(TABLES.versions, null, '#a = :a', { ':a': S(app) }, { ExpressionAttributeNames: { '#a': 'app' }, ScanIndexForward: false, Limit: 50 }, 50);
+    const r = rows.find((x) => bool(x, 'latest'));
+    if (r) {
+      let files = {}; try { files = JSON.parse(str(r, 'files') || '{}'); } catch (_) {}
+      const clean = {};
+      for (const [k, f] of Object.entries(files)) {
+        if (/^[a-z0-9-]{3,40}$/.test(k) && f && /^https:\/\/files\.sushila\.ai\/[^\s"'<>]+$/.test(f.url) && /^[0-9a-f]{64}$/.test(f.sha256) && Number(f.bytes) > 0 && typeof f.signature === 'string')
+          clean[k] = { url: f.url, sha256: f.sha256, bytes: Number(f.bytes), signature: f.signature };
+      }
+      v = { app, build: Number((r.build && r.build.N) || str(r, 'build') || 0), version: str(r, 'version'), releasedAt: str(r, 'releasedAt'), releaseNotes: str(r, 'releaseNotes').slice(0, 5000), files: clean };
+    }
+  } catch (e) { console.error('versions', e.message); if (c) return c.v; }
+  versionsCache.set(app, { v, until: Date.now() + 60000 });
+  return v;
 }
 async function purgeTrash(env) {  // the cron: files in the trash for more than TRASH_DAYS
   const db = new DynamoDB(env), b2 = new B2(env);
@@ -4028,6 +4070,13 @@ export default {
       if (method !== 'GET' && method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
       if (p === '/api/account') return await account(request, env, db, session);
       if (p === '/api/health') return await health(env, db, b2);
+      // what every Sushila app shows when it starts (public; the apps ask through their engine)
+      if (p === '/api/versions/latest') {  // the newest published version of an app (Sushila Station asks at start)
+        const app = url.searchParams.get('app') || 'station';
+        if (!/^[a-z0-9-]{2,30}$/.test(app)) return json({ error: 'Bad request.' }, 400);
+        return json({ latest: db.configured ? await latestVersion(db, app) : null }, 200, { 'cache-control': 'public, max-age=60' });
+      }
+      if (p === '/api/notifications') return json({ notifications: db.configured ? await activeNotifications(db) : [] }, 200, { 'cache-control': 'public, max-age=60', 'access-control-allow-origin': '*' });
       const user = session ? await loadUser(db, session) : null;
       if (p.startsWith('/api/admin/')) return await adminApi(request, env, db, user, p);
       if (p.startsWith('/api/bugs')) return await bugsApi(request, env, db, user, p);

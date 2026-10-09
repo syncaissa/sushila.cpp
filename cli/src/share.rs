@@ -5,7 +5,7 @@
 use serde_json::{json, Value};
 use std::path::Path;
 
-fn site(dir: &Path) -> String {
+pub fn site(dir: &Path) -> String {
     let st = crate::webserver::read_state(dir);
     st["settings"]["shareUrl"].as_str().filter(|u| u.starts_with("https://")).unwrap_or("https://sushila.ai").trim_end_matches('/').to_string()
 }

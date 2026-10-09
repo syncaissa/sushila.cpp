@@ -11,7 +11,9 @@ pub const WAN_NEGATIVE_PROMPT: &str = "色调艳丽，过曝，静态，细节�
 /// defaults (20 steps) with our earlier guidance 6 / shift 3 gave noise: results/video_quality_20261007/.
 pub static WAN_SAMPLING: std::sync::LazyLock<Value> = std::sync::LazyLock::new(|| json!({ "sample_method": "euler", "sample_steps": 50, "guidance": { "txt_cfg": 5.0 }, "flow_shift": 5.0 }));
 
-pub struct Output { pub ext: String, pub mime: String, pub bytes: Vec<u8> }
+/// info: what the model decided itself and is worth keeping with the file (a song's lyrics when it wrote them, its bpm, key,
+/// time signature, ...); null when there is nothing.
+pub struct Output { pub ext: String, pub mime: String, pub bytes: Vec<u8>, pub info: Value }
 
 fn http() -> reqwest::Client { reqwest::Client::builder().timeout(Duration::from_secs(3600)).build().expect("http client") }
 
@@ -49,10 +51,14 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
     match kind {
         "text" => {
             tick("writing");
-            let j: Value = post(&base, "/v1/chat/completions", &json!({ "messages": [{ "role": "user", "content": p["prompt"].as_str().unwrap_or("") }],
+            // an optional system instruction (Code asks for an expert programmer), then the question
+            let mut messages = vec![];
+            if let Some(sys) = p["system"].as_str().filter(|t| !t.is_empty()) { messages.push(json!({ "role": "system", "content": sys })); }
+            messages.push(json!({ "role": "user", "content": p["prompt"].as_str().unwrap_or("") }));
+            let j: Value = post(&base, "/v1/chat/completions", &json!({ "messages": messages,
                 "max_tokens": p["max_tokens"].as_u64().unwrap_or(1024).min(8192), "temperature": p.get("temperature").cloned().unwrap_or(json!(0.7)), "stream": false })).await?.json().await.map_err(err)?;
             let text = j["choices"][0]["message"]["content"].as_str().unwrap_or("").to_string();
-            Ok(Output { ext: "md".into(), mime: "text/markdown; charset=utf-8".into(), bytes: text.into_bytes() })
+            Ok(Output { ext: "md".into(), mime: "text/markdown; charset=utf-8".into(), bytes: text.into_bytes(), info: Value::Null })
         }
         "image" => {
             tick("drawing");
@@ -62,7 +68,7 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
             if !extra.is_empty() { prompt += &format!(" <sd_cpp_extra_args>{}</sd_cpp_extra_args>", Value::Object(extra)); }
             let j: Value = post(&base, "/v1/images/generations", &json!({ "model": model, "prompt": prompt, "size": p["size"].as_str().unwrap_or("1024x1024"), "n": 1, "output_format": "png" })).await?.json().await.map_err(err)?;
             let d = j["data"][0]["b64_json"].as_str().ok_or("the server returned no image")?;
-            Ok(Output { ext: "png".into(), mime: "image/png".into(), bytes: b64(d)? })
+            Ok(Output { ext: "png".into(), mime: "image/png".into(), bytes: b64(d)?, info: Value::Null })
         }
         "video" => {
             let mut body = json!({ "negative_prompt": WAN_NEGATIVE_PROMPT, "fps": 24, "seed": -1, "output_format": "webm",
@@ -82,7 +88,7 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
                 let st: Value = http().get(format!("{base}/sdcpp/v1/jobs/{id}")).timeout(Duration::from_secs(30)).send().await.map_err(err)?.json().await.map_err(err)?;
                 match st["status"].as_str() {
                     Some("completed") => { let r = &st["result"]; let ext = r["output_format"].as_str().unwrap_or("webm").to_string();
-                        return Ok(Output { mime: r["mime_type"].as_str().map(String::from).unwrap_or(format!("video/{ext}")), ext, bytes: b64(r["b64_json"].as_str().unwrap_or(""))? }); }
+                        return Ok(Output { mime: r["mime_type"].as_str().map(String::from).unwrap_or(format!("video/{ext}")), ext, bytes: b64(r["b64_json"].as_str().unwrap_or(""))?, info: Value::Null }); }
                     Some("failed") | Some("cancelled") => return Err(st["error"]["message"].as_str().unwrap_or("the video job failed").to_string()),
                     _ => {}
                 }
@@ -108,11 +114,12 @@ pub async fn run(kind: &str, model: &str, port: u16, p: &Value, accel: Option<Va
             let planned: Value = job(&base, "/lm", &json!({ "caption": p["style"].as_str().unwrap_or(""), "lyrics": if lyrics == "[auto]" { "" } else { lyrics },
                 "duration": p["duration"].as_f64().unwrap_or(60.0), "seed": -1, "output_format": "mp3" }), "writing the song", &mut tick).await?.json().await.map_err(err)?;
             let songs: Vec<Value> = match planned { Value::Array(a) => a, v => vec![v] }.into_iter().map(|mut x| { x["output_format"] = json!("mp3"); x }).collect();
+            let info = songs.first().map(crate::library::prompt_details).unwrap_or(Value::Null);
             let r = job(&base, "/synth", &Value::Array(songs), "singing it", &mut tick).await?;
             let ct = r.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
             let buf = r.bytes().await.map_err(err)?.to_vec();
             let audio = if ct.starts_with("audio/") { Some(buf) } else { multipart_audio(&buf, &ct) };
-            Ok(Output { ext: "mp3".into(), mime: "audio/mpeg".into(), bytes: audio.ok_or("the server returned no audio")? })
+            Ok(Output { ext: "mp3".into(), mime: "audio/mpeg".into(), bytes: audio.ok_or("the server returned no audio")?, info })
         }
         k => Err(format!("unknown kind {k}")),
     }

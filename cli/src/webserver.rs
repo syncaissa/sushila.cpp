@@ -15,6 +15,20 @@ use crate::net::client;
 pub const APP_JS: &str = include_str!("../web/sushila_page.js");
 /// The documentation (one self-contained file; the website can serve the same file).
 pub const DOCS_HTML: &str = include_str!("../web/sushila_docs.html");
+/// Example prompts for new pictures (one per line, # = note): the Random button on the picture page (app and browser).
+const IMAGE_PROMPTS: &str = include_str!("../web/prompts/images.txt");
+pub fn image_prompts() -> Vec<&'static str> { IMAGE_PROMPTS.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).collect() }
+
+// Sushila Station's own screens (a copy of station/dist, checked equal by check_sync.sh) plus bridge.js, which turns the
+// app's requests into requests to this engine: the preview of one design for the app and the browser, at /station/.
+const STATION_FILES: &[(&str, &str, &[u8])] = &[
+    ("index.html", "text/html; charset=utf-8", include_bytes!("../web/station/index.html")),
+    ("app.js", "text/javascript; charset=utf-8", include_bytes!("../web/station/app.js")),
+    ("bridge.js", "text/javascript; charset=utf-8", include_bytes!("../web/station/bridge.js")),
+    ("app.css", "text/css; charset=utf-8", include_bytes!("../web/station/app.css")),
+    ("ipad.css", "text/css; charset=utf-8", include_bytes!("../web/station/ipad.css")),
+    ("logo.png", "image/png", include_bytes!("../web/station/logo.png")),
+];
 /// Sushila's logo, as on sushila.ai: the favicon in three sizes and the logo animation (logo/SushilaLogoWithBaseG.mp4,
 /// the swan cropped square, 72 px, 12 frames a second, played once) for the header of every page.
 const BRAND: [(&str, &str, &[u8]); 7] = [
@@ -309,6 +323,64 @@ async fn srv_page(axum::extract::State(s): axum::extract::State<Arc<Srv>>, heade
         _ => PAGE_HTML.to_string(),
     };
     ([("content-type", "text/html; charset=utf-8"), ("cache-control", "no-store"), ("x-frame-options", "DENY"), ("referrer-policy", "no-referrer")], html).into_response()
+}
+
+/// GET /api/prompts/images: the example prompts for new pictures ({prompts: [...]}); the same list for everyone.
+async fn srv_prompts(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    ([("cache-control", "max-age=3600")], axum::Json(json!({ "prompts": image_prompts() }))).into_response()
+}
+
+/// GET /api/notifications: the messages sushila.ai asks every Sushila app to show at start (sushilaai-notifications rows
+/// with active = true). Asked at most once an hour; kept in <home>/notifications.json, so they still show offline (and
+/// an answer that fails keeps the last good one). Plain text, title, an optional https:// link: the pages make links clickable.
+async fn srv_notifications(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    static LAST: std::sync::LazyLock<tokio::sync::Mutex<Option<std::time::Instant>>> = std::sync::LazyLock::new(|| tokio::sync::Mutex::new(None));
+    let file = s.data_dir.join("notifications.json");
+    let mut last = LAST.lock().await;  // one question to sushila.ai at a time
+    if last.map(|t| t.elapsed() > Duration::from_secs(3600)).unwrap_or(true) || !file.exists() {
+        *last = Some(std::time::Instant::now());
+        let url = format!("{}/api/notifications", crate::share::site(&s.data_dir));
+        let got = async {
+            let u = crate::net::check_url(&url, false)?;
+            let r = crate::net::client()?.get(u).timeout(Duration::from_secs(5)).send().await.map_err(|e| e.to_string())?;
+            if !r.status().is_success() { return Err(format!("HTTP {}", r.status())); }
+            r.json::<Value>().await.map_err(|e| e.to_string())
+        }.await;
+        match got {
+            Ok(v) if v["notifications"].is_array() => { let _ = crate::util::write_atomic(&file, v.to_string().as_bytes()); }
+            Ok(_) => {}
+            Err(e) => crate::core::log(true, &format!("notifications: sushila.ai did not answer ({e}); showing the last ones")),
+        }
+    }
+    let v = std::fs::read_to_string(&file).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).filter(|v| v["notifications"].is_array()).unwrap_or(json!({ "notifications": [] }));
+    ([("cache-control", "no-store")], axum::Json(v)).into_response()
+}
+
+/// GET /station/ and /station/<file>: Sushila Station's screens in the browser, on this computer only (the page carries
+/// this computer's token, like /). /station without the slash goes to /station/ so the files' relative names work.
+async fn srv_station(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap, uri: axum::http::Uri) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let st = read_state(&s.data_dir);
+    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
+    if !this_computer(&headers, s.port) {
+        return (axum::http::StatusCode::FORBIDDEN, "The Sushila Station page opens on this computer only: http://localhost:7874/station/").into_response();
+    }
+    let path = uri.path();
+    if path == "/station" { return ([("location", "/station/")], axum::http::StatusCode::MOVED_PERMANENTLY).into_response(); }
+    let name = path.strip_prefix("/station/").filter(|n| !n.is_empty()).unwrap_or("index.html");
+    let Some((_, ctype, bytes)) = STATION_FILES.iter().find(|(n, _, _)| *n == name) else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); };
+    let mut body = bytes.to_vec();
+    if name == "index.html" {
+        let tok = st.get("token").and_then(|t| t.as_str()).unwrap_or("");
+        let html = String::from_utf8_lossy(bytes).replace("<script src=\"app.js\"></script>",
+            &format!("<script>window.SUSHILA_TOKEN={};</script><script src=\"bridge.js\"></script><script src=\"app.js\"></script>", Value::String(tok.to_string())));
+        body = html.into_bytes();
+    }
+    ([("content-type", *ctype), ("cache-control", "no-store"), ("x-frame-options", "DENY"), ("referrer-policy", "no-referrer")], body).into_response()
 }
 
 async fn srv_js(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
@@ -1167,6 +1239,11 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
     let app = axum::Router::new()
         .route("/", axum::routing::get(srv_page))
         .route("/docs", axum::routing::get(srv_docs))
+        .route("/api/prompts/images", axum::routing::get(srv_prompts))
+        .route("/api/notifications", axum::routing::get(srv_notifications))
+        .route("/station", axum::routing::get(srv_station))
+        .route("/station/", axum::routing::get(srv_station))
+        .route("/station/:file", axum::routing::get(srv_station))
         .route("/api/crashes", axum::routing::get(srv_crashes))
         .route("/sushila.js", axum::routing::get(srv_js))
         .route("/api/state", axum::routing::get(srv_state))
@@ -1205,6 +1282,13 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
 #[cfg(test)]
 mod robustness_tests {
     use super::*;
+    #[test] fn image_prompts_are_new_pictures() {
+        let p = image_prompts();
+        assert_eq!(p.len(), 70);
+        assert!(p.iter().all(|x| !x.starts_with('#') && !x.contains("this photo") && x.len() > 20));
+        // the Station screens the engine serves at /station/ are all there
+        for f in ["index.html", "app.js", "bridge.js", "app.css", "ipad.css", "logo.png"] { assert!(STATION_FILES.iter().any(|(n, _, b)| *n == f && !b.is_empty()), "{f}"); }
+    }
     #[test] fn proxy_paths() {
         for ok in ["/v1/chat/completions", "/v1/models", "/v1/video/jobs/abc", "/v1/music/job"] { assert!(proxy_path_ok(ok), "{ok}"); }
         for bad in ["/v1/../slots", "/v1/./props", "/v1/%2e%2e/props", "/v1/%2E%2e/x", "/v1/a%2fb", "/v1/a%5Cb", "/v1/a\\b", "/v1/video/../../x"] { assert!(!proxy_path_ok(bad), "{bad}"); }

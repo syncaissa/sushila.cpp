@@ -33,6 +33,8 @@ w.__TAURI__ = {
   core: { invoke: async (c, a) => {
     calls.push([c, a]);
     if (c === 'engine_status') return { running: true, port: 7874, version: '0.1.1', build: 29 };
+    if (c === 'update_check') return { available: true, build: 11, version: '0.1.1', current: 10, bytes: 22e6, releaseNotes: 'Faster pictures.\nDetails: https://sushila.ai/install' };
+    if (c === 'update_apply') return null;
     if (c !== 'api') return null;
     if (a.path === '/api/state') return { ok: true, status: 200, data: JSON.parse(JSON.stringify(state)) };
     if (a.path === '/api/catalog') return { ok: true, status: 200, data: catalog };
@@ -42,6 +44,8 @@ w.__TAURI__ = {
     if (a.path === '/api/use' && a.body.action === 'start' && a.body.pack === 'z-image') state.running = [{ packId: 'z-image', name: 'Z-Image Turbo', kind: 'image', mode: a.body.mode, ready: true }];
     if (a.path === '/api/control' || a.path === '/api/use') return { ok: true, status: 200, data: { id: 't1' } };
     if (a.path.startsWith('/api/queue') && a.method === 'GET') return { ok: true, status: 200, data: { jobs: [] } };
+    if (a.path === '/api/notifications') return { ok: true, status: 200, data: { notifications: [{ id: 'n1', title: 'New build', message: 'Get it at https://sushila.ai/install today.', url: 'https://sushila.ai/install', linkText: 'Get it', level: 'info' }] } };
+    if (a.path === '/api/prompts/images') return { ok: true, status: 200, data: { prompts: ['A red fox in snow', 'A lighthouse at dusk'] } };
     if (a.path === '/api/share/me') return { ok: true, status: 200, data: { ...me } };
     if (a.path === '/api/share/code') return { ok: true, status: 200, data: { ok: true } };
     if (a.path === '/api/share/verify') { Object.assign(me, { signedIn: true, email: a.body.email }); return { ok: true, status: 200, data: { ok: true } }; }
@@ -55,6 +59,18 @@ const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
 await tick(300);
 const S = w.__S, $ = (s) => w.document.querySelector(s), $$ = (s) => [...w.document.querySelectorAll(s)];
 const text = (el) => (el ? el.textContent : '');
+
+// --- a newer Station: the notice with its release notes; Upgrade now asks the app to install it
+{ const t = $$('#toasts .toast').find((x) => text(x).includes('A new version of Sushila Station is available'));
+  ok(t && text(t).includes('Build 11') && text(t).includes('you have build 10') && text(t).includes('Faster pictures.') && t.querySelector('a'), 'update notice with build, release notes and a link: ' + text(t));
+  [...t.querySelectorAll('button')].find((b) => text(b).startsWith('Upgrade now')).click(); await tick(100);
+  ok(calls.some(([c]) => c === 'update_apply'), 'Upgrade now installs it'); }
+
+// --- messages from sushila.ai shown at start, with a clickable link; "Don't show again" remembers the id
+{ const t = $$('#toasts .toast').find((x) => text(x).includes('New build'));
+  ok(t && t.querySelector('a') && text(t.querySelector('a')) === 'https://sushila.ai/install' && [...t.querySelectorAll('button')].some((b) => text(b) === 'Get it'), 'start-up notification with its link: ' + text(t));
+  [...t.querySelectorAll('button')].find((b) => text(b) === "Don't show again").click();
+  ok(JSON.parse(w.localStorage.getItem('station-notes-hidden') || '[]').includes('n1'), "Don't show again remembers it"); }
 
 // --- the engine panel's model list
 await w.eval('enginePanel()'); await tick();
@@ -128,14 +144,27 @@ cd.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' })); await tick(1
 ok(calls.some(([c, a]) => c === 'api' && a.path === '/api/share/verify' && a.body.code === '123456'), 'verified after Enter');
 ok(text(bar()).includes('a@example.com'), 'top right shows the signed-in e-mail: ' + text(bar()));
 
-// --- a picture asked while its model is not running: the model starts, then the picture is made (no second click)
+// --- pictures go to the queue (the engine starts the model itself): one job per picture, no waiting in the window
 state.running = [];
 await w.eval('go("pictures")'); await tick(100);
+// 🎲 Random fills one of the engine's example prompts, never the same one twice in a row
+w.document.getElementById('ip').value = 'A red fox in snow';
+await w.eval('randomPrompt()'); await tick(50);
+ok(w.document.getElementById('ip').value === 'A lighthouse at dusk', 'Random picks another example prompt: ' + w.document.getElementById('ip').value);
+ok([...w.document.querySelectorAll('#view button')].some((b) => b.textContent.includes('Random')), 'the picture page has a Random button');
 w.document.getElementById('ip').value = 'a red fox in snow';
+w.document.getElementById('in').value = '2';
 const before = calls.length;
 await w.eval('makePictures()'); await tick(100);
-const after = calls.slice(before).filter(([c, a]) => c === 'api' && a.method === 'POST').map(([, a]) => a.path);
-ok(after.indexOf('/api/use') >= 0 && after.indexOf('/v1/images/generations') > after.indexOf('/api/use'), 'model started, then the picture made: ' + after.join(', '));
+const qs = calls.slice(before).filter(([c, a]) => c === 'api' && a.method === 'POST' && a.path === '/api/queue').map(([, a]) => a.body);
+ok(qs.length === 2 && qs.every((b) => b.kind === 'image' && b.model === 'z-image' && b.params.prompt === 'a red fox in snow'), 'two picture jobs queued: ' + JSON.stringify(qs));
+ok(!calls.slice(before).some(([c, a]) => c === 'api' && (a.path === '/v1/images/generations' || a.path === '/api/use')), 'nothing drawn or started from the window');
+// --- chat: Run in background queues a text job (Code keeps its instruction)
+await w.eval('go("code")'); await tick(100);
+w.document.getElementById('q').value = 'write fizzbuzz';
+await w.eval('sendBackground("code")'); await tick(100);
+const tq = calls.filter(([c, a]) => c === 'api' && a.path === '/api/queue' && a.method === 'POST').pop()[1].body;
+ok(tq.kind === 'text' && tq.params.prompt === 'write fizzbuzz' && /expert programmer/.test(tq.params.system), 'Run in background queued a text job: ' + JSON.stringify(tq));
 
 // --- free tag
 ok(w.eval('freeTag({ where: "local" })') && !w.eval('freeTag({ where: "cloud:x" })') && !w.eval('freeTag({})'), 'free tag only for where=local');

@@ -1,0 +1,32 @@
+# One prompt per line. Lines starting with # are notes. Source: RandomPromtsForImages.txt (2026-10-09).
+# Changes to an existing photo: for a future "edit a photo" feature (the picture models make new pictures only).
+Turn this street into a rainy night scene: wet reflective pavement, glowing shop signs, people with umbrellas, soft mist around the street lamps, puddles reflecting colorful lights, maintaining the original layout and buildings.
+Transform this landscape into peak autumn: trees in vivid red, orange and gold, fallen leaves covering the ground, soft warm afternoon light, a light haze in the air, maintaining the original composition.
+Add a winter wonderland to this scene: thick snow on rooftops, trees and ground, icicles hanging from edges, gentle snowfall, frosted windows, a cool blue-white color palette, maintaining the original structures.
+Convert this photo into a soft watercolor painting: loose brushstrokes, gentle color bleeds, visible paper texture, light pastel tones, keeping the main subject clear and recognizable.
+Decorate this house for Diwali: rows of glowing diyas along balconies and steps, colorful rangoli at the entrance, hanging paper lanterns, strings of golden lights on the walls, fireworks in the night sky, warm festive glow.
+Decorate this room for Halloween: carved glowing pumpkins, cobwebs in the corners, flickering candles, hanging bats, an orange and purple color scheme, a spooky but cozy atmosphere, maintaining the room layout.
+Change the time of day in this photo to golden hour: warm low sunlight, long soft shadows, glowing highlights on edges, a soft orange sky, maintaining all objects and composition.
+Transform this city into a cyberpunk scene: neon signs in pink and cyan, holographic billboards, flying vehicles, rain-soaked streets, a dark moody sky, maintaining the original street layout.
+Add spring to this scene: blooming cherry and apple blossoms on the trees, fresh green grass, colorful flowers along paths, butterflies, bright soft sunlight, maintaining the original setting.
+Turn this portrait into a classical oil painting: rich textured brushstrokes, deep warm shadows, Renaissance-style lighting, an ornate dark background, preserving the person's likeness.
+Transform this beach into a tropical sunset scene: a glowing orange and pink sky, a sun low over the ocean, palm silhouettes, gentle waves catching the golden light, maintaining the shoreline.
+Add a breathtaking night sky to this landscape: the Milky Way arching overhead, thousands of stars, a faint purple glow on the horizon, the foreground softly moonlit, maintaining the original terrain.
+Turn this backyard into an evening garden party: string lights overhead, lanterns on tables, flowers in vases, a long table set for dinner, a warm inviting glow, maintaining the yard layout.
+Make this house look abandoned for decades: peeling paint, broken windows, vines climbing the walls, overgrown grass, rusted fences, an overcast moody sky, maintaining the house structure.
+Turn this photo into a 1950s vintage photograph: faded warm colors, film grain, slight vignette, soft focus, period-appropriate color tones, maintaining the composition.
+Add mystery to this forest: thick low fog between the trees, muted desaturated colors, faint light rays piercing through, a quiet eerie atmosphere, maintaining the original trees and path.
+Redesign this kitchen in a modern style: white quartz countertops, matte black fixtures, flat-panel cabinets, pendant lighting, clean minimalist look, maintaining the room's dimensions and layout.
+Turn this street into a Holi celebration: clouds of bright colored powder in the air, people splashed in pink, yellow and green, joyful energy, vibrant colors everywhere, maintaining the street setting.
+Transform this street into a flooded canal city: calm water replacing the road, small boats moored by doors, buildings reflected in the water, soft morning light, maintaining the buildings.
+Add the northern lights over this landscape: swirling green and violet aurora across the night sky, stars visible, the light reflecting softly on snow or water below, maintaining the foreground.
+Turn this living room into Christmas morning: a decorated tree with glowing lights, wrapped presents underneath, stockings on the fireplace, snow visible outside the window, warm cozy holiday glow.
+Convert this photo into a detailed pencil sketch: fine graphite lines, cross-hatched shading, white paper texture, keeping all key details and proportions.
+Transform this pet photo into a royal portrait: the animal dressed in an ornate velvet robe with a gold collar, seated on a throne, a classical oil-painting style, a dark regal background.
+Turn this empty room into a stylish home office: a wooden desk, an ergonomic chair, bookshelves, plants, a large monitor, warm natural light, maintaining the room's walls and windows.
+Set up a wedding in this garden: a floral arch at the center, white chairs in rows, a petal-lined aisle, hanging lanterns, soft romantic sunset light, maintaining the garden layout.
+Turn this daytime city photo into night: lit windows in every building, glowing street lamps, car light trails, a deep blue sky, maintaining the original skyline.
+Convert this photo into an anime-style illustration: clean line art, soft cel shading, vibrant colors, a dreamy painted sky, keeping the scene and subjects recognizable.
+Change this scene to high summer: lush deep-green trees, bright blue sky with fluffy clouds, strong sunlight, wildflowers in bloom, maintaining the original composition.
+Add a festival market to this town square: colorful stalls with awnings, hanging string lights, crowds browsing, food vendors with steam rising, a lively warm evening atmosphere, maintaining the surrounding buildings.
+Turn this photo into a miniature tilt-shift diorama: a strong blur at the top and bottom, boosted color saturation, a toy-like look to the buildings, people and cars, maintaining the original scene.

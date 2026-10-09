@@ -22,6 +22,8 @@ async function page(token, hash, search = '', adm = { passwordSet: true, loggedI
         trash: [{ rel: 'video/old.webm', path: '/x/.trash/video/old.webm', name: 'old.webm', kind: 'video', bytes: 9e6, deleted: '2026-10-08T09:00:00Z', trash: true }] };
       return { ok: true, status: 200, json: async () => lb, text: async () => JSON.stringify(lb) }; }
     if (u.includes('/api/library/')) return { ok: true, status: 200, json: async () => ({ ok: true }), text: async () => '{}' };
+    if (u.includes('/api/notifications')) return { ok: true, status: 200, json: async () => ({ notifications: [{ id: 'n1', title: 'New build', message: 'Get it at https://sushila.ai/install today.', url: 'https://sushila.ai/install', linkText: 'Get it' }] }), text: async () => '{}' };
+    if (u.includes('/api/prompts/images')) return { ok: true, status: 200, json: async () => ({ prompts: ['A red fox in snow', 'A lighthouse at dusk'] }), text: async () => '{}' };
     if (u.includes('/api/tunnel')) return { ok: true, status: 200, json: async () => ({ running: false }), text: async () => '{}' };
     if (u.includes('/api/share/me')) return { ok: true, status: 200, json: async () => Object.assign({ signedIn: false, site: 'https://sushila.ai' }, me), text: async () => '{}' };
     if (u.includes('/api/share/verify')) return { ok: true, status: 200, json: async () => ({ signedIn: true, email: 'me@example.com', userId: 'u1' }), text: async () => '{}' };
@@ -195,4 +197,31 @@ const qd = p.d.querySelector('.asst.quote');
 ok(qd && qd.querySelector('blockquote .qt').textContent.includes('The Admin tab and security') && qd.querySelector('.qcmds code').textContent === 'sushila password --reset' && qd.textContent.includes('qwen3-4b-instruct-2507') && qd.textContent.includes('small model'), 'Ask Sushila: quote mode shows the sections as quotes, their commands and the hint');
 p = await page('', '#assistant'); await sleep(200);
 ok(p.d.getElementById('assistant') && p.d.querySelector('.smenu a[href="#assistant"]'), 'remote visitor: Ask Sushila is available too');
+// messages from sushila.ai: shown when the page opens, links clickable, "Don't show again" remembered
+{ p = await page('tok123', ''); await sleep(300);
+  const t = [...p.d.querySelectorAll('.toast')].find((x) => x.textContent.includes('New build'));
+  ok(t && t.querySelector('.ttext a[href="https://sushila.ai/install"]') && [...t.querySelectorAll('button')].some((b) => b.textContent === 'Get it'), 'start-up notification with a clickable link');
+  [...t.querySelectorAll('button')].find((b) => b.textContent === "Don't show again").click();
+  ok(JSON.parse(p.w.localStorage.getItem('sushila-notes-hidden') || '[]').includes('n1'), "Don't show again is remembered"); }
+// pictures, songs and videos always go to the queue (the engine makes them, the page can be closed)
+{ const keep = state.running, keepPacks = state.packs;
+  state.packs = keepPacks.concat([{ id: 'z-image-turbo', name: 'Z-Image Turbo', kind: 'image', turbo: true, bytes: 6e9 }, { id: 'ace-step-15', name: 'ACE-Step 1.5', kind: 'music', bytes: 8.1e9 }]);
+  state.running = [{ packId: 'z-image-turbo', name: 'Z-Image Turbo', kind: 'image', mode: 'turbo', ready: true, turbo: true }];
+  p = await page('tok123', ''); await sleep(300);
+  const ip = p.d.getElementById('iprompt'); ok(ip && p.d.getElementById('igo') && p.d.getElementById('igo').textContent === 'Generate', 'Inference: the picture screen has one Generate button');
+  ip.value = 'A red fox in snow'; [...p.d.querySelectorAll('button')].find((b) => b.textContent.includes('Random')).click(); await sleep(200);
+  ok(ip.value === 'A lighthouse at dusk', 'picture screen: 🎲 Random fills another example prompt: ' + ip.value);
+  ip.value = 'a red fox'; p.d.getElementById('in').value = '2'; p.d.getElementById('igo').click(); await sleep(300);
+  const qi = p.sent.filter((x) => x.u.endsWith('/api/queue')).map((x) => JSON.parse(x.body));
+  ok(qi.length === 2 && qi.every((b) => b.kind === 'image' && b.model === 'z-image-turbo' && b.params.prompt === 'a red fox'), 'Generate puts each picture in the queue: ' + JSON.stringify(qi));
+  ok(!p.sent.some((x) => x.u.includes('/v1/images/generations')), 'nothing is drawn by the page itself');
+  ok(p.d.getElementById('imsg').textContent.includes('you can close this page'), 'the page says it can be closed');
+  state.running = [{ packId: 'ace-step-15', name: 'ACE-Step 1.5', kind: 'music', mode: 'regular', ready: true }];
+  p = await page('tok123', ''); await sleep(300);
+  p.d.getElementById('mstyle').value = ''; p.d.getElementById('mlyrics').value = '[Verse]\nhello world'; p.d.getElementById('mgo').click(); await sleep(300);
+  const qm = p.sent.filter((x) => x.u.endsWith('/api/queue')).map((x) => JSON.parse(x.body));
+  ok(qm.length === 1 && qm[0].kind === 'music' && qm[0].params.style === 'Loud Drums, Guitar, Violin' && qm[0].params.lyrics.includes('hello world') && p.d.getElementById('mstyle').value === 'Loud Drums, Guitar, Violin',
+    'an empty style: the default style, and the song goes to the queue: ' + JSON.stringify(qm));
+  ok(!p.sent.some((x) => /\/lm|\/synth/.test(x.u)), 'no song is made by the page itself');
+  state.running = keep; state.packs = keepPacks; }
 console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0);
