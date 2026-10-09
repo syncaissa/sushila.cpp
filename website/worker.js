@@ -906,6 +906,9 @@ time under your account and is public to anyone with its link until you delete i
 number, how many visitors opened its page (one per visitor per 24 hours); each opening is logged with the link, your IP address,
 country, browser user agent and time, kept for at most a few weeks to count views and prevent abuse. Uploads for free accounts may be deleted at any time; inappropriate uploads are deleted and
 reported.</li>
+<li><b>Downloads from sushila.ai/install:</b> when you press Download on that page, we record which file, the time, the IP address it came
+from and that address's country, your browser user agent, and your user id if you are signed in ("-" otherwise), for statistics and abuse
+prevention, and then send you to the file.</li>
 <li><b>License checks:</b> Sushila checks the license status of the application and enforces its license, including where (in
 which country) it may be used. Each time sushila.exe or Sushila Station starts, and each time the Sushila page is opened or refreshed,
 the program sends a license check: which app it is, start or refresh, the version, build and operating system, and your user id if you
@@ -1960,6 +1963,7 @@ const TABLES = {
   modelPacks: 'sushilaai-model-packs', // PK packId: every pack the apps can install (definition JSON, b2Prefix, sources, active); index list-index (listKey "pack", sortKey); written by scripts/model_packs.py
   versions: 'sushilaai-versions',   // PK app ("station"), SK releasedAt: build, version, latest (true on the newest), releaseNotes, files (JSON, signed per file)
   notifications: 'sushilaai-notifications', // PK id: messages the Sushila apps show at start (title, message, url, linkText, level, active, listKey "notification", createdAt, startAt?, endAt?); index list-index
+  downloadsLog: 'sushilaai-downloads-log', // PK day, SK at: every Download click on sushila.ai/install (file, target, userId or "-", IP, country, time)
   audits: 'sushilaai-audits',       // PK day, SK at: license checks (every start of sushila.exe / Sushila Station, every load of its page): license type, userId, IP, time; cleared monthly by the owner
   fileViews: 'sushilaai-file-views',    // PK url (a shared link, "/c/<12 hex>") -> userId (its owner) and views (one per visitor per 24 h; log in audit)
 };
@@ -2708,8 +2712,10 @@ const INSTALL = (cat) => () => {
   const inst = (u) => String(u || '').replace('/hoststation/get/', '/install/get/').replace('/hoststation/pack/', '/install/pack/');
   const GH = 'https://github.com/syncaissa/sushila.cpp', ghDl = (p) => `${GH}/raw/main/downloads/${p}`;
   const ghEngine = (f) => { const v = (String(f.file || '').match(/^sushila-cpp-([0-9.]+)-/) || [])[1]; return v ? `${GH}/releases/download/v${v}/${f.file}` : inst(f.url); };
+  // every Download link goes through /install/dl, which logs the click (sushilaai-downloads-log) and redirects to the file
+  const dl = (u) => `/install/dl?to=${encodeURIComponent(u)}`;
   const row = (name, what, f) => `<tr><td><code>${esc(name)}</code><div class="sub">${esc(what)}</div></td><td class="num">${size(f.bytes)}</td>
-<td class="sha"><code title="SHA-256">${esc((f.sha256 || '').slice(0, 16))}${f.sha256 ? '…' : ''}</code></td><td>${f.url ? `<a href="${esc(f.direct ? f.url : inst(f.url))}">Download</a>` : ''}</td></tr>`;
+<td class="sha"><code title="SHA-256">${esc((f.sha256 || '').slice(0, 16))}${f.sha256 ? '…' : ''}</code></td><td>${f.url ? `<a rel="nofollow" href="${esc(dl(f.direct ? f.url : inst(f.url)))}">Download</a>` : ''}</td></tr>`;
   const table = (rows) => `<div class="tablewrap"><table class="files"><thead><tr><th>File</th><th class="num">Size</th><th>SHA-256</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
   const eng = (cat.engine && cat.engine.builds) || {};
   const engineRows = Object.keys(ENGINE_LABEL).filter((k) => eng[k]).map((k) => row(eng[k].file, ENGINE_LABEL[k], { ...eng[k], url: ghEngine(eng[k]), direct: true })).join('');
@@ -2719,7 +2725,7 @@ const INSTALL = (cat) => () => {
   }).join('')).join('');
   const packs = (cat.packs || []).map((p) => `<details><summary><b>${esc(p.name)}</b> <span class="sub">(${esc(p.id)}; ${(p.files || []).length} file${(p.files || []).length === 1 ? '' : 's'}, ${size((p.files || []).reduce((n, f) => n + (f.bytes || 0), 0))}${p.license ? ', ' + esc(p.license) : ''})</span></summary>
 <p class="sub">${esc(p.description || '')}</p>${table((p.files || []).map((f) => row(f.path, f.role || '', f)).join(''))}
-${p.packUrl ? `<p class="sub">Or the whole pack as one file: <a href="${esc(inst(p.packUrl))}">${esc(p.id)}.sushilapack</a> (${size(p.packBytes)}), then <code>sushila install &lt;file&gt;</code>.</p>` : ''}</details>`).join('');
+${p.packUrl ? `<p class="sub">Or the whole pack as one file: <a rel="nofollow" href="${esc(dl(inst(p.packUrl)))}">${esc(p.id)}.sushilapack</a> (${size(p.packBytes)}), then <code>sushila install &lt;file&gt;</code>.</p>` : ''}</details>`).join('');
   return `<style>.files{width:100%;border-collapse:collapse;font-size:14px}.files td,.files th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .files .num{text-align:right;white-space:nowrap}.files code{font-size:13px;overflow-wrap:anywhere}.sha code{color:var(--mut)}details{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
 summary{cursor:pointer}.sub{color:var(--mut);font-size:14px}.steps li{margin:6px 0}</style>
@@ -2750,6 +2756,33 @@ ${table(Object.entries(TOOLS).map(([k, t]) => row(t.file, 'cloudflared · ' + t.
 ${packs || '<p class="note">The pack list is unavailable right now. Please try again shortly.</p>'}
 <p class="sub">Version ${esc(cat.version || '')} · the same list as <a href="/hoststation/catalog.json">catalog.json</a>, which Sushila reads · <a href="/docs">documentation</a>.</p>`;
 };
+
+// DOWNLOADS LOG: GET /install/dl?to=<file> is every Download link of sushila.ai/install. It writes one row to
+// sushilaai-downloads-log (the file, where it is served from, the signed-in userId or "-" for anonymous, the IP address,
+// its country and the time) and redirects to the file. Only our own files are allowed as targets (our GitHub
+// repository, Cloudflare's cloudflared releases, and sushila.ai/install/...), so the link cannot send anyone elsewhere.
+// The download is never blocked: if the row cannot be written, the redirect still happens.
+const DL_TARGETS = ['https://github.com/syncaissa/sushila.cpp/', 'https://github.com/cloudflare/cloudflared/releases/download/'];
+function downloadTarget(to, origin) {
+  let t = String(to || '');
+  if (t.startsWith(origin + '/')) t = t.slice(origin.length);   // the catalog's own links are absolute
+  if (DL_TARGETS.some((p) => t.startsWith(p)) && !t.includes('..')) return t;
+  if (/^\/install\/(get|pack)\/[^?#]+$/.test(t) && !t.includes('..')) return origin + t;
+  return null;
+}
+async function installDownload(request, db, user, url, ctx) {
+  const target = downloadTarget(url.searchParams.get('to'), url.origin);
+  if (!target) return json({ error: 'Unknown download.' }, 400);
+  if (db.configured) {
+    const now = new Date().toISOString();
+    const row = { day: S(now.slice(0, 10)), at: S(`${now}#${randomId()}`), file: S(decodeURIComponent(target.split('/').pop()).slice(0, 200) || '-'),
+      target: S(target.slice(0, 500)), userId: S(user ? user.userId : '-'), ip: S(request.headers.get('CF-Connecting-IP') || '-'),
+      country: S((request.cf && request.cf.country) || '-'), timestamp: S(now), userAgent: S((request.headers.get('user-agent') || '-').slice(0, 300)) };
+    const put = db.put(TABLES.downloadsLog, row).catch((e) => console.error('downloads-log', e.message));
+    if (ctx && ctx.waitUntil) ctx.waitUntil(put); else await put;
+  }
+  return Response.redirect(target, 302);
+}
 
 // --- Report abuse (sushila.ai/reportabuse): anyone, no sign-in; one row per report in sushilaai-reportabuse ---
 const ABUSE_REASONS = ['Sexual content involving minors', 'Non-consensual or intimate imagery', 'Violence or threats', 'Hate or harassment',
@@ -4280,7 +4313,7 @@ async function health(env, db, b2) {
     dynamodb: { configured: db.configured, region: env.AWS_REGION || null, tables: {} }, b2: { configured: b2.configured, bucket: env.B2_BUCKET_NAME || null } };
   if (db.configured) {
     const keys = { users: { userId: S('-') }, emails: { email: S('-') }, otps: { email: S('-') }, downloads: { userId: S('-'), downloadedAt: S('-') },
-      models: { modelId: S('-') }, bugs: { bugId: S('-'), item: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') }, audits: { day: S('-'), at: S('-') },
+      models: { modelId: S('-') }, bugs: { bugId: S('-'), item: S('-') }, waitlist: { email: S('-') }, audit: { day: S('-'), at: S('-') }, audits: { day: S('-'), at: S('-') }, downloadsLog: { day: S('-'), at: S('-') },
       download: { file: S('-'), at: S('-') }, compare: { runId: S('-') }, reportabuse: { reportId: S('-') }, localhostLinks: { id: S('-') },
       fileViews: { url: S('-') }, versions: { app: S('-'), releasedAt: S('-') }, notifications: { id: S('-') }, modelPacks: { packId: S('-') }, appsOpen: { app: S('-') } };
     // every table is read once with a key that does not exist: "ok" means the table is there and readable
@@ -4451,6 +4484,7 @@ export default {
         return json(await hostCatalog(env, b2, url.origin), 200, { 'access-control-allow-origin': '*' });
       }
       if (p === '/api/app/uploads' || p === '/api/app/me') return await shareApi(request, env, db, b2, p, url);
+      if (p === '/install/dl') return await installDownload(request, db, user, url, ctx);
       if (p === '/install' || p === '/install/') {
         let cat = {}; try { if (b2.configured) cat = await hostCatalog(env, b2, url.origin); } catch (e) { console.error('install', e.message); }
         return html(docPage(env, 'Install Sushila', 'Every file that installing Sushila downloads: the program, the engine for your system and the model packs you choose.', INSTALL(cat), user));
