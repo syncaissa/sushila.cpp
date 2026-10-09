@@ -40,7 +40,7 @@ pub fn changes_things(c: &Cmd) -> bool {
 fn refused(c: &Cmd) -> Option<&'static str> {
     if crate::tui::in_screen() {
         match c {
-            Cmd::Chat { .. } => return Some("this window takes one line at a time: chat on the Inference page, or run sushila chat in another terminal"),
+            Cmd::Chat { .. } => return Some("this window takes one line at a time: chat on its Generate page, or run sushila chat in another terminal"),
             Cmd::Assistant { question: None } => return Some("just type your question here, it is answered right away"),
             _ => {}
         }
@@ -175,7 +175,7 @@ pub fn to_clipboard(text: &str) -> &'static str {
 /// A working example for commands people often start without their arguments.
 fn example(cmd: &str, port: u16) -> Option<String> {
     Some(match cmd {
-        "run" => format!("Example: sushila run z-image-turbo-nvidia \"a red fox in the snow, golden light\"  (the picture is saved in the folder shown; or use the Images tab of the Inference page: http://localhost:{port}/)\n         sushila run qwen3-4b-instruct-2507 \"Write a haiku about GPUs\"  (text is printed here)"),
+        "run" => format!("Example: sushila run z-image-turbo-nvidia \"a red fox in the snow, golden light\"  (the picture is saved in the folder shown; or use the Generate Images page: http://localhost:{port}/)\n         sushila run qwen3-4b-instruct-2507 \"Write a haiku about GPUs\"  (text is printed here)"),
         "install" => "Example: sushila install qwen2.5-coder-7b  (find packs: sushila search <words>, sushila search --kind image)".into(),
         "ask" => "Example: sushila ask notes.txt \"What are the action items?\"".into(),
         "mode" => "Example: sushila mode qwen3-4b-instruct-2507 accelerated".into(),
@@ -336,7 +336,7 @@ fn first_start_link(w: &Window, lines: &mut dyn Iterator<Item = std::io::Result<
     if !crate::webserver::read_state(&w.data)["settings"]["internetUrlAtStart"].is_null() { return; }
     let set = |yes: bool| { let id = crate::webserver::new_id().replacen("job-", "task-", 1);
         let _ = crate::util::post_request(&w.data, "control-in", &id, &serde_json::json!({ "id": id, "action": "settings", "values": { "internetUrlAtStart": yes }, "source": "first start" })); };
-    eprintln!("\nA link to your app (https://sushila.ai/localhost/...) reaches this Sushila Engine from your phone or anywhere, while it runs.\nVisitors need its access key and see only the Inference page; Admin, Library and your files stay on this computer.");
+    eprintln!("\nA link to your app (https://sushila.ai/localhost/...) reaches this Sushila Engine from your phone or anywhere, while it runs.\nVisitors need its access key and see only the Generate pages and their queue; Model packs, Engine, myContent and your files stay on this computer.");
     let a = w.ask(lines, "Create a link to your app? [y/N]: ").to_lowercase();
     if a != "y" && a != "yes" { set(false); eprintln!("No link. Make one at any time with 🌐 Get temporary internet URL on the page."); return; }
     let me = crate::share::me(&w.data);

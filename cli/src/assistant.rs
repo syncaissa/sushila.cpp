@@ -251,8 +251,8 @@ pub fn facts_answer(q: &str, state: &Value, catalog: &Value, gpu_line: &str, loc
     // what is installed / running: straight from the state, with or without a language model
     if has(&["running", "loaded", "active", "started"]) && has(&["model", "pack", "what", "which", "anything"]) && !how {
         let r: Vec<String> = running.map(|m| m.iter().map(|(id, v)| format!("- {} ({id}): {}{}", v["name"].as_str().unwrap_or(id), mode(&v["mode"]), if v["ready"] == true { "" } else { ", still loading" })).collect()).unwrap_or_default();
-        return Some(if r.is_empty() { "No model pack is running. Start one on the Inference page (pick it at the top) or with `sushila start <pack>`; `sushila list` shows the installed ones.".into() }
-            else { format!("Running now:\n{}\nStop one with `sushila stop <pack>` or the Stop button on the Inference page.", r.join("\n")) });
+        return Some(if r.is_empty() { "No model pack is running. Start one on its Generate page (pick it at the top) or on the Model packs page or with `sushila start <pack>`; `sushila list` shows the installed ones.".into() }
+            else { format!("Running now:\n{}\nStop one with `sushila stop <pack>` or the Stop button at the top of its Generate page.", r.join("\n")) });
     }
     if has(&["install", "have", "list", "show", "my ", "all "]) && has(&["model", "pack"]) && !how && !has(&["where", "fit", "can i run", "should", "recommend"]) {
         let mut v: Vec<(&String, &Value)> = packs.map(|m| m.iter().collect()).unwrap_or_default();
@@ -260,7 +260,7 @@ pub fn facts_answer(q: &str, state: &Value, catalog: &Value, gpu_line: &str, loc
         if v.is_empty() { return Some("No model pack is installed yet. `sushila search --fits` lists the ones that fit this computer; `sushila install <pack>` adds one.".into()); }
         let lines: Vec<String> = v.iter().map(|(id, p)| format!("- {} ({id}): {}, {}{}", p["name"].as_str().unwrap_or(id), kind_of(p), crate::util::human(p["bytes"].as_u64().unwrap_or(0)),
             running.and_then(|m| m.get(id.as_str())).map(|r| format!(", running ({})", mode(&r["mode"]))).unwrap_or_default())).collect();
-        return Some(format!("Installed model packs ({}):\n{}\nStart one: pick it on the Inference page, or `sushila start <pack>` (one pack runs at a time).", v.len(), lines.join("\n")));
+        return Some(format!("Installed model packs ({}):\n{}\nStart one: pick it at the top of its Generate page, or `sushila start <pack>` (one pack runs at a time).", v.len(), lines.join("\n")));
     }
     if has(&["where"]) && has(&["image", "picture", "photo", "output", "song", "video", "result"]) {
         return Some(if local { let out = crate::locate::outputs(std::path::Path::new(home));
@@ -344,7 +344,7 @@ pub fn intent_answer(q: &str, state: &Value, port: u16) -> Option<String> {
     let page = format!("http://localhost:{port}/");
     let task = |k: &str, what: &str, example: &str, install: &str| -> String {
         match pack_of(k) {
-            Some(id) => format!("To {what}: on the Inference page ({page}) pick {id} at the top (it starts after asking), then type your request. In a terminal: `sushila run {id} \"{example}\"`."),
+            Some(id) => format!("To {what}: open Sushila ({page}), and on its Generate page pick {id} at the top (it starts after asking), then type your request. In a terminal: `sushila run {id} \"{example}\"`."),
             None => format!("To {what} you need {} {k} pack first: `sushila install {install}` (or `sushila search --kind {k} --fits`).", if k.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" }),
         }
     };
@@ -406,7 +406,7 @@ pub async fn answer_stream(dir: &std::path::Path, port: u16, q: &str, history: &
         crate::core::log(true, &format!("assistant: {} chars asked, answered by the helper (no chat model running)", q.len()));
         return Ok(v);
     }
-    let st2 = crate::webserver::start_and_wait(dir, &model, 300).await.ok_or(format!("{model} did not start; see the Admin tab, Logs"))?;
+    let st2 = crate::webserver::start_and_wait(dir, &model, 300).await.ok_or(format!("{model} did not start; see the Logs page"))?;
     let eport = st2["running"][&model]["port"].as_u64().ok_or("the model is not running")?;
     let ctx_tokens = st2["settings"]["contextSize"].as_u64().unwrap_or(4096);
     let extra_len = extra.map(|e| e.len()).unwrap_or(0);
@@ -427,7 +427,7 @@ mod tests {
     #[test] fn notes_and_docs_split() {
         let s = sections();
         assert!(s.iter().any(|x| x.title == "Standard and Accelerated" && x.source == "notes"));
-        assert!(s.iter().any(|x| x.source == "documentation" && x.title.starts_with("Admin: no password")));
+        assert!(s.iter().any(|x| x.source == "documentation" && x.title.starts_with("Managing Sushila: no password")));
         assert!(s.iter().all(|x| x.text.len() <= 1500 || x.source == "notes"));
     }
     #[test] fn retrieval_finds_the_right_section() {

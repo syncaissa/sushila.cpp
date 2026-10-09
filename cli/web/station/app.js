@@ -39,6 +39,12 @@ const freeTag = (x) => x.where === 'local' ? h('span', { class: 'freetag' }, FRE
 const MUSIC_STYLE = 'Loud Drums, Guitar, Violin';
 // everything that was asked for a file (the engine keeps it in the library as "details"), one "name: value" per line
 const settingsText = (d) => d && typeof d === 'object' ? Object.entries(d).map(([k, v]) => k + ': ' + v).join('\n') : '';  // the style of a song when none is typed (the engine uses the same)
+// who this window is for: the desktop app, or (in a browser, see bridge.js) this computer, the internet link's owner, or a
+// visitor with an access key. Visitors get the Create pages and their own queue; nobody manages this computer from them.
+const ROLE = window.SUSHILA_ROLE || 'app';
+const IN_BROWSER = ROLE !== 'app', MANAGES = ROLE !== 'visitor', VIA_LINK = !!window.SUSHILA_PREFIX;
+const VISITOR_VIEWS = ['pictures', 'music', 'video', 'code', 'chat', 'queue', 'help'];
+const allowed = (v) => (MANAGES ? !(VIA_LINK && v === 'link') : VISITOR_VIEWS.includes(v));
 const KIND = { text: 'Chat', code: 'Code', image: 'Pictures', music: 'Music', video: 'Video' };
 
 // engine requests: {ok, status, data}
@@ -87,13 +93,21 @@ const TITLES = { chat: ['Chat', 'Talk with a model on this computer'], code: ['G
   link: ['Internet link', 'Run Sushila models on this computer from anywhere on the internet and check their status.'], logs: ['Logs', 'What Sushila is doing'], settings: ['Settings', 'Limits and preferences'], help: ['Ask Sushila', 'Answers from Sushila\'s documentation'] };
 const CREATE_KIND = { chat: 'text', code: 'text', pictures: 'image', music: 'music', video: 'video' };
 
+// the packs a Create page can use: the installed ones; a visitor is told only what runs (the engine lists no packs to them)
+function usablePacks() {
+  const st = S.st || {};
+  if ((st.packs || []).length || MANAGES) return st.packs || [];
+  return (st.running || []).map((r) => ({ id: r.packId, name: r.name, kind: r.kind || 'text', category: r.category, turbo: false, mode: r.mode }));
+}
 function packKind(p) { return p.kind === 'text' && /code|coder/i.test((p.category || '') + ' ' + p.id) ? 'code' : p.kind || 'text'; }
 function running(id) { return ((S.st && S.st.running) || []).find((r) => r.packId === id); }
 function modeName(m) { return m === 'turbo' ? 'Accelerated' : 'Standard'; }
 
 function renderNav() {
   const qn = S.queue ? S.queue.jobs.filter((j) => j.status === 'running' || j.status === 'queued').length : 0;
-  put($('nav'), ...NAV.map(([g, items]) => [g ? h('div', { class: 'navgroup' }, g) : h('div', { style: 'height:6px' }), ...items.map(([k, t]) =>
+  // only the pages this window may show (visitors: Create, Queue, Help); empty groups are left out
+  const groups = NAV.map(([g, all]) => [g, all.filter(([k]) => allowed(k))]).filter(([, items]) => items.length);
+  put($('nav'), ...groups.map(([g, items]) => [g ? h('div', { class: 'navgroup' }, g) : h('div', { style: 'height:6px' }), ...items.map(([k, t]) =>
     h('div', { class: 'navitem' + (S.view === k ? ' on' : ''), onclick: () => go(k), role: 'button', tabindex: 0 }, h('span', { class: 'ico c-' + k }, icon(k, 16)), t.endsWith(',') ? h('span', { class: 'navlbl' }, t, h('small', {}, 'locally or remotely.')) : t,
       k === 'queue' && qn ? h('span', { class: 'badge' }, qn) : null))]));
 }
@@ -108,8 +122,8 @@ function engineState() {
 }
 function renderEngineButton() {
   const [cls, title, sub] = engineState(); const b = $('engbig'); if (!b) return;
-  b.className = 'engbig ' + cls; b.onclick = enginePanel;
-  put(b, h('span', { class: 'bdot' }), h('div', { class: 'grow', style: 'min-width:0' }, h('b', {}, title), h('small', {}, sub)), h('span', { class: 'setupbtn' }, '⚙ SETUP'));
+  b.className = 'engbig ' + cls; b.onclick = MANAGES ? enginePanel : null;  // visitors see the state, not the setup
+  put(b, h('span', { class: 'bdot' }), h('div', { class: 'grow', style: 'min-width:0' }, h('b', {}, title), h('small', {}, sub)), MANAGES ? h('span', { class: 'setupbtn' }, '⚙ SETUP') : null);
   b.title = 'Set up the Sushila Engine and model packs';
 }
 async function engineDo(what) {
@@ -237,9 +251,10 @@ function renderEngineBox() {
 // the model picker of a Create page: installed packs of that kind, with their mode, and Start / Stop
 function modelBar(view) {
   const kind = CREATE_KIND[view]; if (!kind) return [];
-  const packs = ((S.st && S.st.packs) || []).filter((p) => p.kind === kind || (kind === 'text' && p.kind === 'text'));
+  const packs = usablePacks().filter((p) => p.kind === kind || (kind === 'text' && p.kind === 'text'));
   // a fixed order (by name; code models first on Code): the list never jumps around when a model starts or stops
   const ordered = packs.slice().sort((a, b) => (view === 'code' ? (packKind(b) === 'code') - (packKind(a) === 'code') : 0) || String(a.name).localeCompare(String(b.name)));
+  if (!packs.length && !MANAGES) return [h('span', { class: 'mut small' }, 'No ' + ({ chat: 'chat', code: 'coding', pictures: 'picture', music: 'music', video: 'video' }[view] || '') + ' model on this Sushila')];
   if (!packs.length) return [h('span', { class: 'mut small' }, 'No ' + ({ chat: 'chat', code: 'coding', pictures: 'picture', music: 'music', video: 'video' }[view] || '') + ' model installed'), h('button', { class: 'btn primary small', onclick: () => missingPack(view) }, 'Get a model'),
     h('button', { class: 'btn small', onclick: enginePanel }, 'Show models')];
   const m = currentModel(view), cur = m.id, mode = m.mode;
@@ -256,10 +271,11 @@ function modelBar(view) {
   if (same) acts.push(h('span', { class: 'tag ' + (r.ready ? 'on' : '') }, r.ready ? 'Running' : 'loading…'), h('button', { class: 'btn small', onclick: () => useModel('stop', cur) }, 'Stop'));
   else acts.push(h('button', { class: 'btn primary small', disabled: !!S.busy[cur], onclick: () => useModel('start', cur, mode) }, S.busy[cur] ? h('span', { class: 'spin' }, '⏳') : (r ? 'Switch to ' + modeName(mode) : 'Start')));
   acts.push(h('button', { class: 'btn small', title: 'The Sushila Engine and every model pack', onclick: enginePanel }, 'Show models'));
+  if (!MANAGES) return [sel];  // visitors use what runs; starting and stopping is the owner's
   return [sel, ...acts];
 }
 function currentModel(view) {
-  const kind = CREATE_KIND[view]; const packs = ((S.st && S.st.packs) || []).filter((p) => p.kind === kind);
+  const kind = CREATE_KIND[view]; const packs = usablePacks().filter((p) => p.kind === kind);
   const id = packs.some((p) => p.id === S.pick[view]) ? S.pick[view] : ((packs.find((p) => running(p.id)) || packs[0] || {}).id);
   if (!id) return null;
   const pack = packs.find((p) => p.id === id), run = running(id);
@@ -280,6 +296,7 @@ function recommendedPack(view) {
   return pool.find((p) => p.popular) || pool.slice().sort((a, b) => packBytes(a) - packBytes(b))[0] || null;
 }
 async function missingPack(view) {
+  if (!MANAGES) { toast('This Sushila has no ' + (VIEW_WHAT[view] || view) + ' model running; its owner can start one.', 'err'); return; }
   if (!S.catalog && S.eng.running) await loadCatalog();
   const p = recommendedPack(view), what = VIEW_WHAT[view] || view;
   let close = () => {};
@@ -343,6 +360,7 @@ async function useModel(action, pack, mode) {
 // Starting stops other models (memory and GPU), so that is asked first.
 async function ensureReady(m) {
   if (m.run && m.run.ready) return true;
+  if (!MANAGES) { toast((m.pack ? m.pack.name : m.id) + ' is not running on this Sushila; its owner starts it.', 'err'); return false; }
   const mode = S.pick[m.id + ':mode'] || (m.pack && m.pack.turbo ? 'turbo' : 'regular');
   const others = ((S.st && S.st.running) || []).filter((r) => r.packId !== m.id);
   const name = m.pack ? m.pack.name : m.id;
@@ -357,7 +375,16 @@ async function ensureReady(m) {
 }
 
 // ------------------------------------------------------------------ routing
-function go(v) { S.view = v; try { localStorage.setItem('station-view', v); } catch (_) {} render(); if (v === 'mycontent') loadLib(); if (v === 'packs') loadCatalog(); }
+function go(v) {
+  if (!VIEWS[v] || !allowed(v)) v = 'chat';
+  S.view = v; try { localStorage.setItem('station-view', v); } catch (_) {}
+  if (IN_BROWSER && location.hash !== '#' + v) try { history.replaceState(null, '', '#' + v); } catch (_) {}  // the address names the page (links, bookmarks)
+  render(); if (v === 'mycontent') loadLib(); if (v === 'packs') loadCatalog();
+}
+// addresses that point into this page (from before the one design, sushila.ai, the docs, `sushila open`): the page they meant
+const HASH_VIEWS = { library: 'mycontent', assistant: 'help', admin: 'engine', 'admin/packs': 'packs', 'admin/queue': 'queue', 'admin/logs': 'logs', 'admin/log': 'logs',
+  'admin/settings': 'settings', 'admin/engine': 'engine', 'admin/health': 'engine', 'admin/now': 'engine', 'admin/actions': 'engine' };
+function viewOfHash() { const h0 = decodeURIComponent((location.hash || '').slice(1)); return HASH_VIEWS[h0] || (VIEWS[h0] ? h0 : ''); }
 // what the user typed stays: fields with an id are read before each redraw and written back after it
 S.draft = {};
 function keepDraft() { const v = $('view'); if (!v) return; const d = S.draft[S.lastView || S.view] = S.draft[S.lastView || S.view] || {};
@@ -370,7 +397,7 @@ function render() {
   renderNav(); renderEngineBox();
   const view = $('view'); view.className = S.view === 'chat' || S.view === 'code' ? 'flush' : '';
   put($('baracts'), ...(S.eng.running ? modelBar(S.view) : []), ...(VIEWS[S.view].bar ? VIEWS[S.view].bar() : []));
-  put($('bargo'), goButton(), meButton());
+  put($('bargo'), topButtons());
   if (!S.eng.running && !['engine', 'settings', 'help'].includes(S.view)) { view.className = ''; put(view, stoppedPanel()); return; }
   const keep = view.querySelector('.msgs'); const scroll = keep ? keep.scrollTop : 0;
   put(view, VIEWS[S.view].render()); restoreDraft();
@@ -469,6 +496,14 @@ listen('chat', (e) => {
 VIEWS.chat = chatView('chat'); VIEWS.code = chatView('code');
 
 // Pictures: made right away; Music and Video: through the queue (they take minutes), finished ones below
+// picture sizes: up to 2K for every picture model, 4K for the standard engine (the NVIDIA 4-bit runtime stops at 2048);
+// 4K measured on an RTX 3090 (24 GB): about 3 minutes, decoded in tiles automatically
+function imageSizes(m) {
+  const sizes = [['768x768', 'Square, fast (768)'], ['1024x1024', 'Square (1024)'], ['1024x768', 'Landscape'], ['768x1024', 'Portrait'], ['1536x1024', 'Wide, large'],
+    ['1536x1536', 'Square 1536'], ['2048x2048', 'Square 2K (GPU with 24 GB+)'], ['2048x1152', 'Wide 2K'], ['1152x2048', 'Tall 2K']];
+  if (!(m && m.run && m.run.engine === 'image-nunchaku')) sizes.push(['3840x2160', '4K wide (about 3 min on a 24 GB GPU)'], ['2160x3840', '4K tall (about 3 min on a 24 GB GPU)']);
+  return sizes;
+}
 VIEWS.pictures = {
   render() {
     const form = h('div', { class: 'panel' },
@@ -476,7 +511,7 @@ VIEWS.pictures = {
         h('span', { class: 'row', style: 'gap:6px' }, h('button', { class: 'btn small', title: 'Fill in one of the example prompts, picked at random', onclick: randomPrompt }, '🎲 Random'), histButton('pictures'))),
       h('textarea', { class: 'field', id: 'ip', rows: 5, style: 'width:100%', placeholder: 'A red fox in fresh snow, morning light' }),
       h('div', { class: 'row', style: 'margin-top:4px' }, h('div', { class: 'grow' }, h('label', { class: 'lbl' }, 'Size'), h('select', { class: 'field', id: 'isize', style: 'width:100%' },
-        ...[['768x768', 'Square, fast (768)'], ['1024x1024', 'Square (1024)'], ['1024x768', 'Landscape'], ['768x1024', 'Portrait'], ['1536x1024', 'Wide, large']].map(([v, t]) => h('option', { value: v }, t)))),
+        ...imageSizes(currentModel('pictures')).map(([v, t]) => h('option', { value: v }, t)))),
         h('div', { style: 'width:90px' }, h('label', { class: 'lbl' }, 'How many'), h('select', { class: 'field', id: 'in', style: 'width:100%' }, ...[1, 2, 3, 4].map((n) => h('option', {}, n))))),
       h('label', { class: 'lbl' }, 'Seed (empty: random)'), h('input', { class: 'field', id: 'iseed', style: 'width:100%', inputmode: 'numeric' }),
       h('div', { class: 'row', style: 'margin-top:16px' }, h('button', { class: 'btn primary grow', id: 'igo', onclick: makePictures }, 'Make pictures')), h('div', { id: 'imsg', class: 'small mut', style: 'margin-top:8px' }));
@@ -629,6 +664,7 @@ async function ffPick(move) {
   if (dir) ffDo({ action: 'choose', folder: String(dir), move }, move ? 'Moved' : 'Changed');
 }
 function ffBanner() {
+  if (!MANAGES || VIA_LINK) return null;  // where files go is decided on the computer itself
   if (S.ff === undefined) { S.ff = null; loadFF(); }
   const f = S.ff; if (!f) return null;
   if (f.old && f.default) return h('div', { class: 'panel ffask' }, h('b', {}, 'Where should your pictures, songs and videos live?'),
@@ -640,6 +676,7 @@ function ffBanner() {
   return null;
 }
 function ffGroup() {
+  if (!MANAGES || VIA_LINK) return null;
   if (S.ff === undefined) { S.ff = null; loadFF(); }
   const f = S.ff || {};
   return h('div', { class: 'group' }, h('h3', {}, 'Where my files go'),
@@ -652,7 +689,7 @@ function ffGroup() {
 }
 
 VIEWS.mycontent = {
-  bar: () => [h('input', { class: 'field', placeholder: 'Search prompts, models, names…', value: S.libq || '', style: 'width:260px', oninput: (e) => { S.libq = e.target.value; const v = $('libgrid'); if (v) put(v, ...libItems().map(libTile)); } })],
+  bar: () => [h('button', { class: 'btn small', title: 'Packs and files, largest first, to free disk space', onclick: makeSpace }, '🧹 Make space'), h('input', { class: 'field', placeholder: 'Search prompts, models, names…', value: S.libq || '', style: 'width:260px', oninput: (e) => { S.libq = e.target.value; const v = $('libgrid'); if (v) put(v, ...libItems().map(libTile)); } })],
   render() {
     if (!S.lib) { loadLib(); return h('div', { class: 'empty' }, 'Loading…'); }
     const kinds = [['', 'All'], ['image', 'Pictures'], ['music', 'Music'], ['video', 'Videos'], ['text', 'Text']];
@@ -669,10 +706,47 @@ function libItems() {
 }
 async function loadLib() { if (S.libLoading) return; S.libLoading = true; try { S.lib = await get('/api/library'); } catch (e) { S.lib = { items: [], trash: [] }; } S.libLoading = false; if (['mycontent', 'pictures', 'music', 'video'].includes(S.view)) render(); }
 
+// 🧹 Make space: model packs and files, largest first, with what each frees; uploading before deleting is recommended
+// (Station shows one window at a time: after a question or an action, Make space opens again with fresh numbers)
+async function makeSpace() {
+  const body = h('div', {}, h('p', { class: 'mut' }, 'Reading…'));
+  const close = sheet([h('div', { class: 'row', style: 'margin-bottom:8px' }, h('h3', { style: 'margin:0' }, '🧹 Make space on this computer'), h('span', { class: 'grow' }),
+    h('button', { class: 'btn small', onclick: () => close() }, 'Close')), body], true);
+  const sum = (a) => a.reduce((n, x) => n + (x.bytes || 0), 0);
+  const draw = async () => {
+    S.lib = null; await loadLib(); let sys = S.sys; try { sys = S.sys = await get('/api/system'); } catch (_) {}
+    const st = S.st || {}, lib = S.lib || {}, packs = [...(st.packs || [])].sort((a, b) => (b.bytes || 0) - (a.bytes || 0));
+    const files = [...(lib.items || [])].sort((a, b) => (b.bytes || 0) - (a.bytes || 0)), trash = lib.trash || [];
+    put(body,
+      h('p', { class: 'mut' }, (sys && sys.disk ? 'Free on this disk: ' + sys.disk.freeGB + ' GB of ' + sys.disk.totalGB + ' GB. ' : '') + 'Model packs use ' + human(sum(packs)) + ', your files ' + human(sum(files)) + ', the trash ' + human(sum(trash)) + '.'),
+      h('div', { class: 'group' }, h('h3', {}, 'Model packs (' + human(sum(packs)) + ') · removed packs can be installed again at any time'),
+        packs.length ? packs.map((p) => { const r = running(p.id);
+          return h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, p.name), h('span', {}, [human(p.bytes), r ? 'running now (it stops first)' : ''].filter(Boolean).join(' · '))),
+            h('button', { class: 'btn small danger', onclick: async () => { if (!await ask('Remove ' + p.name + '?', 'Its ' + human(p.bytes) + ' of files are deleted from this computer; you can install it again later.', 'Remove', true)) return makeSpace();
+              try { await post('/api/control', { action: 'remove', pack: p.id }); toast('Removing ' + p.name + '…', 'ok'); } catch (e) { toast(e.message, 'err'); } setTimeout(makeSpace, 1500); } }, '🗑 Remove')); })
+          : h('div', { class: 'item' }, h('span', { class: 'mut' }, 'No model packs installed.'))),
+      h('div', { class: 'group' }, h('h3', {}, 'Your pictures, songs and videos (' + human(sum(files)) + ')' + (lib.folder ? ' · ' + lib.folder : '')),
+        h('div', { class: 'item' }, h('span', { class: 'mut small' }, '💡 Before you delete a file, we recommend Upload and get link: a copy stays on sushila.ai and opens from its link. Deleting here removes the file from this computer for good.')),
+        files.length ? files.slice(0, 200).map((x) => h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, (x.prompt || x.name || '').slice(0, 100)), h('span', { class: 'selectable' }, human(x.bytes) + ' · ' + (x.path || x.rel))),
+          x.link ? h('span', { class: 'tag on', title: x.link }, '✓ on sushila.ai') : h('button', { class: 'btn small', onclick: async () => { await share(x); makeSpace(); } }, '⬆ Upload and get link'),
+          h('button', { class: 'btn small danger', onclick: async () => {
+            if (!await ask('Delete "' + x.name + '" permanently?', x.link ? 'Its copy on sushila.ai stays. The file on this computer is gone for good.' : 'It is not uploaded yet: we recommend Upload and get link first. Deleted here, it is gone for good.', x.link ? 'Delete permanently' : 'Delete permanently anyway', true)) return makeSpace();
+            try { for (const act of ['delete', 'purge']) await post('/api/library/' + act, { rel: x.rel }); toast(human(x.bytes) + ' freed.', 'ok', 'Deleted ' + x.name); } catch (e) { toast(e.message, 'err', 'Could not delete'); }
+            makeSpace(); } }, 'Delete permanently')))
+          : h('div', { class: 'item' }, h('span', { class: 'mut' }, 'Nothing made yet.')),
+        files.length > 200 ? h('div', { class: 'item' }, h('span', { class: 'mut small' }, 'The 200 largest are shown; myContent lists all ' + files.length + '.')) : null),
+      h('div', { class: 'group' }, h('h3', {}, 'Trash (' + human(sum(trash)) + ')'),
+        trash.length ? h('div', { class: 'item' }, h('div', { class: 'txt' }, h('span', {}, trash.length + ' deleted files still use space.')),
+          h('button', { class: 'btn small danger', onclick: async () => { if (!await ask('Empty the trash?', 'All ' + trash.length + ' files in the trash are deleted for good.', 'Empty trash', true)) return makeSpace();
+            try { await post('/api/library/empty', { rel: '' }); toast(human(sum(trash)) + ' freed.', 'ok', 'The trash is empty'); } catch (e) { toast(e.message, 'err'); } makeSpace(); } }, 'Empty trash'))
+          : h('div', { class: 'item' }, h('span', { class: 'mut' }, 'The trash is empty.'))));
+  };
+  draw();
+}
 // sushila.ai: sign in with an e-mail code, then upload and get a link
 async function signIn(fromButton) {
   let me = {}; try { me = await get('/api/share/me'); } catch (_) {}
-  if (me.signedIn) { S.me = me; if (fromButton) { put($('bargo'), goButton(), meButton()); toast('Already signed in as ' + me.email, 'ok'); } return true; }
+  if (me.signedIn) { S.me = me; if (fromButton) { put($('bargo'), topButtons()); toast('Already signed in as ' + me.email, 'ok'); } return true; }
   return new Promise((res) => {
     let close; let step = 'email'; const box = h('div');
     const enter = (e) => { if (e.key === 'Enter') { e.preventDefault(); next(); } };
@@ -710,6 +784,8 @@ function jobItem(j) {
     h('div', { class: 'txt' }, h('b', {}, j.title || j.kind), h('span', {}, (KIND[j.kind] || j.kind) + ' · ' + (j.model || '') + ' · ' + (st === 'queued' ? 'waiting' : st) + (j.progress ? ' · ' + j.progress : '') + (j.error ? ' · ' + j.error : '')),
       st === 'running' ? h('div', { class: 'pbar' }, h('i', { style: 'width:' + (/(\d+)%/.test(j.progress || '') ? RegExp.$1 : 8) + '%' })) : null),
     st === 'ready' ? h('button', { class: 'btn small', onclick: () => openOutput(j) }, 'Open') : null,
+    st === 'ready' && j.output ? h('button', { class: 'btn small', title: 'Save a copy where you choose', onclick: () => saveOutput(j) }, '⬇ Download') : null,
+    st === 'ready' && MANAGES && j.output && j.output.file && ['image', 'music', 'video'].includes(j.kind) ? h('button', { class: 'btn small', onclick: () => shareOutput(j) }, '⬆ Upload and get link') : null,
     live ? h('button', { class: 'btn small', onclick: () => qAct(j, 'pause') }, 'Pause') : null,
     st === 'paused' ? h('button', { class: 'btn small', onclick: () => qAct(j, 'resume') }, 'Resume') : null,
     live || st === 'paused' ? h('button', { class: 'btn small', onclick: () => qAct(j, 'cancel') }, 'Cancel') : h('button', { class: 'btn small', onclick: () => qAct(j, 'remove') }, 'Remove'));
@@ -720,11 +796,32 @@ async function openOutput(j) {
   const el = mime.startsWith('image') ? h('img', { src: url }) : mime.startsWith('video') ? h('video', { src: url, controls: true, autoplay: true }) : mime.startsWith('audio') ? h('audio', { src: url, controls: true, autoplay: true, style: 'width:100%' }) : h('pre', { class: 'selectable', style: 'white-space:pre-wrap;max-height:60vh;overflow:auto' }, (j.output && j.output.text) || 'Saved in myContent.');
   sheet([h('h3', {}, j.title || 'Result'), el, h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => $('sheet').click() }, 'Close'))], true);
 }
+// a finished job's file: saved where you choose (the browser: Downloads); uploaded like a myContent file (found by its path)
+async function saveOutput(j) {
+  try {
+    const url = await invoke('media_url', { kind: 'output', id: j.id }); const ext = ((j.output && j.output.file) || '').split('.').pop() || 'bin';
+    const name = ((j.title || j.kind).replace(/[^\w -]+/g, '').trim().slice(0, 60) || 'sushila') + '.' + ext;
+    const dest = T.dialog ? await T.dialog.save({ defaultPath: name }) : name; if (!dest) return;
+    await invoke('save_to', { url, dest: String(dest) }); if (!IN_BROWSER) toast(String(dest), 'ok', 'Saved');
+  } catch (e) { toast(String(e.message || e), 'err', 'Could not save it'); }
+}
+async function shareOutput(j) {
+  S.lib = null; await loadLib();
+  const x = ((S.lib && S.lib.items) || []).find((i) => i.rel === j.output.file);
+  if (!x) { toast('It is not in myContent yet; try again in a moment.', 'err'); return; }
+  share(x);
+}
 async function qAct(j, a) { try { await post('/api/queue/' + encodeURIComponent(j.id) + '/' + a, {}); } catch (e) { toast(e.message, 'err'); } loadQueue(); }
-VIEWS.queue = { render() {
-  const jobs = (S.queue && S.queue.jobs) || [];
-  return jobs.length ? h('div', { class: 'group' }, jobs.slice().reverse().map(jobItem)) : h('div', { class: 'empty' }, 'Nothing in the queue. Songs and videos you make run here in the background.');
-} };
+VIEWS.queue = {
+  // the whole queue can wait (e.g. while you need the GPU for something else) and continue later
+  bar: () => MANAGES ? [h('button', { class: 'btn small', onclick: async () => { try { await post('/api/queue/all/' + (S.queue && S.queue.paused ? 'resume' : 'pause'), {}); } catch (e) { toast(e.message, 'err'); } loadQueue(); } },
+    S.queue && S.queue.paused ? '▶ Continue the queue' : '⏸ Pause the queue')] : [],
+  render() {
+    const jobs = (S.queue && S.queue.jobs) || [];
+    return h('div', {}, S.queue && S.queue.paused ? h('div', { class: 'panel', style: 'margin-bottom:12px' }, h('b', {}, '⏸ The queue is paused: nothing new starts until you continue it.')) : null,
+      jobs.length ? h('div', { class: 'group' }, jobs.slice().reverse().map(jobItem)) : h('div', { class: 'empty' }, 'Nothing in the queue. Pictures, songs and videos you make run here in the background.'));
+  },
+};
 let lastJobs = {};
 async function loadQueue() {
   try { S.queue = await get('/api/queue'); } catch (_) { return; }
@@ -770,11 +867,27 @@ async function importPack() {
 }
 
 // Engine: the program, its server, its command, start at login
+// one line on how this computer is doing: All good / Working, with notes / Needs attention (and why)
+function healthOf(sys) {
+  if (!sys || !sys.ram) return ['', 'Checking…'];
+  const why = [], bad = [];
+  if (!sys.engine || !sys.engine.version) bad.push('no engine installed');
+  else if (sys.gpu && !sys.engine.gpuBuild) bad.push('a GPU is present but the CPU engine is installed');
+  if (sys.disk && sys.disk.freeGB < 5) bad.push('less than 5 GB free on the disk'); else if (sys.disk && sys.disk.freeGB < 20) why.push('the disk is getting full');
+  if (sys.ram && sys.ram.freeGB < 1.5) bad.push('memory (RAM) almost full'); else if (sys.ram && sys.ram.freeGB < 4) why.push('little free memory');
+  if (sys.gpu && sys.gpu.memTotalGB && sys.gpu.memUsedGB / sys.gpu.memTotalGB > 0.95) why.push('GPU memory full');
+  if (sys.crashesToday) why.push(sys.crashesToday + ' crash' + (sys.crashesToday > 1 ? 'es' : '') + ' today (Logs)');
+  return bad.length ? ['err', 'Needs attention: ' + bad.concat(why).join('; ')] : why.length ? ['warn', 'Working, with notes: ' + why.join('; ')] : ['ok', 'All good'];
+}
+const ago = (s) => !s ? '' : s < 120 ? Math.round(s) + ' s' : s < 7200 ? Math.round(s / 60) + ' min' : s < 172800 ? Math.round(s / 3600) + ' h' : Math.round(s / 86400) + ' days';
 VIEWS.engine = { render() {
   const e = S.eng, st = S.st || {}, sys = S.sys || {};
+  const [hl, ht] = healthOf(S.sys), cpu = sys.cpu || {};
   if (!S.sysAt || Date.now() - S.sysAt > 10000) { S.sysAt = Date.now(); if (e.running) get('/api/system').then((v) => { S.sys = v; if (S.view === 'engine') render(); }).catch(() => {}); }
   const g = sys.gpu || {}, disk = sys.disk || {};
   return h('div', {},
+    h('div', { class: 'panel health ' + hl + ' row', style: 'margin-bottom:14px' }, h('b', { class: 'grow' }, (hl === 'ok' ? '✅ ' : hl === 'err' ? '⛔ ' : hl === 'warn' ? '⚠️ ' : '') + ht),
+      h('button', { class: 'btn small', onclick: makeSpace }, '🧹 Make space')),
     h('div', { class: 'group' }, h('h3', {}, 'Sushila on this computer'),
       h('div', { class: 'item' }, h('span', { class: 'dot ' + (e.running ? 'on' : 'off') }), h('div', { class: 'txt' }, h('b', {}, e.running ? 'Running' : 'Stopped'), h('span', {}, e.running ? 'http://localhost:' + (e.port || 7874) + ' · up ' + Math.round((e.uptimeSeconds || 0) / 60) + ' min · engine ' + (e.version || '') : 'Sushila runs the models and the queue.')),
         e.running ? [h('button', { class: 'btn small', onclick: async () => { await invoke('engine_restart').catch((x) => toast(String(x), 'err')); refresh(); } }, 'Restart'), h('button', { class: 'btn small', onclick: async () => { await invoke('engine_stop').catch((x) => toast(String(x), 'err')); refresh(); } }, 'Stop')]
@@ -786,12 +899,15 @@ VIEWS.engine = { render() {
     h('div', { class: 'group' }, h('h3', {}, 'This computer'),
       h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'GPU'), h('span', {}, g.name ? g.name + (g.memTotalGB ? ' · ' + (g.memTotalGB - (g.memUsedGB || 0)).toFixed(1) + ' of ' + g.memTotalGB.toFixed(1) + ' GB free' : '') + (g.utilPct != null ? ' · ' + g.utilPct + '% busy' : '') : st.gpu || 'no GPU found: the CPU is used'))),
       h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Memory'), h('span', {}, sys.ram ? sys.ram.freeGB.toFixed(1) + ' of ' + sys.ram.totalGB.toFixed(1) + ' GB free' : '…'))),
-      h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Disk'), h('span', {}, disk.freeGB != null ? disk.freeGB.toFixed(0) + ' GB free' + (disk.mount ? ' on ' + disk.mount : '') : '…')))),
-    h('div', { class: 'group' }, h('h3', {}, 'The sushila command'),
+      h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Disk'), h('span', {}, disk.freeGB != null ? disk.freeGB.toFixed(0) + ' GB free' + (disk.mount ? ' on ' + disk.mount : '') : '…'))),
+      cpu.name ? h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Processor'), h('span', {}, cpu.name + (cpu.cores ? ' · ' + cpu.cores + ' threads' : '')))) : null,
+      sys.uptimeS != null ? h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Server'), h('span', {}, 'up ' + ago(sys.uptimeS) + (sys.requests != null ? ' · ' + sys.requests + ' requests served' : '') + (sys.os ? ' · ' + sys.os : '')))) : null,
+      h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Crashes'), h('span', {}, sys.crashesTotal ? sys.crashesToday + ' today, ' + sys.crashesTotal + ' kept (details in Logs)' : 'none')))),
+    IN_BROWSER ? null : h('div', { class: 'group' }, h('h3', {}, 'The sushila command'),
       h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, e.cliInstalled ? 'Installed' : 'Not installed'), h('span', { class: 'selectable' }, e.cliInstalled ? e.cli + ' (on your PATH: open a new terminal and type sushila)' : 'Use Sushila from a terminal: sushila chat, sushila run, sushila install …')),
         h('button', { class: 'btn small ' + (e.cliInstalled ? '' : 'primary'), onclick: async () => { try { const r = await invoke('install_cli'); toast(r.path + (r.onPath ? ' · added to your PATH' : ''), 'ok', 'Installed the sushila command'); } catch (x) { toast(String(x), 'err'); } refresh(); } }, e.cliInstalled ? 'Update' : 'Install'),
         e.cliInstalled ? h('button', { class: 'btn small danger', onclick: async () => { try { await invoke('uninstall_cli'); toast('Removed.', 'ok'); } catch (x) { toast(String(x), 'err'); } refresh(); } }, 'Uninstall') : null)),
-    h('div', { class: 'group' }, h('h3', {}, 'Sushila Station'),
+    IN_BROWSER ? null : h('div', { class: 'group' }, h('h3', {}, 'Sushila Station'),
       h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Start at login'), h('span', {}, 'Station starts in the tray when you log in, with Sushila ready.')), autoSwitch()),
       h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Version'), h('span', {}, 'Sushila Station ' + (e.station || '') + (e.bundled ? ' · carries engine ' + e.bundled : ''))))));
 } };
@@ -826,9 +942,9 @@ function linkSwitch() {
 // top right: sign in to sushila.ai (e-mail + one-time code), or who is signed in
 const SIGNIN_WHY = 'Sign in to create links to your creations and share';
 async function loadMe(force) {
-  if (!S.eng.running || (!force && S.meAt && Date.now() - S.meAt < 60000)) return;
+  if (!MANAGES || !S.eng.running || (!force && S.meAt && Date.now() - S.meAt < 60000)) return;
   S.meAt = Date.now();
-  try { const me = await get('/api/share/me'); const was = JSON.stringify(S.me || {}); S.me = me; if (force || JSON.stringify(me) !== was) put($('bargo'), goButton(), meButton()); } catch (_) {}
+  try { const me = await get('/api/share/me'); const was = JSON.stringify(S.me || {}); S.me = me; if (force || JSON.stringify(me) !== was) put($('bargo'), topButtons()); } catch (_) {}
 }
 function meButton() {
   const me = S.me || {};
@@ -837,14 +953,31 @@ function meButton() {
     h('button', { class: 'btn small primary', title: SIGNIN_WHY + ' (no password: a one-time code by e-mail)', onclick: () => signIn(true) }, '👤 Sign in'));
   return h('button', { class: 'btn small', title: 'Signed in to sushila.ai as ' + me.email, onclick: mePanel }, '👤 ' + me.email + ' ▾');
 }
-function mePanel() {
+async function mePanel() {
   const me = S.me || {};
-  const close = sheet([h('h3', {}, 'sushila.ai account'), h('p', {}, 'Signed in as ', h('b', {}, me.email || ''), '. Upload a picture, song or video from myContent to get a link you can share.'),
-    h('div', { class: 'row end' },
-      h('button', { class: 'btn', onclick: () => { close(); openUrl('https://sushila.ai/mycontent'); } }, 'My content on sushila.ai'),
-      h('button', { class: 'btn danger', onclick: async () => { close(); try { await post('/api/share/signout'); toast('Signed out of sushila.ai.', 'ok'); } catch (e) { toast(e.message, 'err'); } loadMe(true); } }, 'Sign out'),
-      h('button', { class: 'btn primary', onclick: () => close() }, 'Close'))]);
+  const body = h('div', {}, h('p', { class: 'mut' }, 'Reading your links…'));
+  const close = sheet([h('div', { class: 'row', style: 'margin-bottom:6px' }, h('h3', { style: 'margin:0' }, 'sushila.ai account'), h('span', { class: 'grow' }),
+      h('button', { class: 'btn small', onclick: () => openUrl('https://sushila.ai/mycontent') }, 'My content on sushila.ai'),
+      h('button', { class: 'btn small danger', onclick: async () => { close(); try { await post('/api/share/signout'); toast('Signed out of sushila.ai.', 'ok'); } catch (e) { toast(e.message, 'err'); } loadMe(true); } }, 'Sign out'),
+      h('button', { class: 'btn small primary', onclick: () => close() }, 'Close')),
+    h('p', {}, 'Signed in as ', h('b', {}, me.email || ''), '. Upload a picture, song or video from myContent to get a link you can share.'), body], true);
+  // the links made from this account: views, copy, open, delete (the file goes to the trash on sushila.ai for 30 days)
+  let j = { items: [] }; try { j = await get('/api/share/list'); } catch (e) { put(body, h('p', { class: 'mut' }, e.message)); return; }
+  const items = j.items || [];
+  put(body, h('p', { class: 'mut small' }, human(j.used || 0) + ' of ' + human(j.quota || 2e9) + ' used' + (j.notice ? ' · ' + j.notice : '')),
+    h('div', { class: 'group', style: 'max-height:55vh;overflow:auto;margin:0' }, items.length ? items.map((m) => h('div', { class: 'item' },
+      h('div', { class: 'txt' }, h('b', {}, (m.title || m.id || '').slice(0, 120)), h('span', { class: 'selectable' }, [m.model, human(m.bytes || 0), m.created ? 'shared ' + when(m.created) : '', (m.views || 0) + ' view' + (m.views === 1 ? '' : 's')].filter(Boolean).join(' · ')),
+        h('span', { class: 'selectable', style: 'word-break:break-all' }, m.link)),
+      h('button', { class: 'btn small', onclick: () => copy(m.link).then(() => toast('Copied', 'ok', '', 1500)) }, 'Copy link'),
+      h('button', { class: 'btn small', onclick: () => openUrl(m.link) }, 'Open'),
+      h('button', { class: 'btn small danger', onclick: async () => {
+        if (!await ask('Delete this link?', 'The link stops working for everyone at once. The file goes to the trash on sushila.ai/mycontent (restore it there; it is deleted after 30 days). Your copy stays on this computer.', 'Delete link', true)) return mePanel();
+        try { const r = await post('/api/share/delete', { id: m.id }); toast(r.note || 'The link stopped working.', 'ok', 'Link deleted'); } catch (e) { toast(e.message, 'err', 'Could not delete the link'); }
+        S.lib = null; mePanel(); } }, 'Delete link')))
+      : h('div', { class: 'item' }, h('span', { class: 'mut' }, 'No shared links yet: "Upload and get link" on any picture, song or video makes one.'))));
 }
+// top right: "Open in browser" in the app only (a browser is one already), Sign in for those who manage this Sushila
+const topButtons = () => [IN_BROWSER ? null : goButton(), MANAGES ? meButton() : null];
 function goButton() {
   return h('button', { class: 'btn small gobtn', title: 'See Sushila in a web browser: on this computer, or through your internet link', onclick: goPanel }, '🌐 Open in browser ▾');
 }
@@ -882,7 +1015,17 @@ async function startLink() {
 // Logs
 VIEWS.logs = {
   bar: () => [h('input', { class: 'field', placeholder: 'Filter', value: S.logf || '', style: 'width:200px', oninput: (e) => { S.logf = e.target.value; drawLog(); } }), h('button', { class: 'btn small', onclick: () => copy(S.log || '').then(() => toast('Copied', 'ok', '', 1500)) }, 'Copy all')],
-  render() { const box = h('div', { class: 'logbox', id: 'logbox' }); setTimeout(drawLog, 0); return box; },
+  render() {
+    const box = h('div', { class: 'logbox', id: 'logbox' }); setTimeout(drawLog, 0);
+    // crashes (newest first): Sushila restarts itself; what happened and the last log lines are kept
+    if (!S.crashesAt || Date.now() - S.crashesAt > 30000) { S.crashesAt = Date.now(); get('/api/crashes').then((c) => { const was = JSON.stringify(S.crashes || []); S.crashes = Array.isArray(c) ? c : []; if (S.view === 'logs' && JSON.stringify(S.crashes) !== was) render(); }).catch(() => {}); }
+    const cr = (S.crashes || []).slice().reverse().slice(0, 10);
+    return h('div', {}, box, cr.length ? h('div', { class: 'group', style: 'margin-top:14px' }, h('h3', {}, 'Crashes'),
+      h('div', { class: 'item' }, h('span', { class: 'mut small' }, 'Sushila restarts itself (the server at once; a model up to 3 times in 10 minutes). Newest first.')),
+      cr.map((c) => h('details', { class: 'item', style: 'display:block' },
+        h('summary', {}, h('b', {}, (c.what === 'model' ? 'Model ' + c.pack : 'Server') + ': ' + (c.reason || '')), h('span', { class: 'mut small' }, ' · ' + (c.time || '').replace('T', ' ').slice(0, 19) + ' UTC' + (c.restarted ? ' · restarted' : ''))),
+        c.panic ? h('pre', { class: 'selectable' }, c.panic) : null, c.logTail ? h('pre', { class: 'selectable' }, c.logTail) : null))) : null);
+  },
 };
 async function loadLog() { try { const r = await get('/api/logs?since=' + (S.logNext || 0)); S.log = ((S.log || '') + (r.text || '')).slice(-400000); S.logNext = r.next; if (S.view === 'logs') drawLog(); } catch (_) {} }
 function drawLog() { const b = $('logbox'); if (!b) return; const f = (S.logf || '').toLowerCase(); const t = (S.log || '').split('\n').filter((l) => !f || l.toLowerCase().includes(f)).slice(-3000).join('\n');
@@ -915,15 +1058,29 @@ VIEWS.help = { render() {
     h('div', { class: 'panel' }, h('label', { class: 'lbl', style: 'margin-top:0' }, 'Ask anything about Sushila'), h('div', { class: 'row' }, h('input', { class: 'field grow', id: 'aq', placeholder: 'How do I add a coding model?', onkeydown: (e) => { if (e.key === 'Enter') askSushila(); } }),
       h('button', { class: 'btn primary', onclick: askSushila }, 'Ask'))), box,
     h('div', { class: 'group', style: 'margin-top:16px' }, h('h3', {}, 'More'),
-      h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Documentation'), h('span', {}, 'Every command and setting')), h('button', { class: 'btn small', onclick: () => openUrl('http://localhost:7874/docs') }, 'Open ↗')),
+      h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Documentation'), h('span', {}, 'Every command and setting')), h('button', { class: 'btn small', onclick: () => openUrl(IN_BROWSER ? '/docs' : 'http://localhost:7874/docs') }, 'Open ↗')),
       h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'sushila.ai')), h('button', { class: 'btn small', onclick: () => openUrl('https://sushila.ai/') }, 'Open ↗')),
       h('div', { class: 'item' }, h('div', { class: 'txt' }, h('b', {}, 'Report a bug')), h('button', { class: 'btn small', onclick: () => openUrl('https://sushila.ai/bugs/new') }, 'Open ↗'))));
 } };
-function answerEl(a) { return h('div', { class: 'panel', style: 'margin-top:12px' }, h('b', {}, a.q), h('div', { class: 'msgtext selectable', style: 'margin-top:6px' }, mdNodes(a.a))); }
+// an answer: written by the text model (with its sources), or, from a small model (quote mode), the notes themselves as
+// quotes with their commands and a hint
+function answerEl(a) {
+  const r = a.r || {};
+  const body = r.mode === 'quote'
+    ? [...(r.quotes || []).map((x) => h('blockquote', { class: 'selectable' }, h('b', {}, x.title + (x.source === 'facts' ? '' : ' (' + x.source + ')')), h('div', { style: 'white-space:pre-wrap' }, x.text))),
+       r.commands && r.commands.length && !(r.quotes || []).some((x) => x.source === 'facts') ? h('div', { class: 'qcmds' }, h('b', {}, 'Commands from these notes:'), ...r.commands.map((c) => h('code', { class: 'selectable' }, c))) : null,
+       r.hint ? h('div', { class: 'mut small' }, r.hint) : null,
+       h('div', { class: 'mut small' }, 'Quoted from Sushila\'s notes: ' + (r.model || '?') + ' is a small model, so it does not write answers itself.')]
+    : [h('div', { class: 'msgtext selectable', style: 'margin-top:6px' }, mdNodes(a.a)),
+       r.model ? h('div', { class: 'mut small', style: 'margin-top:6px' }, 'Answered by ' + r.model + ((r.sources || []).length ? ' from: ' + r.sources.map((x) => x.title).join('; ') : '')) : null];
+  return h('div', { class: 'panel', style: 'margin-top:12px' }, h('b', {}, a.q), ...body);
+}
 async function askSushila() {
-  const q = $('aq').value.trim(); if (!q) return; S.answers = S.answers || [];
-  const a = { q, a: '…' }; S.answers.unshift(a); render();
-  try { const r = await post('/api/assistant', { question: q, history: [] }); a.a = r.answer || ''; } catch (e) { a.a = '⚠ ' + e.message; }
+  const box = $('aq'), q = box.value.trim(); if (!q) return; S.answers = S.answers || []; box.value = '';
+  const a = { q, a: 'Thinking… (the first answer can take a while when the model has to load)' }; S.answers.unshift(a); render();
+  // follow-up questions carry the last two questions and answers
+  const history = S.answers.slice(1, 3).reverse().flatMap((x) => [{ role: 'user', content: x.q }, { role: 'assistant', content: x.a }]);
+  try { const r = await post('/api/assistant', { question: q, history }); a.r = r; a.a = r.answer || (r.mode === 'quote' ? '' : '(no answer)'); } catch (e) { a.a = '⚠ The assistant could not answer: ' + e.message; }
   if (S.view === 'help') render();
 }
 
@@ -960,6 +1117,7 @@ const linkified = (text) => String(text || '').split(/(https:\/\/[^\s<>"']+[^\s<
 // ---- a newer Sushila Station on sushila.ai (its versions table, latest = true): the notice with its release notes;
 // Upgrade now downloads it, checks its signature, puts it in place and restarts Station. No row or no newer build: nothing.
 async function checkUpdate() {
+  if (IN_BROWSER) return;  // the page is the engine's own: it is updated with the engine
   let u; try { u = await invoke('update_check'); } catch (_) { return; }
   if (!u || !u.available) return;
   let close = () => {};
@@ -991,8 +1149,25 @@ async function showNotifications() {
   }
 }
 listen('engine', () => setTimeout(refresh, 1500));
+// the page the address names (#pictures, #library, #admin/packs, ...) wins over the one shown last
+if (IN_BROWSER) {
+  const hv = viewOfHash(); if (hv) S.view = hv;
+  if (!allowed(S.view)) S.view = 'chat';
+  window.addEventListener('hashchange', () => { const v = viewOfHash(); if (v && v !== S.view) go(v); });
+}
+// sushila.ai's Install buttons open http://localhost:7874/install/<pack> (= /?install=<pack>): Model packs, and the question
+async function installFromAddress() {
+  const want = new URLSearchParams(location.search).get('install'); if (!want || !MANAGES || VIA_LINK) return;
+  try { history.replaceState(null, '', location.pathname + '#packs'); } catch (_) {}
+  go('packs'); await loadCatalog();
+  const p = ((S.catalog && S.catalog.packs) || []).find((x) => x.id === want);
+  if (!p) { toast('sushila.ai asked to install "' + want + '", which is not in the catalog of this Sushila.', 'err'); return; }
+  if (((S.st && S.st.packs) || []).some((x) => x.id === want)) { toast(p.name + ' is installed already.', 'ok'); return; }
+  if (await ask('Install ' + p.name + '?', 'It is downloaded (' + human(packBytes(p)) + ') and every file is checked against its signed checksum.', 'Download and install')) packDo('install', p);
+}
 (async () => {
   try { await refresh(); render(); } catch (e) { toast(String(e.message || e), "err", "Station hit a problem", 0); }  // never stops the engine check below
   ensureEngine();  // Station starts Sushila when it opens (it keeps running when the window closes); an older engine is replaced
   setInterval(() => { if (!document.hidden) refresh(); }, 2500);
+  installFromAddress();
 })();

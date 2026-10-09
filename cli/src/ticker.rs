@@ -151,7 +151,7 @@ const SEP: &str = " • ";
 /// {u} is this server's address. A unit test fails if a clap command has no sentence here.
 pub const SENTENCES: [(&str, &str, &str); 70] = [
     ("Getting started", "url", "To see this server's addresses again: type urls here, or sushila url"),
-    ("Getting started", "open", "To open the Admin page: go to {u}/admin in your browser (or sushila open admin)"),
+    ("Getting started", "open", "To manage Sushila (model packs, engine, logs): open {u}/admin (or sushila open admin)"),
     ("Getting started", "open", "To read the documentation: {u}/docs (or sushila open docs)"),
     ("Getting started", "assistant", "To ask anything about Sushila: just type your question here, or sushila assistant"),
     ("Getting started", "selftest", "To check that everything works and the GPU is used: sushila selftest"),

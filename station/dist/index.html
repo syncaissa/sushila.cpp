@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="ipad.css">
 </head>
 <body>
-<div id="app">
+<div id="shell">
   <aside id="side">
     <div class="sidetop" data-tauri-drag-region><img src="logo.png" alt="" class="logo"><div><b>Sushila Station</b><small id="sver"></small></div></div>
     <button id="engbig" class="engbig off"></button>
@@ -27,6 +27,9 @@
 </div>
 <div id="sheet" class="hidden"></div>
 <div id="toasts"></div>
+<!-- where the page learns who it is talking for: this computer's token (added by the engine) or, through the internet
+     link, the owner's pass (added by sushila.ai after this marker) -->
+<div id="app"></div>
 <script src="app.js"></script>
 </body>
 </html>

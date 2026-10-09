@@ -41,6 +41,13 @@ The desktop app for Sushila.cpp: chat, code, pictures, music and video on your o
 - **sushila.ai:** sign-in by e-mail code (no password), Upload and get link, and your internet link (start, stop, new
   key, on at every start).
 
+## One source of screens with the browser page
+
+The page at http://localhost:7874/ (and through the internet link) shows **these same screens**: the engine carries
+an exact copy of `dist/` (index.html, app.js, app.css, ipad.css, logo.png; `SushilaEngine/check_sync.sh` flags any
+difference) plus `bridge.js`, which answers the app's requests in a browser. A change to a screen is made once, here in
+`dist/`, and shows in both. Details: `ONE_SOURCE_OF_SCREENS.md` in the project root.
+
 ## Without a window (same file)
 
 `SushilaStation.exe <command>` runs any `sushila` command (`serve`, `status`, `install <pack>`, `run`, `stop`, ...) with

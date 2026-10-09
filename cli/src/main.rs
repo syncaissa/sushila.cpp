@@ -8,8 +8,9 @@
 //   sushila status | stop | list | verify | remove <pack> | service install | selftest
 //   sushila doctor | bench | chat | assistant | search | show | ps | top | ...   (sushila --help lists them; cmds.rs)
 //
-// The web page it serves (web/sushila_page.js) is the whole user interface: inference, and managing this computer's
-// Sushila (packs, engine, queue, logs) through the server, which alone changes anything (one source of truth).
+// The page it serves is the whole user interface: Sushila Station's own screens (web/station, the same files as the
+// desktop app, plus bridge.js), for making things and for managing this computer's Sushila (packs, engine, queue, logs)
+// through the server, which alone changes anything (one source of truth).
 mod net;
 #[allow(dead_code)]
 mod webserver;
@@ -291,9 +292,9 @@ async fn main() -> ExitCode {
 }
 
 /// The test-build number (shown by /health): Sushila Station replaces a running engine older than the one it carries.
-pub const BUILD: u32 = 30;
-/// `sushila --version`: "0.1.1 (build 30)" (keep the number equal to BUILD; Station reads it)
-const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 30)");
+pub const BUILD: u32 = 31;
+/// `sushila --version`: "0.1.1 (build 31)" (keep the number equal to BUILD; Station reads it)
+const VERSION_LINE: &str = concat!(env!("CARGO_PKG_VERSION"), " (build 31)");
 
 /// Exit code of a serve worker that could not start (the error is printed); set once the web server listens.
 const START_FAILED: u8 = 3;
@@ -339,7 +340,7 @@ async fn supervise(data: PathBuf, quiet: bool) -> ExitCode {
         let msg = server_crashed(&data, &status, up);
         recent.retain(|t| t.elapsed() < Duration::from_secs(300)); recent.push(std::time::Instant::now());
         let wait = if recent.len() > 5 { 60 } else { 1 };
-        core::log(quiet, &format!("{msg}; restarting in {wait} s (details: Admin tab -> Logs -> Crashes)"));
+        core::log(quiet, &format!("{msg}; restarting in {wait} s (details: the Logs page -> Crashes)"));
         restarts += 1;
         for _ in 0..wait * 10 { if stopping.load(std::sync::atomic::Ordering::SeqCst) { return ExitCode::SUCCESS; } tokio::time::sleep(Duration::from_millis(100)).await; }
     }
@@ -763,9 +764,9 @@ Copy any text: select it with the mouse, then right-click (or Enter); paste: rig
 While a line is being processed the input line shows \"processing request...\" (Ctrl+C cancels a command).\n"
 }
 fn url_banner(u: &Value) -> String {
-    let mut b = format!("\n==============================================================\n Sushila {} is running\n   Inference:      {}\n   Admin:          {}   (this computer only)\n   Documentation:  {}\n   API (OpenAI):   {}\n",
+    let mut b = format!("\n==============================================================\n Sushila {} is running\n   Sushila page:   {}\n   Engine page:    {}   (this computer only)\n   Documentation:  {}\n   API (OpenAI):   {}\n",
         env!("CARGO_PKG_VERSION"), u["inference"].as_str().unwrap_or(""), u["admin"].as_str().unwrap_or(""), u["docs"].as_str().unwrap_or(""), u["api"].as_str().unwrap_or(""));
-    if let Some(n) = u["network"].as_str() { b += &format!("   Other machines: {n}   (Inference page and API; needs an access key unless --open)\n"); }
+    if let Some(n) = u["network"].as_str() { b += &format!("   Other machines: {n}   (the Generate pages and the API; needs an access key unless --open)\n"); }
     if let Some(h) = u["home"].as_str().filter(|h| !h.is_empty()) { b += &format!("   Home folder:    {h}   (model-packs, settings, logs; change: sushila home <folder>)\n"); }
     b + " Type a command (e.g. install, ps, status), a question, or ? for help. Stop: Ctrl+C, type stop, or close this window\n Copy: select with the mouse, then right-click (or Enter); paste: right-click or Ctrl+V; copy = copy the last answer\n==============================================================\n"
 }
@@ -1087,7 +1088,7 @@ async fn serve(ctx: &mut Ctx, packs: &[String], port: Option<u16>, host: Option<
     // input thread, so nothing waits for the answer); made once the engine answers and the answer is yes
     tokio::spawn(tunnel::at_start(ctx.data.clone(), port));
     // there is no admin password any more: a hash left by an older Sushila is removed (once)
-    if ctx.data.join("adminpassword").exists() && std::fs::remove_file(ctx.data.join("adminpassword")).is_ok() { ctx.log("the Admin tab has no password any more: the old adminpassword file was removed"); }
+    if ctx.data.join("adminpassword").exists() && std::fs::remove_file(ctx.data.join("adminpassword")).is_ok() { ctx.log("the Engine page has no password any more: the old adminpassword file was removed"); }
     // the server's own window: typed commands run, questions go to the assistant, near-misses are suggested (window.rs);
     if !j && (std::io::IsTerminal::is_terminal(&std::io::stdin()) || tui::in_screen()) {
         let w = window::Window { exe: std::env::current_exe().map_err(err)?, data: ctx.data.clone(), port, rt: tokio::runtime::Handle::current(), last: Default::default() };

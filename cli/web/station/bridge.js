@@ -1,11 +1,39 @@
-// Sushila Station's screens in a web browser (http://localhost:7874/station/): the same index.html, app.js and css as
-// the desktop app. The app asks its Rust side for everything (window.__TAURI__); here each of those requests goes to the
-// Sushila engine that served this page, with this computer's token. What only a desktop app can do (tray, start at
-// login, installing the `sushila` command, native file dialogs) is done the browser's way or says where to do it.
+// Sushila Station's screens in a web browser (http://localhost:7874/, and https://sushila.ai/localhost/<id>/ through the
+// internet link): the same index.html, app.js and css as the desktop app. The app asks its Rust side for everything
+// (window.__TAURI__); here each of those requests goes to the Sushila engine that served this page. What only a desktop
+// app can do (tray, start at login, installing the `sushila` command, native file dialogs) is done the browser's way or
+// says where to do it.
+//   Who is asking (window.SUSHILA_ROLE):
+//   local    this computer: the engine put its token in the page (window.SUSHILA_TOKEN)
+//   owner    the link's owner, signed in to sushila.ai: sushila.ai put an owner pass in the page (window.SUSHILA_OWNER);
+//            the engine treats it as this computer. It never goes into an address (pictures use a media token).
+//   visitor  anyone else (another machine on the network, or someone with an access key): asked once for the key,
+//            sent as "Authorization: Bearer <key>"; they see the Create pages and their own queue only.
 'use strict';
 (() => {
-  const TOKEN = window.SUSHILA_TOKEN || '';
-  const hdr = (json) => Object.assign({ 'x-sushila-token': TOKEN }, json ? { 'content-type': 'application/json' } : {});
+  // the link page is sandboxed: no storage. A stand-in in memory keeps the app working (nothing is written to disk).
+  try { window.localStorage.getItem('x'); } catch (_) {
+    const mem = new Map(), store = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => { mem.set(k, String(v)); }, removeItem: (k) => { mem.delete(k); }, clear: () => mem.clear(), key: (i) => [...mem.keys()][i] ?? null, get length() { return mem.size; } };
+    try { Object.defineProperty(window, 'localStorage', { configurable: true, value: store }); Object.defineProperty(window, 'sessionStorage', { configurable: true, value: store }); } catch (_) {}
+  }
+  // through the internet link every address of the engine lives under /localhost/<id>
+  const PFX = (location.pathname.match(/^\/localhost\/[0-9a-f]{20}(?=\/|$)/) || [''])[0];
+  const at = (path) => PFX + path;
+  const TOKEN = window.SUSHILA_TOKEN || window.SUSHILA_OWNER || '';
+  const ROLE = window.SUSHILA_TOKEN ? 'local' : window.SUSHILA_OWNER ? 'owner' : 'visitor';
+  window.SUSHILA_ROLE = ROLE; window.SUSHILA_PREFIX = PFX;
+  // a visitor's id (keeps their queue apart from others') and access key, remembered in this browser where it can
+  const remember = (k, make) => { let v = ''; try { v = localStorage.getItem(k) || ''; if (!v && make) { v = make(); localStorage.setItem(k, v); } } catch (_) { v = make ? make() : ''; } return v; };
+  const VISITOR = remember('sushila-visitor', () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join(''));
+  let KEY = ROLE === 'visitor' ? remember('sushila-key') : '';
+  let askedKey = false;
+  const hdr = (json) => Object.assign({ 'x-sushila-visitor': VISITOR }, TOKEN ? { 'x-sushila-token': TOKEN } : KEY ? { authorization: 'Bearer ' + KEY } : {}, json ? { 'content-type': 'application/json' } : {});
+  // a visitor without a (working) key: asked once, then the request is tried again
+  const askKey = () => {
+    if (ROLE !== 'visitor' || askedKey) return false; askedKey = true;
+    const k = (window.prompt('This Sushila Engine needs an access key (ask its owner: sushila keys add <name>).') || '').trim();
+    if (!k) return false; KEY = k; try { localStorage.setItem('sushila-key', k); } catch (_) {} return true;
+  };
   const listeners = {};  // event name -> [callback]
   const emit = (name, payload) => (listeners[name] || []).forEach((f) => { try { f({ event: name, payload }); } catch (_) {} });
   const chats = {};      // chat id -> AbortController
@@ -15,12 +43,13 @@
 
   async function api({ method, path, body }) {
     if (!String(path).startsWith('/') || String(path).startsWith('//')) throw new Error('bad path');
-    const r = await fetch(path, { method, headers: hdr(body != null), body: body != null ? JSON.stringify(body) : undefined });
+    let r = await fetch(at(path), { method, headers: hdr(body != null), body: body != null ? JSON.stringify(body) : undefined });
+    if (r.status === 401 && askKey()) r = await fetch(at(path), { method, headers: hdr(body != null), body: body != null ? JSON.stringify(body) : undefined });
     const text = await r.text(); let data; try { data = JSON.parse(text); } catch (_) { data = text; }
     return { status: r.status, ok: r.ok, data };
   }
   async function health() {
-    try { const v = await (await fetch('/health', { cache: 'no-store' })).json(); return Object.assign(v, { running: v.app === 'sushila' }); } catch (_) { return { running: false }; }
+    try { const v = await (await fetch(at('/health'), { cache: 'no-store' })).json(); return Object.assign(v, { running: v.app === 'sushila' }); } catch (_) { return { running: false }; }
   }
   async function mediaToken() {
     if (media && Date.now() - media.at < 45 * 60 * 1000) return media.t;
@@ -32,7 +61,7 @@
     (async () => {
       let usage = null;
       try {
-        const r = await fetch('/v1/chat/completions', { method: 'POST', headers: hdr(true), body: JSON.stringify(Object.assign({}, body, { stream: true })), signal: ac.signal });
+        const r = await fetch(at('/v1/chat/completions'), { method: 'POST', headers: hdr(true), body: JSON.stringify(Object.assign({}, body, { stream: true })), signal: ac.signal });
         if (!r.ok) { emit('chat', { id, error: await r.text() }); return; }
         const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '';
         for (;;) {
@@ -72,8 +101,11 @@
     install_cli: async () => onlyApp('Installing the sushila command'),
     uninstall_cli: async () => onlyApp('Removing the sushila command'),
     media_url: async ({ kind, id }) => {
-      const t = encodeURIComponent(await mediaToken()), e = encodeURIComponent(id).replace(/%2F/g, '/');
-      return kind === 'output' ? '/api/queue/' + e + '/output?t=' + t : '/api/library/file?rel=' + e + (kind === 'trash' ? '&trash=1' : '') + '&t=' + t;
+      const e = encodeURIComponent(id).replace(/%2F/g, '/');
+      // a visitor's results (pictures cannot send headers): their access key in the address; never the owner pass
+      if (ROLE === 'visitor') return at('/api/queue/' + e + '/output' + (KEY ? '?key=' + encodeURIComponent(KEY) : ''));
+      const t = encodeURIComponent(await mediaToken());
+      return at(kind === 'output' ? '/api/queue/' + e + '/output?t=' + t : '/api/library/file?rel=' + e + (kind === 'trash' ? '&trash=1' : '') + '&t=' + t);
     },
     chat_start: chatStart,
     chat_stop: async ({ id }) => { if (chats[id]) { chats[id].abort(); delete chats[id]; emit('chat', { id, done: true, stopped: true }); } },
@@ -86,7 +118,8 @@
       if (Notification.permission === 'default') await Notification.requestPermission();
       if (Notification.permission === 'granted') new Notification(title, { body });
     },
-    'plugin:opener|open_url': async ({ url }) => { window.open(url, '_blank', 'noopener'); },
+    // this engine's own pages (/docs) open under the link's prefix too
+    'plugin:opener|open_url': async ({ url }) => { window.open(/^\/(?!\/)/.test(url) ? at(url) : url, '_blank', 'noopener'); },
     'plugin:opener|reveal_item_in_dir': async ({ path }) => { const r = await api({ method: 'POST', path: '/api/reveal', body: { path } }); if (!r.ok) throw new Error(String(r.data)); },
     // the browser page is the engine's own: it is upgraded with the engine (Sushila Station or sushila.exe)
     update_check: async () => ({ available: false }),

@@ -29,12 +29,13 @@ td code{white-space:nowrap}.os{display:grid;grid-template-columns:repeat(auto-fi
 </style>
 </head>
 <body>
-<div class="top"><details class="menu"><summary aria-label="Menu">☰</summary><div><a href="/">Inference</a><a href="/admin" id="madmin">Admin</a><a href="/docs">Documentation</a><a href="/#assistant">Ask Sushila</a><a href="#api">API</a><div class="where" id="mwhere"></div></div></details><b class="brand"><img class="mark" src="/brand/logo-anim.webp" alt="" width="30" height="30" onerror="this.onerror=null;this.src='/favicon.png'">Sushila</b><span class="sp"></span><span style="color:var(--mut)">Documentation</span></div>
+<div class="top" style="flex-wrap:wrap"><b class="brand"><img class="mark" src="/brand/logo-anim.webp" alt="" width="30" height="30" onerror="this.onerror=null;this.src='/favicon.png'">Sushila</b><span class="sp"></span><a href="/">Sushila</a><a href="/#packs" id="mpacks">Model packs</a><a href="/#engine" id="madmin">Engine</a><a href="/#help">Ask Sushila</a><a href="/docs">Documentation</a><a href="/docs#api">API</a></div>
 <div class="wrap">
 <nav class="toc">
   <a href="#start">Getting started</a><a href="#commands">All commands</a><a href="#os">Windows, macOS, Linux</a><a href="#serve">Serving and the web page</a>
-  <a href="#library">Library and sharing</a><a href="#space">Status and space</a><a href="#internet">Internet URL</a><a href="#network">Other machines and the internet</a><a href="#admin">Admin</a><a href="#api">API</a><a href="#packs">Model packs folder</a><a href="#files">Files and folders</a>
+  <a href="#library">myContent and sharing</a><a href="#space">Status and space</a><a href="#internet">Internet URL</a><a href="#network">Other machines and the internet</a><a href="#admin">Managing Sushila</a><a href="#api">API</a><a href="#packs">Model packs folder</a><a href="#files">Files and folders</a>
   <a href="#service">Start automatically</a><a href="#trouble">Troubleshooting</a>
+  <div class="where" id="mwhere" style="border-top:1px solid var(--line);margin-top:10px;padding-top:6px;font-size:12px;color:var(--mut);word-break:break-all;line-height:1.6"></div>
 </nav>
 <main>
 <h1>Sushila documentation</h1>
@@ -63,7 +64,7 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila</code> (no command, or double-click)</td><td>Starts the server and opens the web page in the browser.</td></tr>
 <tr><td><code>sushila selftest</code></td><td>End-to-end check: engine, the small default model (or the 4B one if installed; <code>--pack</code> picks another), one answer. Exit code 0 = everything works.</td></tr>
 <tr><td><code>sushila doctor</code></td><td>Checks this computer: GPU, driver, engine build, free disk, the port, the home folder, every pack file's SHA-256. Each line says OK, WARN or FAIL, with the command that fixes it.</td></tr>
-<tr><td><code>sushila assistant ["&lt;question&gt;"]</code></td><td>Ask Sushila how Sushila works: answers from this documentation and live facts about this computer, by the largest installed text model (no question: keeps asking; <code>/exit</code> ends). Also in the ☰ menu (Ask Sushila) and in the server window. With a model under 3B parameters it quotes the matching sections and their commands instead of writing an answer (small models invent steps); install a 3B+ chat model, e.g. <code>sushila install qwen3-4b-instruct-2507</code>, for answers in its own words.</td></tr>
+<tr><td><code>sushila assistant ["&lt;question&gt;"]</code></td><td>Ask Sushila how Sushila works: answers from this documentation and live facts about this computer, by the largest installed text model (no question: keeps asking; <code>/exit</code> ends). Also on the page (Help &rarr; Ask Sushila) and in the server window. With a model under 3B parameters it quotes the matching sections and their commands instead of writing an answer (small models invent steps); install a 3B+ chat model, e.g. <code>sushila install qwen3-4b-instruct-2507</code>, for answers in its own words.</td></tr>
 <tr><th colspan="2">Engine and model packs</th></tr>
 <tr><td><code>sushila engine install</code></td><td>Installs Sushila.cpp for this computer's GPU (CPU only when there is no usable GPU).</td></tr>
 <tr><td><code>sushila engine install --build cpu</code></td><td>Forces a build: <code>cpu</code>, <code>vulkan</code> or <code>cuda</code>.</td></tr>
@@ -109,7 +110,7 @@ ends with <code>PASS</code> (exit code 0) or says what failed.</p>
 <tr><td><code>sushila share on [--open] | off | qr</code></td><td>Other machines: <code>on</code> makes the next <code>sushila serve</code> listen on the network (keys needed unless <code>--open</code>), <code>off</code> stops sharing at once, <code>qr</code> prints a QR code of the network address for a phone.</td></tr>
 <tr><td><code>sushila https &lt;domain&gt;</code></td><td>HTTPS for a domain: writes a Caddyfile (Caddy forwards to this server), allows that host name, prints the steps; offers to start Caddy if it is installed. Installs nothing itself.</td></tr>
 <tr><td><code>sushila home</code></td><td>Sushila's <b>home folder</b>: where <code>model-packs</code>, settings, logs and the engine live. Sushila remembers it in one small text file in your own settings folder, which every user can write without admin rights: Windows <code>%APPDATA%\sushila\home</code> (<code>C:\Users\&lt;you&gt;\AppData\Roaming\sushila\home</code>), macOS <code>~/Library/Application Support/sushila/home</code>, Linux <code>~/.config/sushila/home</code>. It holds one line, the folder's path, which you can also edit by hand; <code>sushila home</code> prints where it is. Sushila reads it at every start and goes straight there. It is the only file Sushila keeps outside its home folder. If it is deleted, Sushila searches again (and writes it again); if it finds no home, it asks for the folder of your existing home, or starts a new one when you press Enter. The first time, it searches the usual places (the system's app-data folder, next to the program, the current folder, <code>~/sushila</code>, Documents, Downloads); if it finds several homes it <b>asks</b> which one to use. <code>sushila home &lt;folder&gt;</code> makes another folder the home (replacing the remembered one); <code>sushila home --reset</code> forgets it so the next start searches again; <code>--data-dir &lt;folder&gt;</code> uses a folder for one command only. The home is also printed every time the server starts. (<code>sushila location</code> is the same command.)</td></tr>
-<tr><td><code>sushila url</code></td><td>The addresses: <b>Inference URL</b> (the page for using models, e.g. <code>http://localhost:7874/</code>), <b>Admin URL</b> (<code>http://localhost:7874/admin</code>, this computer only, password protected), the OpenAI-compatible API, and the address for other machines when serving on the network. The same block is printed every time the server starts, in the terminal or in the window that opens when you double-click <code>sushila</code>.</td></tr>
+<tr><td><code>sushila url</code></td><td>The addresses: <b>Sushila page</b> (e.g. <code>http://localhost:7874/</code>), <b>Engine page</b> (<code>http://localhost:7874/admin</code>, this computer only), the OpenAI-compatible API, and the address for other machines when serving on the network. The same block is printed every time the server starts, in the terminal or in the window that opens when you double-click <code>sushila</code>.</td></tr>
 <tr><th colspan="2">Generating from the terminal</th></tr>
 <tr><td><code>sushila run &lt;pack&gt; "&lt;prompt&gt;"</code></td><td>One answer (printed), or one picture, video or song (saved). Uses the running model if there is one.</td></tr>
 <tr><td><code>... --out file.png</code></td><td>Where to save; images also take <code>--size 1024x1024 --seed 42</code>, video <code>--size 1280x704 --frames 121</code>, music <code>--lyrics "..." --duration 60</code> (the prompt is the style).</td></tr>
@@ -157,16 +158,30 @@ NVIDIA: a recent driver is enough (the CUDA runtime comes with the engine).</div
 </div>
 
 <h2 id="serve">Serving and the web page</h2>
-<p><code>sushila serve</code> runs one web server on one port (default 7874). The page has two tabs:</p>
+<p><code>sushila serve</code> runs one web server on one port (default 7874). The page at <code>http://localhost:7874/</code> and the Sushila Station desktop app show the same screens (also through your internet link, for you as its owner). A sidebar on the left has:</p>
 <ul>
-  <li><b>Use</b>: chat, code, images, music and video with the running models; a background queue for long jobs.</li>
-  <li><b>Admin</b> (this computer, and you through your internet link; no password): Packs (install, start, stop, verify, remove), Engine, Queue, Logs, Settings.</li>
+  <li><b>Generate</b>: Generate Images, Generate Music and Songs, Generate Video, Generate Code, Chat. Each Generate page has a model picker at the top (the installed packs of that kind, in each mode) with Start and Stop.</li>
+  <li><b>Your work</b>: myContent, Queue.</li>
+  <li><b>This computer</b>: Model packs, Engine, Internet link, Logs, Settings.</li>
+  <li><b>Help</b>: Ask Sushila.</li>
 </ul>
-<p>Every page has the ☰ menu with Inference, Admin (this computer only), this documentation and the API, followed by the four addresses and, on this computer, the home folder: the same lines the server prints when it starts. Each running model's engine listens on an internal port
+<p>Pictures, songs and videos always go to the <b>Queue</b>: they are made in the background, so the page or the app can be closed. A notice says when one is ready; it is then in myContent with all its prompt details. Chat and Code answer live; <b>Run in background</b> sends a long answer to the Queue.</p>
+<p>The green <b>Sushila Engine</b> button at the top left shows whether the engine runs. Clicking it opens the engine panel (Start, Stop, Download or Upgrade the engine) and the list of model packs, with tabs by kind (Chat, Code, Pictures, Music, Video, with counts), search, and order (installed first, date installed, running first, name, size). Accelerated and Standard are separate lines.</p>
+<ul>
+  <li><b>Engine</b>: a health line (All good; Working, with notes; Needs attention), GPU, memory, disk, processor, server uptime, crashes, engine build and home folder, and <b>🧹 Make space</b>.</li>
+  <li><b>Logs</b>: the full log with a filter, and Crashes below it.</li>
+  <li><b>Settings</b>: limits, where files go, keep popular packs ready, and more.</li>
+  <li><b>Internet link</b>: see <a href="#internet">Temporary internet URL</a>.</li>
+</ul>
+<p>At the top right, <b>Sign in</b> (your sushila.ai e-mail and a one-time code: "Sign in to create links to your creations and share"). When signed in, your e-mail opens the account window with your shared links (views, Copy link, Open, Delete link) and Sign out. The Station app also has <b>Open in browser</b>.</p>
+<p>Visitors from other machines (sharing on, access key) and anyone without this computer's token see only the Generate pages, their own Queue and Ask Sushila. Model packs, Engine, Internet link, Logs, Settings, myContent and Sign in stay on this computer (and for the link's owner).</p>
+<p>Pages have their own addresses: <code>/#pictures</code>, <code>/#music</code>, <code>/#video</code>, <code>/#code</code>, <code>/#chat</code>, <code>/#mycontent</code>, <code>/#queue</code>, <code>/#packs</code>, <code>/#engine</code>, <code>/#link</code>, <code>/#logs</code>, <code>/#settings</code>, <code>/#help</code>.
+Old addresses still work and land on the new pages: <code>/admin</code> and <code>/#admin</code> &rarr; Engine; <code>#admin/packs</code> &rarr; Model packs; <code>#admin/logs</code> &rarr; Logs; <code>#admin/settings</code> &rarr; Settings; <code>#library</code> &rarr; myContent; <code>#assistant</code> &rarr; Ask Sushila; <code>/install/&lt;pack&gt;</code> &rarr; Model packs, asking to install that pack.</p>
+<p>Each running model's engine listens on an internal port
 (7875, 7876, …) on 127.0.0.1 only; the server forwards to it, so only the one port is ever exposed.</p>
 <p><b>Accelerated or Standard</b>: Accelerated uses Sushila's precomputed files for the model (faster); Standard is the plain model,
-as Ollama or stock llama.cpp would run it. Choose the mode in the Inference page's model picker (each pack is listed in both modes), or start with <code>--standard</code>.</p>
-<p><b>One model pack at a time</b>: starting a pack (Inference page, Admin page or <code>sushila start</code>) stops the others after asking. The terminal and Ask Sushila need no model: the Sushila helper answers from the live state (installed and running packs, where pictures are saved, which packs fit, the GPU), maps "how do I make a picture / song / video" to the steps with the packs installed here, and quotes this documentation; a chat model, when one runs, answers free-form questions, and when none runs the helper says how to start one and what that stops. Pictures are saved in <code>outputs/images/&lt;date&gt;/</code> in the home folder (Show in folder, Copy path under each one).</p>
+as Ollama or stock llama.cpp would run it. Choose the mode in the model picker of a Generate page (each pack is listed in both modes), or start with <code>--standard</code>.</p>
+<p><b>One model pack at a time</b>: starting a pack (a Generate page, Model packs or <code>sushila start</code>) stops the others after asking. The terminal and Ask Sushila need no model: the Sushila helper answers from the live state (installed and running packs, where pictures are saved, which packs fit, the GPU), maps "how do I make a picture / song / video" to the steps with the packs installed here, and quotes this documentation; a chat model, when one runs, answers free-form questions, and when none runs the helper says how to start one and what that stops. Pictures are saved in <code>outputs/images/&lt;date&gt;/</code> in the home folder (Show in folder, Copy path under each one).</p>
 <h3 id="window">The server window</h3>
 <p>The window where <code>sushila serve</code> runs (it opens when you double-click <code>sushila</code>) takes typed lines:</p>
 <ul>
@@ -200,24 +215,24 @@ is not a terminal, with <code>--json</code> or <code>--quiet</code>, with <code>
 Windows: escape sequences and UTF-8 are turned on for the console at start (Windows Terminal and the classic console); where symbols cannot be shown it uses ASCII.
 On exit (stop, Ctrl+C, a crash) the window is left as it was.</p>
 
-<h2 id="library">Library, AI labels and sharing</h2>
-<p>Everything Sushila makes is saved in your files folder (<code>Documents/Sushila</code>: Images, Music, Videos; see <a href="#files">Files and folders</a>) and listed on the <b>Library</b> tab: search, sort, <b>Where are my files</b>, delete to the trash, restore or delete for good.
+<h2 id="library">myContent, AI labels and sharing</h2>
+<p>Everything Sushila makes is saved in your files folder (<code>Documents/Sushila</code>: Images, Music, Videos; see <a href="#files">Files and folders</a>) and listed on the <b>myContent</b> page: search, sort, <b>Where are my files</b>, delete to the trash, restore or delete for good.
 Every file carries a machine-readable <b>AI-generated</b> label in its metadata (PNG: XMP and text fields; MP3: ID3 tags; WebM: Matroska tags) with the model, the prompt and the notice
 <i>“Generated by a user with sushila.cpp on their local machine. To report abuse: https://sushila.ai/reportabuse. You too can create unlimited free pictures, music and videos on your PC or laptop with sushila.cpp, downloadable at https://sushila.ai/install”</i>. The picture or sound itself is not changed.</p>
-<p><b>Upload and get link</b> (Library and Inference pages) uploads one file to sushila.ai and copies its link (<code>sushila.ai/c/<code>sushila.ai/s/&lt;account&gt;/&lt;id&gt;</code>lt;12 characters<code>sushila.ai/s/&lt;account&gt;/&lt;id&gt;</code>gt;</code>, unique for each file). It needs a sushila.ai account: your e-mail and a code sent to it each time you sign in, no password.
+<p><b>Upload and get link</b> (myContent and the Generate pages) uploads one file to sushila.ai and copies its link (<code>sushila.ai/c/<code>sushila.ai/s/&lt;account&gt;/&lt;id&gt;</code>lt;12 characters<code>sushila.ai/s/&lt;account&gt;/&lt;id&gt;</code>gt;</code>, unique for each file). It needs a sushila.ai account: your e-mail and a code sent to it each time you sign in, no password.
 The link page shows the AI-generated label, the notice, a <a href="https://sushila.ai/reportabuse">Report abuse</a> link and its number of views.
-<b>All uploaded files are visible to everyone who has the link; you may delete them at any time at sushila.ai/mycontent. Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported.</b> Manage your uploads at <a href="https://sushila.ai/mycontent">sushila.ai/mycontent</a> (or <b>Shared links</b> on the Library tab).</p>
+<b>All uploaded files are visible to everyone who has the link; you may delete them at any time at sushila.ai/mycontent. Uploads for free accounts may be deleted at any time. Inappropriate uploads will be deleted and reported.</b> Manage your uploads at <a href="https://sushila.ai/mycontent">sushila.ai/mycontent</a> (or your shared links in the account window: click your e-mail at the top right).</p>
 
 <h2 id="space">Server status, popular packs, making space</h2>
-<p>The top of the <b>Admin</b> page always shows whether Sushila Engine runs; when it does not, it says how to start it (<b>Start Sushila</b>, double-click <code>sushila.exe</code>, or <code>sushila serve</code>) or to install it from <a href="https://sushila.ai/install">sushila.ai/install</a>.
-<b>Keep popular model packs ready</b> (a switch there, or <code>sushila config keepPopular true</code>) downloads the popular packs that fit this computer (chat, code, pictures, songs, video) one at a time in the background, keeps 10 GB free on the disk, and keeps them installed.
-<b>Make space on this computer</b> lists every model pack with <b>Remove</b>, and every picture, song and video (largest first, with where it is) with <b>Delete permanently</b>; <b>Upload and get link</b> first is recommended, so a copy stays on sushila.ai.
+<p>The green <b>Sushila Engine</b> button at the top left always shows whether Sushila Engine runs, and the Engine page has the health line; when it does not run, the page says how to start it (<b>Start Sushila</b>, double-click <code>sushila.exe</code>, or <code>sushila serve</code>) or to install it from <a href="https://sushila.ai/install">sushila.ai/install</a>.
+<b>Keep popular model packs ready</b> (a switch in Settings, or <code>sushila config keepPopular true</code>) downloads the popular packs that fit this computer (chat, code, pictures, songs, video) one at a time in the background, keeps 10 GB free on the disk, and keeps them installed.
+<b>🧹 Make space</b> (on the Engine page and on myContent) lists every model pack with <b>Remove</b>, every picture, song and video (largest first, with where it is) with <b>Delete permanently</b>, and the trash with <b>Empty trash</b>; <b>Upload and get link</b> first is recommended, so a copy stays on sushila.ai.
 Every file Sushila makes records where it was made: on the user's own computer, or on a remote Sushila Engine for someone on another device.</p>
 
 <h2 id="internet">Temporary internet URL</h2>
-<p><b>🌐 Get temporary internet URL</b> (top of every tab, on this computer) gives a link like <code>https://sushila.ai/localhost/&lt;20 hex characters&gt;/</code> that reaches this Sushila Engine from anywhere, through a Cloudflare quick tunnel (<code>cloudflared</code>, fetched once from files.sushila.ai and checked by its SHA-256). It needs your sushila.ai sign-in (e-mail and a one-time code).
-At the first start Sushila asks whether to create a link to your app (then your e-mail and a one-time code). The link and its access key stay the same from start to start and are printed in its window; an old link you did not delete leads to the newest one. The 🌐 dialog can make a new key or stop opening the link at start. When the computer is off, the link explains how to restart Sushila there. Visitors need the access key and see only the Inference page; Admin, the Library and your files need this computer's own token, which only pages opened on this computer get.
-<b>Stop</b> (🌐) or <b>Delete</b> at <a href="https://sushila.ai/mycontent">sushila.ai/mycontent</a> → Internet links ends a link at once; that page also explains how it is kept secure.</p>
+<p>The <b>Internet link</b> page (only on this computer) creates and stops a link like <code>https://sushila.ai/localhost/&lt;20 hex characters&gt;/</code> that reaches this Sushila Engine from anywhere, through a Cloudflare quick tunnel (<code>cloudflared</code>, fetched once from files.sushila.ai and checked by its SHA-256). It needs your sushila.ai sign-in (e-mail and a one-time code).
+At the first start Sushila asks whether to create a link to your app (then your e-mail and a one-time code). The link and its access key stay the same from start to start and are printed in its window; an old link you did not delete leads to the newest one. The Internet link page can make a new key and turn opening the link at start on or off. When the computer is off, the link explains how to restart Sushila there. Visitors need the access key and see only the Generate pages, their own Queue and Ask Sushila; Model packs, Engine, Internet link, Logs, Settings, myContent and your files need this computer's own token, which only pages opened on this computer get.
+<b>Stop</b> (Internet link page) or <b>Delete</b> at <a href="https://sushila.ai/mycontent">sushila.ai/mycontent</a> → Internet links ends a link at once; that page also explains how it is kept secure.</p>
 
 <h2 id="network">Other machines and the internet</h2>
 <pre>sushila serve --public --port 8844      # listens on all addresses
@@ -225,17 +240,17 @@ sushila keys add alice                  # prints a key once, e.g. sk-sushila-…
 <ul>
   <li>Browser: <code>http://&lt;server address&gt;:8844/</code>; the page asks for the key once and the browser remembers it.</li>
   <li>From the internet: open the port in the firewall (and the router), then <code>http://&lt;public IP&gt;:8844/</code>.</li>
-  <li>Admin is never available from other machines, with or without a key.</li>
+  <li>Model packs, Engine, Internet link, Logs, Settings and myContent are never available from other machines, with or without a key.</li>
   <li><code>--open</code>: no key needed for chat and generation; anyone who can reach the port can use your GPU.</li>
 </ul>
 <div class="note warn">Plain <code>http://</code> sends keys unencrypted. For use over the internet, put HTTPS in front: Cloudflare Tunnel,
 Caddy or nginx (any reverse proxy that forwards to the port works).</div>
 
-<h2 id="admin">Admin: no password</h2>
+<h2 id="admin">Managing Sushila: no password</h2>
 <ul>
-  <li>The Admin tab has <b>no password</b>. It opens only on <b>this computer</b> (http://localhost:7874, checked against the real
+  <li>Model packs, Engine, Internet link, Logs, Settings and myContent have <b>no password</b>. They open only on <b>this computer</b> (http://localhost:7874, checked against the real
       connection) and for <b>you through your internet link</b> (signed in to sushila.ai as the account that made the link).</li>
-  <li>Other machines (sharing on the network, access keys) get the Inference page and the API only, never Admin.</li>
+  <li>Other machines (sharing on the network, access keys) get the Generate pages, their own Queue, Ask Sushila and the API only.</li>
   <li>The commands run as you, on this computer, and need nothing more.</li>
 </ul>
 
@@ -275,10 +290,10 @@ every file's SHA-256 and Sushila's signature). Adding a model is just adding a f
   <li>Download the pack's file (one <code>.zip</code> or <code>.sushilapack</code> per pack).</li>
   <li>Unzip it into <code>model-packs</code>, so you get <code>model-packs/&lt;pack&gt;/</code>.</li>
   <li>Within a few seconds the running server finds it, checks the signature and every file, and the model is available on the
-      Use and Admin tabs. No restart. The log says <code>new pack in …: &lt;pack&gt; verified and available</code>.</li>
+      Generate pages and Model packs. No restart. The log says <code>new pack in …: &lt;pack&gt; verified and available</code>.</li>
 </ol>
-<p>Removing a folder removes the model (it is stopped first if it runs). A folder that fails the checks is listed on Admin → Packs with
-the reason and is never run. <code>sushila install &lt;pack&gt;</code>, <code>sushila install &lt;file&gt;.zip</code> and the Admin tab create exactly the
+<p>Removing a folder removes the model (it is stopped first if it runs). A folder that fails the checks is listed on Model packs with
+the reason and is never run. <code>sushila install &lt;pack&gt;</code>, <code>sushila install &lt;file&gt;.zip</code> and the Model packs page create exactly the
 same folders. Big packs are checked once: a file is read again only if its size or date changes.</p>
 <table>
 <tr><th>Where</th><th>Which folder</th></tr>
@@ -291,7 +306,7 @@ same folders. Big packs are checked once: a file is read again only if its size 
 <p>Any text model in GGUF format (the files Ollama, LM Studio and llama.cpp use, e.g. from Hugging Face) can be added:</p>
 <pre>sushila install hf:Qwen/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q4_k_m.gguf     # from Hugging Face (@revision optional)
 sushila install C:\Users\me\Downloads\my-model.gguf                                # a file you have</pre>
-<p>or drop the <code>.gguf</code> file (or a folder holding it) into <code>model-packs</code>, or use Admin → Packs → "Add from Hugging Face".</p>
+<p>or drop the <code>.gguf</code> file (or a folder holding it) into <code>model-packs</code>, or use Model packs → "Add from Hugging Face".</p>
 <ul>
   <li><b>If we precomputed it</b> (the file is byte for byte one of our packs' models, compared by SHA-256), it becomes that signed pack:
       only the precomputed files are downloaded, and Accelerated is available.</li>
@@ -353,18 +368,18 @@ your pictures, songs and videos to Documents or keep them where they are.</p>
   <li><b>Slow</b>: <code>sushila engine info</code> shows whether the GPU is used; the model's log shows how many layers are on the GPU.</li>
   <li><b>A download stopped</b>: run the same command again; it resumes.</li>
   <li><b>A pack seems damaged</b>: <code>sushila verify &lt;pack&gt;</code>; reinstall it if a file is listed.</li>
-  <li><b>It crashed</b>: Sushila restarts itself; Admin → Logs → Crashes shows why (exit code or signal, the error, the last log lines).</li>
+  <li><b>It crashed</b>: Sushila restarts itself; Logs → Crashes shows why (exit code or signal, the error, the last log lines).</li>
 </ul>
 </main>
 </div>
 <script>
-// the addresses (and, on this computer, the home folder) in the ☰ menu, as the server prints them at start;
+// the addresses (and, on this computer, the home folder) below the contents list, as the server prints them at start;
 // on the website (sushila.ai) there is no server behind the page, so the block stays empty
 (function () {
   var w = document.getElementById('mwhere'); if (!w || location.protocol === 'file:') return;
   fetch('/api/admin').then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (a) {
-    var o = location.origin, rows = ['Inference: ' + o + '/'];
-    if (a.allowed) rows.push('Admin: ' + o + '/admin'); else { var m = document.getElementById('madmin'); if (m) m.remove(); }
+    var o = location.origin, rows = ['Sushila: ' + o + '/'];
+    if (a.allowed) rows.push('Engine: ' + o + '/#engine'); else { ['madmin', 'mpacks'].forEach(function (id) { var m = document.getElementById(id); if (m) m.remove(); }); }
     rows.push('Documentation: ' + o + '/docs', 'API (OpenAI): ' + o + '/v1'); if (a.home) rows.push('Home folder: ' + a.home);
     rows.forEach(function (t) { var d = document.createElement('div'); d.textContent = t; w.appendChild(d); });
   }).catch(function () {});

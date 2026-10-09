@@ -87,6 +87,7 @@ def main():
     ddb = botocore.session.get_session().create_client('dynamodb', region_name=a.region)
     ddb.put_item(TableName=TABLE, Item=item)
     for r in latest:
+        ddb = botocore.session.get_session().create_client('dynamodb', region_name=a.region)  # fresh for each write
         ddb.update_item(TableName=TABLE, Key={'app': r['app'], 'releasedAt': r['releasedAt']},
                         UpdateExpression='SET latest = :f', ExpressionAttributeValues={':f': {'BOOL': False}})
     print(f'published build {a.build} as the latest Sushila Station ({len(latest)} older row(s) no longer latest)')

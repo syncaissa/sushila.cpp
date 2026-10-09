@@ -1,5 +1,6 @@
 // The web server of `sushila serve`:
-//   /                         the page (web/sushila_page.js): Chat, Code, Images, Music, Video, Queue, managing Sushila
+//   /                         Sushila Station's screens (web/station: the same files as the desktop app) + bridge.js, as
+//                             one page: Create, myContent, Queue, Model packs, Engine, Logs, Settings, Ask Sushila
 //   /api/state                the public part of state.json (installed packs, running models)
 //   /api/mode, /api/queue...  mode switches and the background queue (request files in data_dir, applied by the owner)
 //   /api/control, /api/logs   install, remove, start, stop... and the shared log (this computer only; applied by sushila serve)
@@ -12,7 +13,6 @@ use sha2::{Digest, Sha256};
 use tokio::sync::oneshot;
 use crate::net::client;
 
-pub const APP_JS: &str = include_str!("../web/sushila_page.js");
 /// The documentation (one self-contained file; the website can serve the same file).
 pub const DOCS_HTML: &str = include_str!("../web/sushila_docs.html");
 /// Example prompts for new pictures (one per line, # = note): the Random button on the picture page (app and browser).
@@ -47,8 +47,6 @@ async fn srv_brand(uri: axum::http::Uri) -> axum::response::Response {
         None => (axum::http::StatusCode::NOT_FOUND, "not found").into_response(),
     }
 }
-const PAGE_HTML: &str = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sushila Inference</title><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="64x64" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"></head><body><div id="app"></div><script src="/sushila.js"></script></body></html>"#;
-
 // ---------- local web server ----------
 pub struct Srv { port: u16, data_dir: PathBuf, http: reqwest::Client, hits: std::sync::Mutex<HashMap<String, (u32, std::time::Instant)>>,
                  metrics: std::sync::Mutex<Metrics>, started: std::time::Instant }
@@ -319,11 +317,25 @@ async fn srv_page(axum::extract::State(s): axum::extract::State<Arc<Srv>>, heade
     // (never through the internet link, not even for its owner: the owner's page has its own pass)
     let local = this_computer(&headers, s.port);
     let html = match (local, st.get("token").and_then(|t| t.as_str())) {
-        (true, Some(t)) => PAGE_HTML.replace("<div id=\"app\"></div>", &format!("<div id=\"app\"></div><script>window.SUSHILA_TOKEN={};</script>", Value::String(t.to_string()))),
-        _ => PAGE_HTML.to_string(),
+        (true, Some(t)) => STATION_PAGE.replacen("<div id=\"app\"></div>", &format!("<div id=\"app\"></div><script>window.SUSHILA_TOKEN={};</script>", Value::String(t.to_string())), 1),
+        _ => STATION_PAGE.clone(),
     };
     ([("content-type", "text/html; charset=utf-8"), ("cache-control", "no-store"), ("x-frame-options", "DENY"), ("referrer-policy", "no-referrer")], html).into_response()
 }
+
+/// The page at / : Sushila Station's index.html with its styles, bridge.js, app.js and logo written into it, so it is one
+/// file (the internet link passes only "/" as a page; its sandbox has no storage, see bridge.js). Built once. "</" inside
+/// the scripts and styles is written "<\/" so nothing ends the element early.
+static STATION_PAGE: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    let file = |n: &str| STATION_FILES.iter().find(|(f, _, _)| *f == n).map(|(_, _, b)| String::from_utf8_lossy(b).replace("</", "<\\/")).unwrap_or_default();
+    let png = STATION_FILES.iter().find(|(f, _, _)| *f == "logo.png").map(|(_, _, b)| { use base64::Engine; base64::engine::general_purpose::STANDARD.encode(b) }).unwrap_or_default();
+    let index = STATION_FILES.iter().find(|(f, _, _)| *f == "index.html").map(|(_, _, b)| String::from_utf8_lossy(b).to_string()).unwrap_or_default();
+    index
+        .replace("<link rel=\"stylesheet\" href=\"app.css\">", &format!("<style>{}</style>", file("app.css")))
+        .replace("<link rel=\"stylesheet\" href=\"ipad.css\">", &format!("<style>{}</style>\n<link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32.png\"><link rel=\"icon\" type=\"image/png\" sizes=\"64x64\" href=\"/favicon.png\"><link rel=\"apple-touch-icon\" href=\"/apple-touch-icon.png\">", file("ipad.css")))
+        .replace("src=\"logo.png\"", &format!("src=\"data:image/png;base64,{png}\""))
+        .replace("<script src=\"app.js\"></script>", &format!("<script>{}</script>\n<script>{}</script>", file("bridge.js"), file("app.js")))
+});
 
 /// GET /api/prompts/images: the example prompts for new pictures ({prompts: [...]}); the same list for everyone.
 async fn srv_prompts(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
@@ -360,34 +372,12 @@ async fn srv_notifications(axum::extract::State(s): axum::extract::State<Arc<Srv
     ([("cache-control", "no-store")], axum::Json(v)).into_response()
 }
 
-/// GET /station/ and /station/<file>: Sushila Station's screens in the browser, on this computer only (the page carries
-/// this computer's token, like /). /station without the slash goes to /station/ so the files' relative names work.
-async fn srv_station(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap, uri: axum::http::Uri) -> axum::response::Response {
+/// /station and /station/...: the preview address of the one design (2026-10-09); it is the page at / now.
+async fn srv_station() -> axum::response::Response {
     use axum::response::IntoResponse;
-    let st = read_state(&s.data_dir);
-    if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    if !this_computer(&headers, s.port) {
-        return (axum::http::StatusCode::FORBIDDEN, "The Sushila Station page opens on this computer only: http://localhost:7874/station/").into_response();
-    }
-    let path = uri.path();
-    if path == "/station" { return ([("location", "/station/")], axum::http::StatusCode::MOVED_PERMANENTLY).into_response(); }
-    let name = path.strip_prefix("/station/").filter(|n| !n.is_empty()).unwrap_or("index.html");
-    let Some((_, ctype, bytes)) = STATION_FILES.iter().find(|(n, _, _)| *n == name) else { return (axum::http::StatusCode::NOT_FOUND, "not found").into_response(); };
-    let mut body = bytes.to_vec();
-    if name == "index.html" {
-        let tok = st.get("token").and_then(|t| t.as_str()).unwrap_or("");
-        let html = String::from_utf8_lossy(bytes).replace("<script src=\"app.js\"></script>",
-            &format!("<script>window.SUSHILA_TOKEN={};</script><script src=\"bridge.js\"></script><script src=\"app.js\"></script>", Value::String(tok.to_string())));
-        body = html.into_bytes();
-    }
-    ([("content-type", *ctype), ("cache-control", "no-store"), ("x-frame-options", "DENY"), ("referrer-policy", "no-referrer")], body).into_response()
+    ([("location", "/")], axum::http::StatusCode::MOVED_PERMANENTLY).into_response()
 }
 
-async fn srv_js(axum::extract::State(s): axum::extract::State<Arc<Srv>>, headers: axum::http::HeaderMap) -> axum::response::Response {
-    use axum::response::IntoResponse;
-    if !host_ok(&headers, s.port, &read_state(&s.data_dir)) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    ([("content-type", "text/javascript; charset=utf-8"), ("cache-control", "no-store")], APP_JS).into_response()
-}
 
 /// When sharing, pages on other sites (e.g. an inference page on another computer pointed at this server) may call
 /// /api/state and /v1/*: they authenticate with an access key, never with cookies, so any origin is allowed.
@@ -649,7 +639,7 @@ async fn srv_proxy(axum::extract::State(s): axum::extract::State<Arc<Srv>>, req:
         if let Some(m) = wanted.as_deref().filter(|m| !running.contains_key(*m)) {
             return with_cors((axum::http::StatusCode::SERVICE_UNAVAILABLE, not_running_msg(&st, m, None)).into_response(), &st);
         }
-        return deny(axum::http::StatusCode::SERVICE_UNAVAILABLE, if running.is_empty() { "no model is running: start one on the Admin page (Packs, Start), or type start <pack> in the Sushila window" } else { "name a running model (\"model\" field); GET /v1/models lists them" });
+        return deny(axum::http::StatusCode::SERVICE_UNAVAILABLE, if running.is_empty() { "no model is running: start one on the Model packs page (Start), or type start <pack> in the Sushila window" } else { "name a running model (\"model\" field); GET /v1/models lists them" });
     };
     let model = running.iter().find(|(_, r)| r.get("port").and_then(|p| p.as_u64()) == Some(up)).map(|(k, _)| k.clone()).unwrap_or_default();
     // admission control: each model serves `slots` requests at once (continuous batching) and lets up to 3x that wait
@@ -757,10 +747,10 @@ fn not_running_msg(st: &Value, id: &str, engine: Option<(bool, &Path)>) -> Strin
         .and_then(|t| t.lines().rev().find(|l| !l.trim().is_empty()).map(|l| l.chars().take(200).collect::<String>()));
     let tail = last.map(|l| format!(" (its last log line: {l})")).unwrap_or_default();
     match engine {
-        Some((true, _)) => format!("{name} is still loading. Wait until it shows as ready (Admin page, Packs; or the Sushila window), then try again{tail}."),
+        Some((true, _)) => format!("{name} is still loading. Wait until it shows as ready (the Model packs page; or the Sushila window), then try again{tail}."),
         // stopped: Sushila's own diagnosis (GPU and RAM free, programs on the GPU, its log), then how to start it again
-        Some((false, dir)) => format!("{name} is not running. {}{tail} Start it again on the Admin page (Packs, Start) or at the top of the Inference page.", crate::diag::one_line(&crate::diag::diagnose(dir, id))),
-        None => format!("{name} is installed but not running, in Standard or Accelerated mode. Start it on the Admin page (Packs, Start), or type start {id} in the Sushila window, then choose it at the top of this page."),
+        Some((false, dir)) => format!("{name} is not running. {}{tail} Start it again on the Model packs page or at the top of its Generate page.", crate::diag::one_line(&crate::diag::diagnose(dir, id))),
+        None => format!("{name} is installed but not running, in Standard or Accelerated mode. Start it on the Model packs page, or type start {id} in the Sushila window, then choose it at the top of this page."),
     }
 }
 
@@ -1118,7 +1108,7 @@ async fn srv_shutdown(axum::extract::State(s): axum::extract::State<Arc<Srv>>, h
     use axum::response::IntoResponse;
     let st = read_state(&s.data_dir);
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required (Admin tab), or use the sushila command on this computer").into_response(); }
+    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "this computer only: open Sushila on this computer (http://localhost:7874/) or use the sushila command").into_response(); }
     let _ = std::fs::write(s.data_dir.join("shutdown-request.json"), "{}");
     (axum::http::StatusCode::ACCEPTED, axum::Json(json!({ "ok": true }))).into_response()
 }
@@ -1134,7 +1124,7 @@ async fn srv_control(axum::extract::State(s): axum::extract::State<Arc<Srv>>, re
     let origin = parts.headers.get("origin").and_then(|o| o.to_str().ok()).map(String::from);
     if parts.method == axum::http::Method::OPTIONS { return with_cors_for(axum::http::StatusCode::NO_CONTENT.into_response(), &st, origin.as_deref()); }
     if !host_ok(&parts.headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    if !admin_ok(&s, &parts.headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required (Admin tab), or use the sushila command on this computer").into_response(); }
+    if !admin_ok(&s, &parts.headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "this computer only: open Sushila on this computer (http://localhost:7874/) or use the sushila command").into_response(); }
     let Ok(bytes) = axum::body::to_bytes(body, 65536).await else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let Ok(mut v) = serde_json::from_slice::<Value>(&bytes) else { return (axum::http::StatusCode::BAD_REQUEST, "bad request").into_response() };
     let action = v.get("action").and_then(|a| a.as_str()).unwrap_or("");
@@ -1153,7 +1143,7 @@ async fn srv_logs(axum::extract::State(s): axum::extract::State<Arc<Srv>>, axum:
     use axum::response::IntoResponse;
     let st = read_state(&s.data_dir);
     if !host_ok(&headers, s.port, &st) { return (axum::http::StatusCode::FORBIDDEN, "forbidden").into_response(); }
-    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "admin login required (Admin tab), or use the sushila command on this computer").into_response(); }
+    if !admin_ok(&s, &headers, &st) { return (axum::http::StatusCode::UNAUTHORIZED, "this computer only: open Sushila on this computer (http://localhost:7874/) or use the sushila command").into_response(); }
     // only what is new since `since`, at most the last 256 KB, read from the end (the log can be large); a log that
     // became shorter (rotated) starts again from its beginning
     let (next, text) = crate::util::read_tail(&s.data_dir.join("logs").join("sushila.log"), q.get("since").and_then(|x| x.parse::<u64>().ok()).unwrap_or(0), 256 << 10);
@@ -1245,7 +1235,6 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
         .route("/station/", axum::routing::get(srv_station))
         .route("/station/:file", axum::routing::get(srv_station))
         .route("/api/crashes", axum::routing::get(srv_crashes))
-        .route("/sushila.js", axum::routing::get(srv_js))
         .route("/api/state", axum::routing::get(srv_state))
         .route("/api/mode", axum::routing::post(srv_mode).options(srv_mode))
         .route("/api/reveal", axum::routing::post(srv_reveal))
@@ -1282,6 +1271,19 @@ pub async fn start(data_dir: PathBuf, port: u16, bind: &str) -> Result<(String, 
 #[cfg(test)]
 mod robustness_tests {
     use super::*;
+    #[test] fn the_page_is_one_file() {
+        // the internet link passes only "/" as a page: styles, scripts and the logo are inside it, nothing is fetched
+        let p = &*STATION_PAGE;
+        assert!(p.contains("<div id=\"app\"></div>"), "the marker where the token / owner pass is added");
+        assert!(!p.contains("src=\"app.js\"") && !p.contains("href=\"app.css\"") && !p.contains("src=\"logo.png\""), "no separate files");
+        assert!(p.contains("window.SUSHILA_ROLE") && p.contains("VIEWS.pictures") && p.contains("data:image/png;base64,"));
+        assert_eq!(p.matches("<script>").count(), 2, "bridge.js and app.js inline");
+        // "</" in a script would end it early: the page writes it "<\/"; keep the scripts free of it (a regex would break)
+        for f in ["app.js", "bridge.js", "app.css", "ipad.css"] {
+            let b = STATION_FILES.iter().find(|(n, _, _)| *n == f).unwrap().2;
+            assert!(!String::from_utf8_lossy(b).contains("</"), "{f} contains </");
+        }
+    }
     #[test] fn image_prompts_are_new_pictures() {
         let p = image_prompts();
         assert_eq!(p.len(), 70);

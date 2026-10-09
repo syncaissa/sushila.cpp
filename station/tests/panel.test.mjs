@@ -44,6 +44,9 @@ w.__TAURI__ = {
     if (a.path === '/api/use' && a.body.action === 'start' && a.body.pack === 'z-image') state.running = [{ packId: 'z-image', name: 'Z-Image Turbo', kind: 'image', mode: a.body.mode, ready: true }];
     if (a.path === '/api/control' || a.path === '/api/use') return { ok: true, status: 200, data: { id: 't1' } };
     if (a.path.startsWith('/api/queue') && a.method === 'GET') return { ok: true, status: 200, data: { jobs: [] } };
+    if (a.path === '/api/share/list') return { ok: true, status: 200, data: { used: 5e6, quota: 2e9, items: [{ id: 'abc123def456', title: 'a red fox', link: 'https://sushila.ai/c/abc123def456', views: 3, kind: 'image', bytes: 2e6 }] } };
+    if (a.path === '/api/system') return { ok: true, status: 200, data: { ram: { totalGB: 32, freeGB: 20 }, disk: { freeGB: 100, totalGB: 500 }, engine: { version: 'b1', gpuBuild: true }, gpu: { name: 'RTX', memTotalGB: 24, memUsedGB: 2 }, crashesToday: 0, crashesTotal: 0, uptimeS: 3600, requests: 12 } };
+    if (a.path === '/api/crashes') return { ok: true, status: 200, data: [] };
     if (a.path === '/api/notifications') return { ok: true, status: 200, data: { notifications: [{ id: 'n1', title: 'New build', message: 'Get it at https://sushila.ai/install today.', url: 'https://sushila.ai/install', linkText: 'Get it', level: 'info' }] } };
     if (a.path === '/api/prompts/images') return { ok: true, status: 200, data: { prompts: ['A red fox in snow', 'A lighthouse at dusk'] } };
     if (a.path === '/api/share/me') return { ok: true, status: 200, data: { ...me } };
@@ -165,6 +168,21 @@ w.document.getElementById('q').value = 'write fizzbuzz';
 await w.eval('sendBackground("code")'); await tick(100);
 const tq = calls.filter(([c, a]) => c === 'api' && a.path === '/api/queue' && a.method === 'POST').pop()[1].body;
 ok(tq.kind === 'text' && tq.params.prompt === 'write fizzbuzz' && /expert programmer/.test(tq.params.system), 'Run in background queued a text job: ' + JSON.stringify(tq));
+
+// --- Make space: packs largest first with Remove; Engine page: the health line
+await w.eval('go("engine")'); await tick(200); await w.eval('go("engine")'); await tick(100);
+ok(text(w.document.getElementById('view')).includes('All good'), 'Engine page: the health line says All good: ' + text(w.document.querySelector('#view .health')));
+await w.eval('makeSpace()'); await tick(200);
+{ const sh = text(w.document.getElementById('sheet')); ok(sh.includes('Make space on this computer') && sh.includes('Z-Image Turbo') && sh.includes('🗑 Remove'), 'Make space lists the packs with Remove'); }
+w.document.getElementById('sheet').click();
+// --- the queue: pause all; a finished picture can be downloaded and uploaded
+S.queue = { paused: false, jobs: [{ id: 'j9', kind: 'image', status: 'ready', title: 'a fox', model: 'z-image', output: { file: 'Images/2026-10-09/fox.png', mime: 'image/png' } }] };
+await w.eval('go("queue")'); await tick(100);
+ok(text(w.document.getElementById('baracts')).includes('Pause the queue') && text(w.document.getElementById('view')).includes('⬇ Download') && text(w.document.getElementById('view')).includes('Upload and get link'), 'Queue: Pause the queue, Download, Upload and get link');
+// --- signed in: your e-mail opens the account window with your links
+await w.eval('mePanel()'); await tick(200);
+{ const sh = text(w.document.getElementById('sheet')); ok(sh.includes('https://sushila.ai/c/abc123def456') && sh.includes('3 views') && sh.includes('Delete link'), 'account window: the links with views and Delete link'); }
+w.document.getElementById('sheet').click();
 
 // --- free tag
 ok(w.eval('freeTag({ where: "local" })') && !w.eval('freeTag({ where: "cloud:x" })') && !w.eval('freeTag({})'), 'free tag only for where=local');

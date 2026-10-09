@@ -420,7 +420,7 @@ fn run(s: &mut Screen, data: &Path, exe: &Path, args: &[String]) -> ExitCode {
         let msg = crate::server_crashed(data, &status, up);
         recent.retain(|t| t.elapsed() < Duration::from_secs(300)); recent.push(Instant::now());
         let wait = if recent.len() > 5 { 60 } else { 1 };
-        s.note(&format!("{msg}; restarting in {wait} s (details: Admin tab -> Logs -> Crashes)"));
+        s.note(&format!("{msg}; restarting in {wait} s (details: the Logs page -> Crashes)"));
         restarts += 1;
         let until = Instant::now() + Duration::from_secs(wait);
         while Instant::now() < until { if let Some(Got::Stop) = s.pump(Duration::from_millis(50), None) { return ExitCode::SUCCESS; } }
