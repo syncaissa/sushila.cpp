@@ -2701,13 +2701,18 @@ const ENGINE_LABEL = { 'windows-x86_64': 'Windows x64, CPU', 'windows-x86_64-vul
   'macos-aarch64': 'macOS, Apple silicon (Metal)', 'macos-x86_64': 'macOS, Intel' };
 const INSTALL = (cat) => () => {
   const size = (b) => !b ? '' : b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(0) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
-  // every link is sushila.ai/install/... (counted; served from GitHub Releases or files.sushila.ai, whichever the file has)
+  // Links: the program, the engine and cloudflared come from GitHub (our repository's downloads/ folder and release
+  // assets, and Cloudflare's own release; the same files, SHA-256 checked); the NVIDIA image runtime and the model packs
+  // stay on sushila.ai/install/..., because GitHub takes at most 2 GB per file (a runtime package is 3.5 GB, model files
+  // up to 42 GB) and the weights are their publishers'
   const inst = (u) => String(u || '').replace('/hoststation/get/', '/install/get/').replace('/hoststation/pack/', '/install/pack/');
+  const GH = 'https://github.com/syncaissa/sushila.cpp', ghDl = (p) => `${GH}/raw/main/downloads/${p}`;
+  const ghEngine = (f) => { const v = (String(f.file || '').match(/^sushila-cpp-([0-9.]+)-/) || [])[1]; return v ? `${GH}/releases/download/v${v}/${f.file}` : inst(f.url); };
   const row = (name, what, f) => `<tr><td><code>${esc(name)}</code><div class="sub">${esc(what)}</div></td><td class="num">${size(f.bytes)}</td>
-<td class="sha"><code title="SHA-256">${esc((f.sha256 || '').slice(0, 16))}${f.sha256 ? '…' : ''}</code></td><td>${f.url ? `<a href="${esc(inst(f.url))}">Download</a>` : ''}</td></tr>`;
+<td class="sha"><code title="SHA-256">${esc((f.sha256 || '').slice(0, 16))}${f.sha256 ? '…' : ''}</code></td><td>${f.url ? `<a href="${esc(f.direct ? f.url : inst(f.url))}">Download</a>` : ''}</td></tr>`;
   const table = (rows) => `<div class="tablewrap"><table class="files"><thead><tr><th>File</th><th class="num">Size</th><th>SHA-256</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
   const eng = (cat.engine && cat.engine.builds) || {};
-  const engineRows = Object.keys(ENGINE_LABEL).filter((k) => eng[k]).map((k) => row(eng[k].file, ENGINE_LABEL[k], eng[k])).join('');
+  const engineRows = Object.keys(ENGINE_LABEL).filter((k) => eng[k]).map((k) => row(eng[k].file, ENGINE_LABEL[k], { ...eng[k], url: ghEngine(eng[k]), direct: true })).join('');
   const rt = Object.entries(cat.runtimes || {}).map(([n, r]) => Object.entries(r.builds || {}).map(([k, b]) => {
     const fs = [b.python && { ...b.python, what: 'Python ' + (b.python.release || '') }, b.server && { ...b.server, what: 'Sushila image server' }, ...(b.wheels || []).map((w) => ({ ...w, what: 'Python package' }))].filter(Boolean);
     return `<details><summary><b>${esc(n)}</b> for ${esc(ENGINE_LABEL[k] || k)}: ${fs.length} files, ${size(b.bytes)}</summary>${table(fs.map((f) => row(f.path.split('/').pop(), f.what, f)).join(''))}</details>`;
@@ -2722,19 +2727,26 @@ summary{cursor:pointer}.sub{color:var(--mut);font-size:14px}.steps li{margin:6px
 <p class="meta">Free pictures, music, songs, videos, chat and code on your own computer: private, offline once installed, on your GPU (NVIDIA, AMD, Intel, Apple) or the CPU.
 This page lists every file that installing Sushila downloads, with its size and SHA-256 checksum. Sushila checks each file's checksum before using it.</p>
 <h2>1. The Sushila program</h2>
-<ol class="steps"><li><b>Download</b> <code>sushila.exe</code> (Windows x64), or <code>sushila</code> for macOS or Linux: one file, about 9 MB.
-<span class="sub">The downloads open when the Sushila paper is published: <a href="/#get">e-mail me when they are ready</a>.</span></li>
+<p class="sub">From GitHub: <a href="${GH}/tree/main/downloads">github.com/syncaissa/sushila.cpp/tree/main/downloads</a> (the same files as the signed releases; the checksums are listed there).</p>
+${table([
+  ['windows/SushilaStation.exe', 'Sushila Station, the desktop app, Windows 10/11 x64 (the engine is inside)'],
+  ['linux/SushilaStation', 'Sushila Station, Linux x64 (needs WebKitGTK 4.1)'],
+  ['headless/windows/sushila.exe', 'sushila without a window, Windows x64 (page at http://localhost:7874)'],
+  ['headless/linux/sushila', 'sushila without a window, Linux x64'],
+].map(([p, what]) => row(p.split('/').pop(), what, { url: ghDl(p), direct: true })).join(''))}
+<p class="sub">macOS: will be added when available.</p>
+<ol class="steps"><li><b>Download</b> Sushila Station, or <code>sushila</code> without a window, for your system (one file).</li>
 <li><b>Run it</b> (double-click, or <code>sushila serve</code> in a terminal). Your browser opens <code>http://localhost:7874</code>.</li>
 <li>The first time, it downloads <b>one</b> engine build below, the one for your system and GPU, by itself.</li>
 <li><b>Choose a model pack</b> on its Inference or Admin page (or <code>sushila install &lt;pack&gt;</code>). It downloads only that pack's files below.</li></ol>
 <h2>2. Engine (sushila.cpp), one of these, chosen automatically</h2>
 ${engineRows ? table(engineRows) : '<p class="note">The file list is unavailable right now. Please try again shortly.</p>'}
-${rt ? `<h2>3. Image runtime for NVIDIA GPUs</h2><p class="sub">Only for the Z-Image-Turbo packs for NVIDIA GPUs (Accelerated pictures); downloaded once, with the first of those packs.</p>${rt}` : ''}
+${rt ? `<h2>3. Image runtime for NVIDIA GPUs</h2><p class="sub">Only for the Z-Image-Turbo packs for NVIDIA GPUs (Accelerated pictures); downloaded once, with the first of those packs. Served from sushila.ai: these are Python, PyTorch and NVIDIA packages from their publishers, one of them 3.5 GB (GitHub takes at most 2 GB per file).</p>${rt}` : ''}
 <h2>${rt ? '4' : '3'}. Temporary internet URL (optional)</h2>
 <p class="sub">Only when you press 🌐 Get temporary internet URL: Cloudflare's own <code>cloudflared</code> (Apache-2.0), an exact copy of release 2026.10.0; Sushila checks its SHA-256.</p>
-${table(Object.entries(TOOLS).map(([k, t]) => row(t.file, 'cloudflared · ' + t.what, { ...t, url: '/install/get/' + k })).join(''))}
+${table(Object.entries(TOOLS).map(([k, t]) => row(t.file, 'cloudflared · ' + t.what, { ...t, url: `https://github.com/cloudflare/cloudflared/releases/download/${k.split('/')[2]}/${t.file}`, direct: true })).join(''))}
 <h2>${rt ? '5' : '4'}. Model packs: only the ones you choose</h2>
-<p class="sub">Each pack is a model and Sushila's precomputed files for it. Open a pack to see its files.</p>
+<p class="sub">Each pack is a model and Sushila's precomputed files for it. Open a pack to see its files. Model files are served from sushila.ai, not GitHub: they are 0.4–42 GB each (GitHub takes at most 2 GB per file), and the weights are their publishers', under their licenses.</p>
 ${packs || '<p class="note">The pack list is unavailable right now. Please try again shortly.</p>'}
 <p class="sub">Version ${esc(cat.version || '')} · the same list as <a href="/hoststation/catalog.json">catalog.json</a>, which Sushila reads · <a href="/docs">documentation</a>.</p>`;
 };
