@@ -47,12 +47,26 @@ scripts/run_baseline.sh llama3.1-8b-q4km
 Runs on any Linux machine or cloud VM, on [Google Colab](notebooks/colab_sweep.ipynb), or on
 RunPod; [REPRODUCE.md](REPRODUCE.md) covers each, and how to split a sweep over several machines.
 
+## What each part is written in
+
+| Part | Language | What it is |
+|------|----------|------------|
+| **Sushila Engine** (`sushila`, `sushila.exe`; `cli/`) | **Rust** (tokio, axum, reqwest) | The one program people run: command line, local web server and OpenAI-compatible API, queue, installer of the engines and model packs (signed, SHA-256 checked), self-update, internet link, license check. It does not run the models itself: it starts the inference engines below as separate processes and talks to them over local HTTP. |
+| **Inference engines** (what the name *Sushila.cpp* refers to) | **C / C++** (+ CUDA, Vulkan, Metal) | `llama.cpp` for chat and code, with our landscape kernels (`llama.cpp/`); `stable-diffusion.cpp` for pictures and video, with precomputed cache plans; `acestep.cpp` for music, with our patches (`hoststation/patches/acestep/`). Prebuilt per operating system and GPU and installed by the engine. |
+| **NVIDIA picture runtime** (`hoststation/runtime/image-nunchaku/`) | **Python** | diffusers with Nunchaku's SVDQuant 4-bit kernels for Z-Image on NVIDIA GPUs; the engine runs it as one more local server. |
+| **Sushila Station** (`station/`) | **Rust** (Tauri 2) + **HTML / CSS / JavaScript** | The desktop app. Rust: window, tray, updates, starting the embedded engine; JavaScript: the screens (`station/dist/`), which the engine also serves as its page (one source of screens). |
+| **sushila.ai** (`website/worker.js`) | **JavaScript** (Cloudflare Worker) | Website, downloads, sign-in, sharing, model-pack catalog, releases, license-check records (DynamoDB, B2). |
+| **Research and release pipeline** (`scripts/`) | **Python** (+ shell) | Landscapes, draft heads, cache plans, benchmarks, every table in the paper. |
+
 ## Layout
 
 | Path | Contents |
 |------|----------|
 | `llama.cpp/` | llama.cpp source, tag `b11232` (`6f767fe960c3b97cf37fac4626c86400561ca1e4`), the version Ollama pins in `ollama/LLAMA_CPP_VERSION`. Upstream: https://github.com/ggml-org/llama.cpp (MIT) |
 | `ollama/` | Ollama source at `1abe35e6e6e777e858bbfbba283667ee8d516801`. Upstream: https://github.com/ollama/ollama (MIT) |
+| `cli/` | the Sushila Engine (`sushila`, Rust) and the page it serves (`cli/web/`) |
+| `station/` | Sushila Station, the desktop app (Rust, Tauri 2; screens in `station/dist/`) |
+| `hoststation/` | engine runtimes and patches: the NVIDIA picture server (Python), acestep.cpp patches |
 | `scripts/` | Setup, build, download and benchmark scripts |
 | `configs/models.tsv` | Models used, with Ollama registry reference, sha256 and license |
 | `runpod/` | Create, list and stop RunPod CPU and GPU pods from the command line (optional) |
